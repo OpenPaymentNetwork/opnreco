@@ -24,7 +24,7 @@ const styles = {
 };
 
 
-class App extends Component {
+class AppBarTest extends Component {
   render() {
     const { classes } = this.props;
     return (
@@ -47,9 +47,9 @@ class App extends Component {
   }
 }
 
-App.propTypes = {
+AppBarTest.propTypes = {
   classes: PropTypes.object.isRequired,
 };
 
 
-export default withStyles(styles)(App);
+export default withStyles(styles)(AppBarTest);
