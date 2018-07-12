@@ -14,7 +14,7 @@ class LoginRedirect extends React.Component {
   }
 
   render() {
-    return null;
+    return <div style={{opacity: 0.1}}>&hellip;</div>;
   }
 }
 
@@ -27,4 +27,4 @@ const dispatchToProps = {
   setCameFrom,
 };
 
-export default connect(null, dispatchToProps)(withRouter(LoginRedirect));
+export default withRouter(connect(null, dispatchToProps)(LoginRedirect));

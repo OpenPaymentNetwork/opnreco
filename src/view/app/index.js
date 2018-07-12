@@ -8,6 +8,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { Switch, Route } from 'react-router';
+import { withRouter } from 'react-router';
 
 
 function App(props) {
@@ -43,5 +44,7 @@ const mapStateToProps = (state) => ({
   token: state.login.token,
 });
 
-//export default connect(mapStateToProps)(App);
-export default App;
+
+// withRouter() seems to be required for any component containing Routes. See:
+// https://github.com/ReactTraining/react-router/issues/4671
+export default withRouter(connect(mapStateToProps)(App));
