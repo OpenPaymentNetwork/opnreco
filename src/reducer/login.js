@@ -1,8 +1,8 @@
 
-import createReducer from './common';
+import { createReducer } from './common';
 
-export const LOG_OUT = 'opnreport/LOG_OUT';
-export const LOG_IN = 'opnreport/LOG_IN';
+export const LOG_OUT = 'login/LOG_OUT';
+export const LOG_IN = 'login/LOG_IN';
 
 const initialState = {
   token: '',

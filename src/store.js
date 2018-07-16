@@ -26,6 +26,7 @@ const composedEnhancers = compose(
 const whitelist = [
   'login',
   'deviceuuid',
+  'oauth',
 ];
 
 const persistConfig = {

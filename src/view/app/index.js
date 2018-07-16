@@ -3,6 +3,7 @@ import About from '../about';
 import Home from '../home';
 import LoginView from '../login';
 import LoginRedirect from '../login/loginredirect';
+import OAuth2CallbackView from '../login/oauth2cb';
 import PropTypes from 'prop-types';
 import React from 'react';
 import { connect } from 'react-redux';
@@ -16,6 +17,7 @@ function App(props) {
     return (
       <Switch>
         <Route path="/login" component={LoginView} />
+        <Route path="/oauth2cb" component={OAuth2CallbackView} />
         <Route component={LoginRedirect} />
       </Switch>
     );

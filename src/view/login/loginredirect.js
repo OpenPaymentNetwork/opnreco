@@ -1,7 +1,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { setCameFrom } from '../../reducer/camefrom';
+import { setCameFrom } from '../../reducer/oauth';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 
@@ -14,7 +14,7 @@ class LoginRedirect extends React.Component {
   }
 
   render() {
-    return <div style={{opacity: 0.1}}>&hellip;</div>;
+    return <p style={{opacity: 0.1}}>Redirecting&hellip;</p>;
   }
 }
 
