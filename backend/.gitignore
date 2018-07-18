@@ -1,0 +1,15 @@
+/.env
+/bin
+/lib
+/lib64
+/include
+/.installed.cfg
+/parts
+/eggs
+/develop-eggs
+/share
+/pip-selfcheck.json
+
+*.egg-info
+
+/buildout.cfg
