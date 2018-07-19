@@ -11,5 +11,6 @@
 /pip-selfcheck.json
 
 *.egg-info
+__pycache__
 
 /buildout.cfg

@@ -16,6 +16,7 @@ requires = [
     # 'Pillow',
     'python-dotenv',
     'pyramid',
+    'pyramid_retry',
     'pyramid_tm',
     # 'reportlab',
     'requests',

@@ -20,6 +20,8 @@ def main(global_config, **settings):
     config.add_request_method(Site, name='site', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 
+    config.include('pyramid_retry')
+    config.include('pyramid_tm')
     config.include('opnreport.models')
     config.scan('opnreport.views')
 
