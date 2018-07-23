@@ -3,7 +3,9 @@ from sqlalchemy.orm import backref
 from sqlalchemy import BigInteger
 from sqlalchemy import Boolean
 from sqlalchemy import Column
+from sqlalchemy import Date
 from sqlalchemy import DateTime
+from sqlalchemy import Numeric
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
@@ -46,51 +48,69 @@ class Transfer(Base):
     recipient_id = Column(String, nullable=True)    # May change
     recipient_uid = Column(String, nullable=True)   # May change
 
-    movements = Column(JSONB, nullable=False)       # Append-only
 
-
-class RecoTransferEntry(Base):
-    """The transfer side of a RecoEntry."""
-    __tablename__ = 'reco_transfer_entry'
+class Movement(Base):
+    """The transfer side of a Reco."""
+    __tablename__ = 'movement'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    transfer_id = Column(String, nullable=False)
-    activity_index = Column(Integer, nullable=False)
+    transfer_id = Column(
+        String, ForeignKey('transfer.id'), nullable=False, index=True)
     movement_index = Column(Integer, nullable=False)
+    issuer_id = Column(String, nullable=False)
+    loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
+    amount = Column(Numeric, nullable=False)
+    from_id = Column(String, nullable=False)
+    to_id = Column(String, nullable=False)
+    # Reconciliation is expected if the money was moved to/from the issuer.
+    reco_expected = Column(Boolean, nullable=False)
+    reco_id = Column(BigInteger, ForeignKey('reco.id'), nullable=True)
+
+    transfer = backref(Transfer)
 
 
-        #     'action': str,
-        #     'notegroups': [{
-        #         'issuer_id': int,
-        #         'currency': str,
-        #         'loop_id': int,
-        #         'amount': str,
-        #         'note_ids': [int],
-        #     }],
-        #     'from_id': int,
-        #     'to_id': int,
-        #     'release': bool,
-        #     ['timestamp': UTC ISO str,]
-
-
-class RecoDFIEntry(Base):
-    """The DFI side of a RecoEntry."""
-    __tablename__ = 'reco_dfi_entry'
+class DFIEntry(Base):
+    """The DFI side of a Reco."""
+    __tablename__ = 'dfi_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
+    entry_date = Column(Date, nullable=False, index=True)
+    issuer_id = Column(String, nullable=False)
+    loop_id = Column(String, nullable=False)
+    currency = Column(String(3), nullable=False)
+    amount = Column(Numeric, nullable=False)
+    increase = Column(Boolean, nullable=False)  # else it's a decrease
+    # desc contains descriptive info provided by the bank.
+    desc = Column(JSONB, nullable=False)
+    reco_id = Column(BigInteger, ForeignKey('reco.id'), nullable=True)
 
 
-class RecoEntry(Base):
+class Reco(Base):
     """Reconciliation entry"""
-    __tablename__ = 'reco_entry'
-    entry_id = Column(BigInteger, nullable=False, primary_key=True)
-    wingcash_profile_id = Column(String, nullable=False, index=True)
-    transfer_entry_id = Column(
-        BigInteger, ForeignKey('reco_transfer_entry.id'), nullable=True)
+    __tablename__ = 'reco'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    issuer_id = Column(String, nullable=False, index=True)
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'), nullable=True, index=True)
     dfi_entry_id = Column(
-        BigInteger, ForeignKey('reco_dfi_entry.id'), nullable=True)
+        BigInteger, ForeignKey('dfi_entry.id'), nullable=True, index=True)
+    ts = Column(DateTime, nullable=False)
+    by = Column(String, nullable=False)
 
-    transfer_entry = backref(RecoTransferEntry, lazy='dynamic')
-    dfi_entry = backref(RecoDFIEntry, lazy='dynamic')
+    movement = backref(Movement)
+    dfi_entry = backref(DFIEntry)
+
+
+class RecoLog(Base):
+    """Log of reconciliation activity"""
+    __tablename__ = 'reco_log'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    ts = Column(DateTime, nullable=False)  # Timestamp
+    issuer_id = Column(String, nullable=True)
+    transfer_id = Column(String, nullable=True)
+    movement_id = Column(BigInteger, nullable=True)
+    dfi_entry_id = Column(BigInteger, nullable=True)
+    reco_id = Column(BigInteger, nullable=True)
+    content = Column(JSONB, nullable=False)
 
 
 # all_metadata_defined must be at the end of the file. It signals that
