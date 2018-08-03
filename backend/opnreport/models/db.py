@@ -7,6 +7,7 @@ from sqlalchemy import Date
 from sqlalchemy import DateTime
 from sqlalchemy import Numeric
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import Index
 from sqlalchemy import String
@@ -30,6 +31,8 @@ NAMING_CONVENTION = {
 metadata = MetaData(naming_convention=NAMING_CONVENTION)
 Base = declarative_base(metadata=metadata)
 
+now_func = func.timezone('UTC', func.current_timestamp())
+
 
 class Profile(Base):
     """Info about a profile that has used this tool."""
@@ -42,6 +45,16 @@ class Profile(Base):
     # access_token_expires = Column(DateTime, nullable=True)
 
 
+class ProfileLog(Base):
+    """Log of activity for a profile"""
+    __tablename__ = 'profile_log'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
+    profile_id = Column(
+        String, ForeignKey('profile.id'), nullable=False, index=True)
+    content = Column(JSONB, nullable=False)
+
+
 class OPNDownload(Base):
     """A record of transfer info downloaded for a profile.
     """
@@ -49,11 +62,11 @@ class OPNDownload(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(
         String, ForeignKey('profile.id'), index=True, nullable=False)
-    ts = Column(DateTime, nullable=False)
+    ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
 
-class Transfer(Base):
+class TransferRecord(Base):
     """A profile's transfer record.
 
     Each profile has a different filtered view of the list of movements
@@ -63,13 +76,13 @@ class Transfer(Base):
     Note: transfers have other fields that aren't reflected here because they
     aren't important for this app.
     """
-    __tablename__ = 'transfer'
-    transfer_id = Column(String, primary_key=True, nullable=False)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), primary_key=True, nullable=False)
+    __tablename__ = 'transfer_record'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    transfer_id = Column(String, nullable=False)
+    profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
+
     workflow_type = Column(String, nullable=False)    # Never changes
     start = Column(DateTime, nullable=False)          # Never changes
-
     end = Column(DateTime, nullable=True)             # Changes once
     completed = Column(Boolean, nullable=False)       # May change
     canceled = Column(Boolean, nullable=False)        # May change
@@ -90,15 +103,20 @@ class Transfer(Base):
     profile = backref(Profile)
 
 
+Index(
+    'ix_transfer_record_unique',
+    TransferRecord.transfer_id,
+    TransferRecord.profile_id,
+    unique=True)
+
+
 class MovementSummary(Base):
-    """The summary of some movements in a transfer on a profile's wallet/vault.
+    """The summary of some movements in a transfer applied to the profile.
     """
     __tablename__ = 'movement_summary'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    transfer_id = Column(
-        String, ForeignKey('transfer.id'), nullable=False)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False)
+    transfer_record_id = Column(
+        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
 
     # movement_list_index specifies which movement list this summary is based
     # on. If more movements happen later, we'll add another MovementSummary
@@ -115,13 +133,14 @@ class MovementSummary(Base):
     # The delta is negative for account decreases.
     delta = Column(Numeric, nullable=False)
 
-    transfer = backref(Transfer)
-    profile = backref(Profile)
+    transfer_record = backref(TransferRecord)
 
 
 Index(
-    'ix_movement_summary_transfer_profile',
-    MovementSummary.transfer_id, MovementSummary.profile_id)
+    'ix_movement_summary_by_transfer',
+    MovementSummary.transfer_record_id,
+    MovementSummary.movement_list_index,
+    unique=True)
 
 
 class DFIBalance(Base):
@@ -141,7 +160,7 @@ class DFIStatement(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(
         String, ForeignKey('profile.id'), index=True, nullable=False)
-    ts = Column(DateTime, nullable=False)
+    ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
     profile = backref(Profile)
@@ -201,16 +220,13 @@ class RecoEntry(Base):
     dfi_entry = backref(DFIEntry)
 
 
-class RecoLog(Base):
-    """Log of reconciliation activity"""
-    __tablename__ = 'reco_log'
+class RecoEntryLog(Base):
+    """Log of activity on a RecoEntry"""
+    __tablename__ = 'reco_entry_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    ts = Column(DateTime, nullable=False)  # Timestamp
-    profile_id = Column(String, nullable=True)
-    transfer_id = Column(String, nullable=True)
-    movement_id = Column(BigInteger, nullable=True)
-    dfi_entry_id = Column(BigInteger, nullable=True)
-    reco_id = Column(BigInteger, nullable=True)
+    ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
+    reco_entry_id = Column(
+        BigInteger, ForeignKey('reco_entry.id'), nullable=False, index=True)
     content = Column(JSONB, nullable=False)
 
 
