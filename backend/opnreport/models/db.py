@@ -90,19 +90,19 @@ class Transfer(Base):
     profile = backref(Profile)
 
 
-class WalletEffect(Base):
+class MovementSummary(Base):
     """The summary of some movements in a transfer on a profile's wallet/vault.
     """
-    __tablename__ = 'wallet_effect'
+    __tablename__ = 'movement_summary'
     id = Column(BigInteger, nullable=False, primary_key=True)
     transfer_id = Column(
         String, ForeignKey('transfer.id'), nullable=False)
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False)
 
-    # movement_list_index specifies which movement list this effect is based
-    # on. If more movements happen later, we'll add another WalletEffect
-    # that offsets the previous WalletEffects.
+    # movement_list_index specifies which movement list this summary is based
+    # on. If more movements happen later, we'll add another MovementSummary
+    # that offsets the previous MovementSummary.
     movement_list_index = Column(Integer, nullable=False)
 
     # If vault is true, the cash was sent to/from the profile's vault.
@@ -120,8 +120,8 @@ class WalletEffect(Base):
 
 
 Index(
-    'ix_wallet_effect_transfer_profile',
-    WalletEffect.transfer_id, WalletEffect.profile_id)
+    'ix_movement_summary_transfer_profile',
+    MovementSummary.transfer_id, MovementSummary.profile_id)
 
 
 class DFIBalance(Base):
@@ -171,9 +171,9 @@ class DFIEntry(Base):
 
 
 class RecoEntry(Base):
-    """A reconciliation entry matches a wallet effect with a DFI entry.
+    """A reconciliation entry matches a movement summary with a DFI entry.
 
-    The linked wallet effect and linked DFI entry must have matching
+    The linked movement summary and linked DFI entry must have matching
     currency and loop_id values. The deltas must match if the DFI entry
     is for the wallet (because the money is sent from or received into the
     wallet); the deltas must be negatives of each other if the
@@ -181,14 +181,15 @@ class RecoEntry(Base):
     into someone else's wallet.)
 
     A RecoEntry may be marked as reconciled externally, in which case the
-    wallet effect or DFI entry will be missing.
+    movement summary or DFI entry will be missing.
     """
     __tablename__ = 'reco_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
-    wallet_effect_id = Column(
-        BigInteger, ForeignKey('wallet_effect.id'), nullable=True, index=True)
+    movement_summary_id = Column(
+        BigInteger, ForeignKey('movement_summary.id'),
+        nullable=True, index=True)
     dfi_entry_id = Column(
         BigInteger, ForeignKey('dfi_entry.id'), nullable=True, index=True)
     comment = Column(Unicode, nullable=True)
@@ -196,7 +197,7 @@ class RecoEntry(Base):
     reco_by = Column(String, nullable=True)
 
     profile = backref(Profile)
-    wallet_effect = backref(WalletEffect)
+    movement_summary = backref(MovementSummary)
     dfi_entry = backref(DFIEntry)
 
 
