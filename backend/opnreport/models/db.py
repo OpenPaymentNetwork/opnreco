@@ -40,7 +40,6 @@ class Profile(Base):
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
-    last_transfer_update = Column(DateTime, nullable=True)
     # access_token = Column(String, nullable=True)
     # access_token_expires = Column(DateTime, nullable=True)
 
@@ -56,13 +55,16 @@ class ProfileLog(Base):
 
 
 class OPNDownload(Base):
-    """A record of transfer info downloaded for a profile.
+    """A record of OPN data downloaded for a profile.
     """
     __tablename__ = 'opn_download'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(
         String, ForeignKey('profile.id'), index=True, nullable=False)
     ts = Column(DateTime, nullable=False, server_default=now_func)
+    # activity_ts contains the newest activity_ts value (a time stamp) in the
+    # downloaded transfer data.
+    activity_ts = Column(DateTime, nullable=False)
     content = Column(JSONB, nullable=False)
 
 
@@ -97,9 +99,6 @@ class TransferRecord(Base):
 
     movement_lists = Column(JSONB, nullable=False)    # Append-only
 
-    # need_reco is true only if the profile should reconcile this transfer.
-    need_reco = Column(Boolean, nullable=False)
-
     profile = backref(Profile)
 
 
@@ -110,8 +109,24 @@ Index(
     unique=True)
 
 
+class TransferDownloadRecord(Base):
+    """A record of which downloads provided TransferRecord data."""
+    __tablename__ = 'transfer_download_record'
+    opn_download_id = Column(
+        BigInteger, ForeignKey('opn_download.id'),
+        nullable=False, primary_key=True)
+    transfer_record_id = Column(
+        BigInteger, ForeignKey('transfer_record.id'),
+        nullable=False, primary_key=True)
+
+    opn_download = backref(OPNDownload)
+    transfer_record = backref(TransferRecord)
+
+
 class MovementSummary(Base):
     """The summary of some movements in a transfer applied to the profile.
+
+    A MovementSummary is the unit of reconciliation on the OPN side.
     """
     __tablename__ = 'movement_summary'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -143,35 +158,52 @@ Index(
     unique=True)
 
 
+class DFIAccount(Base):
+    """A DFI account managed by a profile.
+
+    The owner is expected to be able to download or view statements
+    for the account.
+    """
+    __tablename__ = 'dfi_account'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    profile_id = Column(
+        String, ForeignKey('profile.id'), nullable=False, index=True)
+    # opn_account_id is the recipient_id or sender_id provided by OPN.
+    opn_account_id = Column(String, nullable=False)
+    title = Column(Unicode, nullable=True)
+
+    profile = backref(Profile)
+
+
 class DFIBalance(Base):
     """A record of the verified DFI balance at the start of a day."""
     __tablename__ = 'dfi_balance'
-    profile_id = Column(
-        String, ForeignKey('profile.id'), primary_key=True, nullable=False)
-    day = Column(Date, primary_key=True, nullable=False)
+    account_id = Column(
+        BigInteger, ForeignKey('dfi_account.id'), nullable=False, index=True)
+    day = Column(Date, nullable=False, primary_key=True)
     balance = Column(Numeric, nullable=False)
 
-    profile = backref(Profile)
+    account = backref(DFIAccount)
 
 
 class DFIStatement(Base):
     """A record of a statement provided by a DFI."""
     __tablename__ = 'dfi_statement'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), index=True, nullable=False)
+    account_id = Column(
+        BigInteger, ForeignKey('dfi_account.id'), nullable=False, index=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
-    profile = backref(Profile)
+    account = backref(DFIAccount)
 
 
 class DFIEntry(Base):
     """The DFI side of a RecoEntry."""
     __tablename__ = 'dfi_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
+    account_id = Column(
+        BigInteger, ForeignKey('dfi_account.id'), nullable=False, index=True)
     statement_id = Column(
         BigInteger, ForeignKey('dfi_statement.id'), nullable=True, index=True)
     statement_ref = Column(JSONB, nullable=True)
@@ -180,13 +212,16 @@ class DFIEntry(Base):
     currency = Column(String(3), nullable=False)
     # The delta is negative for account decreases.
     delta = Column(Numeric, nullable=False)
-    # Note: we use the terms increase and decrease instead of credit/debit
-    # because credit/debit is ambiguous: an increase of a checking account is
-    # both a credit to the account holder's asset account and a debit to
+    # Note: we use the terms increase and decrease instead of debit/credit
+    # because debit/credit is ambiguous: an increase of a checking account is
+    # both a *credit* to the account holder's asset account and a *debit* to
     # the bank's liability account.
 
     # desc contains descriptive info provided by the bank.
     desc = Column(JSONB, nullable=False)
+
+    account = backref(DFIAccount)
+    statement = backref(DFIStatement)
 
 
 class RecoEntry(Base):
@@ -200,7 +235,7 @@ class RecoEntry(Base):
     into someone else's wallet.)
 
     A RecoEntry may be marked as reconciled externally, in which case the
-    movement summary or DFI entry will be missing.
+    movement summary or DFI entry may be permanently missing.
     """
     __tablename__ = 'reco_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -228,6 +263,8 @@ class RecoEntryLog(Base):
     reco_entry_id = Column(
         BigInteger, ForeignKey('reco_entry.id'), nullable=False, index=True)
     content = Column(JSONB, nullable=False)
+
+    reco_entry = backref(RecoEntry)
 
 
 # all_metadata_defined must be at the end of the file. It signals that
