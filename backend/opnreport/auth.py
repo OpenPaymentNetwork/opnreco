@@ -1,4 +1,5 @@
 
+from opnreport.util import check_requests_response
 from pyramid.interfaces import IAuthenticationPolicy
 from pyramid.security import Authenticated
 from pyramid.security import Everyone
@@ -6,7 +7,6 @@ from zope.interface import implementer
 import datetime
 import logging
 import os
-import re
 import requests
 
 log = logging.getLogger(__name__)
@@ -23,32 +23,6 @@ class OPNTokenAuthenticationPolicy(object):
         self.opn_api_url = os.environ['opn_api_url']
         self.token_cache = {}  # {access_token: {id, valid_until, info}}
         self.cache_duration = datetime.timedelta(seconds=60)
-
-    def _get_token(self, request):
-        """Read the access token from the request, or None"""
-        header = request.headers.get('Authorization')
-        if header:
-            match = re.match(r'Bearer\s+([^\s]+)', header, re.I)
-            if match:
-                return match.group(1)
-
-        # Get the access token from parameters.
-        token = request.params.get('access_token')
-        if token:
-            return token
-
-        if getattr(request, 'content_type', None) == 'application/json':
-            try:
-                json_body = request.json_body
-            except ValueError:
-                json_body = None
-            if isinstance(json_body, dict):
-                # Get the access token from the JSON request body.
-                token = json_body.get('access_token')
-                if token and isinstance(token, str):
-                    return token
-
-        return None
 
     def _get_profile_id_for_token(self, request, token):
         if not token:
@@ -94,24 +68,15 @@ class OPNTokenAuthenticationPolicy(object):
 
     def _request_profile_info(self, request, token):
         """Get the profile info from OPN."""
-        url = '%s/wallet/info' % self.opn_api_url
+        url = '%s/me' % self.opn_api_url
         r = requests.get(
             url,
             headers={'Authorization': 'Bearer %s' % token},
             timeout=30)
-        try:
-            r.raise_for_status()
-        except Exception as e:
-            try:
-                error_json = r.json()
-            except Exception:
-                error_json = None
-            log.warning(
-                "Can't get profile info for access token: %s, %s"
-                % (e, error_json))
+        if not check_requests_response(r, raise_exc=False):
             return None
 
-        info = r.json()['profile']
+        info = r.json()
 
         # opn_profiles = request.environ.get('opn_profiles')
         # if opn_profiles is None:
@@ -122,7 +87,7 @@ class OPNTokenAuthenticationPolicy(object):
         return info
 
     def authenticated_userid(self, request):
-        token = self._get_token(request)
+        token = request.access_token
         profile_id = self._get_profile_id_for_token(request, token)
         return profile_id
 
@@ -130,7 +95,7 @@ class OPNTokenAuthenticationPolicy(object):
 
     def effective_principals(self, request):
         res = [Everyone]
-        token = self._get_token(request)
+        token = request.access_token
         profile_id = self._get_profile_id_for_token(request, token)
         if profile_id:
             res.append(Authenticated)

@@ -40,6 +40,7 @@ class Profile(Base):
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
+    last_download = Column(DateTime, nullable=True)
 
 
 class ProfileLog(Base):
@@ -60,9 +61,6 @@ class OPNDownload(Base):
     profile_id = Column(
         String, ForeignKey('profile.id'), index=True, nullable=False)
     ts = Column(DateTime, nullable=False, server_default=now_func)
-    # activity_ts contains the newest activity_ts value (a time stamp) in the
-    # downloaded transfer data.
-    activity_ts = Column(DateTime, nullable=False)
     content = Column(JSONB, nullable=False)
 
 
