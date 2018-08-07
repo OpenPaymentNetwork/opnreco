@@ -1,26 +1,39 @@
 
-from opnreport.models.db import TokenCache
 from pyramid.interfaces import IAuthenticationPolicy
+from pyramid.security import Authenticated
 from pyramid.security import Everyone
-from sqlalchemy.dialects.postgresql import insert
 from zope.interface import implementer
 import datetime
+import logging
+import os
 import re
+import requests
+
+log = logging.getLogger(__name__)
 
 
 @implementer(IAuthenticationPolicy)
 class OPNTokenAuthenticationPolicy(object):
+    """Authentication policy based on OPN access tokens.
+
+    Maintains a cache of valid access tokens.
+    """
+
+    def __init__(self):
+        self.opn_api_url = os.environ['opn_api_url']
+        self.token_cache = {}  # {access_token: {id, valid_until, info}}
+        self.cache_duration = datetime.timedelta(seconds=60)
 
     def _get_token(self, request):
+        """Read the access token from the request, or None"""
         header = request.headers.get('Authorization')
         if header:
             match = re.match(r'Bearer\s+([^\s]+)', header, re.I)
             if match:
                 return match.group(1)
 
-        # Get the access token from POST parameters
-        # (not from the query string, which is problematic for security).
-        token = request.POST.get('access_token')
+        # Get the access token from parameters.
+        token = request.params.get('access_token')
         if token:
             return token
 
@@ -38,62 +51,90 @@ class OPNTokenAuthenticationPolicy(object):
         return None
 
     def _get_profile_id_for_token(self, request, token):
-        dbsession = request.dbsession
+        if not token:
+            return None
+
         now = datetime.datetime.utcnow()
-        row = (
-            dbsession.query(TokenCache)
-            .filter_by(access_token=token)
-            .first())
-        if row is not None:
-            if now < row.expires:
-                return row.profile_id
-            info = self._get_profile(token)
+        entry = self.token_cache.get(token)
+        if entry is not None:
+            if now < entry['valid_until']:
+                return entry['id']
+            info = self._request_profile_info(request, token)
             if info is not None:
                 # This token hasn't actually expired yet.
-                row.expires = now + datetime.timedelta(seconds=60)
-                return row.profile_id
+                profile_id = info['id']
+                self.token_cache[token] = {
+                    'id': profile_id,
+                    'valid_until': now + self.cache_duration,
+                    'info': info,
+                }
+                return profile_id
             else:
                 # This token expired.
-                token = None
-                # Take an opportunity to clean up expired tokens for this
-                # profile.
-                (dbsession.query(TokenCache)
-                 .filter_by(profile_id=row.profile_id)
-                 .delete())
+                # Take an opportunity to clean up the token cache.
+                to_delete = []
+                for token, info in self.token_cache.items():
+                    if now >= info['valid_until']:
+                        to_delete.append(token)
+                for token in to_delete:
+                    self.token_cache.pop(token, None)
                 return None
 
-        info = self._get_profile(token)
+        info = self._request_profile_info(request, token)
         if info:
-
-            # Insert into TokenCache; on conflict, don't bother.
-            # (It's just a cache.)
             profile_id = info['id']
-            stmt = insert(TokenCache.__table__).values(
-                access_token=token,
-                expires=now + datetime.timedelta(seconds=60),
-                profile_id=profile_id,
-            ).on_conflict_do_nothing()
-
-            dbsession.execute(stmt)
+            self.token_cache[token] = {
+                'id': profile_id,
+                'valid_until': now + self.cache_duration,
+                'info': info,
+            }
             return profile_id
 
         return None
 
-    def _get_profile(self, token):
-        # Get the profile info from OPN.
-        pass
+    def _request_profile_info(self, request, token):
+        """Get the profile info from OPN."""
+        url = '%s/wallet/info' % self.opn_api_url
+        r = requests.get(
+            url,
+            headers={'Authorization': 'Bearer %s' % token},
+            timeout=30)
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            try:
+                error_json = r.json()
+            except Exception:
+                error_json = None
+            log.warning(
+                "Can't get profile info for access token: %s, %s"
+                % (e, error_json))
+            return None
 
-    def unauthenticated_userid(self, request):
-        # TODO
-        return None
+        info = r.json()['profile']
+
+        # opn_profiles = request.environ.get('opn_profiles')
+        # if opn_profiles is None:
+        #     opn_profiles = {}
+        #     request.environ['opn_profiles'] = opn_profiles
+        # opn_profiles[info['id']] = info
+
+        return info
 
     def authenticated_userid(self, request):
-        # TODO
-        return None
+        token = self._get_token(request)
+        profile_id = self._get_profile_id_for_token(request, token)
+        return profile_id
+
+    unauthenticated_userid = authenticated_userid
 
     def effective_principals(self, request):
         res = [Everyone]
-        # TODO
+        token = self._get_token(request)
+        profile_id = self._get_profile_id_for_token(request, token)
+        if profile_id:
+            res.append(Authenticated)
+            res.append(profile_id)
         return res
 
     def remember(self, request, principal, **kw):

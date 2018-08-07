@@ -40,16 +40,6 @@ class Profile(Base):
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
-    # access_token = Column(String, nullable=True)
-    # access_token_expires = Column(DateTime, nullable=True)
-
-
-class TokenCache(Base):
-    """A cache of access tokens."""
-    __tablename__ = 'token_cache'
-    access_token = Column(String, nullable=False, primary_key=True)
-    expires = Column(DateTime, nullable=False)
-    profile_id = Column(String, nullable=False, index=True)
 
 
 class ProfileLog(Base):
