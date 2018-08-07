@@ -1,5 +1,8 @@
 
 from pyramid.decorator import reify
+from pyramid.security import Allow
+from pyramid.security import DENY_ALL
+from pyramid.security import Authenticated
 from weakref import ref
 import re
 
@@ -16,6 +19,11 @@ class Site(object):
     def __init__(self, request):
         self.dbsession = request.dbsession
         self.request_ref = ref(request)
+
+    __acl__ = (
+        (Allow, Authenticated, 'use_app'),
+        DENY_ALL,
+    )
 
     def __getitem__(self, name):
         if name == 'api':

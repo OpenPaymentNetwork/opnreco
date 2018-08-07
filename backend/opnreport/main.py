@@ -2,6 +2,8 @@
 from dotenv import load_dotenv
 from opnreport.models.site import Site
 from opnreport.render import CustomJSONRenderer
+from opnreport.auth import OPNTokenAuthenticationPolicy
+from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.config import Configurator
 
 
@@ -15,6 +17,8 @@ def main(global_config, **settings):
     config = Configurator(
         root_factory=make_root,
         settings=settings,
+        authentication_policy=OPNTokenAuthenticationPolicy(),
+        authorization_policy=ACLAuthorizationPolicy(),
     )
 
     config.add_request_method(Site, name='site', reify=True)

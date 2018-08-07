@@ -44,6 +44,14 @@ class Profile(Base):
     # access_token_expires = Column(DateTime, nullable=True)
 
 
+class TokenCache(Base):
+    """A cache of access tokens."""
+    __tablename__ = 'token_cache'
+    access_token = Column(String, nullable=False, primary_key=True)
+    expires = Column(DateTime, nullable=False)
+    profile_id = Column(String, nullable=False, index=True)
+
+
 class ProfileLog(Base):
     """Log of activity for a profile"""
     __tablename__ = 'profile_log'
