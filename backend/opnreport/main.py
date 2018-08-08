@@ -1,11 +1,17 @@
 
 from dotenv import load_dotenv
+from opnreport.auth import OPNTokenAuthenticationPolicy
+from opnreport.models.db import Profile
+from opnreport.models.db import ProfileLog
 from opnreport.models.site import Site
 from opnreport.render import CustomJSONRenderer
-from opnreport.auth import OPNTokenAuthenticationPolicy
+from opnreport.util import check_requests_response
 from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.config import Configurator
+import datetime
+import os
 import re
+import requests
 
 
 def access_token(request):
@@ -35,6 +41,41 @@ def access_token(request):
     return None
 
 
+def profile(request):
+    if not request.authenticated_userid:
+        return None
+
+    api_url = os.environ['opn_api_url']
+
+    dbsession = request.dbsession
+    profile = (
+        dbsession.query(Profile)
+        .filter_by(id=request.authenticated_userid)
+        .first())
+    if profile is None:
+        url = '%s/me' % api_url
+        r = requests.get(
+            url,
+            headers={'Authorization': 'Bearer %s' % request.access_token})
+        check_requests_response(r)
+        profile_info = r.json()
+        profile = Profile(
+            id=profile_info['id'],
+            title=profile_info['title'],
+            last_download=datetime.datetime(1970, 1, 1))
+        dbsession.add(profile)
+
+        dbsession.add(ProfileLog(
+            profile_id=profile.id,
+            event_type='created',
+            content={
+                'title': profile.title,
+                'remote_addr': request.remote_addr,
+            }))
+
+    return profile
+
+
 def main(global_config, **settings):
     """This function returns a Pyramid WSGI application."""
     load_dotenv()
@@ -51,6 +92,7 @@ def main(global_config, **settings):
 
     config.add_request_method(Site, name='site', reify=True)
     config.add_request_method(access_token, name='access_token', reify=True)
+    config.add_request_method(profile, name='profile', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 
     config.include('pyramid_retry')

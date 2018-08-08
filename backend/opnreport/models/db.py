@@ -50,6 +50,7 @@ class ProfileLog(Base):
     ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
+    event_type = Column(String, nullable=False)
     content = Column(JSONB, nullable=False)
 
 
