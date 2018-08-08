@@ -85,7 +85,8 @@ class TransferRecord(Base):
 
     workflow_type = Column(String, nullable=False)    # Never changes
     start = Column(DateTime, nullable=False)          # Never changes
-    end = Column(DateTime, nullable=True)             # Changes once
+    timestamp = Column(DateTime, nullable=False)      # May change
+    activity_ts = Column(DateTime, nullable=False)    # May change
     completed = Column(Boolean, nullable=False)       # May change
     canceled = Column(Boolean, nullable=False)        # May change
 
@@ -118,6 +119,9 @@ class TransferDownloadRecord(Base):
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'),
         nullable=False, primary_key=True)
+    transfer_id = Column(String, nullable=False)
+    movement_list_index = Column(Integer, nullable=False)
+    changed = Column(JSONB, nullable=False)
 
     opn_download = backref(OPNDownload)
     transfer_record = backref(TransferRecord)
