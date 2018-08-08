@@ -2,7 +2,7 @@
 from dotenv import load_dotenv
 from opnreport.auth import OPNTokenAuthenticationPolicy
 from opnreport.models.db import Profile
-from opnreport.models.db import ProfileLog
+from opnreport.models.db import ProfileEvent
 from opnreport.models.site import Site
 from opnreport.render import CustomJSONRenderer
 from opnreport.util import check_requests_response
@@ -70,7 +70,7 @@ def profile(request):
             last_download=datetime.datetime(1970, 1, 1))
         dbsession.add(profile)
         dbsession.flush()
-        dbsession.add(ProfileLog(
+        dbsession.add(ProfileEvent(
             profile_id=profile.id,
             event_type='created',
             remote_addr=request.remote_addr,

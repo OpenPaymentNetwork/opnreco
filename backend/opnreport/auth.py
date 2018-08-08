@@ -1,5 +1,5 @@
 
-from opnreport.models.db import ProfileLog
+from opnreport.models.db import ProfileEvent
 from opnreport.util import check_requests_response
 from pyramid.interfaces import IAuthenticationPolicy
 from pyramid.security import Authenticated
@@ -66,7 +66,7 @@ class OPNTokenAuthenticationPolicy(object):
             }
 
             request.profile  # Add the Profile to the database
-            request.dbsession.add(ProfileLog(
+            request.dbsession.add(ProfileEvent(
                 profile_id=profile_id,
                 event_type='access',
                 remote_addr=request.remote_addr,

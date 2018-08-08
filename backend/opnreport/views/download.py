@@ -1,18 +1,24 @@
 
+from decimal import Decimal
+from opnreport.models.db import MovementSummary
 from opnreport.models.db import OPNDownload
-from opnreport.models.db import ProfileLog
+from opnreport.models.db import ProfileEvent
+from opnreport.models.db import RecoEntry
+from opnreport.models.db import RecoEntryEvent
 from opnreport.models.db import TransferDownloadRecord
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.util import check_requests_response
 from opnreport.util import to_datetime
 from pyramid.view import view_config
+import collections
 import datetime
+import logging
 import os
 import requests
-import logging
 
 log = logging.getLogger(__name__)
+zero = Decimal()
 
 
 class SyncError(Exception):
@@ -27,11 +33,13 @@ class SyncError(Exception):
 class DownloadView:
     def __init__(self, request):
         self.request = request
+        self.profile = profile = request.profile
+        self.profile_id = profile.id
 
     def __call__(self):
         request = self.request
         api_url = os.environ['opn_api_url']
-        profile = request.profile
+        profile = self.profile
 
         # Download transfers created or changed since 5 minutes before the last
         # download. (Add 5 minutes in case some transfers showed up
@@ -50,7 +58,7 @@ class DownloadView:
         transfers_download = r.json()
         dbsession = request.dbsession
 
-        dbsession.add(ProfileLog(
+        dbsession.add(ProfileEvent(
             profile_id=profile.id,
             event_type='opn_download',
             remote_addr=request.remote_addr,
@@ -80,13 +88,13 @@ class DownloadView:
     def update_transfer_records(self, transfers_download):
         """Add and update TransferRecord rows."""
         dbsession = self.request.dbsession
-        profile = self.request.profile
+        profile_id = self.profile_id
 
         transfer_ids = [item['id'] for item in transfers_download['results']]
 
         record_list = (
             dbsession.query(TransferRecord)
-            .filter(TransferRecord.profile_id == profile.id)
+            .filter(TransferRecord.profile_id == profile_id)
             .filter(TransferRecord.transfer_id.in_(transfer_ids))
             .all())
 
@@ -114,15 +122,17 @@ class DownloadView:
             if record is None:
                 # Add a TransferRecord.
                 movement_list_index = 0
+                new_movement_list = item['movements']
                 record = TransferRecord(
                     transfer_id=transfer_id,
-                    profile_id=profile.id,
-                    movement_lists=[item['movements']],
+                    profile_id=profile_id,
+                    movement_lists=[new_movement_list],
                     **kw)
                 changed.append('new')
                 dbsession.add(record)
-                dbsession.flush()
+                dbsession.flush()  # Assign record.id
                 record_map[transfer_id] = record
+                added_movement_list = True
 
             else:
                 # Update a TransferRecord.
@@ -138,16 +148,18 @@ class DownloadView:
                         setattr(record, attr, value)
                         changed.append(attr)
 
-                new_movements = item['movements']
-                if new_movements == record.movement_lists[-1]:
+                new_movement_list = item['movements']
+                if new_movement_list == record.movement_lists[-1]:
                     # No new movements.
+                    added_movement_list = False
                     movement_list_index = len(record.movement_lists) - 1
                 else:
                     # New movements.
                     movement_list_index = len(record.movement_lists)
                     record.movement_lists = (
-                        record.movement_lists + [new_movements])
+                        record.movement_lists + [new_movement_list])
                     changed.append('movements')
+                    added_movement_list = True
 
             dbsession.add(TransferDownloadRecord(
                 opn_download_id=self.opn_download_id,
@@ -155,3 +167,101 @@ class DownloadView:
                 transfer_id=transfer_id,
                 movement_list_index=movement_list_index,
                 changed=changed))
+
+            if added_movement_list:
+                self.add_movements(record)
+
+    def add_movements(self, record):
+        dbsession = self.request.dbsession
+        profile_id = self.profile_id
+
+        summaries = self.summarize_movements(record.movement_lists[-1])
+
+        if len(record.movement_lists) > 1:
+            # Convert the summaries into an offset of the previous summaries.
+            old_summaries = self.summarize_movements(record.movement_lists[-2])
+            for key, old_delta in old_summaries.items():
+                new_delta = summaries.get(key, zero) - old_delta
+                if new_delta:
+                    summaries[key] = new_delta
+                elif key in summaries:
+                    del summaries[key]
+
+        mss = []
+
+        for key, delta in sorted(summaries.items()):
+            account_id, loop_id, currency = key
+            row = MovementSummary(
+                transfer_record_id=record.id,
+                profile_id=profile_id,
+                account_id=account_id,
+                movement_list_index=len(record.movement_lists) - 1,
+                loop_id=loop_id,
+                currency=currency,
+                delta=delta,
+                reco_entry_id=None)
+            dbsession.add(row)
+            mss.append(row)
+        dbsession.flush()  # Assign ids to the MovementSummaries
+
+        reco_entries = []
+
+        # Add a RecoEntry for each movement summary.
+        for ms in mss:
+            reco_entry = RecoEntry(
+                profile_id=profile_id,
+                account_id=ms.account_id,
+                movement_summary_id=ms.id,
+            )
+            dbsession.add(reco_entry)
+            reco_entries.append(reco_entry)
+        dbsession.flush()  # Assign ids to the RecoEntries
+
+        for reco_entry in reco_entries:
+            dbsession.add(RecoEntryEvent(
+                reco_entry_id=reco_entry.id,
+                event_type='opn_download',
+                memo={'transfer_id': record.transfer_id}))
+
+    def summarize_movements(self, movement_list):
+        profile_id = self.profile_id
+
+        # res: {(account_id or 'omnibus', loop_id, currency): delta}
+        res = collections.defaultdict(Decimal)
+
+        for movement in movement_list:
+            from_id = movement['from_id']
+            to_id = movement['to_id']
+            for loop in movement['loops']:
+                loop_id = loop['loop_id']
+                currency = loop['currency']
+                amount = loop['amount']
+                issuer_id = loop['issuer_id']
+
+                if not from_id or not to_id:
+                    # Ignore issuance movements. They have no effect on
+                    # reconciliation.
+                    continue
+
+                if from_id == profile_id and to_id != profile_id:
+                    if from_id == issuer_id:
+                        # OPN cash was put into circulation.
+                        account_id = 'c'
+                    else:
+                        # OPN cash was sent to an account or other wallet.
+                        account_id = to_id
+                    key = (account_id, loop_id, currency)
+                    res[key] -= Decimal(amount)
+                elif to_id == profile_id and from_id != profile_id:
+                    # The profile's wallet received money from an account.
+                    if to_id == issuer_id:
+                        # OPN cash was taken out of circulation.
+                        account_id = 'c'
+                    else:
+                        # OPN cash was received from an account
+                        # or other wallet.
+                        account_id = from_id
+                    key = (account_id, loop_id, currency)
+                    res[key] += Decimal(amount)
+
+        return res

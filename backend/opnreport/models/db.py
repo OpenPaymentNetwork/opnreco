@@ -44,9 +44,9 @@ class Profile(Base):
     last_download = Column(DateTime, nullable=True)
 
 
-class ProfileLog(Base):
-    """Log of activity for a profile"""
-    __tablename__ = 'profile_log'
+class ProfileEvent(Base):
+    """Log of an event related to a profile"""
+    __tablename__ = 'profile_event'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
     profile_id = Column(
@@ -137,20 +137,25 @@ class MovementSummary(Base):
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
 
-    # movement_list_index specifies which movement list this summary is based
-    # on. If more movements happen later, we'll add another MovementSummary
-    # that offsets the previous MovementSummary.
-    movement_list_index = Column(Integer, nullable=False)
+    profile_id = Column(
+        String, ForeignKey('profile.id'), nullable=False, index=True)
+    account_id = Column(String, nullable=False)
 
-    # If vault is true, the cash was sent to/from the profile's vault.
-    # If vault is false, the cash was sent to/from the profile's wallet.
-    vault = Column(Boolean, nullable=False)
+    # movement_list_index specifies which movement list in the TransferRecord
+    # this summary is based on. If more movements happen later, we'll add
+    # another MovementSummary that offsets the previous MovementSummary.
+    movement_list_index = Column(Integer, nullable=False)
 
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
 
-    # The delta is negative for account decreases.
+    # The delta is positive for movements into the wallet or vault
+    # or negative for movements out of the wallet or vault.
     delta = Column(Numeric, nullable=False)
+
+    # A MovementSummary must be assigned to zero or one RecoEntry.
+    reco_entry_id = Column(
+        BigInteger, ForeignKey('reco_entry.id'), nullable=True)
 
     transfer_record = backref(TransferRecord)
 
@@ -162,106 +167,117 @@ Index(
     unique=True)
 
 
-class DFIAccount(Base):
-    """A DFI account managed by a profile.
+class Account(Base):
+    """An account that a profile can reconcile with.
 
-    The owner is expected to be able to download or view statements
-    for the account.
+    Represents an account at a DFI, someone else's wallet, or the
+    amount put into circulation by an issuer.
     """
-    __tablename__ = 'dfi_account'
-    id = Column(BigInteger, nullable=False, primary_key=True)
+    __tablename__ = 'account'
     profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
-    # opn_account_id is the recipient_id or sender_id provided by OPN.
-    opn_account_id = Column(String, nullable=False)
+        String, ForeignKey('profile.id'), nullable=False, primary_key=True)
+    # account_id is either a holder ID or the letter 'c' for circulating.
+    account_id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=True)
 
     profile = backref(Profile)
 
 
-class DFIBalance(Base):
-    """A record of the verified DFI balance at the start of a day."""
-    __tablename__ = 'dfi_balance'
-    account_id = Column(
-        BigInteger, ForeignKey('dfi_account.id'), nullable=False, index=True)
+class AccountBalance(Base):
+    """A record of an account's balance at the start of a day."""
+    __tablename__ = 'account_balance'
+    profile_id = Column(
+        String, ForeignKey('profile.id'), nullable=False, primary_key=True)
+    account_id = Column(String, nullable=False, primary_key=True)
+    loop_id = Column(String, nullable=False, primary_key=True)
+    currency = Column(String(3), nullable=False, primary_key=True)
     day = Column(Date, nullable=False, primary_key=True)
     balance = Column(Numeric, nullable=False)
 
-    account = backref(DFIAccount)
+    profile = backref(Profile)
 
 
-class DFIStatement(Base):
-    """A record of a statement provided by a DFI."""
-    __tablename__ = 'dfi_statement'
+class AccountStatement(Base):
+    """A statement of movement to/from an account."""
+    __tablename__ = 'account_statement'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    account_id = Column(
-        BigInteger, ForeignKey('dfi_account.id'), nullable=False, index=True)
+    profile_id = Column(
+        String, ForeignKey('profile.id'), nullable=False, index=True)
+    account_id = Column(String, nullable=False)
     ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
-    account = backref(DFIAccount)
+    profile = backref(Profile)
 
 
-class DFIEntry(Base):
-    """The DFI side of a RecoEntry."""
-    __tablename__ = 'dfi_entry'
+class AccountEntry(Base):
+    """The account side of a RecoEntry."""
+    __tablename__ = 'account_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    account_id = Column(
-        BigInteger, ForeignKey('dfi_account.id'), nullable=False, index=True)
+    profile_id = Column(
+        String, ForeignKey('profile.id'), nullable=False, index=True)
+    account_id = Column(String, nullable=False)
     statement_id = Column(
-        BigInteger, ForeignKey('dfi_statement.id'), nullable=True, index=True)
+        BigInteger, ForeignKey('account_statement.id'),
+        nullable=True, index=True)
     statement_ref = Column(JSONB, nullable=True)
     entry_date = Column(Date, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
+
     # The delta is negative for account decreases.
-    delta = Column(Numeric, nullable=False)
     # Note: we use the terms increase and decrease instead of debit/credit
     # because debit/credit is ambiguous: an increase of a checking account is
     # both a *credit* to the account holder's asset account and a *debit* to
     # the bank's liability account.
+    delta = Column(Numeric, nullable=False)
+
+    # An AccountEntry must be assigned to zero or one RecoEntry.
+    reco_entry_id = Column(
+        BigInteger, ForeignKey('reco_entry.id'), nullable=True)
 
     # desc contains descriptive info provided by the bank.
     desc = Column(JSONB, nullable=False)
 
-    account = backref(DFIAccount)
-    statement = backref(DFIStatement)
+    profile = backref(Profile)
+    statement = backref(AccountStatement)
 
 
 class RecoEntry(Base):
-    """A reconciliation entry matches a movement summary with a DFI entry.
+    """A reconciliation entry matches a movement summary with an account entry.
 
-    The linked movement summary and linked DFI entry must have matching
-    currency and loop_id values. The deltas must match if the DFI entry
+    The linked movement summary and linked account entry must have matching
+    currency and loop_id values. The deltas must match if the account entry
     is for the wallet (because the money is sent from or received into the
     wallet); the deltas must be negatives of each other if the
-    DFI entry is for the vault (because the money is sent from or received
+    account entry is for the vault (because the money is sent from or received
     into someone else's wallet.)
 
     A RecoEntry may be marked as reconciled externally, in which case the
-    movement summary or DFI entry may be permanently missing.
+    movement summary or account entry may be permanently missing.
     """
     __tablename__ = 'reco_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
+    account_id = Column(String, nullable=False)
     movement_summary_id = Column(
         BigInteger, ForeignKey('movement_summary.id'),
         nullable=True, index=True)
-    dfi_entry_id = Column(
-        BigInteger, ForeignKey('dfi_entry.id'), nullable=True, index=True)
+    account_entry_id = Column(
+        BigInteger, ForeignKey('account_entry.id'), nullable=True, index=True)
     comment = Column(Unicode, nullable=True)
     reco_ts = Column(DateTime, nullable=True)
     reco_by = Column(String, nullable=True)
 
     profile = backref(Profile)
     movement_summary = backref(MovementSummary)
-    dfi_entry = backref(DFIEntry)
+    account_entry = backref(AccountEntry)
 
 
-class RecoEntryLog(Base):
-    """Log of activity on a RecoEntry"""
-    __tablename__ = 'reco_entry_log'
+class RecoEntryEvent(Base):
+    """Log of an event related to a RecoEntry"""
+    __tablename__ = 'reco_entry_event'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
     reco_entry_id = Column(
