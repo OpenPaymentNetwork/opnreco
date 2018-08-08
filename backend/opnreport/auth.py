@@ -1,4 +1,5 @@
 
+from opnreport.models.db import ProfileLog
 from opnreport.util import check_requests_response
 from pyramid.interfaces import IAuthenticationPolicy
 from pyramid.security import Authenticated
@@ -55,13 +56,24 @@ class OPNTokenAuthenticationPolicy(object):
                 return None
 
         info = self._request_profile_info(request, token)
-        if info:
+        if info is not None:
+            request.profile_info = info  # Avoid an unnecessary extra call
             profile_id = info['id']
             self.token_cache[token] = {
                 'id': profile_id,
                 'valid_until': now + self.cache_duration,
                 'info': info,
             }
+
+            request.profile  # Add the Profile to the database
+            request.dbsession.add(ProfileLog(
+                profile_id=profile_id,
+                event_type='access',
+                remote_addr=request.remote_addr,
+                user_agent=request.user_agent,
+                memo={'title': info['title']},
+            ))
+
             return profile_id
 
         return None
@@ -75,16 +87,7 @@ class OPNTokenAuthenticationPolicy(object):
             timeout=30)
         if not check_requests_response(r, raise_exc=False):
             return None
-
-        info = r.json()
-
-        # opn_profiles = request.environ.get('opn_profiles')
-        # if opn_profiles is None:
-        #     opn_profiles = {}
-        #     request.environ['opn_profiles'] = opn_profiles
-        # opn_profiles[info['id']] = info
-
-        return info
+        return r.json()
 
     def authenticated_userid(self, request):
         token = request.access_token

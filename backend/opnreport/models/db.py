@@ -40,6 +40,7 @@ class Profile(Base):
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
+    last_update = Column(DateTime, nullable=True, server_default=now_func)
     last_download = Column(DateTime, nullable=True)
 
 
@@ -51,7 +52,9 @@ class ProfileLog(Base):
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
     event_type = Column(String, nullable=False)
-    content = Column(JSONB, nullable=False)
+    remote_addr = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    memo = Column(JSONB, nullable=False)
 
 
 class OPNDownload(Base):
@@ -259,7 +262,8 @@ class RecoEntryLog(Base):
     ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
     reco_entry_id = Column(
         BigInteger, ForeignKey('reco_entry.id'), nullable=False, index=True)
-    content = Column(JSONB, nullable=False)
+    event_type = Column(String, nullable=False)
+    memo = Column(JSONB, nullable=False)
 
     reco_entry = backref(RecoEntry)
 
