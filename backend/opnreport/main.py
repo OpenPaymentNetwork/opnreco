@@ -112,7 +112,7 @@ def main(global_config, **settings):
     config.include('pyramid_retry')
     config.include('pyramid_tm')
     config.include('opnreport.models.dbmeta')
-    config.scan('opnreport.views')
+    config.scan('opnreport.views', ignore='opnreport.views.tests')
 
     # config.add_translation_dirs('opnreport:locale/')
     config.add_translation_dirs('colander:locale/')
