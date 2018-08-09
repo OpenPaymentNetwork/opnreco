@@ -14,6 +14,7 @@ requires = [
     # 'passlib',
     # 'phonenumbers',
     # 'Pillow',
+    'psycopg2',
     'python-dotenv',
     'pyramid',
     'pyramid_retry',
@@ -47,6 +48,9 @@ setup(
     zip_safe=False,
     test_suite='opnreport',
     install_requires=requires,
+    extras_require={
+        'test': ['responses'],
+    },
     entry_points="""\
     [paste.app_factory]
     main = opnreport.main:main

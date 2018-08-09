@@ -111,7 +111,7 @@ def main(global_config, **settings):
 
     config.include('pyramid_retry')
     config.include('pyramid_tm')
-    config.include('opnreport.models')
+    config.include('opnreport.models.dbmeta')
     config.scan('opnreport.views')
 
     # config.add_translation_dirs('opnreport:locale/')

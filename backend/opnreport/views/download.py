@@ -253,7 +253,6 @@ class DownloadView:
                     key = (account_id, loop_id, currency)
                     res[key] -= Decimal(amount)
                 elif to_id == profile_id and from_id != profile_id:
-                    # The profile's wallet received money from an account.
                     if to_id == issuer_id:
                         # OPN cash was taken out of circulation.
                         account_id = 'c'

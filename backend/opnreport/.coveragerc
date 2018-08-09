@@ -1,0 +1,9 @@
+[run]
+omit =
+    */tests/*
+    */testing.py*
+
+[report]
+show_missing = true
+ignore_errors = true
+

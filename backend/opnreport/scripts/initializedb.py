@@ -1,6 +1,6 @@
 
 from dotenv import load_dotenv
-from opnreport.models import get_engine
+from opnreport.models.dbmeta import get_engine
 from opnreport.models.db import Base
 from pyramid.paster import setup_logging
 import os

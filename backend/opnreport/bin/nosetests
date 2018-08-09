@@ -1,0 +1,38 @@
+#!/bin/bash
+
+cd "$(dirname $0)/.."
+buildout="$(cd ..; pwd)"
+
+if [[ -n $TESTFILE ]] && [[ $TESTFILE =~ .*tests/test_[^/]+\.py$ ]] ; then
+    if [[ -n $TESTATTR ]] ; then
+        echo "Local Pretest: $TESTFILE:$TESTATTR" >&2
+        if "${buildout}/bin/nosetests" "$TESTFILE:$TESTATTR"
+        then
+            echo "Passed local pretest." >&2
+            echo >&2
+        else
+            echo "Failed local pretest." >&2
+            echo -n "To debug: cd ${buildout} && " >&2
+            echo "bin/nosetests -s $TESTFILE:$TESTATTR" >&2
+            exit
+        fi
+    fi
+    echo "Pretest: $TESTFILE" >&2
+    "${buildout}/bin/nosetests" "$TESTFILE" || exit
+elif [[ -n $TESTFILE ]] && [[ $TESTFILE =~ \.py$ ]]; then
+    script="$(dirname $TESTFILE)/tests/test_$(basename $TESTFILE)"
+    if [ -f "$script" ] ; then
+        echo "Pretest: $script" >&2
+        "${buildout}/bin/nosetests" "$script" || exit
+    fi
+fi
+
+if [ "$1" = '--with-coverage' ] || [ "$1" = '--with-cov' ]; then
+    shift
+    rm -f .coverage
+    "${buildout}/bin/nosetests" --with-cov --cov-report=html "$@"
+    "${buildout}/bin/coverage" report
+    echo "Coverage report: file://$(pwd)/htmlcov/index.html"
+else
+    "${buildout}/bin/nosetests" "$@"
+fi
