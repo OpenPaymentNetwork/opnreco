@@ -224,24 +224,30 @@ class DownloadView:
                 memo={'transfer_id': record.transfer_id}))
 
     def summarize_movements(self, movement_list):
+        """Convert movements to a dict with tuple keys and decimal values:
+
+        {(account_id or 'c', loop_id, currency): delta}
+        """
         profile_id = self.profile_id
 
-        # res: {(account_id or 'omnibus', loop_id, currency): delta}
+        # res: {(account_id or 'c', loop_id, currency): delta}
         res = collections.defaultdict(Decimal)
 
         for movement in movement_list:
             from_id = movement['from_id']
             to_id = movement['to_id']
+
+            if not from_id or not to_id:
+                # Ignore issuance movements. They have no effect on
+                # reconciliation.
+                0 + 0  # For coverage testing
+                continue
+
             for loop in movement['loops']:
                 loop_id = loop['loop_id']
                 currency = loop['currency']
                 amount = loop['amount']
                 issuer_id = loop['issuer_id']
-
-                if not from_id or not to_id:
-                    # Ignore issuance movements. They have no effect on
-                    # reconciliation.
-                    continue
 
                 if from_id == profile_id and to_id != profile_id:
                     if from_id == issuer_id:
