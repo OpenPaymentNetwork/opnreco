@@ -41,11 +41,15 @@ class DownloadView:
         api_url = os.environ['opn_api_url']
         profile = self.profile
 
-        # Download transfers created or changed since 5 minutes before the last
-        # download. (Add 5 minutes in case some transfers showed up
-        # out of order.)
-        since_activity_ts = profile.last_download - datetime.timedelta(
-            seconds=60 * 5)
+        if profile.download_progress is not None:
+            # A download was started but not finished. Download the next batch.
+            since_activity_ts = profile.download_progress
+        else:
+            # Start a new download. Download transfers created or changed
+            # after 5 minutes before the last download. (Add 5 minutes in
+            # case some transfers showed up out of order.)
+            since_activity_ts = profile.last_download - datetime.timedelta(
+                seconds=60 * 5)
         since_activity_ts_iso = since_activity_ts.isoformat() + 'Z'
 
         url = '%s/wallet/history_download' % api_url
@@ -57,6 +61,41 @@ class DownloadView:
 
         transfers_download = r.json()
         dbsession = request.dbsession
+        more = transfers_download['more']
+        now = datetime.datetime.utcnow()
+        if transfers_download['results']:
+            last_activity_ts = to_datetime(
+                transfers_download['results'][-1]['activity_ts'])
+        else:
+            last_activity_ts = now
+        last_activity_ts_iso = last_activity_ts.isoformat() + 'Z'
+
+        if more:
+            last_download = profile.last_download
+            profile.download_progress = last_activity_ts
+            # Generate a download progress estimate by
+            # dividing the time span already downloaded by the time span
+            # expected to be downloaded.
+            span0 = (last_activity_ts - last_download).total_seconds()
+            span1 = (now - last_download).total_seconds()
+            # Avoid division by zero.
+            progress_percent = 100.0 * span0 / span1 if span1 else 0.0
+        else:
+            profile.download_progress = None
+            profile.last_download = now
+            progress_percent = 100.0
+
+        opn_download = OPNDownload(
+            profile_id=profile.id,
+            content={
+                'transfers': transfers_download,
+                'more': more,
+            },
+        )
+        dbsession.add(opn_download)
+        dbsession.flush()
+
+        self.opn_download_id = opn_download.id
 
         dbsession.add(ProfileEvent(
             profile_id=profile.id,
@@ -68,24 +107,22 @@ class DownloadView:
                 'transfers': {
                     'count': len(transfers_download['results']),
                     'more': transfers_download['more'],
+                    'progress_percent': progress_percent,
+                    'last_activity_ts': last_activity_ts_iso,
                 }
             },
         ))
-        opn_download = OPNDownload(
-            profile_id=profile.id,
-            content={
-                'transfers': transfers_download,
-            },
-        )
-        dbsession.add(opn_download)
-        dbsession.flush()
-        self.opn_download_id = opn_download.id
 
-        self.update_transfer_records(transfers_download)
+        self.import_transfer_records(transfers_download)
 
-        return transfers_download
+        return {
+            'count': len(transfers_download['results']),
+            'more': more,
+            'progress_percent': progress_percent,
+            'last_activity_ts': last_activity_ts_iso,
+        }
 
-    def update_transfer_records(self, transfers_download):
+    def import_transfer_records(self, transfers_download):
         """Add and update TransferRecord rows."""
         dbsession = self.request.dbsession
         profile_id = self.profile_id
@@ -106,6 +143,7 @@ class DownloadView:
                 'workflow_type': item['workflow_type'],
                 'start': to_datetime(item['start']),
                 'timestamp': to_datetime(item['timestamp']),
+                'next_activity': item['next_activity'],
                 'activity_ts': to_datetime(item['activity_ts']),
                 'completed': item['completed'],
                 'canceled': item['canceled'],
@@ -140,8 +178,10 @@ class DownloadView:
                 for attr in immutable_attrs:
                     if kw[attr] != getattr(record, attr):
                         raise SyncError(
-                            "Transfer %s: old %s was %s, new %s is %s" %
-                            (transfer_id, getattr(record, attr), kw[attr]))
+                            "Transfer %s: Immutable attribute changed. "
+                            "Old %s was %s, new %s is %s" %
+                            (transfer_id, attr, repr(getattr(record, attr)),
+                                attr, repr(kw[attr])))
 
                 for attr, value in sorted(kw.items()):
                     if getattr(record, attr) != value:
@@ -181,27 +221,26 @@ class DownloadView:
             # Convert the summaries into an offset of the previous summaries.
             old_summaries = self.summarize_movements(record.movement_lists[-2])
             for key, old_delta in old_summaries.items():
-                new_delta = summaries.get(key, zero) - old_delta
-                if new_delta:
-                    summaries[key] = new_delta
-                elif key in summaries:
-                    del summaries[key]
+                summaries[key] = summaries.get(key, zero) - old_delta
 
         mss = []
 
         for key, delta in sorted(summaries.items()):
-            account_id, loop_id, currency = key
-            row = MovementSummary(
-                transfer_record_id=record.id,
-                profile_id=profile_id,
-                account_id=account_id,
-                movement_list_index=len(record.movement_lists) - 1,
-                loop_id=loop_id,
-                currency=currency,
-                delta=delta,
-                reco_entry_id=None)
-            dbsession.add(row)
-            mss.append(row)
+            if delta:
+                account_id, loop_id, currency = key
+                row = MovementSummary(
+                    transfer_record_id=record.id,
+                    next_activity=record.next_activity,
+                    activity_ts=record.activity_ts,
+                    profile_id=profile_id,
+                    account_id=account_id,
+                    movement_list_index=len(record.movement_lists) - 1,
+                    loop_id=loop_id,
+                    currency=currency,
+                    delta=delta,
+                    reco_entry_id=None)
+                dbsession.add(row)
+                mss.append(row)
         dbsession.flush()  # Assign ids to the MovementSummaries
 
         reco_entries = []

@@ -87,6 +87,7 @@ class TestDownloadView(unittest.TestCase):
                 'workflow_type': 'redeem',
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'completed',
                 'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': True,
                 'canceled': False,
@@ -195,6 +196,7 @@ class TestDownloadView(unittest.TestCase):
                 'workflow_type': 'redeem',
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'completed',
                 'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': True,
                 'canceled': False,
@@ -294,6 +296,7 @@ class TestDownloadView(unittest.TestCase):
                 'workflow_type': 'grant',
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'completed',
                 'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': True,
                 'canceled': False,
@@ -406,6 +409,7 @@ class TestDownloadView(unittest.TestCase):
                 'workflow_type': 'grant',
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'completed',
                 'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': True,
                 'canceled': False,
@@ -516,38 +520,40 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual({'transfer_id': '501'}, event.memo)
 
-    @responses.activate
-    def test_update_transfer(self):
+    def test_redownload_with_updates(self):
         from opnreport.models import db
 
-        result0 = {
-            'id': '500',
-            'workflow_type': 'redeem',
-            'start': '2018-08-01T04:05:06Z',
-            'timestamp': '2018-08-01T04:05:08Z',
-            'activity_ts': '2018-08-01T04:05:10Z',
-            'completed': False,
-            'canceled': False,
-            'sender_id': '11',
-            'sender_uid': 'wingcash:11',
-            'sender_info': {
-                'title': "Tester",
-            },
-            'recipient_id': '1102',
-            'recipient_uid': 'wingcash:1102',
-            'recipient_info': {
-                'title': "Acct",
-            },
-            # No movements yet.
-            'movements': [],
-        }
+        def _make_transfer_result():
+            return {
+                'id': '500',
+                'workflow_type': 'redeem',
+                'start': '2018-08-01T04:05:06Z',
+                'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'someactivity',
+                'activity_ts': '2018-08-01T04:05:10Z',
+                'completed': False,
+                'canceled': False,
+                'sender_id': '11',
+                'sender_uid': 'wingcash:11',
+                'sender_info': {
+                    'title': "Tester",
+                },
+                'recipient_id': '1102',
+                'recipient_uid': 'wingcash:1102',
+                'recipient_info': {
+                    'title': "Acct",
+                },
+                # No movements yet.
+                'movements': [],
+            }
 
-        responses.add(
-            responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [result0], 'more': False})
-        obj = self._make(profile_id='19')
-        obj()
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [_make_transfer_result()], 'more': False})
+            obj = self._make(profile_id='19')
+            obj()
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
@@ -589,8 +595,10 @@ class TestDownloadView(unittest.TestCase):
         events = self.dbsession.query(db.RecoEntryEvent).all()
         self.assertEqual(0, len(events))
 
-        # Now download again; this time there will be more info.
-        result0['movements'] = [{
+        # Simulate the transfer completing the return of the cash
+        # to the issuer and re-download.
+        result1 = _make_transfer_result()
+        result1['movements'] = [{
             'from_id': '1102',
             'to_id': '19',
             'loops': [{
@@ -601,17 +609,18 @@ class TestDownloadView(unittest.TestCase):
             }],
         }]
 
-        responses.add(
-            responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [result0], 'more': False})
-        obj()
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [result1], 'more': False})
+            obj()
 
         events = (
             self.dbsession.query(db.ProfileEvent)
             .order_by(db.ProfileEvent.id).all())
         self.assertEqual(2, len(events))
-        event = events[1]
+        event = events[-1]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
@@ -619,6 +628,434 @@ class TestDownloadView(unittest.TestCase):
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
+        self.assertFalse(records[0].canceled)
 
         mss = self.dbsession.query(db.MovementSummary).all()
         self.assertEqual(1, len(mss))
+        ms = mss[0]
+        self.assertEqual(record.id, ms.transfer_record_id)
+        self.assertEqual('19', ms.profile_id)
+        self.assertEqual('c', ms.account_id)
+        self.assertEqual(1, ms.movement_list_index)
+        self.assertEqual('0', ms.loop_id)
+        self.assertEqual('USD', ms.currency)
+        self.assertEqual(Decimal('1.00'), ms.delta)
+
+        reco_entries = self.dbsession.query(db.RecoEntry).all()
+        self.assertEqual(1, len(reco_entries))
+        reco_entry = reco_entries[0]
+        self.assertEqual('19', reco_entry.profile_id)
+        self.assertEqual('c', reco_entry.account_id)
+        self.assertEqual(ms.id, reco_entry.movement_summary_id)
+        self.assertIsNone(reco_entry.account_entry_id)
+        self.assertIsNone(reco_entry.comment)
+        self.assertIsNone(reco_entry.reco_ts)
+        self.assertIsNone(reco_entry.reco_by)
+
+        events = self.dbsession.query(db.RecoEntryEvent).all()
+        self.assertEqual(1, len(events))
+        event = events[0]
+        self.assertEqual(reco_entry.id, event.reco_entry_id)
+        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual({'transfer_id': '500'}, event.memo)
+
+        # Simulate a failed redemption: the issuer re-issues cash to
+        # the profile. Re-download.
+        result1 = _make_transfer_result()
+        result1['canceled'] = True
+        result1['next_activity'] = 'canceled'
+        result1['movements'] = [
+            # The redeem movement remains.
+            {
+                'from_id': '1102',
+                'to_id': '19',
+                'loops': [{
+                    'currency': 'USD',
+                    'loop_id': '0',
+                    'amount': '1.00',
+                    'issuer_id': '19',
+                }],
+            },
+            # The return movement offsets the original movement.
+            {
+                'from_id': '19',
+                'to_id': '1102',
+                'loops': [{
+                    'currency': 'USD',
+                    'loop_id': '0',
+                    'amount': '1.00',
+                    'issuer_id': '19',
+                }],
+            },
+        ]
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [result1], 'more': False})
+            obj()
+
+        events = (
+            self.dbsession.query(db.ProfileEvent)
+            .order_by(db.ProfileEvent.id).all())
+        self.assertEqual(3, len(events))
+        event = events[-1]
+        self.assertEqual('19', event.profile_id)
+        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual(
+            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+
+        records = self.dbsession.query(db.TransferRecord).all()
+        self.assertEqual(1, len(records))
+        self.assertTrue(records[0].canceled)
+
+        mss = (
+            self.dbsession.query(db.MovementSummary)
+            .order_by(db.MovementSummary.id).all())
+        self.assertEqual(2, len(mss))
+        ms = mss[-1]
+        self.assertEqual(record.id, ms.transfer_record_id)
+        self.assertEqual('19', ms.profile_id)
+        self.assertEqual('c', ms.account_id)
+        self.assertEqual(2, ms.movement_list_index)
+        self.assertEqual('0', ms.loop_id)
+        self.assertEqual('USD', ms.currency)
+        self.assertEqual(Decimal('-1.00'), ms.delta)
+
+        reco_entries = (
+            self.dbsession.query(db.RecoEntry)
+            .order_by(db.RecoEntry.id).all())
+        self.assertEqual(2, len(reco_entries))
+        reco_entry = reco_entries[-1]
+        self.assertEqual('19', reco_entry.profile_id)
+        self.assertEqual('c', reco_entry.account_id)
+        self.assertEqual(ms.id, reco_entry.movement_summary_id)
+        self.assertIsNone(reco_entry.account_entry_id)
+        self.assertIsNone(reco_entry.comment)
+        self.assertIsNone(reco_entry.reco_ts)
+        self.assertIsNone(reco_entry.reco_by)
+
+        events = (
+            self.dbsession.query(db.RecoEntryEvent)
+            .order_by(db.RecoEntryEvent.id).all())
+        self.assertEqual(2, len(events))
+        event = events[-1]
+        self.assertEqual(reco_entry.id, event.reco_entry_id)
+        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual({'transfer_id': '500'}, event.memo)
+
+    def test_redownload_with_no_movements_and_no_updates(self):
+        from opnreport.models import db
+
+        def _make_transfer_result():
+            return {
+                'id': '500',
+                'workflow_type': 'redeem',
+                'start': '2018-08-01T04:05:06Z',
+                'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'send_to_dfi',
+                'activity_ts': '2018-08-01T04:05:10Z',
+                'completed': False,
+                'canceled': False,
+                'sender_id': '11',
+                'sender_uid': 'wingcash:11',
+                'sender_info': {
+                    'title': "Tester",
+                },
+                'recipient_id': '1102',
+                'recipient_uid': 'wingcash:1102',
+                'recipient_info': {
+                    'title': "Acct",
+                },
+                # No movements yet.
+                'movements': [],
+            }
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [_make_transfer_result()], 'more': False})
+            obj = self._make(profile_id='19')
+            obj()
+
+        mss = self.dbsession.query(db.MovementSummary).all()
+        self.assertEqual(0, len(mss))
+
+        reco_entries = self.dbsession.query(db.RecoEntry).all()
+        self.assertEqual(0, len(reco_entries))
+
+        events = self.dbsession.query(db.RecoEntryEvent).all()
+        self.assertEqual(0, len(events))
+
+        result1 = _make_transfer_result()
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [result1], 'more': False})
+            obj()
+
+        mss = self.dbsession.query(db.MovementSummary).all()
+        self.assertEqual(0, len(mss))
+
+    def test_redownload_with_movements_but_no_updates(self):
+        from opnreport.models import db
+
+        def _make_transfer_result():
+            return {
+                'id': '500',
+                'workflow_type': 'redeem',
+                'start': '2018-08-01T04:05:06Z',
+                'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'send_to_dfi',
+                'activity_ts': '2018-08-01T04:05:10Z',
+                'completed': False,
+                'canceled': False,
+                'sender_id': '11',
+                'sender_uid': 'wingcash:11',
+                'sender_info': {
+                    'title': "Tester",
+                },
+                'recipient_id': '1102',
+                'recipient_uid': 'wingcash:1102',
+                'recipient_info': {
+                    'title': "Acct",
+                },
+                'movements': [
+                    {
+                        'from_id': '1102',
+                        'to_id': '19',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '1.00',
+                            'issuer_id': '19',
+                        }],
+                    },
+                ],
+            }
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [_make_transfer_result()], 'more': False})
+            obj = self._make(profile_id='19')
+            obj()
+
+        mss = self.dbsession.query(db.MovementSummary).all()
+        self.assertEqual(1, len(mss))
+        ms = mss[0]
+        self.assertEqual('19', ms.profile_id)
+        self.assertEqual('c', ms.account_id)
+        self.assertEqual(0, ms.movement_list_index)
+        self.assertEqual('0', ms.loop_id)
+        self.assertEqual('USD', ms.currency)
+        self.assertEqual(Decimal('1.00'), ms.delta)
+
+        result1 = _make_transfer_result()
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [result1], 'more': False})
+            obj()
+
+        mss = self.dbsession.query(db.MovementSummary).all()
+        self.assertEqual(1, len(mss))
+
+    def test_sync_error(self):
+        from opnreport.views.download import SyncError
+
+        def _make_transfer_result():
+            return {
+                'id': '500',
+                'workflow_type': 'redeem',
+                'start': '2018-08-01T04:05:06Z',
+                'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'send_to_dfi',
+                'activity_ts': '2018-08-01T04:05:10Z',
+                'completed': False,
+                'canceled': False,
+                'sender_id': '11',
+                'sender_uid': 'wingcash:11',
+                'sender_info': {
+                    'title': "Tester",
+                },
+                'recipient_id': '1102',
+                'recipient_uid': 'wingcash:1102',
+                'recipient_info': {
+                    'title': "Acct",
+                },
+                'movements': [
+                    {
+                        'from_id': '1102',
+                        'to_id': '19',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '1.00',
+                            'issuer_id': '19',
+                        }],
+                    },
+                ],
+            }
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [_make_transfer_result()], 'more': False})
+            obj = self._make(profile_id='19')
+            obj()
+
+        result1 = _make_transfer_result()
+        result1['workflow_type'] = 'raspberry'
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [result1], 'more': False})
+            with self.assertRaisesRegexp(
+                    SyncError, r'Immutable attribute changed'):
+                obj()
+
+    def test_download_batches(self):
+        from opnreport.models import db
+
+        def _make_transfer_result():
+            return {
+                'id': '501',
+                'workflow_type': 'grant',
+                'start': '2018-08-01T04:05:06Z',
+                'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'someactivity',
+                'activity_ts': '2018-08-01T04:05:10Z',
+                'completed': False,
+                'canceled': False,
+                'sender_id': '19',
+                'sender_uid': 'wingcash:19',
+                'sender_info': {
+                    'title': "Issuer",
+                },
+                'recipient_id': '11',
+                'recipient_uid': 'wingcash:11',
+                'recipient_info': {
+                    'title': "Tester",
+                },
+                'movements': [
+                    {
+                        'from_id': '19',
+                        'to_id': '11',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '1.00',
+                            'issuer_id': '19',
+                        }],
+                    },
+                ],
+            }
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [_make_transfer_result()], 'more': True})
+            obj = self._make(profile_id='11')
+            download_status = obj()
+            self.assertGreaterEqual(download_status['progress_percent'], 0.0)
+            self.assertLessEqual(download_status['progress_percent'], 100.0)
+            self.assertEqual({
+                'count': 1,
+                'more': True,
+                'progress_percent': download_status['progress_percent'],
+                'last_activity_ts': '2018-08-01T04:05:10Z',
+            }, download_status)
+
+        downloads = self.dbsession.query(db.OPNDownload).all()
+        self.assertEqual(1, len(downloads))
+        self.assertEqual('11', downloads[0].profile_id)
+
+        events = self.dbsession.query(db.ProfileEvent).all()
+        self.assertEqual(1, len(events))
+        event = events[0]
+        self.assertEqual('11', event.profile_id)
+        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual(
+            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+
+        mss = self.dbsession.query(db.MovementSummary).all()
+        self.assertEqual(1, len(mss))
+
+        reco_entries = self.dbsession.query(db.RecoEntry).all()
+        self.assertEqual(1, len(reco_entries))
+
+        events = self.dbsession.query(db.RecoEntryEvent).all()
+        self.assertEqual(1, len(events))
+
+        # Download the last batch.
+
+        with responses.RequestsMock() as rsps:
+            transfer_result = _make_transfer_result()
+            transfer_result['id'] = '502'
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_download',
+                json={'results': [transfer_result], 'more': False})
+            download_status = obj()
+            self.assertEqual({
+                'count': 1,
+                'more': False,
+                'progress_percent': 100.0,
+                'last_activity_ts': '2018-08-01T04:05:10Z',
+            }, download_status)
+
+        events = (
+            self.dbsession.query(db.ProfileEvent)
+            .order_by(db.ProfileEvent.id).all())
+        self.assertEqual(2, len(events))
+        event = events[-1]
+        self.assertEqual('11', event.profile_id)
+        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual(
+            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+
+        records = (
+            self.dbsession.query(db.TransferRecord)
+            .order_by(db.TransferRecord.id).all())
+        self.assertEqual(2, len(records))
+        record = records[-1]
+        self.assertFalse(record.canceled)
+        self.assertEqual('502', record.transfer_id)
+
+        mss = (
+            self.dbsession.query(db.MovementSummary)
+            .order_by(db.MovementSummary.id).all())
+        self.assertEqual(2, len(mss))
+        ms = mss[-1]
+        self.assertEqual(record.id, ms.transfer_record_id)
+        self.assertEqual('11', ms.profile_id)
+        self.assertEqual('19', ms.account_id)
+        self.assertEqual(0, ms.movement_list_index)
+        self.assertEqual('0', ms.loop_id)
+        self.assertEqual('USD', ms.currency)
+        self.assertEqual(Decimal('1.00'), ms.delta)
+
+        reco_entries = (
+            self.dbsession.query(db.RecoEntry)
+            .order_by(db.RecoEntry.id).all())
+        self.assertEqual(2, len(reco_entries))
+        reco_entry = reco_entries[-1]
+        self.assertEqual('11', reco_entry.profile_id)
+        self.assertEqual('19', reco_entry.account_id)
+        self.assertEqual(ms.id, reco_entry.movement_summary_id)
+        self.assertIsNone(reco_entry.account_entry_id)
+        self.assertIsNone(reco_entry.comment)
+        self.assertIsNone(reco_entry.reco_ts)
+        self.assertIsNone(reco_entry.reco_by)

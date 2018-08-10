@@ -42,6 +42,7 @@ class Profile(Base):
     title = Column(Unicode, nullable=False)
     last_update = Column(DateTime, nullable=True, server_default=now_func)
     last_download = Column(DateTime, nullable=True)
+    download_progress = Column(DateTime, nullable=True)
 
 
 class ProfileEvent(Base):
@@ -86,6 +87,7 @@ class TransferRecord(Base):
     workflow_type = Column(String, nullable=False)    # Never changes
     start = Column(DateTime, nullable=False)          # Never changes
     timestamp = Column(DateTime, nullable=False)      # May change
+    next_activity = Column(String, nullable=False)    # May change
     activity_ts = Column(DateTime, nullable=False)    # May change
     completed = Column(Boolean, nullable=False)       # May change
     canceled = Column(Boolean, nullable=False)        # May change
@@ -136,6 +138,11 @@ class MovementSummary(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+
+    # Note: next_activity and activity_ts are for debugging only. Do not
+    # rely on them having perfectly predictable values.
+    next_activity = Column(String, nullable=False)
+    activity_ts = Column(DateTime, nullable=False)
 
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
