@@ -31,6 +31,11 @@ class SyncError(Exception):
     permission='use_app',
     renderer='json')
 class DownloadView:
+    """Sync with OPN.
+
+    This view downloads all transfers and transfer activities since the
+    last download.
+    """
     def __init__(self, request):
         self.request = request
         self.profile = profile = request.profile
