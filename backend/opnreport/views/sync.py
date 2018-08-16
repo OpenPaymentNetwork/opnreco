@@ -26,15 +26,15 @@ class SyncError(Exception):
 
 
 @view_config(
-    name='download',
+    name='sync',
     context=API,
     permission='use_app',
     renderer='json')
-class DownloadView:
+class SyncView:
     """Sync with OPN.
 
     This view downloads all transfers and transfer activities since the
-    last download.
+    last sync.
     """
     def __init__(self, request):
         self.request = request
@@ -46,21 +46,29 @@ class DownloadView:
         api_url = os.environ['opn_api_url']
         profile = self.profile
 
-        if profile.download_progress is not None:
-            # A download was started but not finished. Download the next batch.
-            since_activity_ts = profile.download_progress
-        else:
-            # Start a new download. Download transfers created or changed
-            # after 5 minutes before the last download. (Add 5 minutes in
+        if profile.first_sync_ts is None:
+            # Start a new sync. Download transfers created or changed
+            # after 5 minutes before the last sync. (Add 5 minutes in
             # case some transfers showed up out of order.)
-            since_activity_ts = profile.last_download - datetime.timedelta(
-                seconds=60 * 5)
-        since_activity_ts_iso = since_activity_ts.isoformat() + 'Z'
+            if profile.last_sync_ts is not None:
+                sync_ts = (
+                    profile.last_sync_ts - datetime.timedelta(seconds=60 * 5))
+            else:
+                sync_ts = datetime.datetime(1970, 1, 1)
+            sync_transfer_id = None
+        else:
+            # A sync was started but not finished. Download the next batch.
+            sync_ts = profile.last_sync_ts
+            sync_transfer_id = profile.last_sync_transfer_id
+        sync_ts_iso = sync_ts.isoformat() + 'Z'
 
-        url = '%s/wallet/history_download' % api_url
+        url = '%s/wallet/history_sync' % api_url
         r = requests.post(
             url,
-            data={'since_activity_ts': since_activity_ts_iso},
+            data={
+                'sync_ts': sync_ts_iso,
+                'transfer_id': sync_transfer_id,
+            },
             headers={'Authorization': 'Bearer %s' % request.access_token})
         check_requests_response(r)
 
@@ -68,26 +76,27 @@ class DownloadView:
         dbsession = request.dbsession
         more = transfers_download['more']
         now = datetime.datetime.utcnow()
-        if transfers_download['results']:
-            last_activity_ts = to_datetime(
-                transfers_download['results'][-1]['activity_ts'])
-        else:
-            last_activity_ts = now
-        last_activity_ts_iso = last_activity_ts.isoformat() + 'Z'
 
         if more:
-            last_download = profile.last_download
-            profile.download_progress = last_activity_ts
+            if profile.first_sync_ts is None:
+                profile.first_sync_ts = to_datetime(
+                    transfers_download['first_sync_ts'])
+            profile.last_sync_ts = to_datetime(
+                transfers_download['last_sync_ts'])
+            profile.last_transfer_id = (
+                transfers_download['results'][-1]['id'])
             # Generate a download progress estimate by
             # dividing the time span already downloaded by the time span
             # expected to be downloaded.
-            span0 = (last_activity_ts - last_download).total_seconds()
-            span1 = (now - last_download).total_seconds()
+            span0 = (
+                profile.last_sync_ts - profile.first_sync_ts).total_seconds()
+            span1 = (now - profile.first_sync_ts).total_seconds()
             # Avoid division by zero.
             progress_percent = 100.0 * span0 / span1 if span1 else 0.0
         else:
-            profile.download_progress = None
-            profile.last_download = now
+            profile.first_sync_ts = None
+            profile.last_sync_transfer_id = None
+            profile.last_sync_ts = now
             progress_percent = 100.0
 
         opn_download = OPNDownload(
@@ -108,12 +117,13 @@ class DownloadView:
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
             memo={
-                'since_activity_ts': since_activity_ts_iso,
+                'sync_ts': sync_ts_iso,
+                'progress_percent': progress_percent,
                 'transfers': {
                     'count': len(transfers_download['results']),
                     'more': transfers_download['more'],
-                    'progress_percent': progress_percent,
-                    'last_activity_ts': last_activity_ts_iso,
+                    'first_sync_ts': transfers_download['first_sync_ts'],
+                    'last_sync_ts': transfers_download['last_sync_ts'],
                 }
             },
         ))
@@ -124,7 +134,7 @@ class DownloadView:
             'count': len(transfers_download['results']),
             'more': more,
             'progress_percent': progress_percent,
-            'last_activity_ts': last_activity_ts_iso,
+            'last_sync_ts': transfers_download['last_sync_ts'],
         }
 
     def import_transfer_records(self, transfers_download):
@@ -149,7 +159,6 @@ class DownloadView:
                 'start': to_datetime(item['start']),
                 'timestamp': to_datetime(item['timestamp']),
                 'next_activity': item['next_activity'],
-                'activity_ts': to_datetime(item['activity_ts']),
                 'completed': item['completed'],
                 'canceled': item['canceled'],
                 'sender_id': item['sender_id'] or None,
@@ -236,7 +245,6 @@ class DownloadView:
                 row = MovementSummary(
                     transfer_record_id=record.id,
                     next_activity=record.next_activity,
-                    activity_ts=record.activity_ts,
                     profile_id=profile_id,
                     account_id=account_id,
                     movement_list_index=len(record.movement_lists) - 1,

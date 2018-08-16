@@ -41,7 +41,7 @@ def access_token(request):
     return None
 
 
-def profile_info(request):
+def opn_profile_info(request):
     """Get the info about the profile from OPN."""
     api_url = os.environ['opn_api_url']
     url = '%s/me' % api_url
@@ -63,11 +63,10 @@ def profile(request):
         .filter_by(id=request.authenticated_userid)
         .first())
     if profile is None:
-        profile_info = request.profile_info
+        opn_profile_info = request.opn_profile_info
         profile = Profile(
-            id=profile_info['id'],
-            title=profile_info['title'],
-            last_download=datetime.datetime(1970, 1, 1))
+            id=opn_profile_info['id'],
+            title=opn_profile_info['title'])
         dbsession.add(profile)
         dbsession.flush()
         dbsession.add(ProfileEvent(
@@ -80,10 +79,10 @@ def profile(request):
     else:
         now = datetime.datetime.utcnow()
         if now - profile.last_update >= datetime.timedelta(seconds=60 * 15):
-            # Update the profile.
-            profile_info = request.profile_info
-            if profile.title != profile_info['title']:
-                profile.title = profile_info['title']
+            # Update the profile title.
+            opn_profile_info = request.opn_profile_info
+            if profile.title != opn_profile_info['title']:
+                profile.title = opn_profile_info['title']
             profile.last_update = now
 
     return profile
@@ -105,7 +104,8 @@ def main(global_config, **settings):
 
     config.add_request_method(Site, name='site', reify=True)
     config.add_request_method(access_token, name='access_token', reify=True)
-    config.add_request_method(profile_info, name='profile_info', reify=True)
+    config.add_request_method(
+        opn_profile_info, name='opn_profile_info', reify=True)
     config.add_request_method(profile, name='profile', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 

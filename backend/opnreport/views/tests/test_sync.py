@@ -30,8 +30,8 @@ class TestDownloadView(unittest.TestCase):
 
     @property
     def _class(self):
-        from ..download import DownloadView
-        return DownloadView
+        from ..sync import SyncView
+        return SyncView
 
     def _make(self, profile_id='11'):
         from opnreport.models.db import Profile
@@ -39,7 +39,6 @@ class TestDownloadView(unittest.TestCase):
         profile = Profile(
             id=profile_id,
             title="Test Profile",
-            last_download=datetime.datetime(2018, 7, 1, 5, 6, 7),
         )
         self.dbsession.add(profile)
         self.dbsession.flush()
@@ -59,8 +58,13 @@ class TestDownloadView(unittest.TestCase):
 
         responses.add(
             responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [], 'more': False})
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [],
+                'more': False,
+                'first_sync_ts': None,
+                'last_sync_ts': None,
+            })
         obj = self._make()
         obj()
 
@@ -81,46 +85,50 @@ class TestDownloadView(unittest.TestCase):
 
         responses.add(
             responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [{
-                'id': '500',
-                'workflow_type': 'redeem',
-                'start': '2018-08-01T04:05:06Z',
-                'timestamp': '2018-08-01T04:05:08Z',
-                'next_activity': 'completed',
-                'activity_ts': '2018-08-01T04:05:10Z',
-                'completed': True,
-                'canceled': False,
-                'sender_id': '11',
-                'sender_uid': 'wingcash:11',
-                'sender_info': {
-                    'title': "Tester",
-                },
-                'recipient_id': '1102',
-                'recipient_uid': 'wingcash:1102',
-                'recipient_info': {
-                    'title': "Acct",
-                },
-                'movements': [{
-                    'from_id': '11',
-                    'to_id': '1102',
-                    'loops': [{
-                        'currency': 'USD',
-                        'loop_id': '0',
-                        'amount': '1.00',
-                        'issuer_id': '19',
-                    }],
-                }, {
-                    'from_id': '11',
-                    'to_id': '1102',
-                    'loops': [{
-                        'currency': 'USD',
-                        'loop_id': '0',
-                        'amount': '0.25',
-                        'issuer_id': '20',
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [{
+                    'id': '500',
+                    'workflow_type': 'redeem',
+                    'start': '2018-08-01T04:05:06Z',
+                    'timestamp': '2018-08-01T04:05:08Z',
+                    'next_activity': 'completed',
+                    'completed': True,
+                    'canceled': False,
+                    'sender_id': '11',
+                    'sender_uid': 'wingcash:11',
+                    'sender_info': {
+                        'title': "Tester",
+                    },
+                    'recipient_id': '1102',
+                    'recipient_uid': 'wingcash:1102',
+                    'recipient_info': {
+                        'title': "Acct",
+                    },
+                    'movements': [{
+                        'from_id': '11',
+                        'to_id': '1102',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '1.00',
+                            'issuer_id': '19',
+                        }],
+                    }, {
+                        'from_id': '11',
+                        'to_id': '1102',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '0.25',
+                            'issuer_id': '20',
+                        }],
                     }],
                 }],
-            }], 'more': False})
+                'more': False,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
+            })
         obj = self._make()
         obj()
 
@@ -134,7 +142,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -144,8 +153,6 @@ class TestDownloadView(unittest.TestCase):
             datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
         self.assertEqual(
             datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
-        self.assertEqual(
-            datetime.datetime(2018, 8, 1, 4, 5, 10), record.activity_ts)
         self.assertEqual(True, record.completed)
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
@@ -190,37 +197,41 @@ class TestDownloadView(unittest.TestCase):
 
         responses.add(
             responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [{
-                'id': '500',
-                'workflow_type': 'redeem',
-                'start': '2018-08-01T04:05:06Z',
-                'timestamp': '2018-08-01T04:05:08Z',
-                'next_activity': 'completed',
-                'activity_ts': '2018-08-01T04:05:10Z',
-                'completed': True,
-                'canceled': False,
-                'sender_id': '11',
-                'sender_uid': 'wingcash:11',
-                'sender_info': {
-                    'title': "Tester",
-                },
-                'recipient_id': '1102',
-                'recipient_uid': 'wingcash:1102',
-                'recipient_info': {
-                    'title': "Acct",
-                },
-                'movements': [{
-                    'from_id': '1102',
-                    'to_id': '19',
-                    'loops': [{
-                        'currency': 'USD',
-                        'loop_id': '0',
-                        'amount': '1.00',
-                        'issuer_id': '19',
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [{
+                    'id': '500',
+                    'workflow_type': 'redeem',
+                    'start': '2018-08-01T04:05:06Z',
+                    'timestamp': '2018-08-01T04:05:08Z',
+                    'next_activity': 'completed',
+                    'completed': True,
+                    'canceled': False,
+                    'sender_id': '11',
+                    'sender_uid': 'wingcash:11',
+                    'sender_info': {
+                        'title': "Tester",
+                    },
+                    'recipient_id': '1102',
+                    'recipient_uid': 'wingcash:1102',
+                    'recipient_info': {
+                        'title': "Acct",
+                    },
+                    'movements': [{
+                        'from_id': '1102',
+                        'to_id': '19',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '1.00',
+                            'issuer_id': '19',
+                        }],
                     }],
                 }],
-            }], 'more': False})
+                'more': False,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
+            })
         obj = self._make(profile_id='19')
         obj()
 
@@ -234,7 +245,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -244,8 +256,6 @@ class TestDownloadView(unittest.TestCase):
             datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
         self.assertEqual(
             datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
-        self.assertEqual(
-            datetime.datetime(2018, 8, 1, 4, 5, 10), record.activity_ts)
         self.assertEqual(True, record.completed)
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
@@ -290,50 +300,54 @@ class TestDownloadView(unittest.TestCase):
 
         responses.add(
             responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [{
-                'id': '501',
-                'workflow_type': 'grant',
-                'start': '2018-08-01T04:05:06Z',
-                'timestamp': '2018-08-01T04:05:08Z',
-                'next_activity': 'completed',
-                'activity_ts': '2018-08-01T04:05:10Z',
-                'completed': True,
-                'canceled': False,
-                'sender_id': '19',
-                'sender_uid': 'wingcash:19',
-                'sender_info': {
-                    'title': "Issuer",
-                },
-                'recipient_id': '11',
-                'recipient_uid': 'wingcash:11',
-                'recipient_info': {
-                    'title': "Some Tester",
-                },
-                'movements': [
-                    {
-                        # Issued $1.00
-                        'from_id': '19',
-                        'to_id': '11',
-                        'loops': [{
-                            'currency': 'USD',
-                            'loop_id': '0',
-                            'amount': '1.00',
-                            'issuer_id': '19',
-                        }],
-                    }, {
-                        # Issued $0.25
-                        'from_id': '19',
-                        'to_id': '11',
-                        'loops': [{
-                            'currency': 'USD',
-                            'loop_id': '0',
-                            'amount': '0.25',
-                            'issuer_id': '19',
-                        }],
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [{
+                    'id': '501',
+                    'workflow_type': 'grant',
+                    'start': '2018-08-01T04:05:06Z',
+                    'timestamp': '2018-08-01T04:05:08Z',
+                    'next_activity': 'completed',
+                    'completed': True,
+                    'canceled': False,
+                    'sender_id': '19',
+                    'sender_uid': 'wingcash:19',
+                    'sender_info': {
+                        'title': "Issuer",
                     },
-                ],
-            }], 'more': False})
+                    'recipient_id': '11',
+                    'recipient_uid': 'wingcash:11',
+                    'recipient_info': {
+                        'title': "Some Tester",
+                    },
+                    'movements': [
+                        {
+                            # Issued $1.00
+                            'from_id': '19',
+                            'to_id': '11',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '1.00',
+                                'issuer_id': '19',
+                            }],
+                        }, {
+                            # Issued $0.25
+                            'from_id': '19',
+                            'to_id': '11',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '0.25',
+                                'issuer_id': '19',
+                            }],
+                        },
+                    ],
+                }],
+                'more': False,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
+            })
         obj = self._make(profile_id='11')
         obj()
 
@@ -347,7 +361,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -357,8 +372,6 @@ class TestDownloadView(unittest.TestCase):
             datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
         self.assertEqual(
             datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
-        self.assertEqual(
-            datetime.datetime(2018, 8, 1, 4, 5, 10), record.activity_ts)
         self.assertEqual(True, record.completed)
         self.assertEqual(False, record.canceled)
         self.assertEqual('19', record.sender_id)
@@ -403,60 +416,64 @@ class TestDownloadView(unittest.TestCase):
 
         responses.add(
             responses.POST,
-            'https://opn.example.com:9999/wallet/history_download',
-            json={'results': [{
-                'id': '501',
-                'workflow_type': 'grant',
-                'start': '2018-08-01T04:05:06Z',
-                'timestamp': '2018-08-01T04:05:08Z',
-                'next_activity': 'completed',
-                'activity_ts': '2018-08-01T04:05:10Z',
-                'completed': True,
-                'canceled': False,
-                'sender_id': '19',
-                'sender_uid': 'wingcash:19',
-                'sender_info': {
-                    'title': "Issuer",
-                },
-                'recipient_id': '11',
-                'recipient_uid': 'wingcash:11',
-                'recipient_info': {
-                    'title': "Some Tester",
-                },
-                'movements': [
-                    {
-                        # Issuance movement to ignore
-                        'from_id': None,
-                        'to_id': '19',
-                        'loops': [{
-                            'currency': 'USD',
-                            'loop_id': '0',
-                            'amount': '1.25',
-                            'issuer_id': '19',
-                        }],
-                    }, {
-                        # Issued $1.00
-                        'from_id': '19',
-                        'to_id': '11',
-                        'loops': [{
-                            'currency': 'USD',
-                            'loop_id': '0',
-                            'amount': '1.00',
-                            'issuer_id': '19',
-                        }],
-                    }, {
-                        # Issued $0.25
-                        'from_id': '19',
-                        'to_id': '11',
-                        'loops': [{
-                            'currency': 'USD',
-                            'loop_id': '0',
-                            'amount': '0.25',
-                            'issuer_id': '19',
-                        }],
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [{
+                    'id': '501',
+                    'workflow_type': 'grant',
+                    'start': '2018-08-01T04:05:06Z',
+                    'timestamp': '2018-08-01T04:05:08Z',
+                    'next_activity': 'completed',
+                    'completed': True,
+                    'canceled': False,
+                    'sender_id': '19',
+                    'sender_uid': 'wingcash:19',
+                    'sender_info': {
+                        'title': "Issuer",
                     },
-                ],
-            }], 'more': False})
+                    'recipient_id': '11',
+                    'recipient_uid': 'wingcash:11',
+                    'recipient_info': {
+                        'title': "Some Tester",
+                    },
+                    'movements': [
+                        {
+                            # Issuance movement to ignore
+                            'from_id': None,
+                            'to_id': '19',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '1.25',
+                                'issuer_id': '19',
+                            }],
+                        }, {
+                            # Issued $1.00
+                            'from_id': '19',
+                            'to_id': '11',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '1.00',
+                                'issuer_id': '19',
+                            }],
+                        }, {
+                            # Issued $0.25
+                            'from_id': '19',
+                            'to_id': '11',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '0.25',
+                                'issuer_id': '19',
+                            }],
+                        },
+                    ],
+                }],
+                'more': False,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
+            })
         obj = self._make(profile_id='19')
         obj()
 
@@ -470,7 +487,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -480,8 +498,6 @@ class TestDownloadView(unittest.TestCase):
             datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
         self.assertEqual(
             datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
-        self.assertEqual(
-            datetime.datetime(2018, 8, 1, 4, 5, 10), record.activity_ts)
         self.assertEqual(True, record.completed)
         self.assertEqual(False, record.canceled)
         self.assertEqual('19', record.sender_id)
@@ -530,7 +546,6 @@ class TestDownloadView(unittest.TestCase):
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'someactivity',
-                'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': False,
                 'canceled': False,
                 'sender_id': '11',
@@ -550,8 +565,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [_make_transfer_result()], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [_make_transfer_result()],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj = self._make(profile_id='19')
             obj()
 
@@ -565,7 +585,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -575,8 +596,6 @@ class TestDownloadView(unittest.TestCase):
             datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
         self.assertEqual(
             datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
-        self.assertEqual(
-            datetime.datetime(2018, 8, 1, 4, 5, 10), record.activity_ts)
         self.assertEqual(False, record.completed)
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
@@ -612,8 +631,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [result1], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [result1],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj()
 
         events = (
@@ -624,7 +648,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -692,8 +717,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [result1], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [result1],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj()
 
         events = (
@@ -704,7 +734,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -755,7 +786,6 @@ class TestDownloadView(unittest.TestCase):
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'send_to_dfi',
-                'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': False,
                 'canceled': False,
                 'sender_id': '11',
@@ -775,8 +805,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [_make_transfer_result()], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [_make_transfer_result()],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj = self._make(profile_id='19')
             obj()
 
@@ -794,8 +829,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [result1], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [result1],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj()
 
         mss = self.dbsession.query(db.MovementSummary).all()
@@ -811,7 +851,6 @@ class TestDownloadView(unittest.TestCase):
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'send_to_dfi',
-                'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': False,
                 'canceled': False,
                 'sender_id': '11',
@@ -841,8 +880,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [_make_transfer_result()], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [_make_transfer_result()],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj = self._make(profile_id='19')
             obj()
 
@@ -861,15 +905,20 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [result1], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [result1],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj()
 
         mss = self.dbsession.query(db.MovementSummary).all()
         self.assertEqual(1, len(mss))
 
     def test_sync_error(self):
-        from opnreport.views.download import SyncError
+        from opnreport.views.sync import SyncError
 
         def _make_transfer_result():
             return {
@@ -878,7 +927,6 @@ class TestDownloadView(unittest.TestCase):
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'send_to_dfi',
-                'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': False,
                 'canceled': False,
                 'sender_id': '11',
@@ -908,8 +956,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [_make_transfer_result()], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [_make_transfer_result()],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj = self._make(profile_id='19')
             obj()
 
@@ -919,8 +972,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [result1], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [result1],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             with self.assertRaisesRegexp(
                     SyncError, r'Immutable attribute changed'):
                 obj()
@@ -935,7 +993,6 @@ class TestDownloadView(unittest.TestCase):
                 'start': '2018-08-01T04:05:06Z',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'someactivity',
-                'activity_ts': '2018-08-01T04:05:10Z',
                 'completed': False,
                 'canceled': False,
                 'sender_id': '19',
@@ -965,8 +1022,13 @@ class TestDownloadView(unittest.TestCase):
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [_make_transfer_result()], 'more': True})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [_make_transfer_result()],
+                    'more': True,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             obj = self._make(profile_id='11')
             download_status = obj()
             self.assertGreaterEqual(download_status['progress_percent'], 0.0)
@@ -975,7 +1037,7 @@ class TestDownloadView(unittest.TestCase):
                 'count': 1,
                 'more': True,
                 'progress_percent': download_status['progress_percent'],
-                'last_activity_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
             }, download_status)
 
         downloads = self.dbsession.query(db.OPNDownload).all()
@@ -988,7 +1050,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         mss = self.dbsession.query(db.MovementSummary).all()
         self.assertEqual(1, len(mss))
@@ -1006,14 +1069,19 @@ class TestDownloadView(unittest.TestCase):
             transfer_result['id'] = '502'
             rsps.add(
                 responses.POST,
-                'https://opn.example.com:9999/wallet/history_download',
-                json={'results': [transfer_result], 'more': False})
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [transfer_result],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
             download_status = obj()
             self.assertEqual({
                 'count': 1,
                 'more': False,
                 'progress_percent': 100.0,
-                'last_activity_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
             }, download_status)
 
         events = (
@@ -1024,7 +1092,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_download', event.event_type)
         self.assertEqual(
-            {'since_activity_ts', 'transfers'}, set(event.memo.keys()))
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
 
         records = (
             self.dbsession.query(db.TransferRecord)

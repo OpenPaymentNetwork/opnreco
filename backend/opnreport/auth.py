@@ -34,7 +34,7 @@ class OPNTokenAuthenticationPolicy(object):
         if entry is not None:
             if now < entry['valid_until']:
                 return entry['id']
-            info = self._request_profile_info(request, token)
+            info = self._request_opn_profile_info(request, token)
             if info is not None:
                 # This token hasn't actually expired yet.
                 profile_id = info['id']
@@ -55,9 +55,12 @@ class OPNTokenAuthenticationPolicy(object):
                     self.token_cache.pop(token, None)
                 return None
 
-        info = self._request_profile_info(request, token)
+        info = self._request_opn_profile_info(request, token)
         if info is not None:
-            request.profile_info = info  # Avoid an unnecessary extra call
+            # Stash the opn_profile_info request attr so we don't have to
+            # get it later.
+            request.opn_profile_info = info
+
             profile_id = info['id']
             self.token_cache[token] = {
                 'id': profile_id,
@@ -78,7 +81,7 @@ class OPNTokenAuthenticationPolicy(object):
 
         return None
 
-    def _request_profile_info(self, request, token):
+    def _request_opn_profile_info(self, request, token):
         """Get the profile info from OPN."""
         url = '%s/me' % self.opn_api_url
         r = requests.get(

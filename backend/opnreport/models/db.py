@@ -40,9 +40,13 @@ class Profile(Base):
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
+    # last_update is when the profile title was last updated
     last_update = Column(DateTime, nullable=True, server_default=now_func)
-    last_download = Column(DateTime, nullable=True)
-    download_progress = Column(DateTime, nullable=True)
+    # first_sync_ts is set when a sync has started but not
+    # finished.  It contains the first_sync_ts from the first batch.
+    first_sync_ts = Column(DateTime, nullable=True)
+    last_sync_ts = Column(DateTime, nullable=True)
+    last_sync_transfer_id = Column(String, nullable=True)
 
 
 class ProfileEvent(Base):
@@ -88,7 +92,6 @@ class TransferRecord(Base):
     start = Column(DateTime, nullable=False)          # Never changes
     timestamp = Column(DateTime, nullable=False)      # May change
     next_activity = Column(String, nullable=False)    # May change
-    activity_ts = Column(DateTime, nullable=False)    # May change
     completed = Column(Boolean, nullable=False)       # May change
     canceled = Column(Boolean, nullable=False)        # May change
 
@@ -139,10 +142,9 @@ class MovementSummary(Base):
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
 
-    # Note: next_activity and activity_ts are for debugging only. Do not
-    # rely on them having perfectly predictable values.
+    # Note: next_activity is for debugging only. Do not
+    # rely on it having perfectly predictable values.
     next_activity = Column(String, nullable=False)
-    activity_ts = Column(DateTime, nullable=False)
 
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
