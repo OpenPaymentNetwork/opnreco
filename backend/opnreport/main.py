@@ -43,24 +43,29 @@ def access_token(request):
 
 def opn_profile_info(request):
     """Get the info about the profile from OPN."""
+    access_token = request.access_token
+    if not access_token:
+        return None
+
     api_url = os.environ['opn_api_url']
     url = '%s/me' % api_url
     r = requests.get(
         url,
-        headers={'Authorization': 'Bearer %s' % request.access_token})
+        headers={'Authorization': 'Bearer %s' % access_token})
     check_requests_response(r)
     return r.json()
 
 
 def profile(request):
     """Get the Profile row for the authenticated profile"""
-    if not request.authenticated_userid:
+    authenticated_userid = request.authenticated_userid
+    if not authenticated_userid:
         return None
 
     dbsession = request.dbsession
     profile = (
         dbsession.query(Profile)
-        .filter_by(id=request.authenticated_userid)
+        .filter_by(id=authenticated_userid)
         .first())
     if profile is None:
         opn_profile_info = request.opn_profile_info

@@ -7,40 +7,48 @@ import OAuth2CallbackView from '../login/oauth2cb';
 import PropTypes from 'prop-types';
 import React from 'react';
 import { connect } from 'react-redux';
-import { Link } from 'react-router-dom';
 import { Switch, Route } from 'react-router';
 import { withRouter } from 'react-router';
 
 
-function App(props) {
-  if (!props.token) {
-    return (
-      <Switch>
-        <Route path="/login" component={LoginView} />
-        <Route path="/oauth2cb" component={OAuth2CallbackView} />
-        <Route component={LoginRedirect} />
-      </Switch>
-    );
+class App extends React.Component {
+  static propTypes = {
+    token: PropTypes.string,
+  };
+
+  constructor(props) {
+    super(props);
+    this.bound = {
+      handleMenuButton: this.handleMenuButton.bind(this),
+    };
   }
 
-  return (
-    <div>
-      <header>
-        <Link to="/">Home</Link>
-        <Link to="/about-us">About</Link>
-      </header>
+  handleMenuButton() {
 
-      <main>
-        <Route exact path="/" component={Home} />
-        <Route exact path="/about-us" component={About} />
-      </main>
-    </div>
-  );
+  }
+
+  render() {
+    if (!this.props.token) {
+      return (
+        <Switch>
+          <Route path="/login" component={LoginView} />
+          <Route path="/oauth2cb" component={OAuth2CallbackView} />
+          <Route component={LoginRedirect} />
+        </Switch>
+      );
+    }
+
+    return (
+      <div>
+        <main>
+          <Route exact path="/" component={Home} />
+          <Route exact path="/about-us" component={About} />
+        </main>
+      </div>
+    );
+  }
 }
 
-App.propTypes = {
-  token: PropTypes.string,
-};
 
 const mapStateToProps = (state) => ({
   token: state.login.token,
