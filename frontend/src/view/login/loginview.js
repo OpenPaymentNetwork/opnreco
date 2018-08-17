@@ -15,6 +15,7 @@ class LoginView extends React.Component {
 
   render() {
     if (!this.props.deviceUUID || !this.props.oauthState) {
+      // The random strings haven't been generated yet.
       return <div>Setting up login...</div>;
     }
 

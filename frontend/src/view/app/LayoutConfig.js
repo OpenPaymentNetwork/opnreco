@@ -9,7 +9,7 @@ import { setLayout } from '../../reducer/app';
 
 class LayoutConfig extends React.Component {
   static propTypes = {
-    setLayout: PropTypes.object.isRequired,
+    setLayout: PropTypes.func.isRequired,
   };
 
   componentDidMount() {

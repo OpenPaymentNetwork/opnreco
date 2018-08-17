@@ -14,6 +14,7 @@ import { connect } from 'react-redux';
 import { openDrawer, closeDrawer, setSyncProgress } from '../../reducer/app';
 import { runSync } from '../../util/sync';
 import { withStyles } from '@material-ui/core/styles';
+import { callAPI } from '../../util/callapi';
 
 
 /* global process: false */
@@ -39,6 +40,7 @@ class OPNDrawer extends React.Component {
     closeDrawer: PropTypes.func.isRequired,
     syncProgress: PropTypes.any,
     setSyncProgress: PropTypes.func.isRequired,
+    callAPI: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -46,6 +48,15 @@ class OPNDrawer extends React.Component {
     this.bound = {
       handleSync: this.handleSync.bind(this),
     };
+    this.state = {
+      selectableProfiles: {},
+    };
+  }
+
+  componentDidMount() {
+    this.props.callAPI('/token/selectable').then(selectableProfiles => {
+      return null;
+    });
   }
 
   getSyncUI() {
@@ -90,7 +101,7 @@ class OPNDrawer extends React.Component {
     const syncUI = this.getSyncUI();
     return (<div>
       <Toolbar>
-        Tools here.
+        (Profile selector here)
       </Toolbar>
       <Divider />
       <List component="nav">
@@ -146,6 +157,7 @@ const dispatchToProps = {
   openDrawer,
   closeDrawer,
   setSyncProgress,
+  callAPI,
 };
 
 export default withStyles(styles)(
