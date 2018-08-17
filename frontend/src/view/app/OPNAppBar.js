@@ -7,13 +7,14 @@ import React from 'react';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
 import { withStyles } from '@material-ui/core/styles';
+import { connect } from 'react-redux';
+import { toggleDrawer } from '../../reducer/app';
 
 
 const styles = {
   root: {
-    flexGrow: 1,
   },
-  flex: {
+  title: {
     flex: 1,
   },
   menuButton: {
@@ -23,13 +24,15 @@ const styles = {
 };
 
 
-class TopBar extends React.Component {
+class OPNAppBar extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    layout: PropTypes.object.isRequired,
+    toggleDrawer: PropTypes.func.isRequired,
   };
 
   render() {
-    const { classes } = this.props;
+    const { classes, layout } = this.props;
     return (
       <div className={classes.root}>
         <AppBar position="static">
@@ -38,11 +41,12 @@ class TopBar extends React.Component {
               className={classes.menuButton}
               color="inherit"
               aria-label="Menu"
+              onClick={this.props.toggleDrawer}
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="title" color="inherit" className={classes.flex}>
-              OPN Reports
+            <Typography variant="title" color="inherit" className={classes.title}>
+              {layout.title}
             </Typography>
           </Toolbar>
         </AppBar>
@@ -52,4 +56,17 @@ class TopBar extends React.Component {
 }
 
 
-export default withStyles(styles)(TopBar);
+function mapStateToProps(state) {
+  return {
+    layout: state.app.layout,
+  };
+}
+
+
+const dispatchToProps = {
+  toggleDrawer,
+};
+
+
+export default withStyles(styles)(
+  connect(mapStateToProps, dispatchToProps)(OPNAppBar));

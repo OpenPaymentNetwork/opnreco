@@ -1,11 +1,11 @@
 
-import { combineReducers } from 'redux';
+import app from './app';
 import deviceuuid from './deviceuuid';
 import login from './login';
-import oauth from './oauth';
+import { combineReducers } from 'redux';
 
 export default combineReducers({
-  oauth,
+  app,
   deviceuuid,
   login,
 });

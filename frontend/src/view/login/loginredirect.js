@@ -1,7 +1,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { setCameFrom } from '../../reducer/oauth';
+import { setCameFrom } from '../../reducer/login';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 

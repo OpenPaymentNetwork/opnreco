@@ -4,17 +4,17 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { setStateToken } from '../../reducer/oauth';
+import { setOAuthState } from '../../reducer/login';
 
 
 class LoginView extends React.Component {
 
   componentDidMount() {
-    this.props.setStateToken();
+    this.props.setOAuthState();
   }
 
   render() {
-    if (!this.props.deviceUUID || !this.props.stateToken) {
+    if (!this.props.deviceUUID || !this.props.oauthState) {
       return <div>Setting up login...</div>;
     }
 
@@ -33,7 +33,7 @@ class LoginView extends React.Component {
       '&uuid=' +
       encodeURIComponent(this.props.deviceUUID) +
       '&state=' +
-      encodeURIComponent(this.props.stateToken));
+      encodeURIComponent(this.props.oauthState));
 
     return (
       <p>
@@ -44,20 +44,20 @@ class LoginView extends React.Component {
 }
 
 LoginView.propTypes = {
-  setStateToken: PropTypes.func.isRequired,
+  setOAuthState: PropTypes.func.isRequired,
   deviceUUID: PropTypes.string,
-  stateToken: PropTypes.string,
+  oauthState: PropTypes.string,
 };
 
 function mapStateToProps(state) {
   return {
     deviceUUID: state.deviceuuid,
-    stateToken: state.oauth.stateToken,
+    oauthState: state.login.oauthState,
   };
 }
 
 const dispatchToProps = {
-  setStateToken,
+  setOAuthState,
 };
 
 export default connect(mapStateToProps, dispatchToProps)(LoginView);

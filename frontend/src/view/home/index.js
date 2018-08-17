@@ -1,12 +1,10 @@
 
+import LayoutConfig from '../app/LayoutConfig';
 import React from 'react';
-import TopBar from '../app/TopBar';
 
 const Home = () => (
   <div>
-    <TopBar>
-    </TopBar>
-
+    <LayoutConfig title="OPN Reports" />
     <h1>Home</h1>
     <p>Welcome home!</p>
   </div>
