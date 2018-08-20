@@ -15,6 +15,7 @@ import { openDrawer, closeDrawer, setSyncProgress } from '../../reducer/app';
 import { runSync } from '../../util/sync';
 import { withStyles } from '@material-ui/core/styles';
 import { callAPI } from '../../util/callapi';
+import { binder } from '../../util/binder';
 
 
 /* global process: false */
@@ -45,9 +46,7 @@ class OPNDrawer extends React.Component {
 
   constructor(props) {
     super(props);
-    this.bound = {
-      handleSync: this.handleSync.bind(this),
-    };
+    this.binder = binder(this);
     this.state = {
       selectableProfiles: {},
     };
@@ -107,7 +106,7 @@ class OPNDrawer extends React.Component {
       <List component="nav">
         <ListItem
           button
-          onClick={this.bound.handleSync}
+          onClick={this.binder('handleSync')}
           disabled={syncUI.disabled}
         >
           <ListItemIcon>

@@ -8,14 +8,8 @@ import { withRouter } from 'react-router';
 
 
 class OAuth2CallbackView extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {};
-  }
-
   componentDidMount() {
     const parsed = parse(window.location.hash);
-    this.setState({parsed});
     if (parsed.access_token && parsed.state === this.props.oauthState) {
       this.props.clearOAuthState();
       this.props.logIn(parsed.access_token);
