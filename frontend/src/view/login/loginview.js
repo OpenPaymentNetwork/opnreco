@@ -25,7 +25,7 @@ class LoginView extends React.Component {
 
     if (!deviceUUID || !oauthState) {
       // The random strings haven't been generated yet.
-      return <div>Preparing to log in...</div>;
+      return <div style={{opacity: '0.1'}}>Preparing to log in&hellip;</div>;
     }
 
     const url = (
@@ -34,18 +34,15 @@ class LoginView extends React.Component {
       encodeURIComponent(process.env.REACT_APP_OPN_CLIENT_ID) +
       '&response_type=token' +
       '&redirect_uri=' +
-      process.env.REACT_APP_URL + '/oauth2cb' +
+      encodeURIComponent(process.env.REACT_APP_URL + '/oauth2cb') +
       '&scope=' +
       encodeURIComponent(
         'mobile_device select_profile view_wallet ' +
         'view_history view_full_history') +
       '&name=OPNReport' +
-      '&uuid=' +
-      encodeURIComponent(deviceUUID) +
-      '&state=' +
-      encodeURIComponent(oauthState) +
-      '&force_login=' +
-      (forceLogin ? 'true' : 'false'));
+      '&uuid=' + encodeURIComponent(deviceUUID) +
+      '&state=' + encodeURIComponent(oauthState) +
+      (forceLogin ? '&force_login=true' : ''));
 
     return (
       <p>

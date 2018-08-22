@@ -10,6 +10,7 @@ import OPNAppBar from './OPNAppBar';
 import OPNDrawer from './OPNDrawer';
 import PropTypes from 'prop-types';
 import React from 'react';
+import ServerErrorDialog from './ServerErrorDialog';
 import TokenRefreshDialog from './TokenRefreshDialog';
 import { connect } from 'react-redux';
 import { Switch, Route } from 'react-router';
@@ -36,6 +37,7 @@ class App extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     loggingOut: PropTypes.bool.isRequired,
+    serverError: PropTypes.string,
     token: PropTypes.string,
     personalName: PropTypes.string,
     tokenRefresh: PropTypes.bool.isRequired,
@@ -52,7 +54,7 @@ class App extends React.Component {
       );
     }
 
-    const { classes, tokenRefresh, loggingOut } = this.props;
+    const { classes, tokenRefresh, loggingOut, serverError } = this.props;
 
     return (
       <div className={classes.root}>
@@ -64,11 +66,14 @@ class App extends React.Component {
             <Route exact path="/about-us" component={About} />
           </main>
         </div>
-        <Linger enabled={tokenRefresh}>
+        <Linger enabled={!!tokenRefresh}>
           <TokenRefreshDialog />
         </Linger>
-        <Linger enabled={loggingOut}>
+        <Linger enabled={!!loggingOut}>
           <LogoutDialog />
+        </Linger>
+        <Linger enabled={!!serverError}>
+          <ServerErrorDialog />
         </Linger>
       </div>
     );
@@ -79,6 +84,7 @@ class App extends React.Component {
 const mapStateToProps = (state) => ({
   loggingOut: state.app.loggingOut,
   personalName: state.login.personalName,
+  serverError: state.app.serverError,
   token: state.login.token,
   tokenRefresh: state.app.tokenRefresh,
 });

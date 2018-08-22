@@ -1,4 +1,5 @@
 
+from pyramid.httpexceptions import HTTPUnauthorized
 import datetime
 import logging
 import re
@@ -7,6 +8,16 @@ log = logging.getLogger(__name__)
 
 
 def check_requests_response(r, raise_exc=True):
+    if r.status_code == 401:
+        # Propagate Unauthorized errors.
+        kw = {}
+        try:
+            kw['json_body'] = r.json()
+        except Exception:
+            pass
+        response = HTTPUnauthorized(**kw)
+        raise response
+
     try:
         r.raise_for_status()
     except Exception as e:

@@ -18,7 +18,7 @@ export function binder(obj) {
 /* Return a function that binds object attributes along with a single argument.
  */
 export function binder1(obj) {
-  const bound = {};  // {name: Map {arg0: bound method}}
+  const bound = {};  // {name: Map of {arg0 -> bound method}}
 
   return (name, arg0) => {
     var map = bound[name];

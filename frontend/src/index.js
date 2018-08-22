@@ -4,7 +4,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import App from './view/app';
+import App from './view/app/App';
 import registerServiceWorker from './registerServiceWorker';
 import { store, persistor } from './store';
 import { Provider } from 'react-redux';

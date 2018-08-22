@@ -12,9 +12,8 @@ import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
 import Toolbar from '@material-ui/core/Toolbar';
 import { binder } from '../../util/binder';
-import { callOPNAPI } from '../../util/callapi';
+import { callOPNAPI, callOPNReportAPI } from '../../util/callapi';
 import { connect } from 'react-redux';
-import { runSync } from '../../util/sync';
 import { withStyles } from '@material-ui/core/styles';
 
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut }
@@ -45,6 +44,7 @@ class OPNDrawer extends React.Component {
     syncProgress: PropTypes.any,
     setSyncProgress: PropTypes.func.isRequired,
     callOPNAPI: PropTypes.func.isRequired,
+    callOPNReportAPI: PropTypes.func.isRequired,
     setLoggingOut: PropTypes.func.isRequired,
   };
 
@@ -94,10 +94,34 @@ class OPNDrawer extends React.Component {
   }
 
   handleSync() {
-    const { syncProgress } = this.props;
-    if (syncProgress === null) {
-      runSync(this.props.setSyncProgress);
+    const {
+      callOPNReportAPI,
+      syncProgress,
+      setSyncProgress,
+    } = this.props;
+
+    if (syncProgress !== null) {
+      // Already syncing.
+      return;
     }
+
+    const syncBatch = () => {
+      callOPNReportAPI('/sync', {method: 'post'}).then(status => {
+        if (status.more) {
+          setSyncProgress(status.progress_percent);
+          syncBatch();
+        } else {
+          // Done.
+          setSyncProgress(null);
+        }
+      }).catch(() => {
+        // An error occurred and has been reported.
+        setSyncProgress(null);
+      });
+    };
+
+    setSyncProgress(-1);
+    syncBatch();
   }
 
   handleSignOut() {
@@ -172,11 +196,12 @@ function mapStateToProps(state) {
 }
 
 const dispatchToProps = {
-  openDrawer,
-  closeDrawer,
-  setSyncProgress,
   callOPNAPI,
+  callOPNReportAPI,
+  closeDrawer,
+  openDrawer,
   setLoggingOut,
+  setSyncProgress,
 };
 
 export default withStyles(styles)(

@@ -51,7 +51,7 @@ class LogoutDialog extends React.Component {
   render() {
     return (
       <Dialog
-        open={this.props.loggingOut}
+        open={!!this.props.loggingOut}
         onClose={this.binder('handleCancel')}
         aria-labelledby="form-dialog-title"
       >

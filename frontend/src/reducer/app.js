@@ -18,7 +18,7 @@ const initialState = {
   syncProgress: null,
   serverError: null,
   tokenRefresh: false,
-  // refreshDeferreds is a list of actions waiting for refresh:
+  // refreshDeferreds is a list of actions waiting for token refresh:
   // [{resolve, reject}]
   refreshDeferreds: [],
   loggingOut: false,
@@ -39,7 +39,7 @@ export const setSyncProgress = (progress) => ({
 
 export const setServerError = (error) => ({
   type: SET_SERVER_ERROR,
-  payload: {error},
+  payload: {error: error ? String(error) : null},
 });
 
 export const tokenRefreshRequest = (deferred) => ({
