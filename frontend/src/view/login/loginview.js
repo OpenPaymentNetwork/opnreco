@@ -4,19 +4,28 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { setOAuthState } from '../../reducer/login';
+import { startOAuth } from '../../reducer/login';
 
 
 class LoginView extends React.Component {
 
+  static propTypes = {
+    deviceUUID: PropTypes.string,
+    forceLogin: PropTypes.bool,
+    oauthState: PropTypes.string,
+    startOAuth: PropTypes.func.isRequired,
+  };
+
   componentDidMount() {
-    this.props.setOAuthState();
+    this.props.startOAuth();
   }
 
   render() {
-    if (!this.props.deviceUUID || !this.props.oauthState) {
+    const {deviceUUID, oauthState, forceLogin} = this.props;
+
+    if (!deviceUUID || !oauthState) {
       // The random strings haven't been generated yet.
-      return <div>Setting up login...</div>;
+      return <div>Preparing to log in...</div>;
     }
 
     const url = (
@@ -32,33 +41,30 @@ class LoginView extends React.Component {
         'view_history view_full_history') +
       '&name=OPNReport' +
       '&uuid=' +
-      encodeURIComponent(this.props.deviceUUID) +
+      encodeURIComponent(deviceUUID) +
       '&state=' +
-      encodeURIComponent(this.props.oauthState));
+      encodeURIComponent(oauthState) +
+      '&force_login=' +
+      (forceLogin ? 'true' : 'false'));
 
     return (
       <p>
-        <a href={url}>Log in</a>
+        <a href={url}>Sign In</a>
       </p>
     );
   }
 }
 
-LoginView.propTypes = {
-  setOAuthState: PropTypes.func.isRequired,
-  deviceUUID: PropTypes.string,
-  oauthState: PropTypes.string,
-};
-
 function mapStateToProps(state) {
   return {
     deviceUUID: state.deviceuuid,
     oauthState: state.login.oauthState,
+    forceLogin: state.login.forceLogin,
   };
 }
 
 const dispatchToProps = {
-  setOAuthState,
+  startOAuth,
 };
 
 export default connect(mapStateToProps, dispatchToProps)(LoginView);

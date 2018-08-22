@@ -9,7 +9,11 @@ import { withRouter } from 'react-router';
 class LoginRedirect extends React.Component {
   componentDidMount() {
     const { history } = this.props;
-    this.props.setCameFrom(history.location);
+    if (history.location && history.location.pathName) {
+      this.props.setCameFrom(history.location.pathName);
+    } else {
+      this.props.setCameFrom('');
+    }
     history.push('/login');
   }
 

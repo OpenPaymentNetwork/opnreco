@@ -1,13 +1,16 @@
 
 import About from '../about';
 import Home from '../home';
+import Linger from '../../util/Linger';
 import LoginRedirect from '../login/loginredirect';
 import LoginView from '../login';
+import LogoutDialog from './LogoutDialog';
 import OAuth2CallbackView from '../login/oauth2cb';
 import OPNAppBar from './OPNAppBar';
 import OPNDrawer from './OPNDrawer';
 import PropTypes from 'prop-types';
 import React from 'react';
+import TokenRefreshDialog from './TokenRefreshDialog';
 import { connect } from 'react-redux';
 import { Switch, Route } from 'react-router';
 import { withRouter } from 'react-router';
@@ -32,11 +35,14 @@ const styles = theme => ({
 class App extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    loggingOut: PropTypes.bool.isRequired,
     token: PropTypes.string,
+    personalName: PropTypes.string,
+    tokenRefresh: PropTypes.bool.isRequired,
   };
 
   render() {
-    if (!this.props.token) {
+    if (!this.props.token || !this.props.personalName) {
       return (
         <Switch>
           <Route path="/login" component={LoginView} />
@@ -46,7 +52,7 @@ class App extends React.Component {
       );
     }
 
-    const { classes } = this.props;
+    const { classes, tokenRefresh, loggingOut } = this.props;
 
     return (
       <div className={classes.root}>
@@ -58,6 +64,12 @@ class App extends React.Component {
             <Route exact path="/about-us" component={About} />
           </main>
         </div>
+        <Linger enabled={tokenRefresh}>
+          <TokenRefreshDialog />
+        </Linger>
+        <Linger enabled={loggingOut}>
+          <LogoutDialog />
+        </Linger>
       </div>
     );
   }
@@ -65,7 +77,10 @@ class App extends React.Component {
 
 
 const mapStateToProps = (state) => ({
+  loggingOut: state.app.loggingOut,
+  personalName: state.login.personalName,
   token: state.login.token,
+  tokenRefresh: state.app.tokenRefresh,
 });
 
 

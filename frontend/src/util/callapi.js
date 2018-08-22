@@ -1,7 +1,8 @@
 
-import { logOut, tokenRefreshStart, tokenRefreshCancel }
-  from '../reducer/login';
-import { setServerError } from '../reducer/app';
+import { logOut } from '../reducer/login';
+
+import { tokenRefreshRequest, tokenRefreshCancel, setServerError }
+  from '../reducer/app';
 
 
 /* global process: false */
@@ -27,10 +28,6 @@ function checkAndParse(response) {
         const error = new Error(message);
         error.response = response;
         error.content = content;
-        if (typeof console !== 'undefined') {
-          /* eslint {"no-console": [0]} */
-          console.error(error);
-        }
         reject(error);
       }
     }
@@ -43,14 +40,12 @@ function checkAndParse(response) {
 }
 
 
-export const callAPI = (path, options = {}) => (dispatch, getState) => {
+export const callAPI = (url, options = {}) => (dispatch, getState) => {
 
   const state = getState();
 
-  const baseURL = process.env.REACT_APP_OPN_API_URL;
-  const url = baseURL + path;
-
-  const customAuth = options.headers && options.headers.Authorization;
+  const customAuth = options.customAuth || (
+    options.headers && options.headers.Authorization);
 
   const fetchOptions = {
     ...(options.fetchOptions || {}),
@@ -59,6 +54,18 @@ export const callAPI = (path, options = {}) => (dispatch, getState) => {
       ...(options.headers || {}),
     },
   };
+
+  if (options.data) {
+    fetchOptions.headers['Content-Type'] = 'application/json';
+    fetchOptions.body = JSON.stringify(options.data);
+    if (!options.method) {
+      fetchOptions.method = 'post';
+    }
+  }
+
+  if (options.method) {
+    fetchOptions.method = options.method;
+  }
 
   return new Promise((resolve, reject) => {
     function tryCall(token) {
@@ -71,12 +78,19 @@ export const callAPI = (path, options = {}) => (dispatch, getState) => {
         .then(resolve)
         .catch((error) => {
           if (token && error.response && error.response.status === 401) {
-            if (error.content && error.content.token_error &&
+            if (options.disableRefresh) {
+              // Instead of refreshing access tokens automatically,
+              // propagate Unauthorized errors to the caller.
+              reject(error);
+            } else if (error.content && error.content.token_error &&
                 error.content.token_error !== 'token_expired_soft') {
+              // Don't bother trying to refresh the access token. It won't
+              // work except when token_error is 'token_expired_soft'.
               dispatch(tokenRefreshCancel());
               dispatch(logOut());
               reject(error);
             } else {
+              // Try to refresh the access token.
               const deferred = {
                 resolve: (newToken) => {
                   tryCall(newToken);
@@ -85,7 +99,7 @@ export const callAPI = (path, options = {}) => (dispatch, getState) => {
                   reject(error);
                 },
               };
-              dispatch(tokenRefreshStart(deferred));
+              dispatch(tokenRefreshRequest(deferred));
             }
           } else if (!options.suppressErrorDialog) {
             let e = error;
@@ -103,3 +117,17 @@ export const callAPI = (path, options = {}) => (dispatch, getState) => {
     tryCall(options.token || state.login.token);
   });
 };
+
+
+export function callOPNAPI(path, options = {}) {
+  const baseURL = process.env.REACT_APP_OPN_API_URL;
+  const url = baseURL + path;
+  return callAPI(url, options);
+}
+
+
+export function callOPNReportAPI(path, options = {}) {
+  const baseURL = process.env.REACT_APP_OPNREPORT_API_URL;
+  const url = baseURL + path;
+  return callAPI(url, options);
+}

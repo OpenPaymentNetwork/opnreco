@@ -1,6 +1,7 @@
 
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
+import ExitToApp from '@material-ui/icons/ExitToApp';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
@@ -8,14 +9,16 @@ import ListItemText from '@material-ui/core/ListItemText';
 import PropTypes from 'prop-types';
 import React from 'react';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
-import SyncIcon from '@material-ui/icons/Sync';
+import Sync from '@material-ui/icons/Sync';
 import Toolbar from '@material-ui/core/Toolbar';
+import { binder } from '../../util/binder';
+import { callOPNAPI } from '../../util/callapi';
 import { connect } from 'react-redux';
-import { openDrawer, closeDrawer, setSyncProgress } from '../../reducer/app';
 import { runSync } from '../../util/sync';
 import { withStyles } from '@material-ui/core/styles';
-import { callAPI } from '../../util/callapi';
-import { binder } from '../../util/binder';
+
+import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut }
+  from '../../reducer/app';
 
 
 /* global process: false */
@@ -41,7 +44,8 @@ class OPNDrawer extends React.Component {
     closeDrawer: PropTypes.func.isRequired,
     syncProgress: PropTypes.any,
     setSyncProgress: PropTypes.func.isRequired,
-    callAPI: PropTypes.func.isRequired,
+    callOPNAPI: PropTypes.func.isRequired,
+    setLoggingOut: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -53,7 +57,7 @@ class OPNDrawer extends React.Component {
   }
 
   componentDidMount() {
-    this.props.callAPI('/token/selectable').then(selectableProfiles => {
+    this.props.callOPNAPI('/token/selectable').then(selectableProfiles => {
       return null;
     });
   }
@@ -62,7 +66,7 @@ class OPNDrawer extends React.Component {
     const { syncProgress } = this.props;
     if (syncProgress === null) {
       return {
-        icon: <SyncIcon />,
+        icon: <Sync />,
         label: <span>Sync with OPN</span>,
       };
     }
@@ -96,6 +100,10 @@ class OPNDrawer extends React.Component {
     }
   }
 
+  handleSignOut() {
+    this.props.setLoggingOut(true);
+  }
+
   renderContent() {
     const syncUI = this.getSyncUI();
     return (<div>
@@ -114,6 +122,17 @@ class OPNDrawer extends React.Component {
           </ListItemIcon>
           <ListItemText primary={syncUI.label} />
         </ListItem>
+
+        <ListItem
+          button
+          onClick={this.binder('handleSignOut')}
+        >
+          <ListItemIcon>
+            <ExitToApp />
+          </ListItemIcon>
+          <ListItemText primary="Sign Out" />
+        </ListItem>
+
       </List>
     </div>);
   }
@@ -156,7 +175,8 @@ const dispatchToProps = {
   openDrawer,
   closeDrawer,
   setSyncProgress,
-  callAPI,
+  callOPNAPI,
+  setLoggingOut,
 };
 
 export default withStyles(styles)(

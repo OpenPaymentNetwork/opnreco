@@ -4,32 +4,45 @@ import { createReducer, makeRandomUUID } from './common';
 const LOG_OUT = 'login/LOG_OUT';
 const LOG_IN = 'login/LOG_IN';
 const SET_CAME_FROM = 'login/SET_CAME_FROM';
-const SET_OAUTH_STATE = 'login/SET_OAUTH_STATE';
+const START_OAUTH = 'login/START_OAUTH';
 const CLEAR_OAUTH_STATE = 'login/CLEAR_OAUTH_STATE';
-const TOKEN_REFRESH_START = 'login/TOKEN_REFRESH_START';
-const TOKEN_REFRESH_SUCCESS = 'login/TOKEN_REFRESH_SUCCESS';
-const TOKEN_REFRESH_CANCEL = 'login/TOKEN_REFRESH_CANCEL';
+
+// Note: the login state is persistent, so only the small amount of state
+// that should persist between sesssions should be stored here.
+//
+// 'token' is persistent so we remember who was logged in.
+//
+// 'personalName' is persistent so we can display the name of who was
+// logged in when asking for the password to refresh the access token.
+//
+// 'oauthState' and 'cameFrom' are persistent so they can be recalled after
+// OPN redirects to this app/site after successful OAuth.
+//
+// 'forceLogin', when true, indicates the user explicitly logged out
+// and they should re-enter their web credentials at OPN.
 
 const initialState = {
   token: '',
-  tokenRefresh: false,
-  deferreds: [],  // List of actions waiting for refresh: [{resolve, reject}]
+  personalName: '',  // Name of the logged in personal profile
+  oauthState: '',
+  cameFrom: '',
+  forceLogin: false,
 };
 
 export const logOut = () => ({type: LOG_OUT});
 
-export const logIn = (token) => ({
+export const logIn = (token, personalName) => ({
   type: LOG_IN,
-  payload: {token},
+  payload: {token, personalName},
 });
 
-export const setCameFrom = (location) => ({
+export const setCameFrom = (pathName) => ({
   type: SET_CAME_FROM,
-  payload: {location},
+  payload: {pathName},
 });
 
-export const setOAuthState = () => ({
-  type: SET_OAUTH_STATE,
+export const startOAuth = () => ({
+  type: START_OAUTH,
   payload: {oauthState: makeRandomUUID()},
 });
 
@@ -37,72 +50,31 @@ export const clearOAuthState = () => ({
   type: CLEAR_OAUTH_STATE,
 });
 
-export const tokenRefreshStart = (deferred) => ({
-  type: TOKEN_REFRESH_START,
-  payload: {deferred},
-});
-
-export const tokenRefreshSuccess = (newToken) => (dispatch, getState) => {
-  const deferreds = getState().tokenRefresh.deferreds;
-  for (let i = 0; i < deferreds.length; i++) {
-    const d = deferreds[i];
-    if (d && d.resolve) {
-      d.resolve(newToken);
-    }
-  }
-  dispatch({type: TOKEN_REFRESH_SUCCESS});
-};
-
-export const tokenRefreshCancel = () => (dispatch, getState) => {
-  const deferreds = getState().tokenRefresh.deferreds;
-  for (let i = 0; i < deferreds.length; i++) {
-    const d = deferreds[i];
-    if (d && d.reject) {
-      d.reject('cancel');
-    }
-  }
-  dispatch({type: TOKEN_REFRESH_CANCEL});
-};
-
 const actionHandlers = {
-  [LOG_OUT]: () => initialState,
+  [LOG_OUT]: () => ({...initialState, forceLogin: true}),
 
-  [LOG_IN]: (state, {payload: {token}}) => ({
+  [LOG_IN]: (state, {payload: {token, personalName}}) => ({
     ...state,
     token,
+    personalName,
+    forceLogin: false,
   }),
 
-  [SET_CAME_FROM]: (state, {payload: {location}}) => ({
+  [SET_CAME_FROM]: (state, {payload: {pathName}}) => ({
     ...state,
-    cameFrom: location.pathName,
+    cameFrom: pathName,
   }),
 
-  [SET_OAUTH_STATE]: (state, {payload: {oauthState}}) => ({
+  [START_OAUTH]: (state, {payload: {oauthState}}) => ({
     ...state,
+    token: '',
+    personalName: '',
     oauthState,
   }),
 
   [CLEAR_OAUTH_STATE]: (state) => ({
     ...state,
     oauthState: undefined,
-  }),
-
-  [TOKEN_REFRESH_START]: (state, {payload: {deferred}}) => ({
-    ...state,
-    refresh: true,
-    deferreds: [...(state.deferreds || []), deferred],
-  }),
-
-  [TOKEN_REFRESH_SUCCESS]: (state) => ({
-    ...state,
-    tokenRefresh: false,
-    deferreds: [],
-  }),
-
-  [TOKEN_REFRESH_CANCEL]: (state) => ({
-    ...state,
-    tokenRefresh: false,
-    deferreds: [],
   }),
 };
 
