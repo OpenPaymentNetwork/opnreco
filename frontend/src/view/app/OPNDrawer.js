@@ -2,6 +2,7 @@
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
+import { FormattedRelative } from 'react-intl';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
@@ -37,15 +38,16 @@ const iOS = process.browser && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 class OPNDrawer extends React.Component {
   static propTypes = {
-    classes: PropTypes.object.isRequired,
-    drawerOpen: PropTypes.bool,
-    openDrawer: PropTypes.func.isRequired,
-    closeDrawer: PropTypes.func.isRequired,
-    syncProgress: PropTypes.any,
-    setSyncProgress: PropTypes.func.isRequired,
     callOPNAPI: PropTypes.func.isRequired,
     callOPNReportAPI: PropTypes.func.isRequired,
+    classes: PropTypes.object.isRequired,
+    closeDrawer: PropTypes.func.isRequired,
+    drawerOpen: PropTypes.bool,
+    openDrawer: PropTypes.func.isRequired,
     setLoggingOut: PropTypes.func.isRequired,
+    setSyncProgress: PropTypes.func.isRequired,
+    syncedAt: PropTypes.any,
+    syncProgress: PropTypes.any,
   };
 
   constructor(props) {
@@ -57,24 +59,38 @@ class OPNDrawer extends React.Component {
   }
 
   componentDidMount() {
+    if (!this.props.syncedAt && !this.props.syncProgress) {
+      // Start an automatic sync.
+      window.setTimeout(() => this.handleSync(), 0);
+    }
     this.props.callOPNAPI('/token/selectable').then(selectableProfiles => {
       return null;
     });
   }
 
   getSyncUI() {
-    const { syncProgress } = this.props;
+    const { syncProgress, syncedAt } = this.props;
     if (syncProgress === null) {
-      return {
-        icon: <Sync />,
-        label: <span>Sync with OPN</span>,
-      };
+      if (!syncedAt) {
+        return {
+          icon: <Sync />,
+          primary: 'Sync with OPN',
+          secondary: 'Not yet synced',
+        };
+      } else {
+        return {
+          icon: <Sync />,
+          primary: 'Synced with OPN',
+          secondary: <FormattedRelative value={syncedAt} />,
+        };
+      }
     }
 
     if (syncProgress < 0) {
       return {
         icon: <CircularProgress size={24} />,
-        label: <span>Syncing</span>,
+        primary: 'Syncing',
+        secondary: <span>Connecting&hellip;</span>,
         disabled: true,
       };
     }
@@ -88,7 +104,8 @@ class OPNDrawer extends React.Component {
           variant="indeterminate"
           value={Math.min(syncProgress, 100)}
         />),
-      label: <span>Syncing ({syncProgress}%)</span>,
+      primary: 'Syncing',
+      secondary: <span>{syncProgress}%</span>,
       disabled: true,
     };
   }
@@ -112,10 +129,10 @@ class OPNDrawer extends React.Component {
           syncBatch();
         } else {
           // Done.
-          setSyncProgress(null);
+          setSyncProgress(null, new Date());
         }
       }).catch(() => {
-        // An error occurred and has been reported.
+        // An error occurred and has been shown to the user.
         setSyncProgress(null);
       });
     };
@@ -144,7 +161,9 @@ class OPNDrawer extends React.Component {
           <ListItemIcon>
             {syncUI.icon}
           </ListItemIcon>
-          <ListItemText primary={syncUI.label} />
+          <ListItemText
+            primary={syncUI.primary}
+            secondary={syncUI.secondary} />
         </ListItem>
 
         <ListItem
@@ -192,6 +211,7 @@ function mapStateToProps(state) {
   return {
     drawerOpen: state.app.drawerOpen,
     syncProgress: state.app.syncProgress,
+    syncedAt: state.app.syncedAt,
   };
 }
 

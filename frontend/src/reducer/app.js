@@ -22,6 +22,7 @@ const initialState = {
   // [{resolve, reject}]
   refreshDeferreds: [],
   loggingOut: false,
+  syncedAt: null,
 };
 
 export const openDrawer = () => ({type: OPEN_DRAWER});
@@ -32,9 +33,9 @@ export const toggleDrawer = () => ({type: TOGGLE_DRAWER});
 
 export const setLayout = (layout) => ({type: SET_LAYOUT, payload: {layout}});
 
-export const setSyncProgress = (progress) => ({
+export const setSyncProgress = (progress, syncedAt) => ({
   type: SET_SYNC_PROGRESS,
-  payload: {progress},
+  payload: {progress, syncedAt},
 });
 
 export const setServerError = (error) => ({
@@ -83,9 +84,10 @@ const actionHandlers = {
 
   [SET_LAYOUT]: (state, {payload: {layout}}) => ({...state, layout}),
 
-  [SET_SYNC_PROGRESS]: (state, {payload: {progress}}) => ({
+  [SET_SYNC_PROGRESS]: (state, {payload: {progress, syncedAt}}) => ({
     ...state,
     syncProgress: progress,
+    syncedAt: syncedAt || state.syncedAt,
   }),
 
   [SET_SERVER_ERROR]: (state, {payload: {error}}) => ({
