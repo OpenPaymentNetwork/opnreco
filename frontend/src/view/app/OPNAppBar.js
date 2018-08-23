@@ -7,6 +7,7 @@ import React from 'react';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
 import { withStyles } from '@material-ui/core/styles';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { toggleDrawer } from '../../reducer/app';
 
@@ -68,5 +69,7 @@ const dispatchToProps = {
 };
 
 
-export default withStyles(styles)(
-  connect(mapStateToProps, dispatchToProps)(OPNAppBar));
+export default compose(
+  withStyles(styles),
+  connect(mapStateToProps, dispatchToProps),
+)(OPNAppBar);

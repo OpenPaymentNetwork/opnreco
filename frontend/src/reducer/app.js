@@ -13,16 +13,16 @@ const TOKEN_REFRESH_CANCEL = 'app/TOKEN_REFRESH_CANCEL';
 const SET_LOGGING_OUT = 'app/SET_LOGGING_OUT';
 
 const initialState = {
+  // [{resolve, reject}]
+  // refreshDeferreds is a list of actions waiting for token refresh:
   drawerOpen: false,
   layout: {},
-  syncProgress: null,
-  serverError: null,
-  tokenRefresh: false,
-  // refreshDeferreds is a list of actions waiting for token refresh:
-  // [{resolve, reject}]
-  refreshDeferreds: [],
   loggingOut: false,
+  refreshDeferreds: [],
+  serverError: null,
   syncedAt: null,
+  syncProgress: null,
+  tokenRefresh: false,
 };
 
 export const openDrawer = () => ({type: OPEN_DRAWER});

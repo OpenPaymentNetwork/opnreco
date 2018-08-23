@@ -14,8 +14,8 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Visibility from '@material-ui/icons/Visibility';
 import VisibilityOff from '@material-ui/icons/VisibilityOff';
-import withMobileDialog from '@material-ui/core/withMobileDialog';
 import { binder } from '../../util/binder';
+import { compose } from '../../util/functional';
 import { callOPNAPI } from '../../util/callapi';
 import { connect } from 'react-redux';
 import { logIn, logOut } from '../../reducer/login';
@@ -31,7 +31,6 @@ class TokenRefreshDialog extends React.Component {
   static propTypes = {
     callOPNAPI: PropTypes.func.isRequired,
     classes: PropTypes.object.isRequired,
-    fullScreen: PropTypes.bool.isRequired,
     logIn: PropTypes.func.isRequired,
     logOut: PropTypes.func.isRequired,
     personalName: PropTypes.string,
@@ -100,7 +99,7 @@ class TokenRefreshDialog extends React.Component {
   }
 
   render() {
-    const { fullScreen, personalName } = this.props;
+    const { personalName } = this.props;
 
     let welcome;
     if (personalName) {
@@ -118,12 +117,11 @@ class TokenRefreshDialog extends React.Component {
       <Dialog
         open={this.props.tokenRefresh}
         aria-labelledby="form-dialog-title"
-        fullScreen={fullScreen}
       >
-        <DialogTitle>Password</DialogTitle>
+        <DialogTitle>OPN Password</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {welcome}. Please enter your PIN or password.
+            {welcome}. Please enter your password.
           </DialogContentText>
           <FormControl fullWidth error={!!this.state.error}>
             <Input
@@ -177,8 +175,7 @@ const dispatchToProps = {
 };
 
 
-// withRouter() seems to be required for any component containing Routes. See:
-// https://github.com/ReactTraining/react-router/issues/4671
-export default withMobileDialog()(
-  withStyles(styles)(
-    connect(mapStateToProps, dispatchToProps)(TokenRefreshDialog)));
+export default compose(
+  withStyles(styles),
+  connect(mapStateToProps, dispatchToProps),
+)(TokenRefreshDialog);

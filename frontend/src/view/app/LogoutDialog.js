@@ -8,6 +8,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import PropTypes from 'prop-types';
 import React from 'react';
 import { binder } from '../../util/binder';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { logOut } from '../../reducer/login';
 import { tokenRefreshCancel, setLoggingOut } from '../../reducer/app';
@@ -87,6 +88,8 @@ const dispatchToProps = {
 };
 
 
-export default withRouter(
-  withStyles(styles)(
-    connect(mapStateToProps, dispatchToProps)(LogoutDialog)));
+export default compose(
+  withRouter,
+  withStyles(styles),
+  connect(mapStateToProps, dispatchToProps),
+)(LogoutDialog);

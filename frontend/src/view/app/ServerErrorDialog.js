@@ -8,6 +8,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import PropTypes from 'prop-types';
 import React from 'react';
 import { binder } from '../../util/binder';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { setServerError } from '../../reducer/app';
 import { withStyles } from '@material-ui/core/styles';
@@ -68,5 +69,7 @@ const dispatchToProps = {
 };
 
 
-export default withStyles(styles)(
-  connect(mapStateToProps, dispatchToProps)(ServerErrorDialog));
+export default compose(
+  withStyles(styles),
+  connect(mapStateToProps, dispatchToProps),
+)(ServerErrorDialog);

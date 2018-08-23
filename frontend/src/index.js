@@ -27,7 +27,7 @@ const target = document.getElementById('root');
 ReactDOM.render(
   (
     <Provider store={store}>
-      <IntlProvider defaultLocale="en-US">
+      <IntlProvider locale="en-US">
         <PersistGate loading={null} persistor={persistor}>
           <RouterClass>
             <App />

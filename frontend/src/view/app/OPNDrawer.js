@@ -2,7 +2,6 @@
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
-import { FormattedRelative } from 'react-intl';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
@@ -14,7 +13,9 @@ import Sync from '@material-ui/icons/Sync';
 import Toolbar from '@material-ui/core/Toolbar';
 import { binder } from '../../util/binder';
 import { callOPNAPI, callOPNReportAPI } from '../../util/callapi';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { FormattedRelative } from 'react-intl';
 import { withStyles } from '@material-ui/core/styles';
 
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut }
@@ -151,7 +152,7 @@ class OPNDrawer extends React.Component {
       <Toolbar>
         (Profile selector here)
       </Toolbar>
-      <Divider />
+      <Divider style={{marginTop: -1}} />
       <List component="nav">
         <ListItem
           button
@@ -224,5 +225,7 @@ const dispatchToProps = {
   setSyncProgress,
 };
 
-export default withStyles(styles)(
-  connect(mapStateToProps, dispatchToProps)(OPNDrawer));
+export default compose(
+  withStyles(styles),
+  connect(mapStateToProps, dispatchToProps),
+)(OPNDrawer);

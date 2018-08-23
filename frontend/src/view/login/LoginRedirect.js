@@ -2,6 +2,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { setCameFrom } from '../../reducer/login';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 
@@ -31,4 +32,7 @@ const dispatchToProps = {
   setCameFrom,
 };
 
-export default withRouter(connect(null, dispatchToProps)(LoginRedirect));
+export default compose(
+  withRouter,
+  connect(null, dispatchToProps),
+)(LoginRedirect);

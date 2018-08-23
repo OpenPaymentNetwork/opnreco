@@ -1,17 +1,18 @@
 
 import About from '../about';
-import Home from '../home';
+import Home from '../home/Home';
 import Linger from '../../util/Linger';
-import LoginRedirect from '../login/loginredirect';
-import LoginView from '../login';
+import LoginRedirect from '../login/LoginRedirect';
+import LoginView from '../login/LoginView';
 import LogoutDialog from './LogoutDialog';
-import OAuth2CallbackView from '../login/oauth2cb';
+import OAuth2CallbackView from '../login/OAuth2CallbackView';
 import OPNAppBar from './OPNAppBar';
 import OPNDrawer from './OPNDrawer';
 import PropTypes from 'prop-types';
 import React from 'react';
 import ServerErrorDialog from './ServerErrorDialog';
 import TokenRefreshDialog from './TokenRefreshDialog';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { Switch, Route } from 'react-router';
 import { withRouter } from 'react-router';
@@ -28,7 +29,6 @@ const styles = theme => ({
     backgroundColor: theme.palette.background.default,
   },
   main: {
-    padding: theme.spacing.unit * 2,
   },
 });
 
@@ -62,8 +62,10 @@ class App extends React.Component {
         <div className={classes.belowAppBar}>
           <OPNDrawer />
           <main className={classes.main}>
-            <Route exact path="/" component={Home} />
-            <Route exact path="/about-us" component={About} />
+            <Switch>
+              <Route path="/about-us" component={About} />
+              <Route path="/:tab(|reco|transactions|liabilities)" component={Home} />
+            </Switch>
           </main>
         </div>
         <Linger enabled={!!tokenRefresh}>
@@ -92,5 +94,8 @@ const mapStateToProps = (state) => ({
 
 // withRouter() seems to be required for any component containing Routes. See:
 // https://github.com/ReactTraining/react-router/issues/4671
-export default withStyles(styles, { withTheme: true })(
-  withRouter(connect(mapStateToProps)(App)));
+export default compose(
+  withStyles(styles, { withTheme: true }),
+  withRouter,
+  connect(mapStateToProps),
+)(App);
