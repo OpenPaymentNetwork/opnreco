@@ -103,8 +103,6 @@ class TransferRecord(Base):
     recipient_uid = Column(Unicode, nullable=True)    # May change
     recipient_title = Column(Unicode, nullable=True)  # May change
 
-    movement_lists = Column(JSONB, nullable=False)    # Append-only
-
     profile = backref(Profile)
 
 
@@ -125,79 +123,83 @@ class TransferDownloadRecord(Base):
         BigInteger, ForeignKey('transfer_record.id'),
         nullable=False, primary_key=True)
     transfer_id = Column(String, nullable=False)
-    movement_list_index = Column(Integer, nullable=False)
     changed = Column(JSONB, nullable=False)
 
     opn_download = backref(OPNDownload)
     transfer_record = backref(TransferRecord)
 
 
-class MovementSummary(Base):
-    """The summary of some movements in a transfer applied to the profile.
-
-    A MovementSummary is the unit of reconciliation on the OPN side.
-    """
-    __tablename__ = 'movement_summary'
-    id = Column(BigInteger, nullable=False, primary_key=True)
-    transfer_record_id = Column(
-        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
-
-    # Note: next_activity is for debugging only. Do not
-    # rely on it having perfectly predictable values.
-    next_activity = Column(String, nullable=False)
-
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
-    account_id = Column(String, nullable=False)
-
-    # movement_list_index specifies which movement list in the TransferRecord
-    # this summary is based on. If more movements happen later, we'll add
-    # another MovementSummary that offsets the previous MovementSummary.
-    movement_list_index = Column(Integer, nullable=False)
-
-    loop_id = Column(String, nullable=False)
-    currency = Column(String(3), nullable=False)
-
-    # The delta is positive for movements into the wallet or vault
-    # or negative for movements out of the wallet or vault.
-    delta = Column(Numeric, nullable=False)
-
-    # A MovementSummary must be assigned to zero or one RecoEntry.
-    reco_entry_id = Column(
-        BigInteger, ForeignKey('reco_entry.id'), nullable=True)
-
-    transfer_record = backref(TransferRecord)
-
-
-Index(
-    'ix_movement_summary_by_transfer',
-    MovementSummary.transfer_record_id,
-    MovementSummary.movement_list_index,
-    unique=True)
-
-
-class Account(Base):
-    """An account that a profile can reconcile with.
+class Mirror(Base):
+    """A mirror money location that a profile can reconcile with.
 
     Represents an account at a DFI, someone else's wallet, or the
     amount put into circulation by an issuer.
     """
-    __tablename__ = 'account'
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, primary_key=True)
-    # account_id is either a holder ID or the letter 'c' for circulating.
-    account_id = Column(String, nullable=False, primary_key=True)
+    __tablename__ = 'mirror'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
+    # opn_holder_id is either a holder ID or the letter 'c' for circulating.
+    opn_holder_id = Column(String, nullable=False)
     title = Column(Unicode, nullable=True)
 
     profile = backref(Profile)
 
 
-class AccountBalance(Base):
-    """A record of an account's balance at the start of a day."""
-    __tablename__ = 'account_balance'
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, primary_key=True)
-    account_id = Column(String, nullable=False, primary_key=True)
+Index(
+    'ix_mirror_unique',
+    Mirror.profile_id,
+    Mirror.opn_holder_id,
+    unique=True)
+
+
+class Movement(Base):
+    """A movement in a transfer applied to the profile.
+
+    Note: once created, movement rows never change.
+    """
+    __tablename__ = 'movement'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    transfer_record_id = Column(
+        BigInteger, ForeignKey('transfer_record.id'),
+        nullable=False, index=True)
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'),
+        nullable=False, index=True)
+
+    loop_id = Column(String, nullable=False)
+    currency = Column(String(3), nullable=False)
+    action = Column(String, nullable=False)
+    ts = Column(DateTime, nullable=False)  # UTC
+
+    # The delta is positive for movements into the wallet or vault
+    # or negative for movements out of the wallet or vault.
+    delta = Column(Numeric, nullable=False)
+
+    transfer_record = backref(TransferRecord)
+    mirror = backref(Mirror)
+
+
+class MovementEvent(Base):
+    """Historical record of changes to a movement"""
+    __tablename__ = 'movement_event'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'),
+        nullable=False, index=True)
+    ts = Column(DateTime, nullable=True)
+    profile_id = Column(String, nullable=False)
+    comment = Column(Unicode, nullable=True)
+    reco_entry_id = Column(BigInteger, nullable=True)
+
+    movement = backref(Movement)
+
+
+class MirrorBalance(Base):
+    """A record of a mirror's balance at the start of a day."""
+    __tablename__ = 'mirror_balance'
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'),
+        nullable=False, primary_key=True)
     loop_id = Column(String, nullable=False, primary_key=True)
     currency = Column(String(3), nullable=False, primary_key=True)
     day = Column(Date, nullable=False, primary_key=True)
@@ -206,28 +208,29 @@ class AccountBalance(Base):
     profile = backref(Profile)
 
 
-class AccountStatement(Base):
-    """A statement of movement to/from an account."""
-    __tablename__ = 'account_statement'
+class MirrorStatement(Base):
+    """A statement of movements to/from a mirror."""
+    __tablename__ = 'mirror_statement'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
-    account_id = Column(String, nullable=False)
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'),
+        nullable=False, index=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
     profile = backref(Profile)
 
 
-class AccountEntry(Base):
-    """The account side of a RecoEntry."""
-    __tablename__ = 'account_entry'
+class MirrorEntry(Base):
+    """An entry in a mirror account statement."""
+    __tablename__ = 'mirror_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
-    account_id = Column(String, nullable=False)
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'),
+        nullable=False, index=True)
+
     statement_id = Column(
-        BigInteger, ForeignKey('account_statement.id'),
+        BigInteger, ForeignKey('mirror_statement.id'),
         nullable=True, index=True)
     statement_ref = Column(JSONB, nullable=True)
     entry_date = Column(Date, nullable=False)
@@ -241,59 +244,97 @@ class AccountEntry(Base):
     # the bank's liability account.
     delta = Column(Numeric, nullable=False)
 
-    # An AccountEntry must be assigned to zero or one RecoEntry.
-    reco_entry_id = Column(
-        BigInteger, ForeignKey('reco_entry.id'), nullable=True)
-
     # desc contains descriptive info provided by the bank.
     desc = Column(JSONB, nullable=False)
 
     profile = backref(Profile)
-    statement = backref(AccountStatement)
+    statement = backref(MirrorStatement)
+
+
+class MirrorEntryEvent(Base):
+    """Historical record of changes to a mirror entry"""
+    __tablename__ = 'mirror_entry_event'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    mirror_entry_id = Column(
+        BigInteger, ForeignKey('mirror_entry.id'),
+        nullable=False, index=True)
+    ts = Column(DateTime, nullable=True)
+    profile_id = Column(String, nullable=False)
+
+    comment = Column(Unicode, nullable=True)
+    reco_entry_id = Column(BigInteger, nullable=True)
+
+    # Attributes of MirrorEntry that may change:
+    statement_id = Column(BigInteger, nullable=True)
+    statement_ref = Column(JSONB, nullable=True)
+    entry_date = Column(Date, nullable=True)
+    loop_id = Column(String, nullable=True)
+    currency = Column(String(3), nullable=True)
+    delta = Column(Numeric, nullable=True)
+    desc = Column(JSONB, nullable=True)
+
+    mirror_entry = backref(MirrorEntry)
 
 
 class RecoEntry(Base):
-    """A reconciliation entry matches a movement summary with an account entry.
+    """A reconciliation entry matches a movement with a mirror entry.
 
-    The linked movement summary and linked account entry must have matching
-    currency and loop_id values. The deltas must match if the account entry
-    is for the wallet (because the money is sent from or received into the
-    wallet); the deltas must be negatives of each other if the
-    account entry is for the vault (because the money is sent from or received
-    into someone else's wallet.)
+    The linked movements and mirror entries must have matching
+    currency and loop_id values. The total deltas must be equal if the
+    movements are sent from or received into the
+    wallet; the total deltas must be negatives of each other if the
+    movements are sent from or received into the vault.
 
     A RecoEntry may be marked as reconciled externally, in which case the
-    movement summary or account entry may be permanently missing.
+    movement summary or mirror entry may be permanently missing.
     """
     __tablename__ = 'reco_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
-    account_id = Column(String, nullable=False)
-    movement_summary_id = Column(
-        BigInteger, ForeignKey('movement_summary.id'),
-        nullable=True, index=True)
-    account_entry_id = Column(
-        BigInteger, ForeignKey('account_entry.id'), nullable=True, index=True)
-    comment = Column(Unicode, nullable=True)
-    reco_ts = Column(DateTime, nullable=True)
-    reco_by = Column(String, nullable=True)
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'),
+        nullable=False, index=True)
+    # entry_date is copied from a mirror statement.
+    entry_date = Column(Date, nullable=False)
+
+    # Note: hidden reconciliations are generated for internal OPN note
+    # movements such as swaps, splits, divisions, and unifications.
+    hidden = Column(Boolean, nullable=False)
 
     profile = backref(Profile)
-    movement_summary = backref(MovementSummary)
-    account_entry = backref(AccountEntry)
+    mirror = backref(Mirror)
 
 
-class RecoEntryEvent(Base):
-    """Log of an event related to a RecoEntry"""
-    __tablename__ = 'reco_entry_event'
-    id = Column(BigInteger, nullable=False, primary_key=True)
-    ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
+class MovementReco(Base):
+    """Association of a movement to a RecoEntry.
+
+    A movement can be connected to only one RecoEntry, but a RecoEntry
+    can be connected to multiple movements.
+    """
+    __tablename__ = 'movement_reco'
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'),
+        nullable=False, primary_key=True)
     reco_entry_id = Column(
-        BigInteger, ForeignKey('reco_entry.id'), nullable=False, index=True)
-    event_type = Column(String, nullable=False)
-    memo = Column(JSONB, nullable=False)
+        BigInteger, ForeignKey('reco_entry.id'), nullable=True, index=True)
 
+    movement = backref(Movement)
+    reco_entry = backref(RecoEntry)
+
+
+class MirrorEntryReco(Base):
+    """Association of a MirrorEntry to a RecoEntry.
+
+    A MirrorEntry can be connected to only one RecoEntry, but a RecoEntry
+    can be connected to multiple MirrorEntry rows.
+    """
+    __tablename__ = 'mirror_entry_reco'
+    mirror_entry_id = Column(
+        BigInteger, ForeignKey('mirror_entry.id'),
+        nullable=False, primary_key=True)
+    reco_entry_id = Column(
+        BigInteger, ForeignKey('reco_entry.id'), nullable=True, index=True)
+
+    mirror_entry = backref(MirrorEntry)
     reco_entry = backref(RecoEntry)
 
 
