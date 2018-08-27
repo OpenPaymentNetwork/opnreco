@@ -3,6 +3,7 @@ import FormControl from '@material-ui/core/FormControl';
 import InputLabel from '@material-ui/core/InputLabel';
 import LayoutConfig from '../app/LayoutConfig';
 import MenuItem from '@material-ui/core/MenuItem';
+import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Select from '@material-ui/core/Select';
@@ -14,16 +15,32 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 
 
-const styles = {
+const styles = theme => ({
+  homeMain: {
+    position: 'relative',
+  },
+  topLine: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    backgroundColor: theme.palette.primary.light,
+    color: '#fff',
+  },
   filterContainer: {
     display: 'flex',
+    float: 'right',
     justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap-reverse',
+    padding: '0 8',
+    margin: 16,
   },
   filterControlBox: {
-    padding: '8px 16px',
+    padding: 16,
   },
-};
+  tabs: {
+    flexGrow: '1',
+  },
+});
 
 
 class Home extends React.Component {
@@ -43,7 +60,7 @@ class Home extends React.Component {
   }
 
   render() {
-    const {match} = this.props;
+    const {classes, match} = this.props;
 
     const filterControls = this.renderFilterControls();
 
@@ -51,23 +68,24 @@ class Home extends React.Component {
     const tabContent = this.renderTabContent(tab);
 
     return (
-      <div>
+      <div className={classes.homeMain}>
         <LayoutConfig title="OPN Reports" />
 
-        {filterControls}
+        <div className={classes.topLine}>
+          <Tabs
+            className={classes.tabs}
+            value={tab}
+            scrollable
+            scrollButtons="auto"
+            onChange={this.binder('handleTabChange')}
+          >
+            <Tab value="reco" label="Reconciliation" />
+            <Tab value="transactions" label="Transactions" />
+            <Tab value="liabilities" label="Liabilities" />
+          </Tabs>
 
-        <Tabs
-          indicatorColor="primary"
-          textColor="primary"
-          value={tab}
-          scrollable
-          scrollButtons="auto"
-          onChange={this.binder('handleTabChange')}
-        >
-          <Tab value="reco" label="Reconciliation" />
-          <Tab value="transactions" label="Transactions" />
-          <Tab value="liabilities" label="Liabilities" />
-        </Tabs>
+          {filterControls}
+        </div>
 
         {tabContent}
       </div>
@@ -77,15 +95,51 @@ class Home extends React.Component {
   renderFilterControls() {
     const {classes} = this.props;
     return (
-      <div className={classes.filterContainer}>
+      <Paper className={classes.filterContainer}>
         <div className={classes.filterControlBox}>
-          Account
+          <FormControl>
+            <InputLabel htmlFor="filter-account">Account</InputLabel>
+            <Select
+              value="c"
+              inputProps={{
+                id: 'filter-account',
+              }}
+            >
+              <MenuItem value="c">Circulation</MenuItem>
+              <MenuItem value="201">XXXX35 at Zions Bank</MenuItem>
+              <MenuItem value="all">All</MenuItem>
+            </Select>
+          </FormControl>
         </div>
         <div className={classes.filterControlBox}>
-          Design
+          <FormControl>
+            <InputLabel htmlFor="filter-loop">Cash design</InputLabel>
+            <Select
+              value="0"
+              inputProps={{
+                id: 'filter-loop',
+              }}
+            >
+              <MenuItem value="0">Open loop</MenuItem>
+              <MenuItem value="42">Magrathean Cash</MenuItem>
+              <MenuItem value="all">All</MenuItem>
+            </Select>
+          </FormControl>
         </div>
         <div className={classes.filterControlBox}>
-          Currency
+          <FormControl>
+            <InputLabel htmlFor="filter-currency">Currency</InputLabel>
+            <Select
+              value="USD"
+              inputProps={{
+                id: 'filter-currency',
+              }}
+            >
+              <MenuItem value="USD">USD</MenuItem>
+              <MenuItem value="MXN">MXN</MenuItem>
+              <MenuItem value="all">All</MenuItem>
+            </Select>
+          </FormControl>
         </div>
         <div className={classes.filterControlBox}>
           <FormControl>
@@ -103,7 +157,7 @@ class Home extends React.Component {
             </Select>
           </FormControl>
         </div>
-      </div>
+      </Paper>
     );
   }
 
@@ -120,7 +174,7 @@ class Home extends React.Component {
   }
 
   renderRecoTab() {
-    return 'Reco!';
+    return null; //'Reco!';
   }
 
   renderTransactionsTab() {
@@ -134,6 +188,6 @@ class Home extends React.Component {
 }
 
 export default compose(
-  withStyles(styles),
+  withStyles(styles, {withTheme: true}),
   withRouter,
 )(Home);

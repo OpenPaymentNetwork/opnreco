@@ -14,9 +14,31 @@ import ServerErrorDialog from './ServerErrorDialog';
 import TokenRefreshDialog from './TokenRefreshDialog';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles';
 import { Switch, Route } from 'react-router';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+
+
+/* From https://material.io/tools/color/#!/
+   ?view.left=0&view.right=0&primary.color=1B5E20&secondary.color=FDD835
+*/
+const customTheme = createMuiTheme({
+  palette: {
+    primary: {
+      light: '#4c8c4a',
+      main: '#1b5e20',
+      dark: '#003300',
+      contrastText: '#fff',
+    },
+    secondary: {
+      light: '#ffff6b',
+      main: '#fdd835',
+      dark: '#c6a700',
+      contrastText: '#000',
+    },
+  },
+});
 
 
 const styles = theme => ({
@@ -57,27 +79,29 @@ class App extends React.Component {
     const { classes, tokenRefresh, loggingOut, serverError } = this.props;
 
     return (
-      <div className={classes.root}>
-        <OPNAppBar />
-        <div className={classes.belowAppBar}>
-          <OPNDrawer />
-          <main className={classes.main}>
-            <Switch>
-              <Route path="/about-us" component={About} />
-              <Route path="/:tab(|reco|transactions|liabilities)" component={Home} />
-            </Switch>
-          </main>
+      <MuiThemeProvider theme={customTheme}>
+        <div className={classes.root}>
+          <OPNAppBar />
+          <div className={classes.belowAppBar}>
+            <OPNDrawer />
+            <main className={classes.main}>
+              <Switch>
+                <Route path="/about-us" component={About} />
+                <Route path="/:tab(|reco|transactions|liabilities)" component={Home} />
+              </Switch>
+            </main>
+          </div>
+          <Linger enabled={!!tokenRefresh}>
+            <TokenRefreshDialog />
+          </Linger>
+          <Linger enabled={!!loggingOut}>
+            <LogoutDialog />
+          </Linger>
+          <Linger enabled={!!serverError}>
+            <ServerErrorDialog />
+          </Linger>
         </div>
-        <Linger enabled={!!tokenRefresh}>
-          <TokenRefreshDialog />
-        </Linger>
-        <Linger enabled={!!loggingOut}>
-          <LogoutDialog />
-        </Linger>
-        <Linger enabled={!!serverError}>
-          <ServerErrorDialog />
-        </Linger>
-      </div>
+      </MuiThemeProvider>
     );
   }
 }
