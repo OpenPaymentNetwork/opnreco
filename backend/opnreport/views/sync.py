@@ -1,10 +1,15 @@
 
 from decimal import Decimal
-from opnreport.models.db import MovementSummary
+from opnreport.models.db import Mirror
+from opnreport.models.db import MirrorEntry
+from opnreport.models.db import MirrorEntryLog
+from opnreport.models.db import MirrorEntryReco
+from opnreport.models.db import Movement
+from opnreport.models.db import MovementLog
+from opnreport.models.db import MovementReco
 from opnreport.models.db import OPNDownload
-from opnreport.models.db import ProfileEvent
-from opnreport.models.db import RecoEntry
-from opnreport.models.db import RecoEntryEvent
+from opnreport.models.db import ProfileLog
+from opnreport.models.db import Reco
 from opnreport.models.db import TransferDownloadRecord
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
@@ -120,6 +125,8 @@ class SyncView:
                 'sync_ts': sync_ts_iso,
                 'progress_percent': progress_percent,
                 'transfers': {
+                    'ids': sorted(
+                        t['id'] for t in transfers_download['results']),
                     'count': len(transfers_download['results']),
                     'more': transfers_download['more'],
                     'first_sync_ts': transfers_download['first_sync_ts'],
@@ -173,18 +180,14 @@ class SyncView:
             record = record_map.get(transfer_id)
             if record is None:
                 # Add a TransferRecord.
-                movement_list_index = 0
-                new_movement_list = item['movements']
                 record = TransferRecord(
                     transfer_id=transfer_id,
                     profile_id=profile_id,
-                    movement_lists=[new_movement_list],
                     **kw)
                 changed.append('new')
                 dbsession.add(record)
                 dbsession.flush()  # Assign record.id
                 record_map[transfer_id] = record
-                added_movement_list = True
 
             else:
                 # Update a TransferRecord.
@@ -200,26 +203,11 @@ class SyncView:
                 for attr, value in sorted(kw.items()):
                     if getattr(record, attr) != value:
                         setattr(record, attr, value)
-                        changed.append(attr)
-
-                new_movement_list = item['movements']
-                if new_movement_list == record.movement_lists[-1]:
-                    # No new movements.
-                    added_movement_list = False
-                    movement_list_index = len(record.movement_lists) - 1
-                else:
-                    # New movements.
-                    movement_list_index = len(record.movement_lists)
-                    record.movement_lists = (
-                        record.movement_lists + [new_movement_list])
-                    changed.append('movements')
-                    added_movement_list = True
 
             dbsession.add(TransferDownloadRecord(
                 opn_download_id=self.opn_download_id,
                 transfer_record_id=record.id,
                 transfer_id=transfer_id,
-                movement_list_index=movement_list_index,
                 changed=changed))
 
             if added_movement_list:
