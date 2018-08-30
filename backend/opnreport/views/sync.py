@@ -1,15 +1,10 @@
 
 from decimal import Decimal
 from opnreport.models.db import Mirror
-from opnreport.models.db import MirrorEntry
-from opnreport.models.db import MirrorEntryLog
-from opnreport.models.db import MirrorEntryReco
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementLog
-from opnreport.models.db import MovementReco
 from opnreport.models.db import OPNDownload
 from opnreport.models.db import ProfileLog
-from opnreport.models.db import Reco
 from opnreport.models.db import TransferDownloadRecord
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
@@ -45,6 +40,7 @@ class SyncView:
         self.request = request
         self.profile = profile = request.profile
         self.profile_id = profile.id
+        self.mirrors = {}  # {(ext_id, loop_id, currency): mirror}
 
     def __call__(self):
         request = self.request
@@ -116,9 +112,9 @@ class SyncView:
 
         self.opn_download_id = opn_download.id
 
-        dbsession.add(ProfileEvent(
+        dbsession.add(ProfileLog(
             profile_id=profile.id,
-            event_type='opn_download',
+            event_type='opn_sync',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
             memo={
@@ -210,103 +206,162 @@ class SyncView:
                 transfer_id=transfer_id,
                 changed=changed))
 
-            if added_movement_list:
-                self.add_movements(record)
+            if item['movements']:
+                self.import_movements(record, item)
 
-    def add_movements(self, record):
+    def import_movements(self, record, item):
+        transfer_id = item['id']
         dbsession = self.request.dbsession
-        profile_id = self.profile_id
 
-        summaries = self.summarize_movements(record.movement_lists[-1])
+        # Prepare movement_rows, a dict of movements already imported.
+        rows = (
+            dbsession.query(Movement)
+            .filter_by(transfer_record_id=record.id)
+            .all())
+        # movement_rows: {(number, mirror_id): Movement}
+        movement_rows = {(row.number, row.mirror_id): row for row in rows}
 
-        if len(record.movement_lists) > 1:
-            # Convert the summaries into an offset of the previous summaries.
-            old_summaries = self.summarize_movements(record.movement_lists[-2])
-            for key, old_delta in old_summaries.items():
-                summaries[key] = summaries.get(key, zero) - old_delta
+        for movement in item['movements']:
+            number = movement.get('number')
+            if not number:
+                raise AssertionError(
+                    "The OPN service needs to be migrated to support "
+                    "movement numbers")
+            ts = to_datetime(movement['timestamp'])
+            action = movement['action']
 
-        mss = []
+            by_mirror = self.summarize_movement(
+                movement, transfer_id=transfer_id)
 
-        for key, delta in sorted(summaries.items()):
-            if delta:
-                account_id, loop_id, currency = key
-                row = MovementSummary(
+            # Add movement records based on the by_mirror dict.
+            for mirror_id, delta in sorted(by_mirror.items()):
+                old_movement = movement_rows.get((number, mirror_id))
+
+                if old_movement is not None:
+                    # The movement is already recorded.
+                    # Verify it has not changed.
+                    if old_movement.ts != ts:
+                        raise AssertionError(
+                            "Movement %s in transfer %s has changed:"
+                            "recorded timestamp is %s, new timestamp is %s" % (
+                                number, transfer_id,
+                                old_movement.ts.isoformat(), ts.isoformat()))
+                    if old_movement.action != action:
+                        raise AssertionError(
+                            "Movement %s in transfer %s has changed:"
+                            "recorded action is %s, new action is %s" % (
+                                number, transfer_id,
+                                old_movement.action, action))
+                    if old_movement.delta != delta:
+                        raise AssertionError(
+                            "Movement %s in transfer %s has changed:"
+                            "recorded delta is %s, new delta is %s" % (
+                                number, transfer_id,
+                                old_movement.delta, delta))
+                    continue
+
+                # Record the movement.
+                row = Movement(
                     transfer_record_id=record.id,
-                    next_activity=record.next_activity,
-                    profile_id=profile_id,
-                    account_id=account_id,
-                    movement_list_index=len(record.movement_lists) - 1,
-                    loop_id=loop_id,
-                    currency=currency,
+                    number=number,
+                    mirror_id=mirror_id,
+                    action=action,
+                    ts=ts,
                     delta=delta,
-                    reco_entry_id=None)
+                )
                 dbsession.add(row)
-                mss.append(row)
-        dbsession.flush()  # Assign ids to the MovementSummaries
+                dbsession.flush()  # Assign row.id
 
-        reco_entries = []
+                movement_rows[(number, mirror_id)] = row
 
-        # Add a RecoEntry for each movement summary.
-        for ms in mss:
-            reco_entry = RecoEntry(
-                profile_id=profile_id,
-                account_id=ms.account_id,
-                movement_summary_id=ms.id,
-            )
-            dbsession.add(reco_entry)
-            reco_entries.append(reco_entry)
-        dbsession.flush()  # Assign ids to the RecoEntries
+                dbsession.add(MovementLog(
+                    movement_id=row.id,
+                    event_type='download',
+                ))
 
-        for reco_entry in reco_entries:
-            dbsession.add(RecoEntryEvent(
-                reco_entry_id=reco_entry.id,
-                event_type='opn_download',
-                memo={'transfer_id': record.transfer_id}))
+    def summarize_movement(self, movement, transfer_id):
+        """Summarize a movement by generating a by_mirror dict"""
+        number = movement['number']
+        from_id = movement['from_id']
+        to_id = movement['to_id']
 
-    def summarize_movements(self, movement_list):
-        """Convert movements to a dict with tuple keys and decimal values:
+        if not from_id:
+            # Ignore issuance movements. They have no effect on
+            # reconciliation.
+            for loop in movement['loops']:
+                if to_id != loop['issuer_id']:
+                    # How could an issuer issue someone else's notes?
+                    raise AssertionError(
+                        "Confused issuance movement %s in transfer %s"
+                        % (number, transfer_id))
+            return {}
 
-        {(account_id or 'c', loop_id, currency): delta}
-        """
+        if not to_id:
+            raise AssertionError(
+                "Movement %s in transfer %s has no to_id"
+                % (number, transfer_id))
+
         profile_id = self.profile_id
+        by_mirror = collections.defaultdict(Decimal)  # {mirror_id: delta}
 
-        # res: {(account_id or 'c', loop_id, currency): delta}
-        res = collections.defaultdict(Decimal)
+        for loop in movement['loops']:
+            loop_id = loop['loop_id']
+            currency = loop['currency']
+            issuer_id = loop['issuer_id']
 
-        for movement in movement_list:
-            from_id = movement['from_id']
-            to_id = movement['to_id']
+            if from_id == profile_id and to_id != profile_id:
+                if from_id == issuer_id:
+                    # OPN cash was put into circulation.
+                    ext_id = 'c'
+                else:
+                    # OPN cash was sent to an account or other wallet.
+                    ext_id = to_id
+                delta = -Decimal(loop['amount'])
 
-            if not from_id or not to_id:
-                # Ignore issuance movements. They have no effect on
-                # reconciliation.
-                0 + 0  # For coverage testing
+            elif to_id == profile_id and from_id != profile_id:
+                if to_id == issuer_id:
+                    # OPN cash was taken out of circulation.
+                    ext_id = 'c'
+                else:
+                    # OPN cash was received from an account
+                    # or other wallet.
+                    ext_id = from_id
+                delta = Decimal(loop['amount'])
+
+            else:
+                # Ignore movements from the profile to itself.
                 continue
 
-            for loop in movement['loops']:
-                loop_id = loop['loop_id']
-                currency = loop['currency']
-                amount = loop['amount']
-                issuer_id = loop['issuer_id']
+            mirror = self.prepare_mirror(ext_id, loop_id, currency)
+            by_mirror[mirror.id] += delta
 
-                if from_id == profile_id and to_id != profile_id:
-                    if from_id == issuer_id:
-                        # OPN cash was put into circulation.
-                        account_id = 'c'
-                    else:
-                        # OPN cash was sent to an account or other wallet.
-                        account_id = to_id
-                    key = (account_id, loop_id, currency)
-                    res[key] -= Decimal(amount)
-                elif to_id == profile_id and from_id != profile_id:
-                    if to_id == issuer_id:
-                        # OPN cash was taken out of circulation.
-                        account_id = 'c'
-                    else:
-                        # OPN cash was received from an account
-                        # or other wallet.
-                        account_id = from_id
-                    key = (account_id, loop_id, currency)
-                    res[key] += Decimal(amount)
+        return by_mirror
 
-        return res
+    def prepare_mirror(self, ext_id, loop_id, currency):
+        key = (ext_id, loop_id, currency)
+        mirror = self.mirrors.get(key)
+        if mirror is not None:
+            return mirror
+
+        dbsession = self.request.dbsession
+        profile_id = self.profile_id
+        mirror = (
+            dbsession.query(Mirror)
+            .filter_by(
+                profile_id=profile_id,
+                ext_id=ext_id,
+                loop_id=loop_id,
+                currency=currency,
+            ).first()
+        )
+        if mirror is not None:
+            self.mirrors[key] = mirror
+        else:
+            mirror = Mirror(
+                profile_id=profile_id,
+                ext_id=ext_id,
+                loop_id=loop_id,
+                currency=currency)
+            dbsession.add(mirror)
+            dbsession.flush()  # Assign mirror.id
+        return mirror

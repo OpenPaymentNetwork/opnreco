@@ -53,7 +53,7 @@ class ProfileLog(Base):
     """Log of an event related to a profile"""
     __tablename__ = 'profile_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    ts = Column(DateTime, nullable=False, index=True, server_default=now_func)
+    ts = Column(DateTime, nullable=False, server_default=now_func)
     profile_id = Column(
         String, ForeignKey('profile.id'), nullable=False, index=True)
     event_type = Column(String, nullable=False)
@@ -136,17 +136,17 @@ class Mirror(Base):
     circulating omnibus account managed by an issuer.
 
     A different mirror exists for each existent combination of
-    holding profile, opn_holder_id (or 'c' for circulation),
+    holding profile, ext_id (or 'c' for circulation),
     loop_id, and currency.
     """
     __tablename__ = 'mirror'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
-    # opn_holder_id is either a holder ID or the letter 'c' for circulating.
-    opn_holder_id = Column(String, nullable=False)
+    # ext_id is either an OPN holder ID or the letter 'c' for circulating.
+    ext_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
-    # The title is based on opn_holder_id and does not mention
+    # The title is based on ext_id and does not mention
     # the loop_id and currency.
     title = Column(Unicode, nullable=True)
 
@@ -156,7 +156,7 @@ class Mirror(Base):
 Index(
     'ix_mirror_unique',
     Mirror.profile_id,
-    Mirror.opn_holder_id,
+    Mirror.ext_id,
     Mirror.loop_id,
     Mirror.currency,
     unique=True)
@@ -165,19 +165,20 @@ Index(
 class Movement(Base):
     """A movement in a transfer applied to the profile.
 
-    Note: once created, movement rows never change.
+    Note: movement rows are designed to be immutable.
     """
     __tablename__ = 'movement'
     id = Column(BigInteger, nullable=False, primary_key=True)
     transfer_record_id = Column(
-        BigInteger, ForeignKey('transfer_record.id'),
-        nullable=False, index=True)
+        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+    number = Column(Integer, nullable=False)
+
     mirror_id = Column(
         BigInteger, ForeignKey('mirror.id'),
         nullable=False, index=True)
 
     action = Column(String, nullable=False)
-    ts = Column(DateTime, nullable=False)  # UTC
+    ts = Column(DateTime, nullable=False)
 
     # The delta is positive for movements into the wallet or vault
     # or negative for movements out of the wallet or vault.
@@ -187,18 +188,26 @@ class Movement(Base):
     mirror = backref(Mirror)
 
 
+Index(
+    'ix_movement_unique',
+    Movement.transfer_record_id,
+    Movement.number,
+    Movement.mirror_id,
+    unique=True)
+
+
 class MovementLog(Base):
     """Log of changes to a movement"""
     __tablename__ = 'movement_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    ts = Column(DateTime, nullable=True)
+    ts = Column(DateTime, nullable=False, server_default=now_func)
     movement_id = Column(
         BigInteger, ForeignKey('movement.id'),
         nullable=False, index=True)
     event_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # reco_id is a copy of the MirrorEntry's current reco_id.
+    # reco_id is a copy of the Movement's current reco_id.
     reco_id = Column(BigInteger, nullable=True)
 
     movement = backref(Movement)
@@ -261,7 +270,7 @@ class MirrorEntryLog(Base):
     """Log of changes to a mirror entry"""
     __tablename__ = 'mirror_entry_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    ts = Column(DateTime, nullable=True)
+    ts = Column(DateTime, nullable=False, server_default=now_func)
     mirror_entry_id = Column(
         BigInteger, ForeignKey('mirror_entry.id'),
         nullable=False, index=True)
@@ -316,7 +325,7 @@ class MovementReco(Base):
         BigInteger, ForeignKey('movement.id'),
         nullable=False, primary_key=True)
     reco_id = Column(
-        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
+        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
 
     movement = backref(Movement)
     reco = backref(Reco)
@@ -333,7 +342,7 @@ class MirrorEntryReco(Base):
         BigInteger, ForeignKey('mirror_entry.id'),
         nullable=False, primary_key=True)
     reco_id = Column(
-        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
+        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
 
     mirror_entry = backref(MirrorEntry)
     reco = backref(Reco)
