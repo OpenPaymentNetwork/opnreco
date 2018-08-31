@@ -3,6 +3,7 @@ from decimal import Decimal
 from opnreport.models.db import Mirror
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementLog
+from opnreport.models.db import now_func
 from opnreport.models.db import OPNDownload
 from opnreport.models.db import ProfileLog
 from opnreport.models.db import TransferDownloadRecord
@@ -11,6 +12,7 @@ from opnreport.models.site import API
 from opnreport.util import check_requests_response
 from opnreport.util import to_datetime
 from pyramid.view import view_config
+from sqlalchemy import or_
 import collections
 import datetime
 import logging
@@ -19,6 +21,7 @@ import requests
 
 log = logging.getLogger(__name__)
 zero = Decimal()
+null = None
 
 
 class SyncError(Exception):
@@ -40,11 +43,11 @@ class SyncView:
         self.request = request
         self.profile = profile = request.profile
         self.profile_id = profile.id
-        self.mirrors = {}  # {(ext_id, loop_id, currency): mirror}
+        self.mirrors = {}  # {(target_id, loop_id, currency): mirror}
+        self.api_url = os.environ['opn_api_url']
 
     def __call__(self):
         request = self.request
-        api_url = os.environ['opn_api_url']
         profile = self.profile
 
         if profile.first_sync_ts is None:
@@ -63,7 +66,7 @@ class SyncView:
             sync_transfer_id = profile.last_sync_transfer_id
         sync_ts_iso = sync_ts.isoformat() + 'Z'
 
-        url = '%s/wallet/history_sync' % api_url
+        url = '%s/wallet/history_sync' % self.api_url
         r = requests.post(
             url,
             data={
@@ -132,6 +135,7 @@ class SyncView:
         ))
 
         self.import_transfer_records(transfers_download)
+        self.update_mirrors()
 
         return {
             'count': len(transfers_download['results']),
@@ -280,7 +284,7 @@ class SyncView:
                 ))
 
     def summarize_movement(self, movement, transfer_id):
-        """Summarize a movement by generating a by_mirror dict"""
+        """Summarize a movement: return {mirror_id: delta}"""
         number = movement['number']
         from_id = movement['from_id']
         to_id = movement['to_id']
@@ -312,33 +316,33 @@ class SyncView:
             if from_id == profile_id and to_id != profile_id:
                 if from_id == issuer_id:
                     # OPN cash was put into circulation.
-                    ext_id = 'c'
+                    target_id = 'c'
                 else:
                     # OPN cash was sent to an account or other wallet.
-                    ext_id = to_id
+                    target_id = to_id
                 delta = -Decimal(loop['amount'])
 
             elif to_id == profile_id and from_id != profile_id:
                 if to_id == issuer_id:
                     # OPN cash was taken out of circulation.
-                    ext_id = 'c'
+                    target_id = 'c'
                 else:
                     # OPN cash was received from an account
                     # or other wallet.
-                    ext_id = from_id
+                    target_id = from_id
                 delta = Decimal(loop['amount'])
 
             else:
                 # Ignore movements from the profile to itself.
                 continue
 
-            mirror = self.prepare_mirror(ext_id, loop_id, currency)
+            mirror = self.prepare_mirror(target_id, loop_id, currency)
             by_mirror[mirror.id] += delta
 
         return by_mirror
 
-    def prepare_mirror(self, ext_id, loop_id, currency):
-        key = (ext_id, loop_id, currency)
+    def prepare_mirror(self, target_id, loop_id, currency):
+        key = (target_id, loop_id, currency)
         mirror = self.mirrors.get(key)
         if mirror is not None:
             return mirror
@@ -349,7 +353,7 @@ class SyncView:
             dbsession.query(Mirror)
             .filter_by(
                 profile_id=profile_id,
-                ext_id=ext_id,
+                target_id=target_id,
                 loop_id=loop_id,
                 currency=currency,
             ).first()
@@ -359,9 +363,84 @@ class SyncView:
         else:
             mirror = Mirror(
                 profile_id=profile_id,
-                ext_id=ext_id,
+                target_id=target_id,
                 loop_id=loop_id,
                 currency=currency)
             dbsession.add(mirror)
             dbsession.flush()  # Assign mirror.id
         return mirror
+
+    def update_mirrors(self):
+        """Update the target_title and loop_title of the profile's mirrors."""
+        update_check_time = (
+            datetime.datetime.utcnow() - datetime.timedelta(seconds=60 * 10))
+        dbsession = self.request.dbsession
+        headers = {'Authorization': 'Bearer %s' % self.request.access_token}
+        seen = []
+
+        while True:
+            mirrors = (
+                dbsession.query(Mirror)
+                .filter_by(profile_id=self.profile_id)
+                .filter(~Mirror.id.in_(seen))
+                .filter(or_(
+                    Mirror.last_update == null,
+                    Mirror.last_update < update_check_time))
+                .filter(or_(
+                    Mirror.loop_id != '0', Mirror.target_id != 'c'))
+                .order_by(Mirror.id)
+                .limit(100)
+                .all())
+
+            if not mirrors:
+                break
+
+            for mirror in mirrors:
+                if mirror.target_id != 'c':
+                    url = '%s/p/%s' % (self.api_url, mirror.target_id)
+                    r = requests.get(url, headers=headers)
+                    if check_requests_response(r, raise_exc=False):
+                        title = r.json()['title']
+                        if title != mirror.target_title:
+                            mirror.target_title = title
+                            dbsession.add(ProfileLog(
+                                profile_id=self.profile_id,
+                                event_type='update_mirror_target_title',
+                                memo={
+                                    'mirror_id': mirror.id,
+                                    'target_id': mirror.target_id,
+                                    'title': title,
+                                }))
+                    else:
+                        # The error details were logged by
+                        # check_requests_response().
+                        log.warning(
+                            "Unable to get the title of profile %s",
+                            mirror.target_id)
+
+                if mirror.loop_id != '0':
+                    url = '%s/design/%s' % (self.api_url, mirror.loop_id)
+                    r = requests.get(url, headers=headers)
+                    if check_requests_response(r, raise_exc=False):
+                        title = r.json()['title']
+                        if title != mirror.loop_title:
+                            mirror.loop_title = title
+                            dbsession.add(ProfileLog(
+                                profile_id=self.profile_id,
+                                event_type='update_mirror_loop_title',
+                                memo={
+                                    'mirror_id': mirror.id,
+                                    'loop_id': mirror.loop_id,
+                                    'title': title,
+                                }))
+                    else:
+                        # The error details were logged by
+                        # check_requests_response().
+                        log.warning(
+                            "Unable to get the title of cash loop %s",
+                            mirror.loop_id)
+
+                mirror.last_update = now_func
+
+            dbsession.flush()
+            seen.extend(m.id for m in mirrors)

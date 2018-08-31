@@ -136,19 +136,23 @@ class Mirror(Base):
     circulating omnibus account managed by an issuer.
 
     A different mirror exists for each existent combination of
-    holding profile, ext_id (or 'c' for circulation),
+    holding profile, target_id (or 'c' for circulation),
     loop_id, and currency.
     """
     __tablename__ = 'mirror'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
-    # ext_id is either an OPN holder ID or the letter 'c' for circulating.
-    ext_id = Column(String, nullable=False)
+    # target_id is either an OPN holder ID or
+    # the letter 'c' for circulating.
+    target_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
-    # The title is based on ext_id and does not mention
-    # the loop_id and currency.
-    title = Column(Unicode, nullable=True)
+    # target_title is based on target_id only and does not refer
+    # to the loop_id and currency.
+    target_title = Column(Unicode, nullable=True)
+    loop_title = Column(Unicode, nullable=True)
+    # last_update is when the target_title and loop_title were last updated.
+    last_update = Column(DateTime, nullable=True)
 
     profile = backref(Profile)
 
@@ -156,7 +160,7 @@ class Mirror(Base):
 Index(
     'ix_mirror_unique',
     Mirror.profile_id,
-    Mirror.ext_id,
+    Mirror.target_id,
     Mirror.loop_id,
     Mirror.currency,
     unique=True)

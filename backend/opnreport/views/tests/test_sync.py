@@ -131,6 +131,17 @@ class TestDownloadView(unittest.TestCase):
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
             })
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/19',
+            json={'title': "Super Bank"})
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/1102',
+            json={'title': "Tester's Super Bank Checking Account"})
+
         obj = self._make()
         obj()
 
@@ -139,10 +150,10 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(1, len(events))
+        self.assertEqual(2, len(events))
         event = events[0]
         self.assertEqual('11', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -168,7 +179,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(mirrors))
         mirror = mirrors[0]
         self.assertEqual('11', mirror.profile_id)
-        self.assertEqual('1102', mirror.ext_id)
+        self.assertEqual('1102', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
 
@@ -244,7 +255,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -270,7 +281,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(mirrors))
         mirror = mirrors[0]
         self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.ext_id)
+        self.assertEqual('c', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
 
@@ -349,6 +360,17 @@ class TestDownloadView(unittest.TestCase):
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
             })
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/19',
+            json={'title': "Super Bank"})
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/1102',
+            json={'title': "Tester's Super Bank Checking Account"})
+
         obj = self._make(profile_id='11')
         obj()
 
@@ -357,10 +379,10 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(1, len(events))
+        self.assertEqual(2, len(events))
         event = events[0]
         self.assertEqual('11', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -386,7 +408,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(mirrors))
         mirror = mirrors[0]
         self.assertEqual('11', mirror.profile_id)
-        self.assertEqual('19', mirror.ext_id)
+        self.assertEqual('19', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
 
@@ -494,7 +516,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -520,7 +542,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(mirrors))
         mirror = mirrors[0]
         self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.ext_id)
+        self.assertEqual('c', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
 
@@ -670,7 +692,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(mirrors))
         mirror = mirrors[0]
         self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.ext_id)
+        self.assertEqual('c', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
 
@@ -692,6 +714,9 @@ class TestDownloadView(unittest.TestCase):
         result1['movements'] = [
             # The redeem movement remains.
             {
+                'number': 1,
+                'timestamp': '2018-08-02T05:06:06Z',
+                'action': 'redeem',
                 'from_id': '1102',
                 'to_id': '19',
                 'loops': [{
@@ -701,8 +726,11 @@ class TestDownloadView(unittest.TestCase):
                     'issuer_id': '19',
                 }],
             },
-            # The return movement offsets the original movement.
+            # The refund movement offsets the original movement.
             {
+                'number': 2,
+                'timestamp': '2018-08-02T05:06:07Z',
+                'action': 'refund',
                 'from_id': '19',
                 'to_id': '1102',
                 'loops': [{
@@ -727,12 +755,12 @@ class TestDownloadView(unittest.TestCase):
             obj()
 
         events = (
-            self.dbsession.query(db.ProfileEvent)
-            .order_by(db.ProfileEvent.id).all())
+            self.dbsession.query(db.ProfileLog)
+            .order_by(db.ProfileLog.id).all())
         self.assertEqual(3, len(events))
         event = events[-1]
         self.assertEqual('19', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -741,18 +769,28 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertTrue(records[0].canceled)
 
-        mss = (
-            self.dbsession.query(db.MovementSummary)
-            .order_by(db.MovementSummary.id).all())
-        self.assertEqual(2, len(mss))
-        ms = mss[-1]
-        self.assertEqual(record.id, ms.transfer_record_id)
-        self.assertEqual('19', ms.profile_id)
-        self.assertEqual('c', ms.account_id)
-        self.assertEqual(2, ms.movement_list_index)
-        self.assertEqual('0', ms.loop_id)
-        self.assertEqual('USD', ms.currency)
-        self.assertEqual(Decimal('-1.00'), ms.delta)
+        mirrors = self.dbsession.query(db.Mirror).all()
+        self.assertEqual(1, len(mirrors))
+        mirror = mirrors[0]
+        self.assertEqual('19', mirror.profile_id)
+        self.assertEqual('c', mirror.target_id)
+        self.assertEqual('0', mirror.loop_id)
+        self.assertEqual('USD', mirror.currency)
+
+        movements = (
+            self.dbsession.query(db.Movement)
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(2, len(movements))
+        m = movements[0]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('1.00'), m.delta)
+
+        m = movements[1]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('-1.00'), m.delta)
 
     def test_redownload_with_no_movements_and_no_updates(self):
         from opnreport.models import db
@@ -793,14 +831,14 @@ class TestDownloadView(unittest.TestCase):
             obj = self._make(profile_id='19')
             obj()
 
-        mss = self.dbsession.query(db.MovementSummary).all()
-        self.assertEqual(0, len(mss))
+        mirrors = self.dbsession.query(db.Mirror).all()
+        self.assertEqual(0, len(mirrors))
 
-        reco_entries = self.dbsession.query(db.RecoEntry).all()
-        self.assertEqual(0, len(reco_entries))
-
-        events = self.dbsession.query(db.RecoEntryEvent).all()
-        self.assertEqual(0, len(events))
+        movements = (
+            self.dbsession.query(db.Movement)
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(0, len(movements))
 
         result1 = _make_transfer_result()
 
@@ -816,8 +854,11 @@ class TestDownloadView(unittest.TestCase):
                 })
             obj()
 
-        mss = self.dbsession.query(db.MovementSummary).all()
-        self.assertEqual(0, len(mss))
+        movements = (
+            self.dbsession.query(db.Movement)
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(0, len(movements))
 
     def test_redownload_with_movements_but_no_updates(self):
         from opnreport.models import db
@@ -843,6 +884,9 @@ class TestDownloadView(unittest.TestCase):
                 },
                 'movements': [
                     {
+                        'number': 1,
+                        'timestamp': '2018-08-02T05:06:06Z',
+                        'action': 'redeem',
                         'from_id': '1102',
                         'to_id': '19',
                         'loops': [{
@@ -868,15 +912,22 @@ class TestDownloadView(unittest.TestCase):
             obj = self._make(profile_id='19')
             obj()
 
-        mss = self.dbsession.query(db.MovementSummary).all()
-        self.assertEqual(1, len(mss))
-        ms = mss[0]
-        self.assertEqual('19', ms.profile_id)
-        self.assertEqual('c', ms.account_id)
-        self.assertEqual(0, ms.movement_list_index)
-        self.assertEqual('0', ms.loop_id)
-        self.assertEqual('USD', ms.currency)
-        self.assertEqual(Decimal('1.00'), ms.delta)
+        mirrors = self.dbsession.query(db.Mirror).all()
+        self.assertEqual(1, len(mirrors))
+        mirror = mirrors[0]
+        self.assertEqual('19', mirror.profile_id)
+        self.assertEqual('c', mirror.target_id)
+        self.assertEqual('0', mirror.loop_id)
+        self.assertEqual('USD', mirror.currency)
+
+        movements = (
+            self.dbsession.query(db.Movement)
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(1, len(movements))
+        m = movements[0]
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('1.00'), m.delta)
 
         result1 = _make_transfer_result()
 
@@ -892,7 +943,7 @@ class TestDownloadView(unittest.TestCase):
                 })
             obj()
 
-        mss = self.dbsession.query(db.MovementSummary).all()
+        mss = self.dbsession.query(db.Movement).all()
         self.assertEqual(1, len(mss))
 
     def test_sync_error(self):
@@ -919,6 +970,9 @@ class TestDownloadView(unittest.TestCase):
                 },
                 'movements': [
                     {
+                        'number': 1,
+                        'timestamp': '2018-08-02T05:06:06Z',
+                        'action': 'redeem',
                         'from_id': '1102',
                         'to_id': '19',
                         'loops': [{
@@ -985,6 +1039,9 @@ class TestDownloadView(unittest.TestCase):
                 },
                 'movements': [
                     {
+                        'number': 1,
+                        'timestamp': '2018-08-02T05:06:06Z',
+                        'action': 'redeem',
                         'from_id': '19',
                         'to_id': '11',
                         'loops': [{
@@ -1007,6 +1064,12 @@ class TestDownloadView(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
+
+            rsps.add(
+                responses.GET,
+                'https://opn.example.com:9999/p/19',
+                json={'title': "Super Bank"})
+
             obj = self._make(profile_id='11')
             download_status = obj()
             self.assertGreaterEqual(download_status['progress_percent'], 0.0)
@@ -1022,23 +1085,20 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(downloads))
         self.assertEqual('11', downloads[0].profile_id)
 
-        events = self.dbsession.query(db.ProfileEvent).all()
-        self.assertEqual(1, len(events))
+        events = self.dbsession.query(db.ProfileLog).all()
+        self.assertEqual(2, len(events))
         event = events[0]
         self.assertEqual('11', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
 
-        mss = self.dbsession.query(db.MovementSummary).all()
+        mss = self.dbsession.query(db.Movement).all()
         self.assertEqual(1, len(mss))
 
-        reco_entries = self.dbsession.query(db.RecoEntry).all()
-        self.assertEqual(1, len(reco_entries))
-
-        events = self.dbsession.query(db.RecoEntryEvent).all()
-        self.assertEqual(1, len(events))
+        mvlog_entries = self.dbsession.query(db.MovementLog).all()
+        self.assertEqual(1, len(mvlog_entries))
 
         # Download the last batch.
 
@@ -1063,12 +1123,12 @@ class TestDownloadView(unittest.TestCase):
             }, download_status)
 
         events = (
-            self.dbsession.query(db.ProfileEvent)
-            .order_by(db.ProfileEvent.id).all())
-        self.assertEqual(2, len(events))
+            self.dbsession.query(db.ProfileLog)
+            .order_by(db.ProfileLog.id).all())
+        self.assertEqual(3, len(events))
         event = events[-1]
         self.assertEqual('11', event.profile_id)
-        self.assertEqual('opn_download', event.event_type)
+        self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -1081,28 +1141,36 @@ class TestDownloadView(unittest.TestCase):
         self.assertFalse(record.canceled)
         self.assertEqual('502', record.transfer_id)
 
-        mss = (
-            self.dbsession.query(db.MovementSummary)
-            .order_by(db.MovementSummary.id).all())
-        self.assertEqual(2, len(mss))
-        ms = mss[-1]
-        self.assertEqual(record.id, ms.transfer_record_id)
-        self.assertEqual('11', ms.profile_id)
-        self.assertEqual('19', ms.account_id)
-        self.assertEqual(0, ms.movement_list_index)
-        self.assertEqual('0', ms.loop_id)
-        self.assertEqual('USD', ms.currency)
-        self.assertEqual(Decimal('1.00'), ms.delta)
+        mirrors = self.dbsession.query(db.Mirror).all()
+        self.assertEqual(1, len(mirrors))
+        mirror = mirrors[0]
+        self.assertEqual('11', mirror.profile_id)
+        self.assertEqual('19', mirror.target_id)
+        self.assertEqual('0', mirror.loop_id)
+        self.assertEqual('USD', mirror.currency)
 
-        reco_entries = (
-            self.dbsession.query(db.RecoEntry)
-            .order_by(db.RecoEntry.id).all())
-        self.assertEqual(2, len(reco_entries))
-        reco_entry = reco_entries[-1]
-        self.assertEqual('11', reco_entry.profile_id)
-        self.assertEqual('19', reco_entry.account_id)
-        self.assertEqual(ms.id, reco_entry.movement_summary_id)
-        self.assertIsNone(reco_entry.account_entry_id)
-        self.assertIsNone(reco_entry.comment)
-        self.assertIsNone(reco_entry.reco_ts)
-        self.assertIsNone(reco_entry.reco_by)
+        movements = (
+            self.dbsession.query(db.Movement)
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(2, len(movements))
+        m = movements[0]
+        self.assertEqual(records[0].id, m.transfer_record_id)
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('1.00'), m.delta)
+
+        m = movements[1]
+        self.assertEqual(records[1].id, m.transfer_record_id)
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('1.00'), m.delta)
+
+        mvlogs = (
+            self.dbsession.query(db.MovementLog)
+            .order_by(db.MovementLog.id)
+            .all())
+
+        self.assertEqual(2, len(mvlogs))
+        mvlog = mvlogs[0]
+        self.assertEqual('download', mvlog.event_type)
+        mvlog = mvlogs[1]
+        self.assertEqual('download', mvlog.event_type)
