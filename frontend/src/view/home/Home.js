@@ -13,6 +13,11 @@ import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableHead from '@material-ui/core/TableHead';
+import TableRow from '@material-ui/core/TableRow';
 
 
 const styles = theme => ({
@@ -31,8 +36,8 @@ const styles = theme => ({
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     flexWrap: 'wrap-reverse',
-    padding: '0 8',
-    margin: 16,
+    padding: '0 8px',
+    margin: '0 16px 16px 16px',
   },
   filterControlBox: {
     padding: 16,
@@ -62,8 +67,6 @@ class Home extends React.Component {
   render() {
     const {classes, match} = this.props;
 
-    const filterControls = this.renderFilterControls();
-
     const tab = match.params.tab || 'reco';
     const tabContent = this.renderTabContent(tab);
 
@@ -84,7 +87,6 @@ class Home extends React.Component {
             <Tab value="liabilities" label="Liabilities" />
           </Tabs>
 
-          {filterControls}
         </div>
 
         {tabContent}
@@ -98,46 +100,16 @@ class Home extends React.Component {
       <Paper className={classes.filterContainer}>
         <div className={classes.filterControlBox}>
           <FormControl>
-            <InputLabel htmlFor="filter-account">Account</InputLabel>
+            <InputLabel htmlFor="filter-mirror">Reconciliation Target</InputLabel>
             <Select
               value="c"
               inputProps={{
-                id: 'filter-account',
+                id: 'filter-mirror',
               }}
             >
-              <MenuItem value="c">Circulation</MenuItem>
-              <MenuItem value="201">XXXX35 at Zions Bank</MenuItem>
-              <MenuItem value="all">All</MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-        <div className={classes.filterControlBox}>
-          <FormControl>
-            <InputLabel htmlFor="filter-loop">Cash design</InputLabel>
-            <Select
-              value="0"
-              inputProps={{
-                id: 'filter-loop',
-              }}
-            >
-              <MenuItem value="0">Open loop</MenuItem>
-              <MenuItem value="42">Magrathean Cash</MenuItem>
-              <MenuItem value="all">All</MenuItem>
-            </Select>
-          </FormControl>
-        </div>
-        <div className={classes.filterControlBox}>
-          <FormControl>
-            <InputLabel htmlFor="filter-currency">Currency</InputLabel>
-            <Select
-              value="USD"
-              inputProps={{
-                id: 'filter-currency',
-              }}
-            >
-              <MenuItem value="USD">USD</MenuItem>
-              <MenuItem value="MXN">MXN</MenuItem>
-              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="c">BCB FBO Circulation: USD Open Loop</MenuItem>
+              <MenuItem value="201">Zions Bank: USD Open Loop</MenuItem>
+              <MenuItem value="203">RevCash Store: MXN Pokecash</MenuItem>
             </Select>
           </FormControl>
         </div>
@@ -174,11 +146,63 @@ class Home extends React.Component {
   }
 
   renderRecoTab() {
-    return null; //'Reco!';
+    const filterControls = this.renderFilterControls();
+
+    return (
+      <div>
+        {filterControls}
+
+        Reconciliation
+      </div>
+    );
   }
 
   renderTransactionsTab() {
-    return 'Transactions!';
+    const filterControls = this.renderFilterControls();
+
+    return (
+      <div>
+        {filterControls}
+
+        <Paper style={{overflow: 'hidden', padding: '0 8', margin: 16, minWidth: 290}}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell colSpan="7" style={{textAlign: 'center'}}>
+                  <div>BCB FBO Transaction Report</div>
+                  <div>1 June 2018 through 30 June 2018</div>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableHead>
+              <TableRow>
+                <TableCell colSpan="7" style={{textAlign: 'center'}}>
+                  Deposits (increase account balance)
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell colSpan="2" style={{textAlign: 'center'}}>
+                  Account Activity
+                </TableCell>
+                <TableCell colSpan="4" style={{textAlign: 'center'}}>
+                  Wallet Activity
+                </TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Transfer</TableCell>
+                <TableCell>Reconciled</TableCell>
+              </TableRow>
+            </TableHead>
+          </Table>
+        </Paper>
+      </div>
+    );
   }
 
   renderLiabilitiesTab() {
