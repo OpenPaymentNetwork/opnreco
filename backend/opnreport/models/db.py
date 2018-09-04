@@ -211,14 +211,19 @@ class MovementLog(Base):
     event_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # reco_id is a copy of the Movement's current reco_id.
-    reco_id = Column(BigInteger, nullable=True)
+    # changes is a dict. The possible changes are:
+    # reco_id
+    changes = Column(JSONB, nullable=False)
 
     movement = backref(Movement)
 
 
 class MirrorBalance(Base):
-    """A record of a mirror's balance at the start of a day."""
+    """A record of a mirror's balance at the start of a day.
+
+    Mirror balances are automatically generated and are invalidated by
+    mirror entries added in the past.
+    """
     __tablename__ = 'mirror_balance'
     mirror_id = Column(
         BigInteger, ForeignKey('mirror.id'),
@@ -281,15 +286,9 @@ class MirrorEntryLog(Base):
     event_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # reco_id is a copy of the MirrorEntry's current reco_id.
-    reco_id = Column(BigInteger, nullable=True)
-
-    # Attributes of MirrorEntry that may change:
-    statement_id = Column(BigInteger, nullable=True)
-    statement_ref = Column(JSONB, nullable=True)
-    entry_date = Column(Date, nullable=True)
-    delta = Column(Numeric, nullable=True)
-    desc = Column(JSONB, nullable=True)
+    # changes is a dict. The possible changes are:
+    # reco_id, statement_id, statement_ref, entry_date, delta, and desc.
+    changes = Column(JSONB, nullable=False)
 
     mirror_entry = backref(MirrorEntry)
 

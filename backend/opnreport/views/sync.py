@@ -281,6 +281,9 @@ class SyncView:
                 dbsession.add(MovementLog(
                     movement_id=row.id,
                     event_type='download',
+                    # Only the immutable attributes changed.
+                    # There were no changes to mutable attributes.
+                    changes={},
                 ))
 
     def summarize_movement(self, movement, transfer_id):
