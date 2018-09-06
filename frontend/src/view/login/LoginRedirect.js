@@ -8,12 +8,17 @@ import { withRouter } from 'react-router';
 
 
 class LoginRedirect extends React.Component {
+  static propTypes = {
+    history: PropTypes.object.isRequired,
+    dispatch: PropTypes.func.isRequired,
+  };
+
   componentDidMount() {
     const { history } = this.props;
     if (history.location && history.location.pathName) {
-      this.props.setCameFrom(history.location.pathName);
+      this.props.dispatch(setCameFrom(history.location.pathName));
     } else {
-      this.props.setCameFrom('');
+      this.props.dispatch(setCameFrom(''));
     }
     history.push('/login');
   }
@@ -23,16 +28,7 @@ class LoginRedirect extends React.Component {
   }
 }
 
-LoginRedirect.propTypes = {
-  history: PropTypes.object.isRequired,
-  setCameFrom: PropTypes.func.isRequired,
-};
-
-const dispatchToProps = {
-  setCameFrom,
-};
-
 export default compose(
   withRouter,
-  connect(null, dispatchToProps),
+  connect(),
 )(LoginRedirect);

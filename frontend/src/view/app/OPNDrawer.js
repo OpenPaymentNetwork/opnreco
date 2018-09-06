@@ -8,11 +8,12 @@ import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Require from '../../util/Require';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
 import Toolbar from '@material-ui/core/Toolbar';
 import { binder } from '../../util/binder';
-import { callOPNAPI, callOPNReportAPI } from '../../util/callapi';
+import { fOPN, fOPNReport } from '../../util/fetcher';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { FormattedRelative } from 'react-intl';
@@ -39,14 +40,9 @@ const iOS = process.browser && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 class OPNDrawer extends React.Component {
   static propTypes = {
-    callOPNAPI: PropTypes.func.isRequired,
-    callOPNReportAPI: PropTypes.func.isRequired,
     classes: PropTypes.object.isRequired,
-    closeDrawer: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
     drawerOpen: PropTypes.bool,
-    openDrawer: PropTypes.func.isRequired,
-    setLoggingOut: PropTypes.func.isRequired,
-    setSyncProgress: PropTypes.func.isRequired,
     syncedAt: PropTypes.any,
     syncProgress: PropTypes.any,
   };
@@ -64,9 +60,6 @@ class OPNDrawer extends React.Component {
       // Start an automatic sync.
       window.setTimeout(() => this.handleSync(), 0);
     }
-    this.props.callOPNAPI('/token/selectable').then(selectableProfiles => {
-      return null;
-    });
   }
 
   getSyncUI() {
@@ -113,9 +106,8 @@ class OPNDrawer extends React.Component {
 
   handleSync() {
     const {
-      callOPNReportAPI,
+      dispatch,
       syncProgress,
-      setSyncProgress,
     } = this.props;
 
     if (syncProgress !== null) {
@@ -124,26 +116,35 @@ class OPNDrawer extends React.Component {
     }
 
     const syncBatch = () => {
-      callOPNReportAPI('/sync', {method: 'post'}).then(status => {
+      const action = fOPNReport.fetchPath('/sync', {method: 'post'});
+      dispatch(action).then(status => {
         if (status.more) {
-          setSyncProgress(status.progress_percent);
+          dispatch(setSyncProgress(status.progress_percent));
           syncBatch();
         } else {
           // Done.
-          setSyncProgress(null, new Date());
+          dispatch(setSyncProgress(null, new Date()));
         }
       }).catch(() => {
         // An error occurred and has been shown to the user.
-        setSyncProgress(null);
+        dispatch(setSyncProgress(null));
       });
     };
 
-    setSyncProgress(-1);
+    dispatch(setSyncProgress(-1));
     syncBatch();
   }
 
   handleSignOut() {
-    this.props.setLoggingOut(true);
+    this.props.dispatch(setLoggingOut(true));
+  }
+
+  handleOpenDrawer() {
+    this.props.dispatch(openDrawer());
+  }
+
+  handleCloseDrawer() {
+    this.props.dispatch(closeDrawer());
   }
 
   renderContent() {
@@ -156,7 +157,7 @@ class OPNDrawer extends React.Component {
       <List component="nav">
         <ListItem
           button
-          onClick={this.binder('handleSync')}
+          onClick={this.binder(this.handleSync)}
           disabled={syncUI.disabled}
         >
           <ListItemIcon>
@@ -169,7 +170,7 @@ class OPNDrawer extends React.Component {
 
         <ListItem
           button
-          onClick={this.binder('handleSignOut')}
+          onClick={this.binder(this.handleSignOut)}
         >
           <ListItemIcon>
             <ExitToApp />
@@ -186,10 +187,11 @@ class OPNDrawer extends React.Component {
     const drawerContent = this.renderContent();
     return (
       <div>
+        <Require fetcher={fOPN} paths={['/token/selectable']} />
         <SwipeableDrawer
           open={drawerOpen}
-          onOpen={this.props.openDrawer}
-          onClose={this.props.closeDrawer}
+          onOpen={this.binder(this.handleOpenDrawer)}
+          onClose={this.binder(this.handleCloseDrawer)}
           classes={{
             paper: classes.drawerPaper,
           }}
@@ -216,16 +218,7 @@ function mapStateToProps(state) {
   };
 }
 
-const dispatchToProps = {
-  callOPNAPI,
-  callOPNReportAPI,
-  closeDrawer,
-  openDrawer,
-  setLoggingOut,
-  setSyncProgress,
-};
-
 export default compose(
   withStyles(styles),
-  connect(mapStateToProps, dispatchToProps),
+  connect(mapStateToProps),
 )(OPNDrawer);

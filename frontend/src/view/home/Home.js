@@ -80,7 +80,7 @@ class Home extends React.Component {
             value={tab}
             scrollable
             scrollButtons="auto"
-            onChange={this.binder('handleTabChange')}
+            onChange={this.binder(this.handleTabChange)}
           >
             <Tab value="reco" label="Reconciliation" />
             <Tab value="transactions" label="Transactions" />

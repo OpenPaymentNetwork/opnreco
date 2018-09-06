@@ -9,12 +9,12 @@ import { setLayout } from '../../reducer/app';
 
 class LayoutConfig extends React.Component {
   static propTypes = {
-    setLayout: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
 
   componentDidMount() {
-    const { setLayout, ...layout } = this.props;
-    setLayout(layout);
+    const { dispatch, ...layout } = this.props;
+    dispatch(setLayout(layout));
   }
 
   render() {
@@ -22,10 +22,4 @@ class LayoutConfig extends React.Component {
   }
 }
 
-
-const dispatchToProps = {
-  setLayout,
-};
-
-
-export default connect(null, dispatchToProps)(LayoutConfig);
+export default connect()(LayoutConfig);

@@ -1,36 +1,38 @@
 
-/* Return a function that binds object attributes.
+/* Return a function that binds object methods.
  * It keeps a record of previously bound attributes so they have the same
  * identity on every access.
  */
 export function binder(obj) {
-  const bound = {};  // {name: bound method}
-  return (name) => {
-    var v = bound[name];
+  const map = {};  // {name: bound method}
+  return (unbound) => {
+    const methodName = unbound.name;
+    var v = map[methodName];
     if (v === undefined) {
-      v = obj[name].bind(obj);
-      bound[name] = v;
+      v = unbound.bind(obj);
+      map[methodName] = v;
     }
     return v;
   };
 }
 
-/* Return a function that binds object attributes along with a single argument.
+/* Return a function that binds object methods along with a single argument.
  */
 export function binder1(obj) {
-  const bound = {};  // {name: Map of {arg0 -> bound method}}
+  const map0 = {};  // {name: Map of {arg0 -> bound method}}
 
-  return (name, arg0) => {
-    var map = bound[name];
-    if (map === undefined) {
-      map = new Map();
-      bound[name] = map;
+  return (unbound, arg0) => {
+    const methodName = unbound.name;
+    var map1 = map0[methodName];
+    if (map1 === undefined) {
+      map1 = new Map();
+      map0[methodName] = map1;
     }
 
-    var func = map.get(arg0);
+    var func = map1.get(arg0);
     if (func === undefined) {
-      func = obj[name].bind(obj, arg0);
-      map.set(arg0, func);
+      func = unbound.bind(obj, arg0);
+      map1.set(arg0, func);
     }
 
     return func;

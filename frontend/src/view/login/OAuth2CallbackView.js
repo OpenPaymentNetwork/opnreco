@@ -1,7 +1,7 @@
 
 import PropTypes from 'prop-types';
 import React from 'react';
-import { OPNAPI } from '../../util/fetcher';
+import { fOPN } from '../../util/fetcher';
 import { connect } from 'react-redux';
 import { logIn, setCameFrom, clearOAuthState } from '../../reducer/login';
 import { parse } from 'query-string';
@@ -44,7 +44,7 @@ class OAuth2CallbackView extends React.Component {
 
       dispatch(clearOAuthState());
       dispatch(logIn(parsed.access_token, ''));
-      const action = OPNAPI.fetchPath('/me', {disableRefresh: true});
+      const action = fOPN.fetchPath('/me', {disableRefresh: true});
       dispatch(action).then(profileInfo => {
         dispatch(logIn(parsed.access_token, profileInfo.title));
         dispatch(setCameFrom(''));

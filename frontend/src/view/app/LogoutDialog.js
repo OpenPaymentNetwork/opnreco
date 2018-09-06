@@ -23,11 +23,9 @@ const styles = {
 class LogoutDialog extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     loggingOut: PropTypes.bool.isRequired,
-    logOut: PropTypes.func.isRequired,
-    setLoggingOut: PropTypes.func.isRequired,
-    tokenRefreshCancel: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -40,20 +38,21 @@ class LogoutDialog extends React.Component {
   }
 
   handleLogout() {
-    this.props.tokenRefreshCancel();
-    this.props.logOut();
+    const {dispatch} = this.props;
+    dispatch(tokenRefreshCancel());
+    dispatch(logOut());
     window.setTimeout(() => this.props.history.push('/'), 0);
   }
 
   handleCancel() {
-    this.props.setLoggingOut(false);
+    this.props.dispatch(setLoggingOut(false));
   }
 
   render() {
     return (
       <Dialog
         open={!!this.props.loggingOut}
-        onClose={this.binder('handleCancel')}
+        onClose={this.binder(this.handleCancel)}
         aria-labelledby="form-dialog-title"
       >
         <DialogTitle id="form-dialog-title">Sign Out</DialogTitle>
@@ -63,10 +62,10 @@ class LogoutDialog extends React.Component {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={this.binder('handleCancel')} color="primary">
+          <Button onClick={this.binder(this.handleCancel)} color="primary">
             Cancel
           </Button>
-          <Button onClick={this.binder('handleLogout')} color="primary">
+          <Button onClick={this.binder(this.handleLogout)} color="primary">
             Sign Out
           </Button>
         </DialogActions>
@@ -81,15 +80,8 @@ const mapStateToProps = (state) => ({
 });
 
 
-const dispatchToProps = {
-  logOut,
-  tokenRefreshCancel,
-  setLoggingOut,
-};
-
-
 export default compose(
   withRouter,
   withStyles(styles),
-  connect(mapStateToProps, dispatchToProps),
+  connect(mapStateToProps),
 )(LogoutDialog);

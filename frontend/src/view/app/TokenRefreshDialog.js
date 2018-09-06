@@ -16,7 +16,7 @@ import Visibility from '@material-ui/icons/Visibility';
 import VisibilityOff from '@material-ui/icons/VisibilityOff';
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
-import { callOPNAPI } from '../../util/callapi';
+import { fOPN } from '../../util/fetcher';
 import { connect } from 'react-redux';
 import { logIn, logOut } from '../../reducer/login';
 import { tokenRefreshSuccess, tokenRefreshCancel } from '../../reducer/app';
@@ -29,14 +29,10 @@ const styles = {
 
 class TokenRefreshDialog extends React.Component {
   static propTypes = {
-    callOPNAPI: PropTypes.func.isRequired,
     classes: PropTypes.object.isRequired,
-    logIn: PropTypes.func.isRequired,
-    logOut: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
     personalName: PropTypes.string,
     tokenRefresh: PropTypes.bool.isRequired,
-    tokenRefreshSuccess: PropTypes.func.isRequired,
-    tokenRefreshCancel: PropTypes.func.isRequired,
     token: PropTypes.string,
   };
 
@@ -52,11 +48,13 @@ class TokenRefreshDialog extends React.Component {
   }
 
   handleLogOut() {
-    this.props.tokenRefreshCancel();
-    this.props.logOut();
+    const {dispatch} = this.props;
+    dispatch(tokenRefreshCancel());
+    dispatch(logOut());
   }
 
   handleOk() {
+    const {dispatch} = this.props;
     this.setState({submitting: true, error: null});
     const options = {
       data: {
@@ -64,17 +62,18 @@ class TokenRefreshDialog extends React.Component {
       },
       disableRefresh: true,
     };
-    this.props.callOPNAPI('/token/refresh', options).then(tokenInfo => {
-      this.props.tokenRefreshSuccess(tokenInfo.access_token);
-      this.props.logIn(tokenInfo.access_token, this.props.personalName);
+    const action1 = fOPN.fetchPath('/token/refresh', options);
+    dispatch(action1).then(tokenInfo => {
+      dispatch(tokenRefreshSuccess(tokenInfo.access_token));
+      dispatch(logIn(tokenInfo.access_token, this.props.personalName));
       this.setState({submitting: false});
       // Update the personal name.
-      this.props.callOPNAPI('/me', {disableRefresh: true}).then(
-        profileInfo => {
-          if (profileInfo.title !== this.props.personalName) {
-            this.props.logIn(tokenInfo.access_token, profileInfo.title);
-          }
-        });
+      const action2 = fOPN.fetchPath('/me', {disableRefresh: true});
+      dispatch(action2).then(profileInfo => {
+        if (profileInfo.title !== this.props.personalName) {
+          dispatch(logIn(tokenInfo.access_token, profileInfo.title));
+        }
+      });
     }).catch((error) => {
       this.setState({error: String(error), submitting: false});
     });
@@ -128,14 +127,14 @@ class TokenRefreshDialog extends React.Component {
               autoFocus
               type={this.state.showPassword ? 'text': 'password'}
               value={this.state.password}
-              onChange={this.binder('handleChangePassword')}
-              onKeyDown={this.binder('handleKeyDown')}
+              onChange={this.binder(this.handleChangePassword)}
+              onKeyDown={this.binder(this.handleKeyDown)}
               endAdornment={
                 <InputAdornment position="end">
                   <IconButton
                     aria-label="Toggle password visibility"
-                    onClick={this.binder('handleClickShowPassword')}
-                    onMouseDown={this.binder('handleMouseDownPassword')}
+                    onClick={this.binder(this.handleClickShowPassword)}
+                    onMouseDown={this.binder(this.handleMouseDownPassword)}
                   >
                     {this.state.showPassword ? <Visibility /> : <VisibilityOff />}
                   </IconButton>
@@ -146,10 +145,10 @@ class TokenRefreshDialog extends React.Component {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={this.binder('handleLogOut')} color="primary">
+          <Button onClick={this.binder(this.handleLogOut)} color="primary">
             Sign Out
           </Button>
-          <Button onClick={this.binder('handleOk')} color="primary">
+          <Button onClick={this.binder(this.handleOk)} color="primary">
             Ok
           </Button>
         </DialogActions>
@@ -166,16 +165,7 @@ const mapStateToProps = (state) => ({
 });
 
 
-const dispatchToProps = {
-  callOPNAPI,
-  logIn,
-  logOut,
-  tokenRefreshSuccess,
-  tokenRefreshCancel,
-};
-
-
 export default compose(
   withStyles(styles),
-  connect(mapStateToProps, dispatchToProps),
+  connect(mapStateToProps),
 )(TokenRefreshDialog);

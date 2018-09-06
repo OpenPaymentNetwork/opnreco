@@ -22,7 +22,7 @@ class ServerErrorDialog extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     serverError: PropTypes.string,
-    setServerError: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -31,7 +31,7 @@ class ServerErrorDialog extends React.Component {
   }
 
   handleClose() {
-    this.props.setServerError(null);
+    this.props.dispatch(setServerError(null));
   }
 
   render() {
@@ -39,7 +39,7 @@ class ServerErrorDialog extends React.Component {
     return (
       <Dialog
         open={!!serverError}
-        onClose={this.binder('handleClose')}
+        onClose={this.binder(this.handleClose)}
         aria-labelledby="error-dialog-title"
       >
         <DialogTitle id="error-dialog-title">Server Error</DialogTitle>
@@ -49,7 +49,7 @@ class ServerErrorDialog extends React.Component {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={this.binder('handleClose')} color="primary">
+          <Button onClick={this.binder(this.handleClose)} color="primary">
             Close
           </Button>
         </DialogActions>
@@ -64,12 +64,7 @@ const mapStateToProps = (state) => ({
 });
 
 
-const dispatchToProps = {
-  setServerError,
-};
-
-
 export default compose(
   withStyles(styles),
-  connect(mapStateToProps, dispatchToProps),
+  connect(mapStateToProps),
 )(ServerErrorDialog);

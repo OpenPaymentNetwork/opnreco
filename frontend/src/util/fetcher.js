@@ -1,4 +1,6 @@
 
+// Fetcher for OPN and OPN Reports services.
+
 /* global process: false */
 
 import { logOut } from '../reducer/login';
@@ -39,7 +41,6 @@ function checkAndParse(response) {
 }
 
 
-// Fetcher for OPN and OPN Reports services.
 export class OPNFetcher {
 
   constructor(baseURL, config) {
@@ -122,6 +123,14 @@ export class OPNFetcher {
                   error.message === 'Failed to fetch')) {
                 e = 'An error occurred while contacting the server.';
               }
+              /* eslint {"no-console": 0} */
+              if (typeof console !== 'undefined') {
+                console.error('Server error', {
+                  url,
+                  fetchOptions,
+                  error,
+                });
+              }
               dispatch(setServerError(e));
               reject(error);
             }
@@ -147,8 +156,8 @@ export class OPNFetcher {
 }
 
 
-export const OPNAPI = new OPNFetcher(
+export const fOPN = new OPNFetcher(
   process.env.REACT_APP_OPN_API_URL, {useToken: true});
 
-export const OPNReportAPI = new OPNFetcher(
+export const fOPNReport = new OPNFetcher(
   process.env.REACT_APP_OPNREPORT_API_URL, {useToken: true});

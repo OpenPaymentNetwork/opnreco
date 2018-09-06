@@ -1,17 +1,17 @@
 
-// Redux reducer for getting data from services asynchronously.
+// Redux reducer for fetching info from URLs and caching the results.
 
-const FETCHCACHE_CLEAR = 'ppay/FETCHCACHE_CLEAR';
-const FETCHCACHE_ERROR = 'ppay/FETCHCACHE_ERROR';
-const FETCHCACHE_ERROR_STALE = 'ppay/FETCHCACHE_ERROR_STALE';
-const FETCHCACHE_INJECT = 'ppay/FETCHCACHE_INJECT';
-const FETCHCACHE_INVALIDATE = 'ppay/FETCHCACHE_INVALIDATE';
-const FETCHCACHE_RECEIVE = 'ppay/FETCHCACHE_RECEIVE';
-const FETCHCACHE_RECEIVE_STALE = 'ppay/FETCHCACHE_RECEIVE_STALE';
-const FETCHCACHE_REQUEST = 'ppay/FETCHCACHE_REQUEST';
-const FETCHCACHE_REQUIRE = 'ppay/FETCHCACHE_REQUIRE';
-const FETCHCACHE_RESUME = 'ppay/FETCHCACHE_RESUME';
-const FETCHCACHE_SUSPEND = 'ppay/FETCHCACHE_SUSPEND';
+const FETCHCACHE_CLEAR = 'fetchcache/CLEAR';
+const FETCHCACHE_ERROR = 'fetchcache/ERROR';
+const FETCHCACHE_ERROR_STALE = 'fetchcache/ERROR_STALE';
+const FETCHCACHE_INJECT = 'fetchcache/INJECT';
+const FETCHCACHE_INVALIDATE = 'fetchcache/INVALIDATE';
+const FETCHCACHE_RECEIVE = 'fetchcache/RECEIVE';
+const FETCHCACHE_RECEIVE_STALE = 'fetchcache/RECEIVE_STALE';
+const FETCHCACHE_REQUEST = 'fetchcache/REQUEST';
+const FETCHCACHE_REQUIRE = 'fetchcache/REQUIRE';
+const FETCHCACHE_RESUME = 'fetchcache/RESUME';
+const FETCHCACHE_SUSPEND = 'fetchcache/SUSPEND';
 
 
 function arraysEqual(a, b) {
@@ -134,9 +134,11 @@ export class FetchCache {
         });
       }
 
-      Object.keys(toFetch).forEach((url) => {
-        dispatch(this.fetchNow(fetcher, url, options));
-      });
+      if (!thisState.suspended) {
+        Object.keys(toFetch).forEach((url) => {
+          dispatch(this.fetchNow(fetcher, url, options));
+        });
+      }
     };
   }
 
@@ -161,7 +163,7 @@ export class FetchCache {
   }
 
   /**
-   * shouldFetch() returns true if the given object needs to be fetched.
+   * shouldFetch() returns true if the given object should be fetched.
    */
   shouldFetch(state, url, options, ignoreExpiration) {
     const meta = this.getMeta(state, url);
@@ -169,7 +171,10 @@ export class FetchCache {
       return true;
     }
     if (!ignoreExpiration) {
+      // Check fetchExpires to prevent the dogpile effect.
+      // https://www.sobstel.org/blog/preventing-dogpile-effect/
       if (!meta.fetchExpires || Date.now() >= meta.fetchExpires) {
+        // Don't fetch unless the object is stale.
         if (!meta.expires || Date.now() >= meta.expires) {
           return true;
         }
@@ -221,6 +226,22 @@ export class FetchCache {
       ...options.fetchOptions || {},
       isCurrent,
     };
+
+    // Note: the request action is necessary. It signifies which fetch
+    // operation is most current.
+    dispatch({
+      type: FETCHCACHE_REQUEST,
+      meta: {
+        reducerName,
+      },
+      payload: {
+        fetchId,
+        fetcher,
+        url,
+        options,
+        fOptions,
+      },
+    });
 
     return dispatch(fetcher.fetchURL(url, fOptions)).then((body) => {
       dispatch({
@@ -298,7 +319,7 @@ export class FetchCache {
   }
 
   /**
-   * Suspend accepting URLs to request. We do this while
+   * Suspend accepting required URLs. We do this while
    * changing credentials to avoid making requests that would lead
    * to errors.
    */

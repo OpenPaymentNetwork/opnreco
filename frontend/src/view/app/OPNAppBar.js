@@ -6,10 +6,11 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
-import { withStyles } from '@material-ui/core/styles';
+import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { toggleDrawer } from '../../reducer/app';
+import { withStyles } from '@material-ui/core/styles';
 
 
 const styles = {
@@ -29,8 +30,17 @@ class OPNAppBar extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     layout: PropTypes.object.isRequired,
-    toggleDrawer: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
+
+  constructor(props) {
+    super(props);
+    this.binder = binder(this);
+  }
+
+  handleToggleDrawer() {
+    this.props.dispatch(toggleDrawer());
+  }
 
   render() {
     const { classes, layout } = this.props;
@@ -42,7 +52,7 @@ class OPNAppBar extends React.Component {
               className={classes.menuButton}
               color="inherit"
               aria-label="Menu"
-              onClick={this.props.toggleDrawer}
+              onClick={this.binder(this.handleToggleDrawer)}
             >
               <MenuIcon />
             </IconButton>
@@ -64,12 +74,7 @@ function mapStateToProps(state) {
 }
 
 
-const dispatchToProps = {
-  toggleDrawer,
-};
-
-
 export default compose(
   withStyles(styles),
-  connect(mapStateToProps, dispatchToProps),
+  connect(mapStateToProps),
 )(OPNAppBar);

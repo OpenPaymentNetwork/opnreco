@@ -13,11 +13,11 @@ class LoginView extends React.Component {
     deviceUUID: PropTypes.string,
     forceLogin: PropTypes.bool,
     oauthState: PropTypes.string,
-    startOAuth: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
 
   componentDidMount() {
-    this.props.startOAuth();
+    this.props.dispatch(startOAuth());
   }
 
   render() {
@@ -60,8 +60,4 @@ function mapStateToProps(state) {
   };
 }
 
-const dispatchToProps = {
-  startOAuth,
-};
-
-export default connect(mapStateToProps, dispatchToProps)(LoginView);
+export default connect(mapStateToProps)(LoginView);
