@@ -60,7 +60,7 @@ class TokenRefreshDialog extends React.Component {
       data: {
         password: this.state.password,
       },
-      disableRefresh: true,
+      disableTokenRefresh: true,
     };
     const action1 = fOPN.fetchPath('/token/refresh', options);
     dispatch(action1).then(tokenInfo => {
@@ -68,7 +68,7 @@ class TokenRefreshDialog extends React.Component {
       dispatch(logIn(tokenInfo.access_token, this.props.personalName));
       this.setState({submitting: false});
       // Update the personal name.
-      const action2 = fOPN.fetchPath('/me', {disableRefresh: true});
+      const action2 = fOPN.fetchPath('/me', {disableTokenRefresh: true});
       dispatch(action2).then(profileInfo => {
         if (profileInfo.title !== this.props.personalName) {
           dispatch(logIn(tokenInfo.access_token, profileInfo.title));

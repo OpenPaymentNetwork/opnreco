@@ -15,7 +15,7 @@ let nextComponentId = 1000;
 export class Require extends React.Component {
   static propTypes = {
     dispatch: PropTypes.func.isRequired,
-    fetcher: PropTypes.object.isRequired,
+    fetcher: PropTypes.object,
     paths: PropTypes.array,
     urls: PropTypes.array,
     options: PropTypes.object,
@@ -41,17 +41,31 @@ export class Require extends React.Component {
   }
 
   handleProps() {
+    // The component is mounted and the requirements have been
+    // specified (or updated), so call fetchcache.require() to
+    // start any needed fetches.
     const {dispatch, fetcher, paths, options} = this.props;
 
     let urls;
     if (paths) {
-      urls = paths.map(path => fetcher.pathToURL(path));
+      if (fetcher) {
+        urls = paths.map(path => fetcher.pathToURL(path));
+      } else {
+        throw new Error(
+          'The Require component needs a fetcher when paths are given');
+      }
     } else {
       urls = this.props.urls;
     }
 
+    // Add the fetcher to the options.
+    const fetchcacheOptions = {
+      ...(options || {}),
+      fetcher,
+    };
+
     dispatch(fetchcache.require(
-      this.state.componentId, fetcher, urls, options));
+      this.state.componentId, urls, fetchcacheOptions));
   }
 
   render() {

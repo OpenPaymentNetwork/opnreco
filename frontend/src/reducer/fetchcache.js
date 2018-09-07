@@ -1,19 +1,6 @@
 
 // Redux reducer for fetching info from URLs and caching the results.
 
-const FETCHCACHE_CLEAR = 'fetchcache/CLEAR';
-const FETCHCACHE_ERROR = 'fetchcache/ERROR';
-const FETCHCACHE_ERROR_STALE = 'fetchcache/ERROR_STALE';
-const FETCHCACHE_INJECT = 'fetchcache/INJECT';
-const FETCHCACHE_INVALIDATE = 'fetchcache/INVALIDATE';
-const FETCHCACHE_RECEIVE = 'fetchcache/RECEIVE';
-const FETCHCACHE_RECEIVE_STALE = 'fetchcache/RECEIVE_STALE';
-const FETCHCACHE_REQUEST = 'fetchcache/REQUEST';
-const FETCHCACHE_REQUIRE = 'fetchcache/REQUIRE';
-const FETCHCACHE_RESUME = 'fetchcache/RESUME';
-const FETCHCACHE_SUSPEND = 'fetchcache/SUSPEND';
-
-
 function arraysEqual(a, b) {
   if (!a || !b) {
     return false;
@@ -30,17 +17,31 @@ function arraysEqual(a, b) {
 
 export class FetchCache {
 
-  constructor(reducerName, config = {}) {
-    this.reducerName = reducerName;
+  constructor(config = {}) {
+    this.reducerName = config.reducerName || 'fetchcache';
+
+    const actionTypePrefix = config.actionTypePrefix || this.reducerName;
+    this.actionTypes = {
+      CLEAR: actionTypePrefix + '/CLEAR',
+      ERROR: actionTypePrefix + '/ERROR',
+      ERROR_STALE: actionTypePrefix + '/ERROR_STALE',
+      INJECT: actionTypePrefix + '/INJECT',
+      INVALIDATE: actionTypePrefix + '/INVALIDATE',
+      RECEIVE: actionTypePrefix + '/RECEIVE',
+      RECEIVE_STALE: actionTypePrefix + '/RECEIVE_STALE',
+      REQUEST: actionTypePrefix + '/REQUEST',
+      REQUIRE: actionTypePrefix + '/REQUIRE',
+      RESUME: actionTypePrefix + '/RESUME',
+      SUSPEND: actionTypePrefix + '/SUSPEND',
+    };
+
     this.error_expires_ms = config.error_expires_ms || 5 * 1000;  // 5 seconds
     this.expires_ms = config.expires_ms || 30 * 1000;             // 30 seconds
     this.fetch_expires_ms = config.fetch_expires_ms || 5 * 1000;  // 5 seconds
   }
 
   /**
-   * Create and return the reducer for this FetchCache. The resulting
-   * reducer ignores actions intended for FetchCaches with a different
-   * reducerName.
+   * Create and return a reducer for this FetchCache.
    */
   createReducer() {
     const initialState = {
@@ -54,8 +55,7 @@ export class FetchCache {
 
     return (state = initialState, action) => {
       const reduceFn = actionHandlers[action.type];
-      if (!reduceFn || !action.meta ||
-          action.meta.reducerName !== this.reducerName) {
+      if (!reduceFn) {
         return state;
       }
       return {...state, ...reduceFn(state, action)};
@@ -82,6 +82,9 @@ export class FetchCache {
 
       if (urls.length && thisState.suspended) {
         // Don't add requirements while suspended.
+        // Some apps suspend the fetchcache while changing
+        // credentials to avoid making requests that would lead
+        // to errors.
         // Note that we don't have to save any state in this case
         // because toggling the 'suspended' flag should cause
         // re-registration of all URL requirements.
@@ -122,10 +125,7 @@ export class FetchCache {
       if (!arraysEqual(oldReqsList, newReqsList)) {
         // The requirements for the component have changed.
         dispatch({
-          type: FETCHCACHE_REQUIRE,
-          meta: {
-            reducerName: this.reducerName,
-          },
+          type: this.actionTypes.REQUIRE,
           payload: {
             componentId,
             requirements: newReqsList,
@@ -211,8 +211,6 @@ export class FetchCache {
   fetchNow = (url, options = {}) => (dispatch, getState) => {
     const fetchId = String(Date.now()) + '-' + String(Math.random());
 
-    const reducerName = this.reducerName;
-
     const isCurrent = () => {
       const meta = this.getMeta(getState(), url);
       if (!meta || meta.fetchId !== fetchId) {
@@ -225,18 +223,13 @@ export class FetchCache {
     // Note: the request action is necessary. It signifies which fetch
     // operation is most current.
     dispatch({
-      type: FETCHCACHE_REQUEST,
-      meta: {
-        reducerName,
-      },
+      type: this.actionTypes.REQUEST,
       payload: {
         fetchId,
         url,
         options,
       },
     });
-
-    let fetchPromise;
 
     const {
       /* Extract fetchcache-specific options from the fetch options. */
@@ -247,23 +240,24 @@ export class FetchCache {
       ...fetchOptions
     } = options;
 
+    let promise;
     if (fetcher) {
-      // Add isCurrent to the options for the fetcher.
+      // Add isCurrent to the options for the fetcher, then call the fetcher.
       const fetcherOptions = {
         ...fetchOptions,
         isCurrent,
       };
-      fetchPromise = dispatch(fetcher.fetchURL(url, fetcherOptions));
+      promise = dispatch(fetcher.fetchURL(url, fetcherOptions));
     } else {
-      fetchPromise = fetch(url, fetchOptions);
+      // Fetch without the features of a fetcher (such as access token
+      // refresh, error display, status code checking, etc.)
+      promise = fetch(url, fetchOptions);
     }
 
-    return fetchPromise.then((body) => {
+    const actionTypes = this.actionTypes;
+    return promise.then((body) => {
       dispatch({
-        type: isCurrent() ? FETCHCACHE_RECEIVE : FETCHCACHE_RECEIVE_STALE,
-        meta: {
-          reducerName,
-        },
+        type: isCurrent() ? actionTypes.RECEIVE : actionTypes.RECEIVE_STALE,
         payload: {
           fetchId,
           url,
@@ -273,11 +267,8 @@ export class FetchCache {
       });
     }).catch((error) => {
       dispatch({
-        type: isCurrent() ? FETCHCACHE_ERROR : FETCHCACHE_ERROR_STALE,
+        type: isCurrent() ? actionTypes.ERROR : actionTypes.ERROR_STALE,
         error: true,
-        meta: {
-          reducerName,
-        },
         payload: {
           fetchId,
           url,
@@ -293,10 +284,7 @@ export class FetchCache {
    */
   inject(url, body, options) {
     return {
-      type: FETCHCACHE_INJECT,
-      meta: {
-        reducerName: this.reducerName,
-      },
+      type: this.actionTypes.INJECT,
       payload: {
         url,
         body,
@@ -311,10 +299,7 @@ export class FetchCache {
    */
   invalidate(keep) {
     return {
-      type: FETCHCACHE_INVALIDATE,
-      meta: {
-        reducerName: this.reducerName,
-      },
+      type: this.actionTypes.INVALIDATE,
       payload: {
         keep,
       },
@@ -325,12 +310,7 @@ export class FetchCache {
    * Action creator: clear the cache.
    */
   clear() {
-    return {
-      type: FETCHCACHE_CLEAR,
-      meta: {
-        reducerName: this.reducerName,
-      },
-    };
+    return { type: this.actionTypes.CLEAR };
   }
 
   /**
@@ -339,157 +319,150 @@ export class FetchCache {
    * to errors.
    */
   suspend() {
-    return {
-      type: FETCHCACHE_SUSPEND,
-      meta: {
-        reducerName: this.reducerName,
-      },
-    };
+    return { type: this.actionTypes.SUSPEND };
   }
 
   /**
    * Resume accepting URLs.
    */
   resume() {
-    return {
-      type: FETCHCACHE_RESUME,
-      meta: {
-        reducerName: this.reducerName,
-      },
-    };
+    return { type: this.actionTypes.RESUME };
   }
 
-  makeActionHandlers = () => ({
+  makeActionHandlers() {
+    const actionTypes = this.actionTypes;
+    return {
 
-    [FETCHCACHE_REQUIRE]: (state, action) => {
-      const {componentId, requirements} = action.payload;
-      return {
-        requirements: {
-          ...state.requirements,
-          [componentId]: requirements.length ? requirements : undefined,
-        },
-      };
-    },
-
-    [FETCHCACHE_REQUEST]: (state, action) => {
-      const {options, url, fetchId} = action.payload;
-      const oldMeta = options.clear ? {} : (state.meta[url] || {});
-      const fetchExpires = Date.now() + this.fetch_expires_ms;
-      const newMeta = {
-        ...oldMeta,
-        fetchId,
-        fetchExpires,
-        options,
-      };
-      return {
-        meta: {
-          ...state.meta,
-          [url]: newMeta,
-        },
-        data: {
-          ...state.data,
-          [url]: options.clear ? undefined : state.data[url],
-        },
-      };
-    },
-
-    [FETCHCACHE_RECEIVE]: (state, action) => {
-      const {options, url, body} = action.payload;
-      const expires = Date.now() + this.expires_ms;
-      return {
-        meta: {
-          ...state.meta,
-          [url]: {
-            expires,
-            options,
+      [actionTypes.REQUIRE]: (state, action) => {
+        const {componentId, requirements} = action.payload;
+        return {
+          requirements: {
+            ...state.requirements,
+            [componentId]: requirements.length ? requirements : undefined,
           },
-        },
-        data: {
-          ...state.data,
-          [url]: body,
-        },
-      };
-    },
+        };
+      },
 
-    [FETCHCACHE_INJECT]: (state, action) => {
-      const {options, url, body} = action.payload;
-      const expires = Date.now() + this.expires_ms;
-      const oldObj = state.data[url];  // oldObj may be undefined.
-      let newObj = body;
-      if (options.condition) {
-        // The condition option is a function that specifies whether
-        // to actually inject the new state. The function receives
-        // two parameters, the current state and the proposed state,
-        // and returns true to inject or false to leave as-is.
-        if (!options.condition(oldObj, newObj)) {
-          // No change.
-          return state;
+      [actionTypes.REQUEST]: (state, action) => {
+        const {options, url, fetchId} = action.payload;
+        const oldMeta = options.clear ? {} : (state.meta[url] || {});
+        const fetchExpires = Date.now() + this.fetch_expires_ms;
+        const newMeta = {
+          ...oldMeta,
+          fetchId,
+          fetchExpires,
+          options,
+        };
+        return {
+          meta: {
+            ...state.meta,
+            [url]: newMeta,
+          },
+          data: {
+            ...state.data,
+            [url]: options.clear ? undefined : state.data[url],
+          },
+        };
+      },
+
+      [actionTypes.RECEIVE]: (state, action) => {
+        const {options, url, body} = action.payload;
+        const expires = Date.now() + this.expires_ms;
+        return {
+          meta: {
+            ...state.meta,
+            [url]: {
+              expires,
+              options,
+            },
+          },
+          data: {
+            ...state.data,
+            [url]: body,
+          },
+        };
+      },
+
+      [actionTypes.INJECT]: (state, action) => {
+        const {options, url, body} = action.payload;
+        const expires = Date.now() + this.expires_ms;
+        const oldObj = state.data[url];  // oldObj may be undefined.
+        let newObj = body;
+        if (options.condition) {
+          // The condition option is a function that specifies whether
+          // to actually inject the new state. The function receives
+          // two parameters, the current state and the proposed state,
+          // and returns true to inject or false to leave as-is.
+          if (!options.condition(oldObj, newObj)) {
+            // No change.
+            return state;
+          }
         }
-      }
-      if (options.merge) {
-        // Perform a shallow merge of the existing data with the updated
-        // state object.
-        newObj = {...(oldObj || {}), ...body};
-      }
-      return {
-        meta: {
-          ...state.meta,
-          [url]: {
-            expires,
-            options,
-          },
-        },
-        data: {
-          ...state.data,
-          [url]: newObj,
-        },
-      };
-    },
-
-    [FETCHCACHE_ERROR]: (state, action) => {
-      const {options, url, message} = action.payload;
-      const expires = Date.now() + this.error_expires_ms;
-      return {
-        meta: {
-          ...state.meta,
-          [url]: {
-            error: String(message),
-            expires,
-            options,
-          },
-        },
-      };
-    },
-
-    [FETCHCACHE_INVALIDATE]: (state, action) => {
-      const {keep} = action.payload;
-      // Remove data and metadata that don't match the 'keep' function.
-      const {data, meta} = state;
-      const newData = {};
-      const newMeta = {};
-      Object.keys(meta).forEach((key) => {
-        if (keep && keep(key)) {
-          newMeta[key] = meta[key];
-          newData[key] = data[key];
+        if (options.merge) {
+          // Perform a shallow merge of the existing data with the updated
+          // state object.
+          newObj = {...(oldObj || {}), ...body};
         }
-      });
-      return {data: newData, meta: newMeta};
-    },
+        return {
+          meta: {
+            ...state.meta,
+            [url]: {
+              expires,
+              options,
+            },
+          },
+          data: {
+            ...state.data,
+            [url]: newObj,
+          },
+        };
+      },
 
-    [FETCHCACHE_CLEAR]: () => ({
-      // Remove all data and metadata from the state.
-      data: {},
-      meta: {},
-    }),
+      [actionTypes.ERROR]: (state, action) => {
+        const {options, url, message} = action.payload;
+        const expires = Date.now() + this.error_expires_ms;
+        return {
+          meta: {
+            ...state.meta,
+            [url]: {
+              error: String(message),
+              expires,
+              options,
+            },
+          },
+        };
+      },
 
-    [FETCHCACHE_SUSPEND]: () => ({suspended: true}),
+      [actionTypes.INVALIDATE]: (state, action) => {
+        const {keep} = action.payload;
+        // Remove data and metadata that don't match the 'keep' function.
+        const {data, meta} = state;
+        const newData = {};
+        const newMeta = {};
+        Object.keys(meta).forEach((key) => {
+          if (keep && keep(key)) {
+            newMeta[key] = meta[key];
+            newData[key] = data[key];
+          }
+        });
+        return {data: newData, meta: newMeta};
+      },
 
-    [FETCHCACHE_RESUME]: () => ({suspended: false}),
+      [actionTypes.CLEAR]: () => ({
+        // Remove all data and metadata from the state.
+        data: {},
+        meta: {},
+      }),
 
-  });
+      [actionTypes.SUSPEND]: () => ({suspended: true}),
+
+      [actionTypes.RESUME]: () => ({suspended: false}),
+    };
+  }
 }
 
+// Export a default fetchcache implementation.
+export const fetchcache = new FetchCache();
 
-export const fetchcache = new FetchCache('fetchcache');
-
+// Export a reducer for the default fetchcache implementation.
 export default fetchcache.createReducer();

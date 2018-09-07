@@ -55,7 +55,7 @@ export class OPNFetcher {
       data,
       isCurrent,
       token: tokenOption,
-      disableRefresh,
+      disableTokenRefresh,
       suppressServerError,
       ...fetchOptions
     } = options;
@@ -96,7 +96,7 @@ export class OPNFetcher {
             }
 
             if (token && error.response && error.response.status === 401) {
-              if (disableRefresh) {
+              if (disableTokenRefresh) {
                 // Instead of refreshing access tokens automatically,
                 // propagate Unauthorized errors to the caller.
                 reject(error);
