@@ -49,34 +49,38 @@ export class OPNFetcher {
   }
 
   fetchURL = (url, options = {}) => (dispatch, getState) => {
-    const customAuth = options.customAuth || (
-      options.headers && options.headers.Authorization);
+    /* Extract fetcher-specific options from the fetch options. */
+    const {
+      customAuth,
+      data,
+      isCurrent,
+      token: tokenOption,
+      disableRefresh,
+      suppressServerError,
+      ...fetchOptions
+    } = options;
 
-    const fetchOptions = {
-      ...(options.fetchOptions || {}),
-      headers: {
-        'Accept': 'application/json',
-        ...(options.headers || {}),
-      },
-    };
+    if (!fetchOptions.headers) {
+      fetchOptions.headers = {};
+    }
 
-    if (options.data) {
-      delete fetchOptions.data;
+    const setAuthHeader = !customAuth && !fetchOptions.headers.Authorization;
+
+    if (!fetchOptions.headers.Accept) {
+      fetchOptions.headers.Accept = 'application/json';
+    }
+
+    if (data) {
       fetchOptions.headers['Content-Type'] = 'application/json';
       fetchOptions.body = JSON.stringify(options.data);
-      if (!options.method) {
+      if (!fetchOptions.method) {
         fetchOptions.method = 'post';
       }
     }
 
-    const isCurrent = options.isCurrent;
-    if (isCurrent !== undefined) {
-      delete fetchOptions.isCurrent;
-    }
-
     return new Promise((resolve, reject) => {
       function tryFetch(token) {
-        if (token && !customAuth) {
+        if (token && setAuthHeader) {
           fetchOptions.headers.Authorization = 'Bearer ' + token;
         }
 
@@ -92,7 +96,7 @@ export class OPNFetcher {
             }
 
             if (token && error.response && error.response.status === 401) {
-              if (options.disableRefresh) {
+              if (disableRefresh) {
                 // Instead of refreshing access tokens automatically,
                 // propagate Unauthorized errors to the caller.
                 reject(error);
@@ -116,7 +120,7 @@ export class OPNFetcher {
                 };
                 dispatch(tokenRefreshRequest(deferred));
               }
-            } else if (!options.suppressServerError) {
+            } else if (!suppressServerError) {
               let e = error;
               if (error.message &&
                 (error.message === 'Type error' ||
@@ -137,7 +141,7 @@ export class OPNFetcher {
           });
       }
 
-      let initToken = options.token;
+      let initToken = tokenOption;
       if (!initToken && this.config.useToken) {
         initToken = getState().login.token;
       }

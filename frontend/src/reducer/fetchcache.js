@@ -66,7 +66,7 @@ export class FetchCache {
    * require(), an action thunk creator,
    * registers component requirements and causes objects to be fetched.
    */
-  require(componentId, fetcher, urls, options = {}) {
+  require(componentId, urls, options = {}) {
     return (dispatch, getState) => {
       const state = getState();
       const newReqsList = [];
@@ -136,7 +136,7 @@ export class FetchCache {
 
       if (!thisState.suspended) {
         Object.keys(toFetch).forEach((url) => {
-          dispatch(this.fetchNow(fetcher, url, options));
+          dispatch(this.fetchNow(url, options));
         });
       }
     };
@@ -208,7 +208,7 @@ export class FetchCache {
   /**
    * fetchNow(), an action thunk creator, fetches an object unconditionally.
    */
-  fetchNow = (fetcher, url, options = {}) => (dispatch, getState) => {
+  fetchNow = (url, options = {}) => (dispatch, getState) => {
     const fetchId = String(Date.now()) + '-' + String(Math.random());
 
     const reducerName = this.reducerName;
@@ -222,11 +222,6 @@ export class FetchCache {
       return true;
     };
 
-    const fOptions = {
-      ...options.fetchOptions || {},
-      isCurrent,
-    };
-
     // Note: the request action is necessary. It signifies which fetch
     // operation is most current.
     dispatch({
@@ -236,14 +231,34 @@ export class FetchCache {
       },
       payload: {
         fetchId,
-        fetcher,
         url,
         options,
-        fOptions,
       },
     });
 
-    return dispatch(fetcher.fetchURL(url, fOptions)).then((body) => {
+    let fetchPromise;
+
+    const {
+      /* Extract fetchcache-specific options from the fetch options. */
+      /* eslint {"no-unused-vars": 0} */
+      clear,
+      keepFresh,
+      fetcher,
+      ...fetchOptions
+    } = options;
+
+    if (fetcher) {
+      // Add isCurrent to the options for the fetcher.
+      const fetcherOptions = {
+        ...fetchOptions,
+        isCurrent,
+      };
+      fetchPromise = dispatch(fetcher.fetchURL(url, fetcherOptions));
+    } else {
+      fetchPromise = fetch(url, fetchOptions);
+    }
+
+    return fetchPromise.then((body) => {
       dispatch({
         type: isCurrent() ? FETCHCACHE_RECEIVE : FETCHCACHE_RECEIVE_STALE,
         meta: {
@@ -266,7 +281,7 @@ export class FetchCache {
         payload: {
           fetchId,
           url,
-          fOptions,
+          options,
           message: error,
         },
       });
