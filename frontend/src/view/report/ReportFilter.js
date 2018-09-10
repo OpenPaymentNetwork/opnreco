@@ -1,6 +1,6 @@
 
 import FormControl from '@material-ui/core/FormControl';
-import InputLabel from '@material-ui/core/InputLabel';
+//import InputLabel from '@material-ui/core/InputLabel';
 import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -13,12 +13,10 @@ import { withStyles } from '@material-ui/core/styles';
 const styles = {
   root: {
     display: 'flex',
-    float: 'right',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     flexWrap: 'wrap-reverse',
     padding: '0 8px',
-    margin: '0 16px 16px 16px',
   },
   controlBox: {
     padding: 16,
@@ -41,19 +39,18 @@ class ReportFilter extends React.Component {
   render() {
     const {classes} = this.props;
 
-
     return (
       <Paper className={classes.root}>
         <div className={classes.controlBox}>
           <FormControl>
-            <InputLabel htmlFor="filter-mirror">Reconciliation Target</InputLabel>
+            {/*<InputLabel htmlFor="filter-mirror">Account</InputLabel>*/}
             <Select
               value="c"
               inputProps={{
                 id: 'filter-mirror',
               }}
             >
-              <MenuItem value="c">BCB FBO Circulation: USD Open Loop</MenuItem>
+              <MenuItem value="c">BCB FBO circulation: USD Open Loop</MenuItem>
               <MenuItem value="201">Zions Bank: USD Open Loop</MenuItem>
               <MenuItem value="203">RevCash Store: MXN Pokecash</MenuItem>
             </Select>
@@ -61,17 +58,18 @@ class ReportFilter extends React.Component {
         </div>
         <div className={classes.controlBox}>
           <FormControl>
-            <InputLabel htmlFor="filter-date">Date range</InputLabel>
+            {/* <InputLabel htmlFor="filter-file">File</InputLabel> */}
             <Select
-              value="2018-06-01--2018-06-30"
+              value="current"
               inputProps={{
                 id: 'filter-date',
               }}
             >
-              <MenuItem value="2018-06-01--2018-06-30">June 2018</MenuItem>
-              <MenuItem value="2018-07-01--2018-07-31">July 2018</MenuItem>
-              <MenuItem value="2018-08-01--2018-08-31">August 2018</MenuItem>
-              <MenuItem value="custom">Custom Range&hellip;</MenuItem>
+              <MenuItem value="current">Current</MenuItem>
+              <MenuItem value="505">June 2018</MenuItem>
+              <MenuItem value="510">July 2018</MenuItem>
+              <MenuItem value="519">August 2018</MenuItem>
+              <MenuItem value="other">Other Files&hellip;</MenuItem>
             </Select>
           </FormControl>
         </div>

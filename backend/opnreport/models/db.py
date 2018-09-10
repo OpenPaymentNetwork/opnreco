@@ -82,11 +82,12 @@ class File(Base):
     __tablename__ = 'file'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(
-        String, ForeignKey('profile.id'), index=True, nullable=False)
-    title = Column(Unicode, nullable=False)
-    # meta contains a summary of what is in the file.
-    # Anything in meta can be re-derived from the contents of the file.
-    meta = Column(JSONB, nullable=False)
+        String, ForeignKey('profile.id'), nullable=False, index=True)
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'), nullable=False, index=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    comment = Column(Unicode, nullable=True)
 
 
 class TransferRecord(Base):
