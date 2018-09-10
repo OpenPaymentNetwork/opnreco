@@ -73,6 +73,22 @@ class OPNDownload(Base):
     content = Column(JSONB, nullable=False)
 
 
+class File(Base):
+    """A permanent record of transfer records and mirror entries.
+
+    Once a file is created and populated, this tool never changes the file
+    contents.
+    """
+    __tablename__ = 'file'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    profile_id = Column(
+        String, ForeignKey('profile.id'), index=True, nullable=False)
+    title = Column(Unicode, nullable=False)
+    # meta contains a summary of what is in the file.
+    # Anything in meta can be re-derived from the contents of the file.
+    meta = Column(JSONB, nullable=False)
+
+
 class TransferRecord(Base):
     """A profile's transfer record.
 
@@ -85,8 +101,9 @@ class TransferRecord(Base):
     """
     __tablename__ = 'transfer_record'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    transfer_id = Column(String, nullable=False)
     profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
+    file_id = Column(BigInteger, ForeignKey('file.id'), nullable=True)
+    transfer_id = Column(String, nullable=False)
 
     workflow_type = Column(String, nullable=False)    # Never changes
     start = Column(DateTime, nullable=False)          # Never changes
@@ -108,13 +125,14 @@ class TransferRecord(Base):
 
 Index(
     'ix_transfer_record_unique',
-    TransferRecord.transfer_id,
     TransferRecord.profile_id,
+    TransferRecord.file_id,
+    TransferRecord.transfer_id,
     unique=True)
 
 
 class TransferDownloadRecord(Base):
-    """A record of which downloads provided TransferRecord data."""
+    """A record of which download(s) provided TransferRecord data."""
     __tablename__ = 'transfer_download_record'
     opn_download_id = Column(
         BigInteger, ForeignKey('opn_download.id'),
@@ -145,6 +163,7 @@ class Mirror(Base):
     # target_id is either an OPN holder ID or
     # the letter 'c' for circulating.
     target_id = Column(String, nullable=False)
+    file_id = Column(BigInteger, ForeignKey('file.id'), nullable=True)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
     # target_title is based on target_id only and does not refer
@@ -161,6 +180,7 @@ Index(
     'ix_mirror_unique',
     Mirror.profile_id,
     Mirror.target_id,
+    Mirror.file_id,
     Mirror.loop_id,
     Mirror.currency,
     unique=True)

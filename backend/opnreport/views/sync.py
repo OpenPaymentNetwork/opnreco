@@ -154,6 +154,7 @@ class SyncView:
         record_list = (
             dbsession.query(TransferRecord)
             .filter(TransferRecord.profile_id == profile_id)
+            .filter(TransferRecord.file_id == null)
             .filter(TransferRecord.transfer_id.in_(transfer_ids))
             .all())
 
@@ -182,6 +183,7 @@ class SyncView:
                 # Add a TransferRecord.
                 record = TransferRecord(
                     transfer_id=transfer_id,
+                    file_id=null,
                     profile_id=profile_id,
                     **kw)
                 changed.append('new')
@@ -357,6 +359,7 @@ class SyncView:
             .filter_by(
                 profile_id=profile_id,
                 target_id=target_id,
+                file_id=null,
                 loop_id=loop_id,
                 currency=currency,
             ).first()
@@ -367,6 +370,7 @@ class SyncView:
             mirror = Mirror(
                 profile_id=profile_id,
                 target_id=target_id,
+                file_id=null,
                 loop_id=loop_id,
                 currency=currency)
             dbsession.add(mirror)
