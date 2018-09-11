@@ -137,6 +137,7 @@ class OPNDrawer extends React.Component {
 
   handleSignOut() {
     this.props.dispatch(setLoggingOut(true));
+    this.props.dispatch(closeDrawer());
   }
 
   handleOpenDrawer() {
