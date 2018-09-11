@@ -1,13 +1,15 @@
-
+import { binder } from '../../util/binder';
+import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
+import { setFileId, setMirrorId } from '../../reducer/report';
+import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
-//import InputLabel from '@material-ui/core/InputLabel';
+import InputLabel from '@material-ui/core/InputLabel';
 import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Select from '@material-ui/core/Select';
-import { binder } from '../../util/binder';
-import { withStyles } from '@material-ui/core/styles';
 
 
 const styles = {
@@ -27,8 +29,9 @@ const styles = {
 class ReportFilter extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    onlyCirculating: PropTypes.bool,
-    dateRange: PropTypes.bool,
+    dispatch: PropTypes.func.isRequired,
+    fileId: PropTypes.string,
+    mirrorId: PropTypes.string,
   };
 
   constructor(props) {
@@ -36,16 +39,25 @@ class ReportFilter extends React.Component {
     this.binder = binder(this);
   }
 
+  handleMirrorChange(event) {
+    this.props.dispatch(setMirrorId(event.target.value));
+  }
+
+  handleFileChange(event) {
+    this.props.dispatch(setFileId(event.target.value));
+  }
+
   render() {
-    const {classes} = this.props;
+    const {classes, mirrorId, fileId} = this.props;
 
     return (
       <Paper className={classes.root}>
         <div className={classes.controlBox}>
           <FormControl>
-            {/*<InputLabel htmlFor="filter-mirror">Account</InputLabel>*/}
+            <InputLabel htmlFor="filter-mirror">Account</InputLabel>
             <Select
-              value="c"
+              value={mirrorId || 'c'}
+              onChange={this.binder(this.handleMirrorChange)}
               inputProps={{
                 id: 'filter-mirror',
               }}
@@ -58,9 +70,10 @@ class ReportFilter extends React.Component {
         </div>
         <div className={classes.controlBox}>
           <FormControl>
-            {/* <InputLabel htmlFor="filter-file">File</InputLabel> */}
+            <InputLabel htmlFor="filter-file">File</InputLabel>
             <Select
-              value="current"
+              value={fileId || 'current'}
+              onChange={this.binder(this.handleFileChange)}
               inputProps={{
                 id: 'filter-date',
               }}
@@ -79,4 +92,12 @@ class ReportFilter extends React.Component {
 }
 
 
-export default withStyles(styles)(ReportFilter);
+function mapStateToProps(state) {
+  return state.report;
+}
+
+
+export default compose(
+  withStyles(styles),
+  connect(mapStateToProps),
+)(ReportFilter);

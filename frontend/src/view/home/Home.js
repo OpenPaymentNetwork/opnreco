@@ -18,18 +18,17 @@ import Hidden from '@material-ui/core/Hidden';
 
 
 const styles = theme => ({
-  homeMain: {
-    position: 'relative',
+  root: {
   },
   topLine: {
-    [theme.breakpoints.up('md')]: {
+    [theme.breakpoints.up('lg')]: {
       display: 'flex',
+      alignItems: 'flex-end',
     },
-    alignItems: 'flex-end',
     backgroundColor: theme.palette.primary.light,
     color: '#fff',
   },
-  reportFilter: {
+  reportFilterBox: {
     padding: 16,
   },
   tabs: {
@@ -75,23 +74,23 @@ class Home extends React.Component {
     );
 
     const filterBox = (
-      <div className={classes.reportFilter}>
+      <div className={classes.reportFilterBox}>
         <ReportFilter />
       </div>
     );
 
     return (
-      <div className={classes.homeMain}>
+      <div className={classes.root}>
         <LayoutConfig title="OPN Reports" />
 
         <div className={classes.topLine}>
 
-          <Hidden mdUp>
+          <Hidden lgUp>
             {filterBox}
             {tabs}
           </Hidden>
 
-          <Hidden smDown>
+          <Hidden mdDown>
             {tabs}
             {filterBox}
           </Hidden>
