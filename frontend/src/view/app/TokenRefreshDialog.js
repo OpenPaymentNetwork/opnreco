@@ -31,7 +31,7 @@ class TokenRefreshDialog extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    personalName: PropTypes.string,
+    personalProfile: PropTypes.object,
     tokenRefresh: PropTypes.bool.isRequired,
     token: PropTypes.string,
   };
@@ -64,14 +64,20 @@ class TokenRefreshDialog extends React.Component {
     };
     const action1 = fOPN.fetchPath('/token/refresh', options);
     dispatch(action1).then(tokenInfo => {
+      const {personalProfile} = this.props;
       dispatch(tokenRefreshSuccess(tokenInfo.access_token));
-      dispatch(logIn(tokenInfo.access_token, this.props.personalName));
+      dispatch(logIn(tokenInfo.access_token, personalProfile));
       this.setState({submitting: false});
-      // Update the personal name.
+      // Update the personal profile ID and title.
       const action2 = fOPN.fetchPath('/me', {disableTokenRefresh: true});
       dispatch(action2).then(profileInfo => {
-        if (profileInfo.title !== this.props.personalName) {
-          dispatch(logIn(tokenInfo.access_token, profileInfo.title));
+        if (!personalProfile ||
+            profileInfo.id !== personalProfile.id ||
+            profileInfo.title !== personalProfile.title) {
+          dispatch(logIn(tokenInfo.access_token, {
+            id: profileInfo.id,
+            title: profileInfo.title,
+          }));
         }
       });
     }).catch((error) => {
@@ -98,11 +104,11 @@ class TokenRefreshDialog extends React.Component {
   }
 
   render() {
-    const { personalName } = this.props;
+    const { personalProfile } = this.props;
 
     let welcome;
-    if (personalName) {
-      welcome = <span>Welcome back, {personalName}</span>;
+    if (personalProfile && personalProfile.title) {
+      welcome = <span>Welcome back, {personalProfile.title}</span>;
     } else {
       welcome = <span>Welcome back</span>;
     }

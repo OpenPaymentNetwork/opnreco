@@ -307,7 +307,7 @@ export class FetchCache {
   }
 
   /**
-   * Action creator: clear the cache.
+   * Action creator: clear the cache. Equivalent to invalidating everything.
    */
   clear() {
     return { type: this.actionTypes.CLEAR };
@@ -438,14 +438,13 @@ export class FetchCache {
         // Remove data and metadata that don't match the 'keep' function.
         const {data, meta} = state;
         const newData = {};
-        const newMeta = {};
-        Object.keys(meta).forEach((key) => {
-          if (keep && keep(key)) {
-            newMeta[key] = meta[key];
-            newData[key] = data[key];
+        Object.keys(meta).forEach((url) => {
+          if (keep && keep(url)) {
+            // Keep the data but re-fetch it in the background.
+            newData[url] = data[url];
           }
         });
-        return {data: newData, meta: newMeta};
+        return {data: newData, meta: {}};
       },
 
       [actionTypes.CLEAR]: () => ({

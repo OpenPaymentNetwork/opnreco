@@ -6,6 +6,7 @@ const LOG_IN = 'login/LOG_IN';
 const SET_CAME_FROM = 'login/SET_CAME_FROM';
 const START_OAUTH = 'login/START_OAUTH';
 const CLEAR_OAUTH_STATE = 'login/CLEAR_OAUTH_STATE';
+const SWITCH_PROFILE = 'login/SWITCH_PROFILE';
 
 // Note: the login state is persistent, so only the small amount of state
 // that should persist between sesssions should be stored here.
@@ -23,7 +24,8 @@ const CLEAR_OAUTH_STATE = 'login/CLEAR_OAUTH_STATE';
 
 const initialState = {
   token: '',
-  personalName: '',  // Name of the logged in personal profile
+  id: '',  // id of the logged in profile (may be diff from personal profile)
+  personalProfile: {},  // id and title of the logged in personal profile
   oauthState: '',
   cameFrom: '',
   forceLogin: false,
@@ -31,9 +33,9 @@ const initialState = {
 
 export const logOut = () => ({type: LOG_OUT});
 
-export const logIn = (token, personalName) => ({
+export const logIn = (token, personalProfile) => ({
   type: LOG_IN,
-  payload: {token, personalName},
+  payload: {token, personalProfile},
 });
 
 export const setCameFrom = (pathName) => ({
@@ -50,13 +52,19 @@ export const clearOAuthState = () => ({
   type: CLEAR_OAUTH_STATE,
 });
 
+export const switchProfile = (token, id) => ({
+  type: SWITCH_PROFILE,
+  payload: {token, id},
+});
+
 const actionHandlers = {
   [LOG_OUT]: () => ({...initialState, forceLogin: true}),
 
-  [LOG_IN]: (state, {payload: {token, personalName}}) => ({
+  [LOG_IN]: (state, {payload: {token, personalProfile}}) => ({
     ...state,
     token,
-    personalName,
+    id: personalProfile ? personalProfile.id : '',
+    personalProfile,
     forceLogin: false,
   }),
 
@@ -68,13 +76,20 @@ const actionHandlers = {
   [START_OAUTH]: (state, {payload: {oauthState}}) => ({
     ...state,
     token: '',
-    personalName: '',
+    id: '',
+    personalProfile: {},
     oauthState,
   }),
 
   [CLEAR_OAUTH_STATE]: (state) => ({
     ...state,
     oauthState: undefined,
+  }),
+
+  [SWITCH_PROFILE]: (state, {payload: {token, id}}) => ({
+    ...state,
+    token,
+    id,
   }),
 };
 

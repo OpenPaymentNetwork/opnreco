@@ -1,4 +1,11 @@
-
+import { FormattedRelative } from 'react-intl';
+import { binder } from '../../util/binder';
+import { clearMost } from '../../reducer/clearmost';
+import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
+import { fOPNReport } from '../../util/fetcher';
+import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut } from '../../reducer/app';
+import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
@@ -6,21 +13,12 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
+import ProfileSelector from './ProfileSelector';
 import PropTypes from 'prop-types';
 import React from 'react';
-import Require from '../../util/Require';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
 import Toolbar from '@material-ui/core/Toolbar';
-import { binder } from '../../util/binder';
-import { fOPN, fOPNReport } from '../../util/fetcher';
-import { compose } from '../../util/functional';
-import { connect } from 'react-redux';
-import { FormattedRelative } from 'react-intl';
-import { withStyles } from '@material-ui/core/styles';
-
-import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut }
-  from '../../reducer/app';
 
 
 /* global process: false */
@@ -50,14 +48,23 @@ class OPNDrawer extends React.Component {
   constructor(props) {
     super(props);
     this.binder = binder(this);
-    this.state = {
-      selectableProfiles: {},
-    };
+    this.startingSync = false;
   }
 
   componentDidMount() {
-    if (!this.props.syncedAt && !this.props.syncProgress) {
+    this.autoSync();
+  }
+
+  componentDidUpdate() {
+    this.autoSync();
+  }
+
+  autoSync() {
+    if (!this.startingSync &&
+        !this.props.syncedAt &&
+        !this.props.syncProgress) {
       // Start an automatic sync.
+      this.startingSync = true;
       window.setTimeout(() => this.handleSync(), 0);
     }
   }
@@ -124,6 +131,7 @@ class OPNDrawer extends React.Component {
         } else {
           // Done.
           dispatch(setSyncProgress(null, new Date()));
+          dispatch(clearMost());
         }
       }).catch(() => {
         // An error occurred and has been shown to the user.
@@ -132,6 +140,7 @@ class OPNDrawer extends React.Component {
     };
 
     dispatch(setSyncProgress(-1));
+    this.startingSync = false;
     syncBatch();
   }
 
@@ -152,7 +161,7 @@ class OPNDrawer extends React.Component {
     const syncUI = this.getSyncUI();
     return (<div>
       <Toolbar>
-        (Profile selector here)
+        <ProfileSelector />
       </Toolbar>
       <Divider style={{marginTop: -1}} />
       <List component="nav">
@@ -188,7 +197,6 @@ class OPNDrawer extends React.Component {
     const drawerContent = this.renderContent();
     return (
       <div>
-        <Require fetcher={fOPN} paths={['/token/selectable']} />
         <SwipeableDrawer
           open={drawerOpen}
           onOpen={this.binder(this.handleOpenDrawer)}

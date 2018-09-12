@@ -43,10 +43,13 @@ class OAuth2CallbackView extends React.Component {
       const propsHistory = this.props.history;
 
       dispatch(clearOAuthState());
-      dispatch(logIn(parsed.access_token, ''));
+      dispatch(logIn(parsed.access_token));
       const action = fOPN.fetchPath('/me', {disableRefresh: true});
       dispatch(action).then(profileInfo => {
-        dispatch(logIn(parsed.access_token, profileInfo.title));
+        dispatch(logIn(parsed.access_token, {
+          id: profileInfo.id,
+          title: profileInfo.title,
+        }));
         dispatch(setCameFrom(''));
         window.setTimeout(() => propsHistory.push(cameFrom), 0);
       }).catch((error) => {

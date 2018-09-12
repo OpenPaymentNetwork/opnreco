@@ -6,6 +6,7 @@ const CLOSE_DRAWER = 'app/CLOSE_DRAWER';
 const TOGGLE_DRAWER = 'app/TOGGLE_DRAWER';
 const SET_LAYOUT = 'app/SET_LAYOUT';
 const SET_SYNC_PROGRESS = 'app/SET_SYNC_PROGRESS';
+const TRIGGER_RESYNC = 'app/TRIGGER_RESYNC';
 const SET_SERVER_ERROR = 'app/SET_SERVER_ERROR';
 const TOKEN_REFRESH_REQUEST = 'app/TOKEN_REFRESH_REQUEST';
 const TOKEN_REFRESH_SUCCESS = 'app/TOKEN_REFRESH_SUCCESS';
@@ -37,6 +38,8 @@ export const setSyncProgress = (progress, syncedAt) => ({
   type: SET_SYNC_PROGRESS,
   payload: {progress, syncedAt},
 });
+
+export const triggerResync = () => ({type: TRIGGER_RESYNC});
 
 export const setServerError = (error) => ({
   type: SET_SERVER_ERROR,
@@ -88,6 +91,12 @@ const actionHandlers = {
     ...state,
     syncProgress: progress,
     syncedAt: syncedAt || state.syncedAt,
+  }),
+
+  [TRIGGER_RESYNC]: (state) => ({
+    ...state,
+    syncProgress: null,
+    syncedAt: null,
   }),
 
   [SET_SERVER_ERROR]: (state, {payload: {error}}) => ({
