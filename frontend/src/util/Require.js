@@ -12,7 +12,7 @@ let nextComponentId = 1000;
  * in the fetch cache. The fetcher prop is required, along with either
  * the paths prop (an array) or the urls prop (an array).
  */
-export class Require extends React.Component {
+class Require extends React.Component {
   static propTypes = {
     dispatch: PropTypes.func.isRequired,
     fetcher: PropTypes.object,

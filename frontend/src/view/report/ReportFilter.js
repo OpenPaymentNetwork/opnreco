@@ -1,6 +1,8 @@
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { fOPNReport } from '../../util/fetcher';
+import { fetchcache } from '../../reducer/fetchcache';
 import { setFileId, setMirrorId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
@@ -9,6 +11,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Require from '../../util/Require';
 import Select from '@material-ui/core/Select';
 
 
@@ -17,8 +20,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
-    flexWrap: 'wrap-reverse',
-    padding: '0 8px',
+    flexWrap: 'wrap',
   },
   controlBox: {
     padding: 16,
@@ -32,6 +34,7 @@ class ReportFilter extends React.Component {
     dispatch: PropTypes.func.isRequired,
     fileId: PropTypes.string,
     mirrorId: PropTypes.string,
+    mirrorsAndFilesURL: PropTypes.string.isRequired,
   };
 
   constructor(props) {
@@ -48,10 +51,11 @@ class ReportFilter extends React.Component {
   }
 
   render() {
-    const {classes, mirrorId, fileId} = this.props;
+    const {classes, mirrorId, fileId, mirrorsAndFilesURL} = this.props;
 
     return (
       <Paper className={classes.root}>
+        <Require fetcher={fOPNReport} urls={[mirrorsAndFilesURL]} />
         <div className={classes.controlBox}>
           <FormControl>
             <InputLabel htmlFor="filter-mirror">Account</InputLabel>
@@ -93,7 +97,15 @@ class ReportFilter extends React.Component {
 
 
 function mapStateToProps(state) {
-  return state.report;
+  const {mirrorId, fileId} = state.report;
+  const mirrorsAndFilesURL = fOPNReport.pathToURL('/mirrors-and-files');
+  const mirrorsAndFiles = fetchcache.get(state, mirrorsAndFilesURL);
+  return {
+    mirrorId,
+    fileId,
+    mirrorsAndFilesURL,
+    mirrorsAndFiles,
+  };
 }
 
 

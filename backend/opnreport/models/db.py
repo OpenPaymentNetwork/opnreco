@@ -87,7 +87,7 @@ class File(Base):
         BigInteger, ForeignKey('mirror.id'), nullable=False, index=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-    comment = Column(Unicode, nullable=True)
+    subtitle = Column(Unicode, nullable=True)
 
 
 class TransferRecord(Base):

@@ -404,6 +404,7 @@ class SyncView:
 
             for mirror in mirrors:
                 if mirror.target_id != 'c':
+                    # Get the title of the profile.
                     url = '%s/p/%s' % (self.api_url, mirror.target_id)
                     r = requests.get(url, headers=headers)
                     if check_requests_response(r, raise_exc=False):
@@ -426,6 +427,7 @@ class SyncView:
                             mirror.target_id)
 
                 if mirror.loop_id != '0':
+                    # Get the title of the cash design.
                     url = '%s/design/%s' % (self.api_url, mirror.loop_id)
                     r = requests.get(url, headers=headers)
                     if check_requests_response(r, raise_exc=False):
