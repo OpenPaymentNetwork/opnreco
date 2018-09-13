@@ -1,20 +1,22 @@
-
+import { binder } from '../../util/binder';
+import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
+import { fOPNReport } from '../../util/fetcher';
+import { fetchcache } from '../../reducer/fetchcache';
+import { withRouter } from 'react-router';
+import { withStyles } from '@material-ui/core/styles';
+import Hidden from '@material-ui/core/Hidden';
 import LayoutConfig from '../app/LayoutConfig';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
+import ReportFilter from '../report/ReportFilter';
 import Tab from '@material-ui/core/Tab';
-import Tabs from '@material-ui/core/Tabs';
-import { binder } from '../../util/binder';
-import { compose } from '../../util/functional';
-import { withRouter } from 'react-router';
-import { withStyles } from '@material-ui/core/styles';
 import Table from '@material-ui/core/Table';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
-import ReportFilter from '../report/ReportFilter';
-import Hidden from '@material-ui/core/Hidden';
+import Tabs from '@material-ui/core/Tabs';
 
 
 const styles = theme => ({
@@ -41,7 +43,10 @@ class Home extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
+    isIssuer: PropTypes.bool.isRequired,
     match: PropTypes.object.isRequired,
+    mirrorId: PropTypes.string,
+    fileId: PropTypes.string,
   };
 
   constructor(props) {
@@ -54,7 +59,7 @@ class Home extends React.Component {
   }
 
   render() {
-    const {classes, match} = this.props;
+    const {classes, match, isIssuer, mirrorId, fileId} = this.props;
 
     const tab = match.params.tab || 'reco';
     const tabContent = this.renderTabContent(tab);
@@ -69,13 +74,13 @@ class Home extends React.Component {
       >
         <Tab value="reco" label="Reconciliation" />
         <Tab value="transactions" label="Transactions" />
-        <Tab value="liabilities" label="Liabilities" />
+        {isIssuer ? <Tab value="liabilities" label="Liabilities" /> : null}
       </Tabs>
     );
 
     const filterBox = (
       <div className={classes.reportFilterBox}>
-        <ReportFilter />
+        <ReportFilter mirrorId={mirrorId} fileId={fileId} />
       </div>
     );
 
@@ -172,7 +177,43 @@ class Home extends React.Component {
 
 }
 
+const mirrorsAndFilesURL = fOPNReport.pathToURL('/mirrors-and-files');
+
+
+function mapStateToProps(state) {
+  const {mirrorId, fileId} = state.report;
+  const mirrorsAndFiles = fetchcache.get(state, mirrorsAndFilesURL) || {};
+  const mirrors = mirrorsAndFiles.mirrors || {};
+  const mirrorOrder = mirrorsAndFiles.mirror_order;
+  let selectedMirrorId = mirrorId;
+
+  if (mirrorOrder && mirrorOrder.length) {
+    if (!selectedMirrorId || !mirrors[selectedMirrorId]) {
+      selectedMirrorId = mirrorsAndFiles.default_mirror || '';
+    }
+
+    if (!selectedMirrorId) {
+      selectedMirrorId = mirrorOrder[0];
+    }
+  } else {
+    selectedMirrorId = '';
+  }
+
+  const isIssuer = !!(
+    selectedMirrorId &&
+    mirrors[selectedMirrorId] &&
+    mirrors[selectedMirrorId].target_id === 'c');
+
+  return {
+    isIssuer,
+    mirrorId: selectedMirrorId,
+    fileId,
+  };
+}
+
+
 export default compose(
   withStyles(styles, {withTheme: true}),
   withRouter,
+  connect(mapStateToProps),
 )(Home);

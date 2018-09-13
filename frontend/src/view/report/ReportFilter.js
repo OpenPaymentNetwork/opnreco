@@ -48,7 +48,6 @@ class ReportFilter extends React.Component {
     mirrorOrder: PropTypes.array,
     mirrorsLoading: PropTypes.bool,
     mirrorsError: PropTypes.bool,
-    defaultMirror: PropTypes.string,
     syncProgress: PropTypes.any,
   };
 
@@ -69,17 +68,13 @@ class ReportFilter extends React.Component {
     const {
       mirrors,
       mirrorOrder,
-      mirrorId,
       mirrorsLoading,
       mirrorsError,
-      defaultMirror,
       syncProgress,
     } = this.props;
-    let mirrorSelections;
-    let selectedMirrorId = mirrorId;
 
     if (mirrorOrder && mirrorOrder.length) {
-      mirrorSelections = mirrorOrder.map(mirrorId => {
+      return mirrorOrder.map(mirrorId => {
         const mirror = mirrors[mirrorId];
         let targetType;
         if (mirror.target_id === 'c') {
@@ -98,18 +93,7 @@ class ReportFilter extends React.Component {
         );
       });
 
-      if (!selectedMirrorId) {
-        if (mirrorOrder && mirrorOrder.length) {
-          selectedMirrorId = mirrorOrder[0];
-        }
-      }
-
-      if (!selectedMirrorId || !mirrors[selectedMirrorId]) {
-        selectedMirrorId = defaultMirror || '';
-      }
-
     } else {
-
       let errorMessage;
       if (mirrorsLoading) {
         errorMessage = <em>Loading accounts&hellip;</em>;
@@ -120,31 +104,22 @@ class ReportFilter extends React.Component {
       } else {
         errorMessage = <em>No accounts found</em>;
       }
-
-      mirrorSelections = [
-        <MenuItem value="none" key="">
+      return [
+        <MenuItem value="#error" key="#error">
           {errorMessage}
         </MenuItem>
       ];
-      selectedMirrorId = 'none';
     }
-
-    return {
-      mirrorSelections,
-      selectedMirrorId,
-    };
   }
 
   render() {
     const {
       classes,
+      mirrorId,
       fileId,
     } = this.props;
 
-    const {
-      mirrorSelections,
-      selectedMirrorId,
-    } = this.renderMirrorSelections();
+    const mirrorSelections = this.renderMirrorSelections();
 
     return (
       <Paper className={classes.root}>
@@ -153,7 +128,7 @@ class ReportFilter extends React.Component {
           <FormControl>
             <Select
               className={classes.mirrorSelect}
-              value={selectedMirrorId}
+              value={mirrorId || '#error'}
               onChange={this.binder(this.handleMirrorChange)}
               inputProps={{
                 id: 'filter-mirror',
@@ -185,19 +160,15 @@ class ReportFilter extends React.Component {
 
 
 function mapStateToProps(state) {
-  const {mirrorId, fileId} = state.report;
   const mirrorsAndFiles = fetchcache.get(state, mirrorsAndFilesURL) || {};
   const mirrorsLoading = fetchcache.fetching(state, mirrorsAndFilesURL);
   const mirrorsError = !!fetchcache.getError(state, mirrorsAndFilesURL);
   return {
-    mirrorId,
-    fileId,
     mirrorsAndFilesURL,
     mirrors: mirrorsAndFiles.mirrors || {},
     mirrorOrder: mirrorsAndFiles.mirror_order || [],
     mirrorsLoading,
     mirrorsError,
-    defaultMirror: mirrorsAndFiles.default_mirror,
     syncProgress: state.app.syncProgress,
   };
 }
