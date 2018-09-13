@@ -49,6 +49,7 @@ class OPNDrawer extends React.Component {
     super(props);
     this.binder = binder(this);
     this.startingSync = false;
+    this.state = {autoSyncOk: true};
   }
 
   componentDidMount() {
@@ -60,7 +61,8 @@ class OPNDrawer extends React.Component {
   }
 
   autoSync() {
-    if (!this.startingSync &&
+    if (this.state.autoSyncOk &&
+        !this.startingSync &&
         !this.props.syncedAt &&
         !this.props.syncProgress) {
       // Start an automatic sync.
@@ -132,9 +134,11 @@ class OPNDrawer extends React.Component {
           // Done.
           dispatch(setSyncProgress(null, new Date()));
           dispatch(clearMost());
+          this.setState({autoSyncOk: true});
         }
       }).catch(() => {
         // An error occurred and has been shown to the user.
+        this.setState({autoSyncOk: false});
         dispatch(setSyncProgress(null));
       });
     };

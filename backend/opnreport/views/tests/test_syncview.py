@@ -30,7 +30,7 @@ class TestDownloadView(unittest.TestCase):
 
     @property
     def _class(self):
-        from ..sync import SyncView
+        from ..syncview import SyncView
         return SyncView
 
     def _make(self, profile_id='11'):
@@ -49,6 +49,12 @@ class TestDownloadView(unittest.TestCase):
             access_token='example-token',
             remote_addr='127.0.0.1',
             user_agent='Test UA',
+            wallet_info={'profile': {'accounts': [{
+                'id': '1102',
+                'redacted_account_num': 'XXX45',
+                'rdfi_name': "Test Bank",
+                'alias': 'myacct',
+            }]}},
         )
         return self._class(request)
 
@@ -150,7 +156,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(4, len(events))
         event = events[0]
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -182,6 +188,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('1102', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
+        self.assertEqual('XXX45 at Test Bank (myacct)', mirror.target_title)
+        self.assertEqual(None, mirror.loop_title)
 
         movements = self.dbsession.query(db.Movement).all()
         self.assertEqual(1, len(movements))
@@ -252,7 +260,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(1, len(events))
+        self.assertEqual(2, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -284,6 +292,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('c', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
+        self.assertEqual(None, mirror.target_title)
+        self.assertEqual(None, mirror.loop_title)
 
         movements = self.dbsession.query(db.Movement).all()
         self.assertEqual(1, len(movements))
@@ -379,7 +389,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(3, len(events))
         event = events[0]
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -513,7 +523,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(1, len(events))
+        self.assertEqual(2, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -676,8 +686,8 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(2, len(events))
-        event = events[-1]
+        self.assertEqual(3, len(events))
+        event = events[-2]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
@@ -757,7 +767,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(3, len(events))
+        self.assertEqual(4, len(events))
         event = events[-1]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -947,7 +957,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(mss))
 
     def test_sync_error(self):
-        from opnreport.views.sync import SyncError
+        from opnreport.views.syncview import SyncError
 
         def _make_transfer_result():
             return {
@@ -1086,7 +1096,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(3, len(events))
         event = events[0]
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -1125,7 +1135,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(3, len(events))
+        self.assertEqual(4, len(events))
         event = events[-1]
         self.assertEqual('11', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)

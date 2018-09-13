@@ -202,9 +202,13 @@ class SyncView:
                             (transfer_id, attr, repr(getattr(record, attr)),
                                 attr, repr(kw[attr])))
 
+                changed_map = {}
                 for attr, value in sorted(kw.items()):
                     if getattr(record, attr) != value:
                         setattr(record, attr, value)
+                        changed_map[attr] = value
+                if changed_map:
+                    changed.append(changed_map)
 
             dbsession.add(TransferDownloadRecord(
                 opn_download_id=self.opn_download_id,
@@ -375,6 +379,17 @@ class SyncView:
                 currency=currency)
             dbsession.add(mirror)
             dbsession.flush()  # Assign mirror.id
+
+            dbsession.add(ProfileLog(
+                profile_id=self.profile_id,
+                event_type='add_mirror',
+                memo={
+                    'mirror_id': mirror.id,
+                    'target_id': target_id,
+                    'loop_id': loop_id,
+                    'currency': currency,
+                }))
+
         return mirror
 
     def update_mirrors(self):
@@ -384,6 +399,7 @@ class SyncView:
         dbsession = self.request.dbsession
         headers = {'Authorization': 'Bearer %s' % self.request.access_token}
         seen = []
+        account_map = None
 
         while True:
             mirrors = (
@@ -402,29 +418,59 @@ class SyncView:
             if not mirrors:
                 break
 
+            if not account_map:
+                # Get the map of accounts from /wallet/info.
+                account_list = self.request.wallet_info['profile']['accounts']
+                account_map = {a['id']: a for a in account_list}
+
             for mirror in mirrors:
                 if mirror.target_id != 'c':
-                    # Get the title of the profile.
-                    url = '%s/p/%s' % (self.api_url, mirror.target_id)
-                    r = requests.get(url, headers=headers)
-                    if check_requests_response(r, raise_exc=False):
-                        title = r.json()['title']
-                        if title != mirror.target_title:
-                            mirror.target_title = title
+                    # Get the title of the target.
+                    target_title = None
+                    target_is_account = False
+                    account = account_map.get(mirror.target_id)
+                    if account:
+                        target_is_account = True
+                        target_title = '%s at %s' % (
+                            account['redacted_account_num'],
+                            account['rdfi_name'],
+                        )
+                        if account['alias']:
+                            target_title += ' (%s)' % account['alias']
+                    else:
+                        url = '%s/p/%s' % (self.api_url, mirror.target_id)
+                        r = requests.get(url, headers=headers)
+                        if check_requests_response(r, raise_exc=False):
+                            target_title = r.json()['title']
+
+                    if target_title:
+                        if target_title != mirror.target_title:
+                            mirror.target_title = target_title
                             dbsession.add(ProfileLog(
                                 profile_id=self.profile_id,
                                 event_type='update_mirror_target_title',
                                 memo={
                                     'mirror_id': mirror.id,
                                     'target_id': mirror.target_id,
-                                    'title': title,
+                                    'target_title': target_title,
                                 }))
                     else:
                         # The error details were logged by
                         # check_requests_response().
                         log.warning(
-                            "Unable to get the title of profile %s",
+                            "Unable to get the title of holder %s",
                             mirror.target_id)
+
+                    if target_is_account != mirror.target_is_account:
+                        mirror.target_is_account = target_is_account
+                        dbsession.add(ProfileLog(
+                            profile_id=self.profile_id,
+                            event_type='update_mirror_target_is_account',
+                            memo={
+                                'mirror_id': mirror.id,
+                                'target_id': mirror.target_id,
+                                'target_is_account': target_is_account,
+                            }))
 
                 if mirror.loop_id != '0':
                     # Get the title of the cash design.

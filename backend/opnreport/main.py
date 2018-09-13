@@ -12,6 +12,7 @@ import datetime
 import os
 import re
 import requests
+import sqlalchemy.dialects.postgresql
 
 
 def access_token(request):
@@ -41,14 +42,14 @@ def access_token(request):
     return None
 
 
-def opn_profile_info(request):
+def wallet_info(request):
     """Get the info about the profile from OPN."""
     access_token = request.access_token
     if not access_token:
         return None
 
     api_url = os.environ['opn_api_url']
-    url = '%s/me' % api_url
+    url = '%s/wallet/info' % api_url
     r = requests.get(
         url,
         headers={'Authorization': 'Bearer %s' % access_token})
@@ -68,12 +69,25 @@ def profile(request):
         .filter_by(id=authenticated_userid)
         .first())
     if profile is None:
-        opn_profile_info = request.opn_profile_info
-        profile = Profile(
-            id=opn_profile_info['id'],
-            title=opn_profile_info['title'])
-        dbsession.add(profile)
-        dbsession.flush()
+        profile_info = request.wallet_info['profile']
+
+        # Insert without creating a conflict with concurrent requests.
+        values = {
+            'id': profile_info['id'],
+            'title': profile_info['title'],
+        }
+        stmt = (
+            sqlalchemy.dialects.postgresql.insert(
+                Profile.__table__, bind=dbsession).values(**values)
+            .on_conflict_do_nothing())
+        dbsession.execute(stmt)
+
+        # Now the profile should exist.
+        profile = (
+            dbsession.query(Profile)
+            .filter_by(id=authenticated_userid)
+            .one())
+
         dbsession.add(ProfileLog(
             profile_id=profile.id,
             event_type='created',
@@ -81,13 +95,15 @@ def profile(request):
             user_agent=request.user_agent,
             memo={'title': profile.title},
         ))
+
     else:
         now = datetime.datetime.utcnow()
         if now - profile.last_update >= datetime.timedelta(seconds=60 * 15):
             # Update the profile title.
-            opn_profile_info = request.opn_profile_info
-            if profile.title != opn_profile_info['title']:
-                profile.title = opn_profile_info['title']
+            wallet_info = request.wallet_info
+            profile_info = wallet_info['profile']
+            if profile.title != profile_info['title']:
+                profile.title = profile_info['title']
             profile.last_update = now
 
     return profile
@@ -109,8 +125,7 @@ def main(global_config, **settings):
 
     config.add_request_method(Site, name='site', reify=True)
     config.add_request_method(access_token, name='access_token', reify=True)
-    config.add_request_method(
-        opn_profile_info, name='opn_profile_info', reify=True)
+    config.add_request_method(wallet_info, name='wallet_info', reify=True)
     config.add_request_method(profile, name='profile', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 

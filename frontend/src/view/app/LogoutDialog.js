@@ -13,16 +13,10 @@ import { connect } from 'react-redux';
 import { logOut } from '../../reducer/login';
 import { tokenRefreshCancel, setLoggingOut } from '../../reducer/app';
 import { withRouter } from 'react-router';
-import { withStyles } from '@material-ui/core/styles';
-
-
-const styles = {
-};
 
 
 class LogoutDialog extends React.Component {
   static propTypes = {
-    classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     loggingOut: PropTypes.bool.isRequired,
@@ -82,6 +76,5 @@ const mapStateToProps = (state) => ({
 
 export default compose(
   withRouter,
-  withStyles(styles),
   connect(mapStateToProps),
 )(LogoutDialog);

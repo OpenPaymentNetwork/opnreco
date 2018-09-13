@@ -23,6 +23,7 @@ def mirrors_and_files_view(request):
             'loop_id',
             'currency',
             'target_title',
+            'target_is_account',
             'loop_title',
             'files': {file_id: {
                 'file_id',
@@ -33,9 +34,11 @@ def mirrors_and_files_view(request):
             'file_order': [file_id],
         }},
         'mirror_order': [mirror_id],
+        'default_mirror': mirror_id,
     }.
     """
-    profile_id = request.profile.id
+    profile = request.profile
+    profile_id = profile.id
     dbsession = request.dbsession
 
     new_mirrors = (
@@ -80,7 +83,7 @@ def mirrors_and_files_view(request):
 
     # mirror_map: {
     #   (target_id, loop_id, currency):
-    #     {mirror_id, target_title, loop_title, files: [file_data]}
+    #     {mirror_id, target_title, loop_title, ..., files: [file_map entry]}
     # }
     mirror_map = {}
 
@@ -94,7 +97,8 @@ def mirrors_and_files_view(request):
                 'target_id': mirror.target_id,
                 'loop_id': mirror.loop_id,
                 'currency': mirror.currency,
-                'target_title': mirror.target_title or '',
+                'target_title': mirror.target_title or profile.title,
+                'target_is_account': mirror.target_is_account,
                 'loop_title': mirror.loop_title or '',
                 'files': file_map[key],
                 'file_order': file_orders[key],
@@ -108,8 +112,10 @@ def mirrors_and_files_view(request):
             if not md['loop_title'] and mirror.loop_title:
                 md['loop_title'] = mirror.loop_title
 
+    # Prepare to sort the mirror map.
+    # Also determine the best default mirror.
+    defaults = []
     for md in mirror_map.values():
-        # Add a sort_key.
         if md['target_id'] == 'c':
             # Show circulation first.
             target_title = ''
@@ -125,15 +131,24 @@ def mirrors_and_files_view(request):
         else:
             loop_title = md['loop_title']
 
-        md['sort_key'] = (
+        md['sort_key'] = sort_key = (
+            0 if md['target_is_account'] else 1,
             target_title.lower(),
             target_title,
             target_id,
-            md['currency'],
+            '' if md['currency'] == 'USD' else md['currency'],
             loop_title.lower(),
             loop_title,
             loop_id,
         )
+
+        # Prefer to reconcile issuing accounts over other types of mirrors.
+        default_key = (
+            0 if md['target_id'] == 'c' else 1,
+            0 if md['loop_id'] == '0' else 1,
+        ) + sort_key
+
+        defaults.append((default_key, md['mirror_id']))
 
     # Sort.
     mirrors_sorted = sorted(mirror_map.values(), key=lambda md: md['sort_key'])
@@ -142,7 +157,11 @@ def mirrors_and_files_view(request):
     for md in mirrors_sorted:
         del md['sort_key']
 
+    # Choose the best default mirror.
+    defaults.sort()
+
     return {
         'mirrors': {md['mirror_id']: md for md in mirrors_sorted},
         'mirror_order': [md['mirror_id'] for md in mirrors_sorted],
+        'default_mirror': defaults[0][1] if defaults else '',
     }

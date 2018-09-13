@@ -22,7 +22,7 @@ class OPNTokenAuthenticationPolicy(object):
 
     def __init__(self):
         self.opn_api_url = os.environ['opn_api_url']
-        self.token_cache = {}  # {access_token: {id, valid_until, info}}
+        self.token_cache = {}  # {access_token: {id, valid_until, wallet_info}}
         self.cache_duration = datetime.timedelta(seconds=60)
 
     def _get_profile_id_for_token(self, request, token):
@@ -33,39 +33,45 @@ class OPNTokenAuthenticationPolicy(object):
         entry = self.token_cache.get(token)
         if entry is not None:
             if now < entry['valid_until']:
+                request.wallet_info = entry['wallet_info']
                 return entry['id']
-            info = self._request_opn_profile_info(request, token)
-            if info is not None:
+
+            wallet_info = self._request_wallet_info(request, token)
+            if wallet_info:
                 # This token hasn't actually expired yet.
-                profile_id = info['id']
+                profile_info = wallet_info['profile']
+                profile_id = profile_info['id']
                 self.token_cache[token] = {
                     'id': profile_id,
                     'valid_until': now + self.cache_duration,
-                    'info': info,
+                    'wallet_info': wallet_info,
                 }
+                request.wallet_info = wallet_info
                 return profile_id
+
             else:
                 # This token expired.
                 # Take an opportunity to clean up the token cache.
                 to_delete = []
-                for token, info in self.token_cache.items():
-                    if now >= info['valid_until']:
+                for token, entry1 in self.token_cache.items():
+                    if now >= entry1['valid_until']:
                         to_delete.append(token)
                 for token in to_delete:
                     self.token_cache.pop(token, None)
                 return None
 
-        info = self._request_opn_profile_info(request, token)
-        if info is not None:
-            # Stash the opn_profile_info request attr so we don't have to
+        wallet_info = self._request_wallet_info(request, token)
+        if wallet_info is not None:
+            # Stash the wallet_info request attr so we don't have to
             # get it later.
-            request.opn_profile_info = info
+            request.wallet_info = wallet_info
 
-            profile_id = info['id']
+            profile_info = wallet_info['profile']
+            profile_id = profile_info['id']
             self.token_cache[token] = {
                 'id': profile_id,
                 'valid_until': now + self.cache_duration,
-                'info': info,
+                'wallet_info': wallet_info,
             }
 
             request.profile  # Add the Profile to the database
@@ -74,16 +80,16 @@ class OPNTokenAuthenticationPolicy(object):
                 event_type='access',
                 remote_addr=request.remote_addr,
                 user_agent=request.user_agent,
-                memo={'title': info['title']},
+                memo={'title': profile_info['title']},
             ))
 
             return profile_id
 
         return None
 
-    def _request_opn_profile_info(self, request, token):
-        """Get the profile info from OPN."""
-        url = '%s/me' % self.opn_api_url
+    def _request_wallet_info(self, request, token):
+        """Get the wallet info from OPN."""
+        url = '%s/wallet/info' % self.opn_api_url
         r = requests.get(
             url,
             headers={'Authorization': 'Bearer %s' % token},

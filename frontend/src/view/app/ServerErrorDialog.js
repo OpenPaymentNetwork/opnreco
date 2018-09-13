@@ -8,19 +8,12 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import PropTypes from 'prop-types';
 import React from 'react';
 import { binder } from '../../util/binder';
-import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { setServerError } from '../../reducer/app';
-import { withStyles } from '@material-ui/core/styles';
-
-
-const styles = {
-};
 
 
 class ServerErrorDialog extends React.Component {
   static propTypes = {
-    classes: PropTypes.object.isRequired,
     serverError: PropTypes.string,
     dispatch: PropTypes.func.isRequired,
   };
@@ -64,7 +57,4 @@ const mapStateToProps = (state) => ({
 });
 
 
-export default compose(
-  withStyles(styles),
-  connect(mapStateToProps),
-)(ServerErrorDialog);
+export default connect(mapStateToProps)(ServerErrorDialog);

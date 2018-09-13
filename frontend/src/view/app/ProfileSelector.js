@@ -1,11 +1,11 @@
 import { binder } from '../../util/binder';
 import { clearMost } from '../../reducer/clearmost';
+import { closeDrawer, triggerResync } from '../../reducer/app';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPN } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { switchProfile } from '../../reducer/login';
-import { triggerResync } from '../../reducer/app';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -29,13 +29,14 @@ const styles = {
   },
 };
 
+const selectableURL = fOPN.pathToURL('/token/selectable');
+
 
 class ProfileSelector extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     selectable: PropTypes.object,
-    selectableURL: PropTypes.string.isRequired,
     profileId: PropTypes.string,
   };
 
@@ -66,13 +67,14 @@ class ProfileSelector extends React.Component {
       dispatch(switchProfile(token, profileInfo.id));
       dispatch(clearMost());
       dispatch(triggerResync());
+      dispatch(closeDrawer());
     }).finally(() => {
       this.setState({selectingId: null});
     });
   }
 
   render() {
-    const {profileId, selectable, classes, selectableURL} = this.props;
+    const {profileId, selectable, classes} = this.props;
     const {selectingId} = this.state;
     const profiles = (
       selectable && selectable.profiles ? selectable.profiles : []);
@@ -104,12 +106,10 @@ class ProfileSelector extends React.Component {
       </div>
     );
   }
-
 }
 
 
 function mapStateToProps(state) {
-  const selectableURL = fOPN.pathToURL('/token/selectable');
   return {
     selectableURL,
     selectable: fetchcache.get(state, selectableURL),

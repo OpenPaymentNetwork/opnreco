@@ -170,6 +170,7 @@ class Mirror(Base):
     # target_title is based on target_id only and does not refer
     # to the loop_id and currency.
     target_title = Column(Unicode, nullable=True)
+    target_is_account = Column(Boolean, nullable=False, default=False)
     loop_title = Column(Unicode, nullable=True)
     # last_update is when the target_title and loop_title were last updated.
     last_update = Column(DateTime, nullable=True)
