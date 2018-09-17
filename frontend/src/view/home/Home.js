@@ -10,6 +10,7 @@ import LayoutConfig from '../app/LayoutConfig';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
+import RecoReport from '../report/RecoReport';
 import ReportFilter from '../report/ReportFilter';
 import Tab from '@material-ui/core/Tab';
 import Table from '@material-ui/core/Table';
@@ -43,9 +44,10 @@ class Home extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
-    isIssuer: PropTypes.bool.isRequired,
     match: PropTypes.object.isRequired,
+    mirror: PropTypes.object,
     mirrorId: PropTypes.string,
+    file: PropTypes.object,
     fileId: PropTypes.string,
   };
 
@@ -59,10 +61,11 @@ class Home extends React.Component {
   }
 
   render() {
-    const {classes, match, isIssuer, mirrorId, fileId} = this.props;
+    const {classes, match, mirror, mirrorId, fileId} = this.props;
 
     const tab = match.params.tab || 'reco';
     const tabContent = this.renderTabContent(tab);
+    const isIssuer = mirror && mirror.target_id === 'c';
 
     const tabs = (
       <Tabs
@@ -108,23 +111,16 @@ class Home extends React.Component {
   }
 
   renderTabContent(tab) {
+    const {mirror, file} = this.props;
     switch(tab) {
     case 'reco':
     default:
-      return this.renderRecoTab();
+      return <RecoReport mirror={mirror} file={file} />;
     case 'transactions':
       return this.renderTransactionsTab();
     case 'liabilities':
       return this.renderLiabilitiesTab();
     }
-  }
-
-  renderRecoTab() {
-    return (
-      <div>
-        Reconciliation
-      </div>
-    );
   }
 
   renderTransactionsTab() {
@@ -199,15 +195,18 @@ function mapStateToProps(state) {
     selectedMirrorId = '';
   }
 
-  const isIssuer = !!(
-    selectedMirrorId &&
-    mirrors[selectedMirrorId] &&
-    mirrors[selectedMirrorId].target_id === 'c');
+  const mirror = selectedMirrorId ? mirrors[selectedMirrorId] : null;
+
+  let file = null;
+  if (fileId && mirror && mirror.files) {
+    file = mirror.files[fileId];
+  }
 
   return {
-    isIssuer,
-    mirrorId: selectedMirrorId,
-    fileId,
+    mirror,
+    mirrorId: mirror ? selectedMirrorId : null,
+    file,
+    fileId: file ? fileId : null,
   };
 }
 

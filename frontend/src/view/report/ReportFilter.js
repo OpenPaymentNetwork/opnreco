@@ -86,7 +86,7 @@ class ReportFilter extends React.Component {
         }
         return (
           <MenuItem value={mirrorId} key={mirrorId}>
-            {mirror.target_title} ({targetType}):
+            {mirror.target_title} ({targetType}) -
             {' '}{mirror.currency}
             {' '}{mirror.loop_id === '0' ? 'Open Loop' : mirror.loop_title}
           </MenuItem>
