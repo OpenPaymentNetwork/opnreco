@@ -87,6 +87,7 @@ class RecoReport extends React.Component {
             </thead>
           </table>
         </Paper>
+        <div style={{height: 1}}></div>
       </div>
     );
   }
