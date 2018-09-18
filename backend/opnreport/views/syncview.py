@@ -234,7 +234,7 @@ class SyncView:
         for movement in item['movements']:
             number = movement.get('number')
             if not number:
-                raise AssertionError(
+                raise ValueError(
                     "The OPN service needs to be migrated to support "
                     "movement numbers")
             ts = to_datetime(movement['timestamp'])
@@ -251,19 +251,19 @@ class SyncView:
                     # The movement is already recorded.
                     # Verify it has not changed.
                     if old_movement.ts != ts:
-                        raise AssertionError(
+                        raise ValueError(
                             "Movement %s in transfer %s has changed:"
                             "recorded timestamp is %s, new timestamp is %s" % (
                                 number, transfer_id,
                                 old_movement.ts.isoformat(), ts.isoformat()))
                     if old_movement.action != action:
-                        raise AssertionError(
+                        raise ValueError(
                             "Movement %s in transfer %s has changed:"
                             "recorded action is %s, new action is %s" % (
                                 number, transfer_id,
                                 old_movement.action, action))
                     if old_movement.delta != delta:
-                        raise AssertionError(
+                        raise ValueError(
                             "Movement %s in transfer %s has changed:"
                             "recorded delta is %s, new delta is %s" % (
                                 number, transfer_id,
@@ -427,10 +427,10 @@ class SyncView:
                 if mirror.target_id != 'c':
                     # Get the title of the target.
                     target_title = None
-                    target_is_account = False
+                    target_is_dfi_account = False
                     account = account_map.get(mirror.target_id)
                     if account:
-                        target_is_account = True
+                        target_is_dfi_account = True
                         target_title = '%s at %s' % (
                             account['redacted_account_num'],
                             account['rdfi_name'],
@@ -461,15 +461,15 @@ class SyncView:
                             "Unable to get the title of holder %s",
                             mirror.target_id)
 
-                    if target_is_account != mirror.target_is_account:
-                        mirror.target_is_account = target_is_account
+                    if target_is_dfi_account != mirror.target_is_dfi_account:
+                        mirror.target_is_dfi_account = target_is_dfi_account
                         dbsession.add(ProfileLog(
                             profile_id=self.profile_id,
-                            event_type='update_mirror_target_is_account',
+                            event_type='update_mirror_target_is_dfi_account',
                             memo={
                                 'mirror_id': mirror.id,
                                 'target_id': mirror.target_id,
-                                'target_is_account': target_is_account,
+                                'target_is_dfi_account': target_is_dfi_account,
                             }))
 
                 if mirror.loop_id != '0':

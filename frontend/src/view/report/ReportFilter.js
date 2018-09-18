@@ -3,7 +3,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { setFileId, setMirrorId } from '../../reducer/report';
+import { setAccountKey, setFileId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -26,7 +26,7 @@ const styles = theme => ({
   controlBox: {
     padding: 16,
   },
-  mirrorSelect: {
+  accountSelect: {
     [theme.breakpoints.up('lg')]: {
       minWidth: 400,
     },
@@ -35,7 +35,7 @@ const styles = theme => ({
   },
 });
 
-const mirrorsAndFilesURL = fOPNReport.pathToURL('/mirrors-and-files');
+const accountsURL = fOPNReport.pathToURL('/accounts');
 
 
 class ReportFilter extends React.Component {
@@ -43,11 +43,11 @@ class ReportFilter extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     fileId: PropTypes.string,
-    mirrorId: PropTypes.string,
-    mirrors: PropTypes.object,
-    mirrorOrder: PropTypes.array,
-    mirrorsLoading: PropTypes.bool,
-    mirrorsError: PropTypes.bool,
+    accountKey: PropTypes.string,
+    accounts: PropTypes.object,
+    accountOrder: PropTypes.array,
+    loading: PropTypes.bool,
+    loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
   };
 
@@ -56,53 +56,53 @@ class ReportFilter extends React.Component {
     this.binder = binder(this);
   }
 
-  handleMirrorChange(event) {
-    this.props.dispatch(setMirrorId(event.target.value));
+  handleAccountChange(event) {
+    this.props.dispatch(setAccountKey(event.target.value));
   }
 
   handleFileChange(event) {
     this.props.dispatch(setFileId(event.target.value));
   }
 
-  renderMirrorSelections() {
+  renderAccountSelections() {
     const {
-      mirrors,
-      mirrorOrder,
-      mirrorsLoading,
-      mirrorsError,
+      accounts,
+      accountOrder,
+      loading,
+      loadError,
       syncProgress,
     } = this.props;
 
-    if (mirrorOrder && mirrorOrder.length) {
-      return mirrorOrder.map(mirrorId => {
-        const mirror = mirrors[mirrorId];
+    if (accountOrder && accountOrder.length) {
+      return accountOrder.map(accountKey => {
+        const account = accounts[accountKey];
         let targetType;
-        if (mirror.target_id === 'c') {
+        if (account.target_id === 'c') {
           targetType = 'Circulation';
-        } else if (mirror.target_is_account) {
-          targetType = 'Account';
+        } else if (account.target_is_dfi_account) {
+          targetType = 'DFI Account';
         } else {
           targetType = 'Wallet';
         }
         return (
-          <MenuItem value={mirrorId} key={mirrorId}>
-            {mirror.target_title} ({targetType}) -
-            {' '}{mirror.currency}
-            {' '}{mirror.loop_id === '0' ? 'Open Loop' : mirror.loop_title}
+          <MenuItem value={accountKey} key={accountKey}>
+            {account.target_title} ({targetType}) -
+            {' '}{account.currency}
+            {' '}{account.loop_id === '0' ? 'Open Loop' : account.loop_title}
           </MenuItem>
         );
       });
 
     } else {
       let errorMessage;
-      if (mirrorsLoading) {
+      if (loading) {
         errorMessage = <em>Loading accounts&hellip;</em>;
-      } else if (mirrorsError) {
+      } else if (loadError) {
         errorMessage = <em>Unable to load account list</em>;
       } else if (syncProgress !== null) {
         errorMessage = <em>Syncing&hellip;</em>;
       } else {
-        errorMessage = <em>No accounts found</em>;
+        errorMessage = <em>No accounts found for your profile</em>;
       }
       return [
         <MenuItem value="#error" key="#error">
@@ -115,26 +115,26 @@ class ReportFilter extends React.Component {
   render() {
     const {
       classes,
-      mirrorId,
+      accountKey,
       fileId,
     } = this.props;
 
-    const mirrorSelections = this.renderMirrorSelections();
+    const accountSelections = this.renderAccountSelections();
 
     return (
       <Paper className={classes.root}>
-        <Require fetcher={fOPNReport} urls={[mirrorsAndFilesURL]} />
+        <Require fetcher={fOPNReport} urls={[accountsURL]} />
         <div className={classes.controlBox}>
           <FormControl>
             <Select
               className={classes.mirrorSelect}
-              value={mirrorId || '#error'}
-              onChange={this.binder(this.handleMirrorChange)}
+              value={accountKey || '#error'}
+              onChange={this.binder(this.handleAccountChange)}
               inputProps={{
-                id: 'filter-mirror',
+                id: 'filter-account',
               }}
             >
-              {mirrorSelections}
+              {accountSelections}
             </Select>
           </FormControl>
         </div>
@@ -160,15 +160,15 @@ class ReportFilter extends React.Component {
 
 
 function mapStateToProps(state) {
-  const mirrorsAndFiles = fetchcache.get(state, mirrorsAndFilesURL) || {};
-  const mirrorsLoading = fetchcache.fetching(state, mirrorsAndFilesURL);
-  const mirrorsError = !!fetchcache.getError(state, mirrorsAndFilesURL);
+  const fetched = fetchcache.get(state, accountsURL) || {};
+  const loading = fetchcache.fetching(state, accountsURL);
+  const loadError = !!fetchcache.getError(state, accountsURL);
   return {
-    mirrorsAndFilesURL,
-    mirrors: mirrorsAndFiles.mirrors || {},
-    mirrorOrder: mirrorsAndFiles.mirror_order || [],
-    mirrorsLoading,
-    mirrorsError,
+    accountsURL,
+    accounts: fetched.accounts || {},
+    accountOrder: fetched.account_order || [],
+    loading,
+    loadError,
     syncProgress: state.app.syncProgress,
   };
 }

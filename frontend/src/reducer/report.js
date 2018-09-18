@@ -1,23 +1,23 @@
 
 import { createReducer } from './common';
 
-const SET_MIRROR_ID = 'report/SET_MIRROR_ID';
+const SET_ACCOUNT_KEY = 'report/SET_ACCOUNT_KEY';
 const SET_FILE_ID = 'report/SET_FILE_ID';
 
 const initialState = {
-  mirrorId: null,
+  accountKey: null,
   fileId: null,
 };
 
-export const setMirrorId = (mirrorId) => ({
-  type: SET_MIRROR_ID, payload: {mirrorId}});
+export const setAccountKey = (accountKey) => ({
+  type: SET_ACCOUNT_KEY, payload: {accountKey}});
 
 export const setFileId = (fileId) => ({
   type: SET_FILE_ID, payload: {fileId}});
 
 const actionHandlers = {
-  [SET_MIRROR_ID]: (state, {payload: {mirrorId}}) => ({...state, mirrorId}),
-
+  [SET_ACCOUNT_KEY]: (state, {payload: {accountKey}}) => ({
+    ...state, accountKey}),
   [SET_FILE_ID]: (state, {payload: {fileId}}) => ({...state, fileId}),
 };
 

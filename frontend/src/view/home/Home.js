@@ -45,8 +45,8 @@ class Home extends React.Component {
     classes: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
-    mirror: PropTypes.object,
-    mirrorId: PropTypes.string,
+    account: PropTypes.object,
+    accountKey: PropTypes.string,
     file: PropTypes.object,
     fileId: PropTypes.string,
   };
@@ -61,11 +61,11 @@ class Home extends React.Component {
   }
 
   render() {
-    const {classes, match, mirror, mirrorId, fileId} = this.props;
+    const {classes, match, account, accountKey, fileId} = this.props;
 
     const tab = match.params.tab || 'reco';
     const tabContent = this.renderTabContent(tab);
-    const isIssuer = mirror && mirror.target_id === 'c';
+    const isIssuer = account && account.target_id === 'c';
 
     const tabs = (
       <Tabs
@@ -83,7 +83,7 @@ class Home extends React.Component {
 
     const filterBox = (
       <div className={classes.reportFilterBox}>
-        <ReportFilter mirrorId={mirrorId} fileId={fileId} />
+        <ReportFilter accountKey={accountKey} fileId={fileId} />
       </div>
     );
 
@@ -111,11 +111,11 @@ class Home extends React.Component {
   }
 
   renderTabContent(tab) {
-    const {mirror, file} = this.props;
+    const {account, file} = this.props;
     switch(tab) {
     case 'reco':
     default:
-      return <RecoReport mirror={mirror} file={file} />;
+      return <RecoReport account={account} file={file} />;
     case 'transactions':
       return this.renderTransactionsTab();
     case 'liabilities':
@@ -173,38 +173,38 @@ class Home extends React.Component {
 
 }
 
-const mirrorsAndFilesURL = fOPNReport.pathToURL('/mirrors-and-files');
+const accountsURL = fOPNReport.pathToURL('/accounts');
 
 
 function mapStateToProps(state) {
-  const {mirrorId, fileId} = state.report;
-  const mirrorsAndFiles = fetchcache.get(state, mirrorsAndFilesURL) || {};
-  const mirrors = mirrorsAndFiles.mirrors || {};
-  const mirrorOrder = mirrorsAndFiles.mirror_order;
-  let selectedMirrorId = mirrorId;
+  const {accountKey, fileId} = state.report;
+  const fetched = fetchcache.get(state, accountsURL) || {};
+  const accounts = fetched.accounts || {};
+  const accountOrder = fetched.account_order;
+  let selectedAccountKey = accountKey;
 
-  if (mirrorOrder && mirrorOrder.length) {
-    if (!selectedMirrorId || !mirrors[selectedMirrorId]) {
-      selectedMirrorId = mirrorsAndFiles.default_mirror || '';
+  if (accountOrder && accountOrder.length) {
+    if (!selectedAccountKey || !accounts[selectedAccountKey]) {
+      selectedAccountKey = fetched.default_account || '';
     }
 
-    if (!selectedMirrorId) {
-      selectedMirrorId = mirrorOrder[0];
+    if (!selectedAccountKey) {
+      selectedAccountKey = accountOrder[0];
     }
   } else {
-    selectedMirrorId = '';
+    selectedAccountKey = '';
   }
 
-  const mirror = selectedMirrorId ? mirrors[selectedMirrorId] : null;
+  const account = selectedAccountKey ? accounts[selectedAccountKey] : null;
 
   let file = null;
-  if (fileId && mirror && mirror.files) {
-    file = mirror.files[fileId];
+  if (fileId && account && account.files) {
+    file = account.files[fileId];
   }
 
   return {
-    mirror,
-    mirrorId: mirror ? selectedMirrorId : null,
+    account,
+    accountKey: account ? selectedAccountKey : null,
     file,
     fileId: file ? fileId : null,
   };

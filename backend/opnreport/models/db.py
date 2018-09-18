@@ -85,8 +85,8 @@ class File(Base):
         String, ForeignKey('profile.id'), nullable=False, index=True)
     mirror_id = Column(
         BigInteger, ForeignKey('mirror.id'), nullable=False, index=True)
-    start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
+    end_balance = Column(Numeric, nullable=False)
     subtitle = Column(Unicode, nullable=True)
 
 
@@ -149,14 +149,17 @@ class TransferDownloadRecord(Base):
 
 
 class Mirror(Base):
-    """A mirror money location that a profile can reconcile with.
+    """A time-boxed record of movements that should mirror OPN transfers.
 
-    Represents an account at a DFI, someone else's wallet, or the
-    circulating omnibus account managed by an issuer.
+    Represents a period of time at an account at a DFI, someone else's wallet,
+    or the circulating omnibus account managed by an issuer.
+
+    The time period is defined by the file_id. When file_id is not set,
+    the time period is not yet defined.
 
     A different mirror exists for each existent combination of
     holding profile, target_id (or 'c' for circulation),
-    loop_id, and currency.
+    loop_id, currency, and file_id.
     """
     __tablename__ = 'mirror'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -164,27 +167,51 @@ class Mirror(Base):
     # target_id is either an OPN holder ID or
     # the letter 'c' for circulating.
     target_id = Column(String, nullable=False)
-    file_id = Column(BigInteger, ForeignKey('file.id'), nullable=True)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
+    file_id = Column(BigInteger, ForeignKey('file.id'), nullable=True)
+    start_date = Column(Date, nullable=True)
+    start_balance = Column(Numeric, nullable=False, default=0)
     # target_title is based on target_id only and does not refer
     # to the loop_id and currency.
     target_title = Column(Unicode, nullable=True)
-    target_is_account = Column(Boolean, nullable=False, default=False)
+    target_is_dfi_account = Column(Boolean, nullable=False, default=False)
     loop_title = Column(Unicode, nullable=True)
     # last_update is when the target_title and loop_title were last updated.
     last_update = Column(DateTime, nullable=True)
 
     profile = backref(Profile)
 
+    def getstate(self):
+        start_date = self.start_date
+        last_update = self.last_update
+        return {
+            'id': str(self.id),
+            'profile_id': self.profile_id,
+            'target_id': self.target_id,
+            'loop_id': self.loop_id,
+            'currency': self.currency,
+            'file_id': str(self.file_id),
+            'start_date': (
+                None if start_date is None
+                else start_date.isoformat() + 'Z'),
+            'start_balance': str(self.start_balance),
+            'target_title': self.target_title,
+            'target_is_dfi_account': self.target_is_dfi_account,
+            'loop_title': self.loop_title,
+            'last_update': (
+                None if last_update is None
+                else last_update.isoformat() + 'Z'),
+        }
+
 
 Index(
     'ix_mirror_unique',
     Mirror.profile_id,
     Mirror.target_id,
-    Mirror.file_id,
     Mirror.loop_id,
     Mirror.currency,
+    Mirror.file_id,
     unique=True)
 
 
@@ -238,22 +265,6 @@ class MovementLog(Base):
     changes = Column(JSONB, nullable=False)
 
     movement = backref(Movement)
-
-
-class MirrorBalance(Base):
-    """A record of a mirror's balance at the start of a day.
-
-    Mirror balances are automatically generated and are invalidated by
-    mirror entries added in the past.
-    """
-    __tablename__ = 'mirror_balance'
-    mirror_id = Column(
-        BigInteger, ForeignKey('mirror.id'),
-        nullable=False, primary_key=True)
-    day = Column(Date, nullable=False, primary_key=True)
-    balance = Column(Numeric, nullable=False)
-
-    profile = backref(Profile)
 
 
 class MirrorStatement(Base):
