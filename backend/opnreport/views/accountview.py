@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from opnreport.models.db import File
 from opnreport.models.db import Mirror
 from opnreport.models.db import MirrorEntry
@@ -241,57 +242,68 @@ def reco_report_view(request):
         .filter(MirrorEntry.mirror_id == mirror_id)
         .scalar()) or 0
 
-    # unreco_rows lists the movements not yet reconciled.
-    unreco_rows = (
+    # outstanding_rows lists the movements not yet reconciled.
+    # Negate the amounts because we're showing compensating amounts.
+    outstanding_rows = (
         dbsession.query(
-            func.sign(Movement.delta).label('sign'),
+            func.sign(-Movement.delta).label('sign'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
-            Movement.delta,
+            (-Movement.delta).label('delta'),
             Movement.ts,
+            Movement.id,
         )
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
         .filter(
             Movement.mirror_id == mirror_id,
+            Movement.delta != 0,
             Movement.transfer_record_id == TransferRecord.id,
             MovementReco.reco_id == null)
         .all())
 
-    # Create unreco_map:
-    # {str(sign): {workflow_type: [{transfer_id, delta, ts}]}}.
-    # Also create workflow_types: {str(sign): [workflow_type]}
-    unreco_map = {
+    # Create outstanding_map:
+    # {str(sign): {workflow_type: [{transfer_id, delta, ts, id}]}}.
+    outstanding_map = {
         '-1': collections.defaultdict(list),
-        '0': collections.defaultdict(list),
         '1': collections.defaultdict(list),
     }
-    workflow_types = collections.defaultdict(set)  # {sign: [workflow_type]}
-    for r in unreco_rows:
+    # Also create workflow_types: {(str(sign), workflow_type): delta}}
+    workflow_types_pre = collections.defaultdict(Decimal)
+    for r in outstanding_rows:
         str_sign = str(r.sign)
         workflow_type = r.workflow_type
-        unreco_map[str_sign][workflow_type].append({
+        outstanding_map[str_sign][workflow_type].append({
             'transfer_id': r.transfer_id,
             'delta': str(r.delta),
             'ts': r.ts.isoformat() + 'Z',
+            'id': str(r.id),
         })
-        workflow_types[str_sign].add(workflow_type)
+        workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
     # Convert from defaultdicts to dicts for JSON encoding.
-    for sign, m in list(unreco_map.items()):
-        unreco_map[sign] = dict(m)
+    for sign, m in list(outstanding_map.items()):
+        outstanding_map[sign] = dict(m)
+        for lst in m.values():
+            # Sort the outstanding list by timestamp.
+            lst.sort(key=lambda x: x['ts'])
 
-    # Sort the workflow_types.
-    for str_sign, x in list(workflow_types.items()):
-        workflow_types[str_sign] = sorted(x)
+    # Convert workflow_types to JSON encoding:
+    # {str(sign): {workflow_type: str(delta)}}
+    workflow_types = {}
+    for (str_sign, workflow_type), delta in workflow_types_pre.items():
+        d = workflow_types.get(str_sign)
+        if d is None:
+            workflow_types[str_sign] = d = {}
+        d[workflow_type] = str(delta) if delta else '0'
 
     reconciled_balance = mirror.start_balance + reconciled_delta
-    unreconciled_balance = reconciled_balance + sum(
-        row.delta for row in unreco_rows)
+    outstanding_balance = reconciled_balance + sum(
+        row.delta for row in outstanding_rows)
 
     return {
         'mirror': mirror.getstate(),
         'reconciled_balance': str(reconciled_balance),
-        'unreconciled_balance': str(unreconciled_balance),
-        'workflow_types': dict(workflow_types),
-        'unreco_map': unreco_map,
+        'outstanding_balance': str(outstanding_balance),
+        'workflow_types': workflow_types,
+        'outstanding_map': outstanding_map,
     }

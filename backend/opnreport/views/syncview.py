@@ -409,8 +409,6 @@ class SyncView:
                 .filter(or_(
                     Mirror.last_update == null,
                     Mirror.last_update < update_check_time))
-                .filter(or_(
-                    Mirror.loop_id != '0', Mirror.target_id != 'c'))
                 .order_by(Mirror.id)
                 .limit(100)
                 .all())
@@ -424,10 +422,12 @@ class SyncView:
                 account_map = {a['id']: a for a in account_list}
 
             for mirror in mirrors:
-                if mirror.target_id != 'c':
-                    # Get the title of the target.
-                    target_title = None
-                    target_is_dfi_account = False
+                # Get the title of the target.
+                target_title = None
+                target_is_dfi_account = False
+                if mirror.target_id == 'c':
+                    target_title = self.profile.title
+                else:
                     account = account_map.get(mirror.target_id)
                     if account:
                         target_is_dfi_account = True
@@ -443,34 +443,34 @@ class SyncView:
                         if check_requests_response(r, raise_exc=False):
                             target_title = r.json()['title']
 
-                    if target_title:
-                        if target_title != mirror.target_title:
-                            mirror.target_title = target_title
-                            dbsession.add(ProfileLog(
-                                profile_id=self.profile_id,
-                                event_type='update_mirror_target_title',
-                                memo={
-                                    'mirror_id': mirror.id,
-                                    'target_id': mirror.target_id,
-                                    'target_title': target_title,
-                                }))
-                    else:
-                        # The error details were logged by
-                        # check_requests_response().
-                        log.warning(
-                            "Unable to get the title of holder %s",
-                            mirror.target_id)
-
-                    if target_is_dfi_account != mirror.target_is_dfi_account:
-                        mirror.target_is_dfi_account = target_is_dfi_account
+                if target_title:
+                    if target_title != mirror.target_title:
+                        mirror.target_title = target_title
                         dbsession.add(ProfileLog(
                             profile_id=self.profile_id,
-                            event_type='update_mirror_target_is_dfi_account',
+                            event_type='update_mirror_target_title',
                             memo={
                                 'mirror_id': mirror.id,
                                 'target_id': mirror.target_id,
-                                'target_is_dfi_account': target_is_dfi_account,
+                                'target_title': target_title,
                             }))
+                else:
+                    # The error details were logged by
+                    # check_requests_response().
+                    log.warning(
+                        "Unable to get the title of holder %s",
+                        mirror.target_id)
+
+                if target_is_dfi_account != mirror.target_is_dfi_account:
+                    mirror.target_is_dfi_account = target_is_dfi_account
+                    dbsession.add(ProfileLog(
+                        profile_id=self.profile_id,
+                        event_type='update_mirror_target_is_dfi_account',
+                        memo={
+                            'mirror_id': mirror.id,
+                            'target_id': mirror.target_id,
+                            'target_is_dfi_account': target_is_dfi_account,
+                        }))
 
                 if mirror.loop_id != '0':
                     # Get the title of the cash design.

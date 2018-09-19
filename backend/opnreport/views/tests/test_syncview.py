@@ -260,7 +260,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(3, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -292,7 +292,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('c', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
         self.assertEqual('USD', mirror.currency)
-        self.assertEqual(None, mirror.target_title)
+        self.assertEqual('Test Profile', mirror.target_title)
         self.assertEqual(None, mirror.loop_title)
 
         movements = self.dbsession.query(db.Movement).all()
@@ -523,7 +523,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', downloads[0].profile_id)
 
         events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(3, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -686,8 +686,8 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(3, len(events))
-        event = events[-2]
+        self.assertEqual(4, len(events))
+        event = events[1]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
@@ -767,7 +767,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(4, len(events))
+        self.assertEqual(5, len(events))
         event = events[-1]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
