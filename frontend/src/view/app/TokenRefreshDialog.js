@@ -167,7 +167,7 @@ class TokenRefreshDialog extends React.Component {
 const mapStateToProps = (state) => ({
   token: state.login.token,
   tokenRefresh: state.app.tokenRefresh,
-  personalName: state.login.personalName,
+  personalProfile: state.login.personalProfile,
 });
 
 

@@ -245,7 +245,7 @@ class RecoReport extends React.Component {
     if (file) {
       file_date = file.end_date;
     } else {
-      file_date = (new Date()).toLocaleDateString() + ' (unclosed)';
+      file_date = (new Date()).toLocaleDateString() + ' (current)';
     }
 
     const {target_title, currency} = mirror;
