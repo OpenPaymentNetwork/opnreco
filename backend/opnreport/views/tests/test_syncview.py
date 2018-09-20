@@ -1226,79 +1226,79 @@ class Test_find_internal_movements(unittest.TestCase):
 
     def test_unbalanced_1(self):
         movements = self._make_movements(['4.1'])
-        imap = self._call(movements, {})
-        self.assertEqual({}, dict(imap))
+        iseqs = self._call(movements, {})
+        self.assertEqual([], iseqs)
 
     def test_unbalanced_2(self):
         movements = self._make_movements(['4.1', '5'])
-        imap = self._call(movements, {})
-        self.assertEqual({}, dict(imap))
+        iseqs = self._call(movements, {})
+        self.assertEqual([], iseqs)
 
     def test_unbalanced_3(self):
         movements = self._make_movements(['4.1', '-5', '0.9'])
-        imap = self._call(movements, {})
-        self.assertEqual({}, dict(imap))
+        iseqs = self._call(movements, {})
+        self.assertEqual([], iseqs)
 
     def test_simple_hill(self):
         movements = self._make_movements(['4.1', '0.9', -5, 2])
-        imap = self._call(movements, {})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {})
+        self.assertEqual([
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
-        ]}, dict(imap))
+        ], iseqs)
 
     def test_simple_valley(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 2])
-        imap = self._call(movements, {})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {})
+        self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
-        ]}, dict(imap))
+        ], iseqs)
 
     def test_hill_after_move(self):
         movements = self._make_movements([2, '4.1', '0.9', -5])
-        imap = self._call(movements, {})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {})
+        self.assertEqual([
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
-        ]}, dict(imap))
+        ], iseqs)
 
     def test_valley_and_hill_with_nothing_in_between(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 3, -3, 1])
-        imap = self._call(movements, {})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {})
+        self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('3'), Decimal('-3')],
-        ]}, dict(imap))
+        ], iseqs)
 
     def test_hill_valley_hill(self):
         movements = self._make_movements([
             1, 3, -3, '-4.1', '-0.9', 5, 7, -6, -1])
-        imap = self._call(movements, {})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {})
+        self.assertEqual([
             [Decimal('3'), Decimal('-3')],
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('7'), Decimal('-6'), Decimal('-1')],
-        ]}, dict(imap))
+        ], iseqs)
 
     def test_valley_and_hill_with_move_in_between(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 2, 3, -3, 1])
-        imap = self._call(movements, {})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {})
+        self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('3'), Decimal('-3')],
-        ]}, dict(imap))
+        ], iseqs)
 
     def test_hill_with_non_internal_action(self):
         movements = self._make_movements([
             '4.1',
             {'delta': '0.9', 'action': 'move'},
             -5])
-        imap = self._call(movements, {})
-        self.assertEqual({}, dict(imap))
+        iseqs = self._call(movements, {})
+        self.assertEqual([], iseqs)
 
     def test_hill_with_manual_reco_followed_by_hill(self):
         movements = self._make_movements([
             '4.1', '0.9', 5,
             7, -3, -4])
-        imap = self._call(movements, {2})
-        self.assertEqual({50: [
+        iseqs = self._call(movements, {2})
+        self.assertEqual([
             [Decimal('7'), Decimal('-3'), Decimal('-4')],
-        ]}, dict(imap))
+        ], iseqs)

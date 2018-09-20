@@ -340,14 +340,10 @@ class Reco(Base):
     mirror_id = Column(
         BigInteger, ForeignKey('mirror.id'),
         nullable=False, index=True)
-    # entry_date is copied from a mirror statement.
+    # entry_date is copied from a mirror statement or movement.
     entry_date = Column(Date, nullable=False)
     # auto is true if the reconciliation was generated automatically.
     auto = Column(Boolean, nullable=False)
-
-    # Note: hidden reconciliations are generated automatically for internal
-    # OPN note movements such as swaps, splits, divisions, and unifications.
-    hidden = Column(Boolean, nullable=False)
 
     mirror = backref(Mirror)
 

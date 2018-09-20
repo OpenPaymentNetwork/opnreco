@@ -183,6 +183,7 @@ class SyncView:
             record = record_map.get(transfer_id)
             if record is None:
                 # Add a TransferRecord.
+                new_record = True
                 record = TransferRecord(
                     transfer_id=transfer_id,
                     file_id=null,
@@ -195,6 +196,7 @@ class SyncView:
 
             else:
                 # Update a TransferRecord.
+                new_record = False
                 immutable_attrs = ('workflow_type', 'start')
                 for attr in immutable_attrs:
                     if kw[attr] != getattr(record, attr):
@@ -219,9 +221,9 @@ class SyncView:
                 changed=changed))
 
             if item['movements']:
-                self.import_movements(record, item)
+                self.import_movements(record, item, new_record=new_record)
 
-    def import_movements(self, record, item):
+    def import_movements(self, record, item, new_record):
         transfer_id = item['id']
         dbsession = self.request.dbsession
 
@@ -294,7 +296,10 @@ class SyncView:
                     changes={},
                 ))
 
-        self.autoreco(record, movement_rows.values())
+        self.autoreco(
+            record=record,
+            movements=movement_rows.values(),
+            new_record=new_record)
 
     def summarize_movement(self, movement, transfer_id):
         """Summarize a movement: return {mirror_id: delta}"""
@@ -504,31 +509,77 @@ class SyncView:
             dbsession.flush()
             seen.extend(m.id for m in mirrors)
 
-    def autoreco(self, record, movements):
-        """Auto-reconcile the movements for a TransferRecord.
+    def autoreco(self, record, movements, new_record):
+        """Auto-reconcile some of the movements in a TransferRecord.
         """
-        # List the manually reconciled movements.
         dbsession = self.request.dbsession
-        manual_rows = (
-            dbsession.query(Movement.id)
-            .join(
-                TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
-            .join(
-                MovementReco,
-                MovementReco.movement_id == Movement.id)
-            .join(
-                Reco,
-                Reco.id == MovementReco.reco_id)
-            .filter(TransferRecord.id == record.id)
-            .filter(Reco.auto)
-            .all())
-        manual_ids = set(row[0] for row in manual_rows)
 
-        internal_map = find_internal_movements(movements, manual_ids)
+        if new_record:
+            # No recos exist yet for this TransferRecord.
+            reco_rows = ()
+            done_movement_ids = set()
+        else:
+            # List the existing recos for this TransferRecord.
+            reco_rows = (
+                dbsession.query(Movement.id, Reco.id)
+                .join(
+                    TransferRecord,
+                    TransferRecord.id == Movement.transfer_record_id)
+                .join(
+                    MovementReco,
+                    MovementReco.movement_id == Movement.id)
+                .join(
+                    Reco,
+                    Reco.id == MovementReco.reco_id)
+                .filter(TransferRecord.id == record.id)
+                .all())
+            done_movement_ids = set(row[0] for row in reco_rows)
+
+        internal_seqs = find_internal_movements(
+            movements=movements,
+            done_movement_ids=done_movement_ids)
+
+        added = False
+
+        for mvlist in internal_seqs:
+            if len(mvlist) < 2:
+                continue
+
+            conflict = False
+            for movement in mvlist:
+                if movement.id in done_movement_ids:
+                    conflict = True
+                    break
+
+            if conflict:
+                continue
+
+            movement = mvlist[-1]
+            reco = Reco(
+                mirror_id=movement.mirror_id,
+                entry_date=movement.ts.date(),
+                auto=True,
+            )
+            dbsession.add(reco)
+            dbsession.flush()
+            reco_id = reco.id
+            added = True
+
+            for movement in mvlist:
+                dbsession.add(MovementReco(
+                    movement_id=movement.id,
+                    reco_id=reco_id))
+                dbsession.add(MovementLog(
+                    movement_id=movement.id,
+                    event_type='autoreco',
+                    changes={'reco_id': reco_id},
+                ))
+
+        if added:
+            dbsession.flush()
 
 
-def find_internal_movements(movements, manual_ids):
+def find_internal_movements(movements, done_movement_ids):
     """Find internal movements that can be auto-reconciled.
 
     Automatic reconciliation looks for sequences of internal movements
@@ -542,134 +593,149 @@ def find_internal_movements(movements, manual_ids):
 
     Do not auto-reconcile if:
 
-    - the movements in the sequence have been reconciled manually
-    - the movements don't appear to be internal (based on the action name)
-    - the internal movements don't look like a balanced hill or valley
-    - the internal movements do not balance
+    - The movements in the sequence have been reconciled already.
+    - The movements don't appear to be internal (based on the action name).
+    - The internal movements don't look like a balanced hill or valley.
+    - The internal movements do not balance.
 
     We could theoretically auto-reconcile more complex movements (such
     as a balanced hill with dips), but that would probably generate
-    false positives.
+    some false positives.
     """
 
-    # Group by mirror, filtering out movements that caused moved nothing.
+    # Group by mirror, filtering out movements that somehow moved nothing.
     groups = collections.defaultdict(list)
     for movement in movements:
         if movement.delta != zero:
             groups[movement.mirror_id].append(movement)
 
-    # internal_movements is a dict of lists of movement lists that
+    # all_internal_seqs is a list of movement sequences that
     # constitute internal movements.
-    # {mirror_id: [[movement]]}
-    internal_map = collections.defaultdict(list)
-
-    non_internal_actions = frozenset(('move',))
+    # [[movement]]
+    all_internal_seqs = []
 
     for mirror_id, group in groups.items():
         if len(group) < 2:
             # No hill or valley is possible.
             continue
 
-        # Order the movements.
+        # Order the movements in the group.
         group.sort(key=lambda movement: movement.number)
 
-        # hill_starts and valley_starts contain the candidate starts of
-        # a hill or valley. They map an original amount to the
-        # index in the groups list when the change happened.
-        hill_starts = {}    # {original amount: group index}
-        valley_starts = {}  # {original amount: group index}
+        internal_seqs = find_internal_movements_in_group(
+            group=group,
+            done_movement_ids=done_movement_ids)
+        if internal_seqs:
+            all_internal_seqs.extend(internal_seqs)
 
-        # hill_ends and valley_ends list the candidate ends of a balanced
-        # hill or valley.
-        hill_ends = []      # [(group index, new amount)]
-        valley_ends = []    # [(group index, new amount)]
+    return all_internal_seqs
 
-        trend = 0
-        prev_amount = zero
 
-        # find_hill() looks backward in hill_ends for a hill_start
-        # value that matches. It finds the largest hill, if any,
-        # and adds it to internal_map. find_valley() operates similarly.
+non_internal_actions = frozenset(('move',))
 
-        def find_hill():
-            for end_index, amount in reversed(hill_ends):
-                start_index = hill_starts.get(amount)
-                if start_index is not None:
-                    # Found a hill!
-                    mv_list = group[start_index:end_index + 1]
-                    internal_map[mirror_id].append(mv_list)
-                    return
 
-        def find_valley():
-            for end_index, amount in reversed(valley_ends):
-                start_index = valley_starts.get(amount)
-                if start_index is not None:
-                    # Found a valley!
-                    mv_list = group[start_index:end_index + 1]
-                    internal_map[mirror_id].append(mv_list)
-                    return
+def find_internal_movements_in_group(group, done_movement_ids):
+    # Note: group must be ordered.
+    # internal_seqs: [[movement]]
+    internal_seqs = []
 
-        for index, movement in enumerate(group):
-            delta = movement.delta
-            new_amount = prev_amount + delta
+    # hill_starts and valley_starts contain the candidate starts of
+    # a hill or valley. They map an original amount to the
+    # index in the groups list when the change happened.
+    hill_starts = {}    # {original amount: group index}
+    valley_starts = {}  # {original amount: group index}
 
-            if (movement.id in manual_ids or
-                    movement.action in non_internal_actions):
-                # This movement is manually reconciled or internal,
-                # so don't detect any hill or valley that crosses it,
-                # but detect hills or valleys before or after.
-                if trend == 1:
-                    # The trend was positive (or 0),
-                    # so there might be a valley.
-                    find_valley()
-                elif trend == -1:
-                    # The trend was negative (or 0),
-                    # so there might be a hill.
-                    find_hill()
+    # hill_ends and valley_ends list the candidate ends of a balanced
+    # hill or valley.
+    hill_ends = []      # [(group index, new amount)]
+    valley_ends = []    # [(group index, new amount)]
+
+    trend = 0
+    prev_amount = zero
+
+    # find_hill() looks backward in hill_ends for a hill_start
+    # value that matches. It finds the largest hill, if any,
+    # and adds it to internal_seqs. find_valley() operates similarly.
+
+    def find_hill():
+        for end_index, amount in reversed(hill_ends):
+            start_index = hill_starts.get(amount)
+            if start_index is not None:
+                # Found a hill!
+                mv_list = group[start_index:end_index + 1]
+                internal_seqs.append(mv_list)
+                return
+
+    def find_valley():
+        for end_index, amount in reversed(valley_ends):
+            start_index = valley_starts.get(amount)
+            if start_index is not None:
+                # Found a valley!
+                mv_list = group[start_index:end_index + 1]
+                internal_seqs.append(mv_list)
+                return
+
+    for index, movement in enumerate(group):
+        delta = movement.delta
+        new_amount = prev_amount + delta
+
+        if (movement.id in done_movement_ids or
+                movement.action in non_internal_actions):
+            # This movement is already reconciled or internal,
+            # so don't detect any hill or valley that crosses it,
+            # but detect hills or valleys before or after.
+            if trend == 1:
+                # The trend was positive (or 0),
+                # so there might be a valley.
+                find_valley()
+            elif trend == -1:
+                # The trend was negative (or 0),
+                # so there might be a hill.
+                find_hill()
+            hill_starts.clear()
+            del hill_ends[:]
+            valley_starts.clear()
+            del valley_ends[:]
+            trend = 0
+
+        if delta > zero:
+            if trend != 1:
+                # The trend was negative (or 0),
+                # so there might be a hill.
+                find_hill()
+                # Start looking for another hill.
                 hill_starts.clear()
                 del hill_ends[:]
+                # The trend is now positive.
+                trend = 1
+            # This movement could be the end of a valley.
+            if valley_starts:
+                valley_ends.append((index, new_amount))
+            # This movement could be the start of a hill.
+            hill_starts[prev_amount] = index
+
+        elif delta < zero:
+            if trend != -1:
+                # The trend was positive (or 0),
+                # so there might be a valley.
+                find_valley()
+                # Start looking for another valley.
                 valley_starts.clear()
                 del valley_ends[:]
-                trend = 0
+                # The trend is now negative.
+                trend = -1
+            # This movement could be the end of a hill.
+            if hill_starts:
+                hill_ends.append((index, new_amount))
+            # This movement could be the start of a valley.
+            valley_starts[prev_amount] = index
 
-            if delta > zero:
-                if trend != 1:
-                    # The trend was negative (or 0),
-                    # so there might be a hill.
-                    find_hill()
-                    # Start looking for another hill.
-                    hill_starts.clear()
-                    del hill_ends[:]
-                    # The trend is now positive.
-                    trend = 1
-                # This movement could be the end of a valley.
-                if valley_starts:
-                    valley_ends.append((index, new_amount))
-                # This movement could be the start of a hill.
-                hill_starts[prev_amount] = index
+        prev_amount = new_amount
 
-            elif delta < zero:
-                if trend != -1:
-                    # The trend was positive (or 0),
-                    # so there might be a valley.
-                    find_valley()
-                    # Start looking for another valley.
-                    valley_starts.clear()
-                    del valley_ends[:]
-                    # The trend is now negative.
-                    trend = -1
-                # This movement could be the end of a hill.
-                if hill_starts:
-                    hill_ends.append((index, new_amount))
-                # This movement could be the start of a valley.
-                valley_starts[prev_amount] = index
+    # Find any remaining hill or valley.
+    if trend > 0:
+        find_valley()
+    elif trend < 0:
+        find_hill()
 
-            prev_amount = new_amount
-
-        # Find any remaining hill or valley.
-        if trend > 0:
-            find_valley()
-        elif trend < 0:
-            find_hill()
-
-    return internal_map
+    return internal_seqs
