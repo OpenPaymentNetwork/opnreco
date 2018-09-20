@@ -521,8 +521,9 @@ class SyncView:
         - the internal movements do not balance
         - any of the movements in the sequence have been reconciled manually
 
-        We could theoretically auto-balance more complex movements,
-        but that would probably generate false positives.
+        We could theoretically auto-reconcile more complex movements (such
+        as hills containing a valley), but that would probably generate
+        false positives.
         """
         internal_map = self.find_internal_movements(movements)
 
@@ -563,6 +564,10 @@ class SyncView:
             trend = 0
             prev_amount = zero
 
+            # find_hill() looks backward in hill_ends for a hill_start
+            # value that matches. It finds the largest hill, if any,
+            # and adds it to internal_map. find_valley() operates similarly.
+
             def find_hill():
                 for end_index, amount in reversed(hill_ends):
                     start_index = hill_starts.get(amount)
@@ -585,7 +590,8 @@ class SyncView:
                 new_amount = prev_amount + movement.delta
 
                 if movement.action in non_internal_actions:
-                    # Limit any hill or valley.
+                    # This movement is not internal, so don't allow
+                    # any hill or valley to cross it.
                     if trend == 1:
                         # The trend was positive (or 0),
                         # so there might be a valley.
@@ -629,6 +635,8 @@ class SyncView:
                         # The trend is now negative.
                         trend = -1
                     valley_starts[prev_amount] = index
+
+                prev_amount = new_amount
 
             # Find any remaining hill or valley.
             if trend > 0:
