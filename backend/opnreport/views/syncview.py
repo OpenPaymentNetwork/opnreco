@@ -570,7 +570,7 @@ def find_internal_movements(movements, manual_ids):
             # No hill or valley is possible.
             continue
 
-        # Sort the movements.
+        # Order the movements.
         group.sort(key=lambda movement: movement.number)
 
         # hill_starts and valley_starts contain the candidate starts of
@@ -587,17 +587,6 @@ def find_internal_movements(movements, manual_ids):
         trend = 0
         prev_amount = zero
 
-        def reset_detection():
-            """Reset hill and valley detection.
-
-            This prevent detection of any more hills or valleys in the
-            movements examined so far.
-            """
-            hill_starts.clear()
-            del hill_ends[:]
-            valley_starts.clear()
-            del valley_ends[:]
-
         # find_hill() looks backward in hill_ends for a hill_start
         # value that matches. It finds the largest hill, if any,
         # and adds it to internal_map. find_valley() operates similarly.
@@ -609,7 +598,6 @@ def find_internal_movements(movements, manual_ids):
                     # Found a hill!
                     mv_list = group[start_index:end_index + 1]
                     internal_map[mirror_id].append(mv_list)
-                    reset_detection()
                     return
 
         def find_valley():
@@ -619,7 +607,6 @@ def find_internal_movements(movements, manual_ids):
                     # Found a valley!
                     mv_list = group[start_index:end_index + 1]
                     internal_map[mirror_id].append(mv_list)
-                    reset_detection()
                     return
 
         for index, movement in enumerate(group):
@@ -639,10 +626,13 @@ def find_internal_movements(movements, manual_ids):
                     # The trend was negative (or 0),
                     # so there might be a hill.
                     find_hill()
-                reset_detection()
+                hill_starts.clear()
+                del hill_ends[:]
+                valley_starts.clear()
+                del valley_ends[:]
                 trend = 0
 
-            elif delta > zero:
+            if delta > zero:
                 if trend != 1:
                     # The trend was negative (or 0),
                     # so there might be a hill.
@@ -653,7 +643,8 @@ def find_internal_movements(movements, manual_ids):
                     # The trend is now positive.
                     trend = 1
                 # This movement could be the end of a valley.
-                valley_ends.append((index, new_amount))
+                if valley_starts:
+                    valley_ends.append((index, new_amount))
                 # This movement could be the start of a hill.
                 hill_starts[prev_amount] = index
 
@@ -668,7 +659,8 @@ def find_internal_movements(movements, manual_ids):
                     # The trend is now negative.
                     trend = -1
                 # This movement could be the end of a hill.
-                hill_ends.append((index, new_amount))
+                if hill_starts:
+                    hill_ends.append((index, new_amount))
                 # This movement could be the start of a valley.
                 valley_starts[prev_amount] = index
 
