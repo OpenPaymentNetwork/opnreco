@@ -11,10 +11,12 @@ import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
+import Typography from '@material-ui/core/Typography';
 
 
 const styles = {
   root: {
+    fontSize: '1.1rem',
   },
   tablePaper: {
     margin: '32px auto',
@@ -275,7 +277,7 @@ class RecoReport extends React.Component {
     const amountCellCN = classNames(classes.cell, classes.amountCell);
 
     return (
-      <div className={classes.root}>
+      <Typography className={classes.root}>
         {require}
         <Paper className={classes.tablePaper}>
           <table className={classes.table}>
@@ -312,7 +314,7 @@ class RecoReport extends React.Component {
               {this.renderOutstanding('-1', cfmt)}
               <tr>
                 <td className={labelCellCN}>
-                  Balance With Outstanding Changes
+                  Balance After Outstanding Changes
                 </td>
                 <td className={amountCellCN}>
                   {cfmt(recoReport.outstanding_balance)}
@@ -322,7 +324,7 @@ class RecoReport extends React.Component {
           </table>
         </Paper>
         <div style={{height: 1}}></div>
-      </div>
+      </Typography>
     );
   }
 
