@@ -11,6 +11,7 @@ from opnreport.models.site import API
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import func
+from sqlalchemy import or_
 import collections
 
 null = None
@@ -55,8 +56,8 @@ def accounts_view(request):
 
     unfiled_mirrors = (
         dbsession.query(Mirror)
-        .filter_by(profile_id=profile_id)
-        .filter_by(file_id=null)
+        .filter_by(profile_id=profile_id, file_id=null)
+        .filter(or_(Mirror.target_id == 'c', Mirror.target_is_dfi_account))
         .all())
     unfiled_mirror_ids = [m.id for m in unfiled_mirrors]
 
@@ -64,14 +65,15 @@ def accounts_view(request):
         dbsession.query(Mirror)
         .filter_by(profile_id=profile_id)
         .filter(Mirror.file_id != null)
+        .filter(or_(Mirror.target_id == 'c', Mirror.target_is_dfi_account))
         .filter(~Mirror.id.in_(unfiled_mirror_ids))
         .order_by(Mirror.last_update.desc())
         .all())
 
     file_rows = (
         dbsession.query(File, Mirror)
-        .filter(File.mirror_id == Mirror.id)
-        .filter(File.profile_id == profile_id)
+        .filter(File.mirror_id == Mirror.id, File.profile_id == profile_id)
+        .filter(or_(Mirror.target_id == 'c', Mirror.target_is_dfi_account))
         .order_by(File.end_date.desc())
         .all())
 

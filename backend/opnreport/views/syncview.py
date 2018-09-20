@@ -13,6 +13,7 @@ from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.util import check_requests_response
 from opnreport.util import to_datetime
+from pyramid.decorator import reify
 from pyramid.view import view_config
 from sqlalchemy import or_
 import collections
@@ -401,6 +402,12 @@ class SyncView:
 
         return mirror
 
+    @reify
+    def account_map(self):
+        # Get the map of accounts from /wallet/info.
+        account_list = self.request.wallet_info['profile']['accounts']
+        return {a['id']: a for a in account_list}
+
     def update_mirrors(self):
         """Update the target_title and loop_title of the profile's mirrors."""
         update_check_time = (
@@ -408,7 +415,6 @@ class SyncView:
         dbsession = self.request.dbsession
         headers = {'Authorization': 'Bearer %s' % self.request.access_token}
         seen = []
-        account_map = None
 
         while True:
             mirrors = (
@@ -425,11 +431,6 @@ class SyncView:
             if not mirrors:
                 break
 
-            if not account_map:
-                # Get the map of accounts from /wallet/info.
-                account_list = self.request.wallet_info['profile']['accounts']
-                account_map = {a['id']: a for a in account_list}
-
             for mirror in mirrors:
                 # Get the title of the target.
                 target_title = None
@@ -437,7 +438,7 @@ class SyncView:
                 if mirror.target_id == 'c':
                     target_title = self.profile.title
                 else:
-                    account = account_map.get(mirror.target_id)
+                    account = self.account_map.get(mirror.target_id)
                     if account:
                         target_is_dfi_account = True
                         target_title = '%s at %s' % (
@@ -622,7 +623,7 @@ def find_internal_movements(movements, done_movement_ids):
         # Order the movements in the group.
         group.sort(key=lambda movement: movement.number)
 
-        internal_seqs = find_internal_movements_in_group(
+        internal_seqs = find_internal_movements_for_mirror(
             group=group,
             done_movement_ids=done_movement_ids)
         if internal_seqs:
@@ -634,7 +635,7 @@ def find_internal_movements(movements, done_movement_ids):
 non_internal_actions = frozenset(('move',))
 
 
-def find_internal_movements_in_group(group, done_movement_ids):
+def find_internal_movements_for_mirror(group, done_movement_ids):
     # Note: group must be ordered.
     # internal_seqs: [[movement]]
     internal_seqs = []
