@@ -45,6 +45,11 @@ const styles = {
   labelCell: {
     padding: '4px 8px',
   },
+  typeRow: {
+    '&:hover': {
+      backgroundColor: '#eee',
+    },
+  },
   typeCell: {
     padding: '4px 8px 4px 32px',
     cursor: 'pointer',
@@ -105,6 +110,19 @@ const wfTypeTitles = {
   settle: 'Settle',
   simple_grant: 'Grant',
 };
+
+
+/** Return an identifier with dashes embedded for readability. */
+function dashed(s) {
+  let pos = 0;
+  const parts = [];
+  const sLen = s.length;
+  while (pos < sLen) {
+    parts.push(s.substr(pos, 4));
+    pos += 4;
+  }
+  return parts.join('-');
+}
 
 
 class RecoReport extends React.Component {
@@ -185,7 +203,9 @@ class RecoReport extends React.Component {
       const isExpanded = expanded[expandKey];
       const arrowCN = (isExpanded ? expandedCN : collapsedCN);
       res.push(
-        <tr key={item.wfType} onClick={this.binder1(this.handleExpand, expandKey)}>
+        <tr className={classes.typeRow} key={item.wfType}
+          onClick={this.binder1(this.handleExpand, expandKey)}
+        >
           <td className={typeCellCN}>
             <span className={arrowCN}>&#x2BC8;</span> {item.title}
           </td>
@@ -202,7 +222,7 @@ class RecoReport extends React.Component {
           res.push(
             <tr key={movement.id}>
               <td className={movementCellCN}>
-                <a href="#">Transfer {movement.transfer_id} ({date})</a>
+                <a href="#">Transfer {dashed(movement.transfer_id)} ({date})</a>
               </td>
               <td className={miniAmountCellCN}>
                 {cfmt(movement.delta)}

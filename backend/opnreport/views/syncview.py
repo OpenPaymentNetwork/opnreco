@@ -292,6 +292,8 @@ class SyncView:
                     changes={},
                 ))
 
+        self.autoreco(movement_rows.values())
+
     def summarize_movement(self, movement, transfer_id):
         """Summarize a movement: return {mirror_id: delta}"""
         number = movement['number']
@@ -499,3 +501,139 @@ class SyncView:
 
             dbsession.flush()
             seen.extend(m.id for m in mirrors)
+
+    def autoreco(self, movements):
+        """Auto-reconcile movements, if possible.
+
+        Auto-reconciliation looks for sequences of internal movements
+        that balance out exactly and generates automatic reconciliation
+        records for them.
+
+        Detect internal movements by looking for either "hills" or
+        "valleys". A "hill" is a sequence of increases followed by
+        matching decreases. A "valley" is a sequence of decreases
+        followed by matching increases.
+
+        Do not auto-reconcile if:
+
+        - the movements don't appear to be internal (based on the action name)
+        - the internal movements don't look like a balanced hill or valley
+        - the internal movements do not balance
+        - any of the movements in the sequence have been reconciled manually
+
+        We could theoretically auto-balance more complex movements,
+        but that would probably generate false positives.
+        """
+        internal_map = self.find_internal_movements(movements)
+
+    def find_internal_movements(self, movements):
+        # Group by mirror, filtering out movements that don't have an
+        # internal action name.
+        groups = collections.defaultdict(list)
+        for movement in movements:
+            if movement.delta != zero:
+                groups[movement.mirror_id].append(movement)
+
+        # internal_movements is a dict of lists of movement lists that
+        # constitute internal movements.
+        # {mirror_id: [[movement]]}
+        internal_map = collections.defaultdict(list)
+
+        non_internal_actions = frozenset(('move',))
+
+        for mirror_id, group in groups.items():
+            if len(group) < 2:
+                # No hill or valley is possible.
+                continue
+
+            # Sort the movements.
+            group.sort(key=lambda movement: movement.number)
+
+            # hill_starts and valley_starts contain the candidate starts of
+            # a hill or valley. They map an original amount to the
+            # index in the groups list when the change happened.
+            hill_starts = {}    # {original amount: group index}
+            valley_starts = {}  # {original amount: group index}
+
+            # hill_ends and valley_ends list the candidate ends of a balanced
+            # hill or valley.
+            hill_ends = []      # [(group index, new amount)]
+            valley_ends = []    # [(group index, new amount)]
+
+            trend = 0
+            prev_amount = zero
+
+            def find_hill():
+                for end_index, amount in reversed(hill_ends):
+                    start_index = hill_starts.get(amount)
+                    if start_index is not None:
+                        # Found a hill!
+                        mv_list = group[start_index:end_index + 1]
+                        internal_map[mirror_id].append(mv_list)
+                        return
+
+            def find_valley():
+                for end_index, amount in reversed(valley_ends):
+                    start_index = valley_starts.get(amount)
+                    if start_index is not None:
+                        # Found a valley!
+                        mv_list = group[start_index:end_index + 1]
+                        internal_map[mirror_id].append(mv_list)
+                        return
+
+            for index, movement in enumerate(group):
+                new_amount = prev_amount + movement.delta
+
+                if movement.action in non_internal_actions:
+                    # Limit any hill or valley.
+                    if trend == 1:
+                        # The trend was positive (or 0),
+                        # so there might be a valley.
+                        find_valley()
+                    elif trend == -1:
+                        # The trend was negative (or 0),
+                        # so there might be a hill.
+                        find_hill()
+                    hill_starts.clear()
+                    del hill_ends[:]
+                    valley_starts.clear()
+                    del valley_ends[:]
+                    trend = 0
+
+                elif movement.delta > zero:
+                    if trend == 1:
+                        # This point could be the end of a valley.
+                        valley_ends.append((index, new_amount))
+                    else:
+                        # The trend was negative (or 0),
+                        # so there might be a hill.
+                        find_hill()
+                        # Start looking for another hill.
+                        hill_starts.clear()
+                        del hill_ends[:]
+                        # The trend is now positive.
+                        trend = 1
+                    hill_starts[prev_amount] = index
+
+                elif movement.delta < zero:
+                    if trend == -1:
+                        # This point could be the end of a hill.
+                        hill_ends.append((index, new_amount))
+                    else:
+                        # The trend was positive (or 0),
+                        # so there might be a valley.
+                        find_valley()
+                        # Start looking for another valley.
+                        valley_starts.clear()
+                        del valley_ends[:]
+                        # The trend is now negative.
+                        trend = -1
+                    valley_starts[prev_amount] = index
+
+            # Find any remaining hill or valley.
+            if trend > 0:
+                find_valley()
+            elif trend < 0:
+                find_hill()
+
+        return internal_map
