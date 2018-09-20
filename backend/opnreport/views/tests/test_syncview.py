@@ -1184,3 +1184,77 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('download', mvlog.event_type)
         mvlog = mvlogs[1]
         self.assertEqual('download', mvlog.event_type)
+
+
+class Test_find_internal_movements(unittest.TestCase):
+
+    def _call(self, *args, **kw):
+        from ..syncview import find_internal_movements
+        return find_internal_movements(*args, **kw)
+
+    def _make_movements(self, spec):
+        res = []
+
+        class DummyMovement:
+            def __repr__(self):
+                return '<DummyMovement id=%s delta=%s>' % (self.id, self.delta)
+
+            def __eq__(self, other):
+                # This makes it easy to test movement sequences.
+                if isinstance(other, Decimal) and other == self.delta:
+                    return True
+                if isinstance(other, DummyMovement):
+                    return vars(other) == vars(self)
+                return False
+
+        for index, item in enumerate(spec):
+            m = DummyMovement()
+            m.id = 101 + index
+            m.number = 1 + index
+            m.mirror_id = 50
+            m.action = 'testaction'
+
+            if isinstance(item, tuple):
+                delta, kw = item
+                vars(m).update(kw)
+            else:
+                delta = item
+            m.delta = Decimal(delta)
+
+            res.append(m)
+
+        return res
+
+    def test_unbalanced(self):
+        movements = self._make_movements(['4.1'])
+        imap = self._call(movements, {})
+        self.assertEqual({}, dict(imap))
+
+    def test_simple_hill(self):
+        movements = self._make_movements(['4.1', '0.9', -5, 2])
+        imap = self._call(movements, {})
+        self.assertEqual({50: [
+            [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
+        ]}, dict(imap))
+
+    def test_simple_valley(self):
+        movements = self._make_movements(['-4.1', '-0.9', 5, 2])
+        imap = self._call(movements, {})
+        self.assertEqual({50: [
+            [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
+        ]}, dict(imap))
+
+    def test_hill_after_move(self):
+        movements = self._make_movements([2, '4.1', '0.9', -5])
+        imap = self._call(movements, {})
+        self.assertEqual({50: [
+            [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
+        ]}, dict(imap))
+
+    def test_valley_then_hill(self):
+        movements = self._make_movements(['-4.1', '-0.9', 5, 2, 3, -3, 1])
+        imap = self._call(movements, {})
+        self.assertEqual({50: [
+            [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
+            [Decimal('3'), Decimal('-3')],
+        ]}, dict(imap))
