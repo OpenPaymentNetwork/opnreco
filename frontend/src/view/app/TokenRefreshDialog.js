@@ -15,16 +15,10 @@ import React from 'react';
 import Visibility from '@material-ui/icons/Visibility';
 import VisibilityOff from '@material-ui/icons/VisibilityOff';
 import { binder } from '../../util/binder';
-import { compose } from '../../util/functional';
 import { fOPN } from '../../util/fetcher';
 import { connect } from 'react-redux';
-import { logIn, logOut } from '../../reducer/login';
+import { switchProfile, logOut } from '../../reducer/login';
 import { tokenRefreshSuccess, tokenRefreshCancel } from '../../reducer/app';
-import { withStyles } from '@material-ui/core/styles';
-
-
-const styles = {
-};
 
 
 class TokenRefreshDialog extends React.Component {
@@ -63,23 +57,17 @@ class TokenRefreshDialog extends React.Component {
       disableTokenRefresh: true,
     };
     const action1 = fOPN.fetchPath('/token/refresh', options);
+    let token;
     dispatch(action1).then(tokenInfo => {
-      const {personalProfile} = this.props;
-      dispatch(tokenRefreshSuccess(tokenInfo.access_token));
-      dispatch(logIn(tokenInfo.access_token, personalProfile));
-      this.setState({submitting: false});
-      // Update the personal profile ID and title.
+      token = tokenInfo.access_token;
+      dispatch(tokenRefreshSuccess(token));
+      dispatch(switchProfile(tokenInfo.access_token, ''));
+      // Update the profile ID.
       const action2 = fOPN.fetchPath('/me', {disableTokenRefresh: true});
-      dispatch(action2).then(profileInfo => {
-        if (!personalProfile ||
-            profileInfo.id !== personalProfile.id ||
-            profileInfo.title !== personalProfile.title) {
-          dispatch(logIn(tokenInfo.access_token, {
-            id: profileInfo.id,
-            title: profileInfo.title,
-          }));
-        }
-      });
+      return dispatch(action2);
+    }).then(profileInfo => {
+      dispatch(switchProfile(token, profileInfo.id));
+      this.setState({submitting: false});
     }).catch((error) => {
       this.setState({error: String(error), submitting: false});
     });
@@ -98,6 +86,9 @@ class TokenRefreshDialog extends React.Component {
   }
 
   handleKeyDown(event) {
+    // Matching the string 'Enter' is reliable thanks to React's
+    // SyntheticEvent, which conforms to the DOM level 3 events spec:
+    // https://www.w3.org/TR/uievents-key/#keys-whitespace
     if (event.key === 'Enter') {
       this.handleOk();
     }
@@ -171,7 +162,4 @@ const mapStateToProps = (state) => ({
 });
 
 
-export default compose(
-  withStyles(styles),
-  connect(mapStateToProps),
-)(TokenRefreshDialog);
+export default connect(mapStateToProps)(TokenRefreshDialog);
