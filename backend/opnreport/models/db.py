@@ -154,6 +154,8 @@ class Mirror(Base):
     Represents a period of time at an account at a DFI, someone else's wallet,
     or the circulating omnibus account managed by an issuer.
 
+    A mirror could be called an "account period", but mirror is shorter. ;-)
+
     The time period is defined by the file_id. When file_id is not set,
     the time period is not yet defined.
 

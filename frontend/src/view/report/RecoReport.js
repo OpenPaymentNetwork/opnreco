@@ -5,7 +5,6 @@ import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { withStyles } from '@material-ui/core/styles';
 import { getCurrencyFormatter } from '../../util/currency';
-import classNames from 'classnames';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -48,18 +47,21 @@ const styles = {
     padding: '4px 8px',
   },
   typeRow: {
+  },
+  clickableRow: {
     '&:hover': {
       backgroundColor: '#eee',
+    },
+    '& > td': {
+      cursor: 'pointer',
     },
   },
   typeCell: {
     padding: '4px 8px 4px 32px',
-    cursor: 'pointer',
   },
   typeAmountCell: {
     textAlign: 'right',
     padding: '4px 8px',
-    cursor: 'pointer',
   },
   emptyTypeCell: {
     padding: '4px 8px 4px 32px',
@@ -79,6 +81,9 @@ const styles = {
   },
   expandedArrow: {
     transform: 'rotate(90deg)',
+  },
+  hiddenArrow: {
+    visibility: 'hidden',
   },
 };
 
@@ -177,9 +182,8 @@ class RecoReport extends React.Component {
       return [
         <tr key="empty">
           <td colSpan="2"
-            className={classNames(classes.cell, classes.emptyTypeCell)}>
-            None.
-          </td>
+            className={`${classes.cell} ${classes.emptyTypeCell}`}
+          >None</td>
         </tr>
       ];
     }
@@ -192,20 +196,31 @@ class RecoReport extends React.Component {
       return 0;
     });
 
-    const typeCellCN = classNames(classes.cell, classes.typeCell);
-    const typeAmountCellCN = classNames(classes.cell, classes.typeAmountCell);
-    const movementCellCN = classNames(classes.cell, classes.movementCell);
-    const miniAmountCellCN = classNames(classes.cell, classes.miniAmountCell);
-    const collapsedCN = classNames(classes.arrow, classes.collapsedArrow);
-    const expandedCN = classNames(classes.arrow, classes.expandedArrow);
+    const typeRowCN = classes.typeRow;
+    const clickableTypeRowCN = `${classes.typeRow} ${classes.clickableRow}`;
+    const typeCellCN = `${classes.cell} ${classes.typeCell}`;
+    const typeAmountCellCN = `${classes.cell} ${classes.typeAmountCell}`;
+    const movementCellCN = `${classes.cell} ${classes.movementCell}`;
+    const miniAmountCellCN = `${classes.cell} ${classes.miniAmountCell}`;
+    const collapsedCN = `${classes.arrow} ${classes.collapsedArrow}`;
+    const expandedCN = `${classes.arrow} ${classes.expandedArrow}`;
+    const hiddenArrowCN = `${classes.arrow} ${classes.hiddenArrow}`;
+    const transferRowCN = classes.clickableRow;
 
     const res = [];
     sortable.forEach(item => {
       const expandKey = `${sign}|${item.wfType}`;
       const isExpanded = expanded[expandKey];
-      const arrowCN = (isExpanded ? expandedCN : collapsedCN);
+
+      const outstandingList = outstanding_map[sign][item.wfType];
+
+      const trCN = outstandingList ? clickableTypeRowCN : typeRowCN;
+      const arrowCN = (
+        outstandingList ? (isExpanded ? expandedCN : collapsedCN)
+          : hiddenArrowCN);
+
       res.push(
-        <tr className={classes.typeRow} key={item.wfType}
+        <tr className={trCN} key={item.wfType}
           onClick={this.binder1(this.handleExpand, expandKey)}
         >
           <td className={typeCellCN}>
@@ -219,19 +234,21 @@ class RecoReport extends React.Component {
 
       if (isExpanded) {
         const outstandingList = outstanding_map[sign][item.wfType];
-        outstandingList.forEach(movement => {
-          const date = new Date(movement.ts).toLocaleDateString();
-          res.push(
-            <tr key={movement.id}>
-              <td className={movementCellCN}>
-                <a href="#">Transfer {dashed(movement.transfer_id)} ({date})</a>
-              </td>
-              <td className={miniAmountCellCN}>
-                {cfmt(movement.delta)}
-              </td>
-            </tr>
-          );
-        });
+        if (outstandingList) {
+          outstandingList.forEach(movement => {
+            const date = new Date(movement.ts).toLocaleDateString();
+            res.push(
+              <tr className={transferRowCN} key={movement.id}>
+                <td className={movementCellCN}>
+                  <a href="#">Transfer {dashed(movement.transfer_id)} ({date})</a>
+                </td>
+                <td className={miniAmountCellCN}>
+                  {cfmt(movement.delta)}
+                </td>
+              </tr>
+            );
+          });
+        }
       }
     });
 
@@ -273,8 +290,8 @@ class RecoReport extends React.Component {
     const {target_title, currency} = mirror;
     const cfmt = new getCurrencyFormatter(currency);
 
-    const labelCellCN = classNames(classes.cell, classes.labelCell);
-    const amountCellCN = classNames(classes.cell, classes.amountCell);
+    const labelCellCN = `${classes.cell} ${classes.labelCell}`;
+    const amountCellCN = `${classes.cell} ${classes.amountCell}`;
 
     return (
       <Typography className={classes.root}>
@@ -283,7 +300,7 @@ class RecoReport extends React.Component {
           <table className={classes.table}>
             <thead>
               <tr>
-                <th className={classNames(classes.cell, classes.headCell)} colSpan="2">
+                <th className={`${classes.cell} ${classes.headCell}`} colSpan="2">
                   {target_title} Reconciliation Report -
                   {' '}{currency}
                   {' '}{mirror.loop_id === '0' ? 'Open Loop' : mirror.loop_title}
@@ -314,7 +331,7 @@ class RecoReport extends React.Component {
               {this.renderOutstanding('-1', cfmt)}
               <tr>
                 <td className={labelCellCN}>
-                  Balance After Outstanding Changes
+                  Balance With Outstanding Changes
                 </td>
                 <td className={amountCellCN}>
                   {cfmt(recoReport.outstanding_balance)}

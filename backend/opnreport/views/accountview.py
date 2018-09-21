@@ -6,6 +6,7 @@ from opnreport.models.db import MirrorEntry
 from opnreport.models.db import MirrorEntryReco
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
+from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from pyramid.httpexceptions import HTTPBadRequest
@@ -15,6 +16,7 @@ from sqlalchemy import or_
 import collections
 
 null = None
+zero = Decimal()
 
 
 @view_config(
@@ -244,6 +246,34 @@ def reco_report_view(request):
         .filter(MirrorEntry.mirror_id == mirror_id)
         .scalar()) or 0
 
+    # workflow_type_rows lists the workflow types of movements
+    # involved in this mirror. Include the effects of manually
+    # reconciled movements, but not the effects of automatically
+    # reconciled movements.
+    workflow_type_rows = (
+        dbsession.query(
+            func.sign(-Movement.delta).label('sign'),
+            TransferRecord.workflow_type,
+        )
+        .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
+        .outerjoin(Reco, Reco.id == MovementReco.reco_id)
+        .filter(
+            Movement.mirror_id == mirror_id,
+            Movement.delta != 0,
+            Movement.transfer_record_id == TransferRecord.id,
+            or_(~Reco.auto, Reco.auto == null))
+        .group_by(
+            func.sign(-Movement.delta),
+            TransferRecord.workflow_type)
+        .all())
+
+    # Create workflow_types_pre: {(str(sign), workflow_type): delta}}
+    workflow_types_pre = collections.defaultdict(Decimal)
+    for r in workflow_type_rows:
+        str_sign = str(r.sign)
+        workflow_type = r.workflow_type
+        workflow_types_pre[(str(r.sign), r.workflow_type)] = zero
+
     # outstanding_rows lists the movements not yet reconciled.
     # Negate the amounts because we're showing compensating amounts.
     outstanding_rows = (
@@ -269,8 +299,6 @@ def reco_report_view(request):
         '-1': collections.defaultdict(list),
         '1': collections.defaultdict(list),
     }
-    # Also create workflow_types: {(str(sign), workflow_type): delta}}
-    workflow_types_pre = collections.defaultdict(Decimal)
     for r in outstanding_rows:
         str_sign = str(r.sign)
         workflow_type = r.workflow_type
@@ -280,6 +308,7 @@ def reco_report_view(request):
             'ts': r.ts.isoformat() + 'Z',
             'id': str(r.id),
         })
+        # Add the total of outstanding movements to workflow_types_pre.
         workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
     # Convert from defaultdicts to dicts for JSON encoding.
