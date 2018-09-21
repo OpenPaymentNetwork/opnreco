@@ -61,12 +61,12 @@ class App extends React.Component {
     loggingOut: PropTypes.bool.isRequired,
     serverError: PropTypes.string,
     token: PropTypes.string,
-    personalName: PropTypes.string,
+    personalTitle: PropTypes.string,
     tokenRefresh: PropTypes.bool.isRequired,
   };
 
   render() {
-    if (!this.props.token || !this.props.personalName) {
+    if (!this.props.token || !this.props.personalTitle) {
       return (
         <Switch>
           <Route path="/login" component={LoginView} />
@@ -107,13 +107,17 @@ class App extends React.Component {
 }
 
 
-const mapStateToProps = (state) => ({
-  loggingOut: state.app.loggingOut,
-  personalName: state.login.personalName,
-  serverError: state.app.serverError,
-  token: state.login.token,
-  tokenRefresh: state.app.tokenRefresh,
-});
+const mapStateToProps = (state) => {
+  const {loggingOut, serverError, tokenRefresh} = state.app;
+  const {personalProfile, token} = state.login;
+  return {
+    loggingOut: loggingOut,
+    personalTitle: personalProfile ? personalProfile.title : null,
+    serverError: serverError,
+    token: token,
+    tokenRefresh: tokenRefresh,
+  };
+};
 
 
 // withRouter() seems to be required for any component containing Routes. See:
