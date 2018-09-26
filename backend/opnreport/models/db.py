@@ -47,6 +47,10 @@ class Profile(Base):
     first_sync_ts = Column(DateTime, nullable=True)
     last_sync_ts = Column(DateTime, nullable=True)
     last_sync_transfer_id = Column(String, nullable=True)
+    # sync_total is the number of transfer records in this download.
+    sync_total = Column(BigInteger, nullable=False, default=0)
+    # sync_done is the number of transfer records downloaded successfully.
+    sync_done = Column(BigInteger, nullable=False, default=0)
 
 
 class ProfileLog(Base):

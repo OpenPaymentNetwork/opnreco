@@ -293,8 +293,13 @@ class RecoReport extends React.Component {
     const labelCellCN = `${classes.cell} ${classes.labelCell}`;
     const amountCellCN = `${classes.cell} ${classes.amountCell}`;
 
+    const bottomLabel = (
+      mirror.target_id === 'c' ?
+        'Amount in Circulation' :
+        'Balance With Outstanding Changes');
+
     return (
-      <Typography className={classes.root}>
+      <Typography className={classes.root} component="div">
         {require}
         <Paper className={classes.tablePaper}>
           <table className={classes.table}>
@@ -331,7 +336,7 @@ class RecoReport extends React.Component {
               {this.renderOutstanding('-1', cfmt)}
               <tr>
                 <td className={labelCellCN}>
-                  Balance With Outstanding Changes
+                  {bottomLabel}
                 </td>
                 <td className={amountCellCN}>
                   {cfmt(recoReport.outstanding_balance)}

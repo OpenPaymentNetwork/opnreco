@@ -23,7 +23,6 @@ import { tokenRefreshSuccess, tokenRefreshCancel } from '../../reducer/app';
 
 class TokenRefreshDialog extends React.Component {
   static propTypes = {
-    classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     personalProfile: PropTypes.object,
     tokenRefresh: PropTypes.bool.isRequired,

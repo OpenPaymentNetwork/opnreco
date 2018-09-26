@@ -39,8 +39,7 @@ class SyncError(Exception):
 class SyncView:
     """Sync with OPN.
 
-    This view downloads all transfers and transfer activities since the
-    last sync.
+    This view downloads all transfers and movements since the last sync.
     """
     def __init__(self, request):
         self.request = request
@@ -63,19 +62,25 @@ class SyncView:
             else:
                 sync_ts = datetime.datetime(1970, 1, 1)
             sync_transfer_id = None
+            count_remain = True
         else:
             # A sync was started but not finished. Download the next batch.
             sync_ts = profile.last_sync_ts
             sync_transfer_id = profile.last_sync_transfer_id
+            count_remain = False
         sync_ts_iso = sync_ts.isoformat() + 'Z'
 
         url = '%s/wallet/history_sync' % self.api_url
+        postdata = {
+            'sync_ts': sync_ts_iso,
+            'transfer_id': sync_transfer_id,
+        }
+        if count_remain:
+            postdata['count_remain'] = 'true'
+
         r = requests.post(
             url,
-            data={
-                'sync_ts': sync_ts_iso,
-                'transfer_id': sync_transfer_id,
-            },
+            data=postdata,
             headers={'Authorization': 'Bearer %s' % request.access_token})
         check_requests_response(r)
 
@@ -85,26 +90,29 @@ class SyncView:
         now = datetime.datetime.utcnow()
 
         if more:
+            len_results = len(transfers_download['results'])
             if profile.first_sync_ts is None:
                 profile.first_sync_ts = to_datetime(
                     transfers_download['first_sync_ts'])
+                profile.sync_total = len_results + transfers_download['remain']
+                profile.sync_done = len_results
+            else:
+                profile.sync_done += len_results
             profile.last_sync_ts = to_datetime(
                 transfers_download['last_sync_ts'])
             profile.last_transfer_id = (
                 transfers_download['results'][-1]['id'])
-            # Generate a download progress estimate by
-            # dividing the time span already downloaded by the time span
-            # expected to be downloaded.
-            span0 = (
-                profile.last_sync_ts - profile.first_sync_ts).total_seconds()
-            span1 = (now - profile.first_sync_ts).total_seconds()
-            # Avoid division by zero.
-            progress_percent = 100.0 * span0 / span1 if span1 else 0.0
+            # Note: avoid division by zero.
+            progress_percent = int(
+                100.0 * profile.sync_done / profile.sync_total
+                if profile.sync_total else 0.0)
         else:
             profile.first_sync_ts = None
             profile.last_sync_transfer_id = None
             profile.last_sync_ts = now
-            progress_percent = 100.0
+            profile.sync_total = 0
+            profile.sync_done = 0
+            progress_percent = 100
 
         opn_download = OPNDownload(
             profile_id=profile.id,
