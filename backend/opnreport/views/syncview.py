@@ -241,7 +241,7 @@ class SyncView:
             if not number:
                 raise ValueError(
                     "The OPN service needs to be migrated to support "
-                    "movement numbers")
+                    "movement numbers. (OPN: upgrade and run bin/resummarize)")
             ts = to_datetime(movement['timestamp'])
             action = movement['action']
 
@@ -311,12 +311,9 @@ class SyncView:
         if not from_id:
             # Ignore issuance movements. They have no effect on
             # reconciliation.
-            for loop in movement['loops']:
-                if to_id != loop['issuer_id']:
-                    # How could an issuer issue someone else's notes?
-                    raise AssertionError(
-                        "Confused issuance movement %s in transfer %s"
-                        % (number, transfer_id))
+            # (Note: sometimes issuance movements show notes from another
+            # issuer, but that only indicates the issuer is holding another
+            # issuer's notes and is giving them out.)
             return {}
 
         if not to_id:
@@ -651,8 +648,16 @@ def find_internal_movements_for_mirror(group, done_movement_ids):
     hill_ends = []      # [(group index, new amount)]
     valley_ends = []    # [(group index, new amount)]
 
+    # trend contains the current direction of movement: +1, -1, or 0
+    # (where 0 means the trend has not yet been determined).
     trend = 0
+
+    # prev_amount is the amount at the previous index.
     prev_amount = zero
+
+    # min_start contains the first eligible start index of the next
+    # hill or valley. It ensures hills and valleys can't overlap.
+    min_start = [0]
 
     # find_hill() looks backward in hill_ends for a hill_start
     # value that matches. It finds the largest hill, if any,
@@ -661,19 +666,23 @@ def find_internal_movements_for_mirror(group, done_movement_ids):
     def find_hill():
         for end_index, amount in reversed(hill_ends):
             start_index = hill_starts.get(amount)
-            if start_index is not None:
+            if start_index is not None and start_index >= min_start[0]:
                 # Found a hill!
-                mv_list = group[start_index:end_index + 1]
+                end_index_1 = end_index + 1
+                mv_list = group[start_index:end_index_1]
                 internal_seqs.append(mv_list)
+                min_start[0] = end_index_1
                 return
 
     def find_valley():
         for end_index, amount in reversed(valley_ends):
             start_index = valley_starts.get(amount)
-            if start_index is not None:
+            if start_index is not None and start_index >= min_start[0]:
                 # Found a valley!
-                mv_list = group[start_index:end_index + 1]
+                end_index_1 = end_index + 1
+                mv_list = group[start_index:end_index_1]
                 internal_seqs.append(mv_list)
+                min_start[0] = end_index_1
                 return
 
     for index, movement in enumerate(group):

@@ -282,7 +282,7 @@ def reco_report_view(request):
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
             (-Movement.delta).label('delta'),
-            Movement.ts,
+            TransferRecord.start,
             Movement.id,
         )
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
@@ -305,7 +305,7 @@ def reco_report_view(request):
         outstanding_map[str_sign][workflow_type].append({
             'transfer_id': r.transfer_id,
             'delta': str(r.delta),
-            'ts': r.ts.isoformat() + 'Z',
+            'ts': r.start.isoformat() + 'Z',
             'id': str(r.id),
         })
         # Add the total of outstanding movements to workflow_types_pre.

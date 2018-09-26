@@ -1302,3 +1302,11 @@ class Test_find_internal_movements(unittest.TestCase):
         self.assertEqual([
             [Decimal('7'), Decimal('-3'), Decimal('-4')],
         ], iseqs)
+
+    def test_equal_hill_and_hill(self):
+        movements = self._make_movements(['0.25', '-0.25', '0.25', '-0.25'])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('0.25'), Decimal('-0.25')],
+            [Decimal('0.25'), Decimal('-0.25')],
+        ], iseqs)
