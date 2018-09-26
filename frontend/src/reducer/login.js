@@ -13,7 +13,7 @@ const SWITCH_PROFILE = 'login/SWITCH_PROFILE';
 //
 // 'token' is persistent so we remember who was logged in.
 //
-// 'personalName' is persistent so we can display the name of who was
+// 'personalProfile' is persistent so we can display the name of who was
 // logged in when asking for the password to refresh the access token.
 //
 // 'oauthState' and 'cameFrom' are persistent so they can be recalled after
