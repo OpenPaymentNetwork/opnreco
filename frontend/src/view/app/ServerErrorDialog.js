@@ -9,12 +9,13 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import { binder } from '../../util/binder';
 import { connect } from 'react-redux';
-import { setServerError } from '../../reducer/app';
+import { closeServerError } from '../../reducer/app';
 
 
 class ServerErrorDialog extends React.Component {
   static propTypes = {
-    serverError: PropTypes.string,
+    error: PropTypes.string,
+    open: PropTypes.bool,
     dispatch: PropTypes.func.isRequired,
   };
 
@@ -24,21 +25,21 @@ class ServerErrorDialog extends React.Component {
   }
 
   handleClose() {
-    this.props.dispatch(setServerError(null));
+    this.props.dispatch(closeServerError());
   }
 
   render() {
-    const {serverError} = this.props;
+    const {error, open} = this.props;
     return (
       <Dialog
-        open={!!serverError}
+        open={!!open}
         onClose={this.binder(this.handleClose)}
         aria-labelledby="error-dialog-title"
       >
         <DialogTitle id="error-dialog-title">Server Error</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {serverError}
+            {error}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -53,7 +54,8 @@ class ServerErrorDialog extends React.Component {
 
 
 const mapStateToProps = (state) => ({
-  serverError: state.app.serverError,
+  error: state.app.serverError,
+  open: state.app.serverErrorOpen,
 });
 
 

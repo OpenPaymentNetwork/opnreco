@@ -8,6 +8,7 @@ const SET_LAYOUT = 'app/SET_LAYOUT';
 const SET_SYNC_PROGRESS = 'app/SET_SYNC_PROGRESS';
 const TRIGGER_RESYNC = 'app/TRIGGER_RESYNC';
 const SET_SERVER_ERROR = 'app/SET_SERVER_ERROR';
+const CLOSE_SERVER_ERROR = 'app/CLOSE_SERVER_ERROR';
 const TOKEN_REFRESH_REQUEST = 'app/TOKEN_REFRESH_REQUEST';
 const TOKEN_REFRESH_SUCCESS = 'app/TOKEN_REFRESH_SUCCESS';
 const TOKEN_REFRESH_CANCEL = 'app/TOKEN_REFRESH_CANCEL';
@@ -21,6 +22,7 @@ const initialState = {
   loggingOut: false,
   refreshDeferreds: [],
   serverError: null,
+  serverErrorOpen: false,
   syncedAt: null,
   syncProgress: null,
   tokenRefresh: false,
@@ -45,6 +47,8 @@ export const setServerError = (error) => ({
   type: SET_SERVER_ERROR,
   payload: {error: error ? String(error) : null},
 });
+
+export const closeServerError = () => ({type: CLOSE_SERVER_ERROR});
 
 export const tokenRefreshRequest = (deferred) => ({
   type: TOKEN_REFRESH_REQUEST,
@@ -102,6 +106,12 @@ const actionHandlers = {
   [SET_SERVER_ERROR]: (state, {payload: {error}}) => ({
     ...state,
     serverError: error,
+    serverErrorOpen: true,
+  }),
+
+  [CLOSE_SERVER_ERROR]: (state) => ({
+    ...state,
+    serverErrorOpen: false,
   }),
 
   [TOKEN_REFRESH_REQUEST]: (state, {payload: {deferred}}) => ({

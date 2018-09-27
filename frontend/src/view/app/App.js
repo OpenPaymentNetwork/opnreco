@@ -59,7 +59,7 @@ class App extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     loggingOut: PropTypes.bool.isRequired,
-    serverError: PropTypes.string,
+    serverErrorOpen: PropTypes.bool,
     token: PropTypes.string,
     personalTitle: PropTypes.string,
     tokenRefresh: PropTypes.bool.isRequired,
@@ -76,7 +76,7 @@ class App extends React.Component {
       );
     }
 
-    const { classes, tokenRefresh, loggingOut, serverError } = this.props;
+    const { classes, tokenRefresh, loggingOut, serverErrorOpen } = this.props;
 
     return (
       <MuiThemeProvider theme={customTheme}>
@@ -97,7 +97,7 @@ class App extends React.Component {
           <Linger enabled={!!loggingOut}>
             <LogoutDialog />
           </Linger>
-          <Linger enabled={!!serverError}>
+          <Linger enabled={!!serverErrorOpen}>
             <ServerErrorDialog />
           </Linger>
         </div>
@@ -108,12 +108,13 @@ class App extends React.Component {
 
 
 const mapStateToProps = (state) => {
-  const {loggingOut, serverError, tokenRefresh} = state.app;
+  const {loggingOut, serverError, serverErrorOpen, tokenRefresh} = state.app;
   const {personalProfile, token} = state.login;
   return {
     loggingOut: loggingOut,
     personalTitle: personalProfile ? personalProfile.title : null,
     serverError: serverError,
+    serverErrorOpen: serverErrorOpen,
     token: token,
     tokenRefresh: tokenRefresh,
   };
