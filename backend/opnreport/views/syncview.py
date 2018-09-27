@@ -48,6 +48,12 @@ class SyncView:
         self.mirrors = {}  # {(target_id, loop_id, currency): mirror}
         self.api_url = os.environ['opn_api_url']
 
+        # profile_titles is a cache of {profile_id: title}.
+        self.profile_titles = {}
+
+        # loop_titles is a cache of {loop_id: title}.
+        self.loop_titles = {}
+
     def __call__(self):
         request = self.request
         profile = self.profile
@@ -172,6 +178,14 @@ class SyncView:
         record_map = {record.transfer_id: record for record in record_list}
 
         for item in transfers_download['results']:
+            sender_title = (item['sender_info'] or {}).get('title')
+            if sender_title:
+                self.profile_titles[item['sender_id']] = sender_title
+
+            recipient_title = (item['recipient_info'] or {}).get('title')
+            if recipient_title:
+                self.profile_titles[item['recipient_id']] = recipient_title
+
             changed = []
             kw = {
                 'workflow_type': item['workflow_type'],
@@ -182,7 +196,7 @@ class SyncView:
                 'canceled': item['canceled'],
                 'sender_id': item['sender_id'] or None,
                 'sender_uid': item['sender_uid'] or None,
-                'sender_title': (item['sender_info'] or {}).get('title'),
+                'sender_title': sender_title,
                 'recipient_id': item['recipient_id'] or None,
                 'recipient_uid': item['recipient_uid'] or None,
                 'recipient_title': (item['recipient_info'] or {}).get('title'),
@@ -339,19 +353,19 @@ class SyncView:
 
             if from_id == profile_id and to_id != profile_id:
                 if from_id == issuer_id:
-                    # OPN cash was put into circulation.
+                    # Notes were put into circulation.
                     target_id = 'c'
                 else:
-                    # OPN cash was sent to an account or other wallet.
+                    # Notes were sent to an account or other wallet.
                     target_id = to_id
                 delta = -Decimal(loop['amount'])
 
             elif to_id == profile_id and from_id != profile_id:
                 if to_id == issuer_id:
-                    # OPN cash was taken out of circulation.
+                    # Notes were taken out of circulation.
                     target_id = 'c'
                 else:
-                    # OPN cash was received from an account
+                    # Notes were received from an account
                     # or other wallet.
                     target_id = from_id
                 delta = Decimal(loop['amount'])
@@ -413,12 +427,70 @@ class SyncView:
         account_list = self.request.wallet_info['profile']['accounts']
         return {a['id']: a for a in account_list}
 
+    def get_target_info(self, target_id):
+        """Return (title, is_dfi_account)."""
+        if target_id == 'c':
+            return self.profile.title, False
+
+        account = self.account_map.get(target_id)
+        if account:
+            title = '%s at %s' % (
+                account['redacted_account_num'],
+                account['rdfi_name'],
+            )
+            if account['alias']:
+                title += ' (%s)' % account['alias']
+
+            return title, True
+
+        profile_titles = self.profile_titles
+
+        title = profile_titles.get(target_id)
+        if title:
+            return title, False
+
+        url = '%s/p/%s' % (self.api_url, target_id)
+        headers = {'Authorization': 'Bearer %s' % self.request.access_token}
+        r = requests.get(url, headers=headers)
+        if check_requests_response(r, raise_exc=False):
+            title = r.json()['title']
+            if title:
+                profile_titles[target_id] = title
+                return title, False
+
+        log.warning("Unable to get the title of holder %s", target_id)
+
+        title = ''
+        profile_titles[target_id] = title  # Don't try again.
+        return title, False
+
+    def get_loop_title(self, loop_id):
+        """Return the title of a note design."""
+        loop_titles = self.loop_titles
+
+        title = loop_titles.get(loop_id)
+        if title:
+            return title, False
+
+        url = '%s/design/%s' % (self.api_url, loop_id)
+        headers = {'Authorization': 'Bearer %s' % self.request.access_token}
+        r = requests.get(url, headers=headers)
+        if check_requests_response(r, raise_exc=False):
+            title = r.json()['title']
+            loop_titles[loop_id] = title
+            return title
+
+        # The error details were logged by
+        # check_requests_response().
+        log.warning("Unable to get the title of cash loop %s", loop_id)
+
+        return ''
+
     def update_mirrors(self):
         """Update the target_title and loop_title of the profile's mirrors."""
         update_check_time = (
             datetime.datetime.utcnow() - datetime.timedelta(seconds=60 * 10))
         dbsession = self.request.dbsession
-        headers = {'Authorization': 'Bearer %s' % self.request.access_token}
         seen = []
 
         while True:
@@ -438,25 +510,8 @@ class SyncView:
 
             for mirror in mirrors:
                 # Get the title of the target.
-                target_title = None
-                target_is_dfi_account = False
-                if mirror.target_id == 'c':
-                    target_title = self.profile.title
-                else:
-                    account = self.account_map.get(mirror.target_id)
-                    if account:
-                        target_is_dfi_account = True
-                        target_title = '%s at %s' % (
-                            account['redacted_account_num'],
-                            account['rdfi_name'],
-                        )
-                        if account['alias']:
-                            target_title += ' (%s)' % account['alias']
-                    else:
-                        url = '%s/p/%s' % (self.api_url, mirror.target_id)
-                        r = requests.get(url, headers=headers)
-                        if check_requests_response(r, raise_exc=False):
-                            target_title = r.json()['title']
+                target_title, target_is_dfi_account = self.get_target_info(
+                    mirror.target_id)
 
                 if target_title:
                     if target_title != mirror.target_title:
@@ -469,46 +524,30 @@ class SyncView:
                                 'target_id': mirror.target_id,
                                 'target_title': target_title,
                             }))
-                else:
-                    # The error details were logged by
-                    # check_requests_response().
-                    log.warning(
-                        "Unable to get the title of holder %s",
-                        mirror.target_id)
 
-                if target_is_dfi_account != mirror.target_is_dfi_account:
-                    mirror.target_is_dfi_account = target_is_dfi_account
-                    dbsession.add(ProfileLog(
-                        profile_id=self.profile_id,
-                        event_type='update_mirror_target_is_dfi_account',
-                        memo={
-                            'mirror_id': mirror.id,
-                            'target_id': mirror.target_id,
-                            'target_is_dfi_account': target_is_dfi_account,
-                        }))
+                    if target_is_dfi_account != mirror.target_is_dfi_account:
+                        mirror.target_is_dfi_account = target_is_dfi_account
+                        dbsession.add(ProfileLog(
+                            profile_id=self.profile_id,
+                            event_type='update_mirror_target_is_dfi_account',
+                            memo={
+                                'mirror_id': mirror.id,
+                                'target_id': mirror.target_id,
+                                'target_is_dfi_account': target_is_dfi_account,
+                            }))
 
                 if mirror.loop_id != '0':
-                    # Get the title of the cash design.
-                    url = '%s/design/%s' % (self.api_url, mirror.loop_id)
-                    r = requests.get(url, headers=headers)
-                    if check_requests_response(r, raise_exc=False):
-                        title = r.json()['title']
-                        if title != mirror.loop_title:
-                            mirror.loop_title = title
-                            dbsession.add(ProfileLog(
-                                profile_id=self.profile_id,
-                                event_type='update_mirror_loop_title',
-                                memo={
-                                    'mirror_id': mirror.id,
-                                    'loop_id': mirror.loop_id,
-                                    'title': title,
-                                }))
-                    else:
-                        # The error details were logged by
-                        # check_requests_response().
-                        log.warning(
-                            "Unable to get the title of cash loop %s",
-                            mirror.loop_id)
+                    loop_title = self.get_loop_title(mirror.loop_id)
+                    if loop_title and loop_title != mirror.loop_title:
+                        mirror.loop_title = loop_title
+                        dbsession.add(ProfileLog(
+                            profile_id=self.profile_id,
+                            event_type='update_mirror_loop_title',
+                            memo={
+                                'mirror_id': mirror.id,
+                                'loop_id': mirror.loop_id,
+                                'title': loop_title,
+                            }))
 
                 mirror.last_update = now_func
 

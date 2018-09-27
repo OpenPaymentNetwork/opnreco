@@ -1073,12 +1073,8 @@ class TestDownloadView(unittest.TestCase):
                     'more': True,
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
+                    'remain': 1,
                 })
-
-            rsps.add(
-                responses.GET,
-                'https://opn.example.com:9999/p/19',
-                json={'title': "Super Bank"})
 
             obj = self._make(profile_id='11')
             download_status = obj()
@@ -1087,7 +1083,7 @@ class TestDownloadView(unittest.TestCase):
             self.assertEqual({
                 'count': 1,
                 'more': True,
-                'progress_percent': download_status['progress_percent'],
+                'progress_percent': 50,
                 'last_sync_ts': '2018-08-01T04:05:11Z',
             }, download_status)
 
