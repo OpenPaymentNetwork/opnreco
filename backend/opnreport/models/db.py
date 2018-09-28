@@ -241,7 +241,8 @@ class Movement(Base):
 
     # The delta is positive for movements into the wallet or vault
     # or negative for movements out of the wallet or vault.
-    delta = Column(Numeric, nullable=False)
+    wallet_delta = Column(Numeric, nullable=False)
+    vault_delta = Column(Numeric, nullable=False)
 
     transfer_record = backref(TransferRecord)
     mirror = backref(Mirror)
@@ -335,8 +336,8 @@ class MirrorEntryLog(Base):
 class Reco(Base):
     """A reconciliation row matches movement(s) with mirror entry(ies).
 
-    The linked movements and mirror entries must be connected to the same
-    mirror. The total deltas must be equal if the
+    The linked movements, exchanges, and mirror entries must be connected
+    to the same mirror. The total deltas must be equal if the
     movements are sent from or received into the
     wallet; the total deltas must be negatives of each other if the
     movements are sent from or received into the vault.
@@ -350,6 +351,9 @@ class Reco(Base):
     entry_date = Column(Date, nullable=False)
     # auto is true if the reconciliation was generated automatically.
     auto = Column(Boolean, nullable=False)
+    # auto_edited is true if the reconciliation was generated automatically
+    # and later edited.
+    auto_edited = Column(Boolean, nullable=False, default=False)
 
     mirror = backref(Mirror)
 
@@ -386,6 +390,30 @@ class MirrorEntryReco(Base):
 
     mirror_entry = backref(MirrorEntry)
     reco = backref(Reco)
+
+
+class Exchange(Base):
+    """A record of an exchange between wallet and vault amounts in a transfer.
+
+    The exchange balances out the movements.
+    """
+    __tablename__ = 'exchange'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    mirror_id = Column(
+        BigInteger, ForeignKey('mirror.id'),
+        nullable=False, index=True)
+    transfer_record_id = Column(
+        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+    # origin_reco_id identifies the auto-generated reco that originated the
+    # exchange.
+    origin_reco_id = Column(
+        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
+    # reco_id identifies the reco that settles the exchange.
+    reco_id = Column(
+        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
+
+    wallet_delta = Column(Numeric, nullable=False)
+    vault_delta = Column(Numeric, nullable=False)
 
 
 # all_metadata_defined must be at the end of the file. It signals that

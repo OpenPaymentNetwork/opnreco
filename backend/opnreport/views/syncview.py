@@ -1,5 +1,6 @@
 
 from decimal import Decimal
+from opnreport.models.db import Exchange
 from opnreport.models.db import Mirror
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementLog
@@ -271,7 +272,8 @@ class SyncView:
                 movement, transfer_id=transfer_id)
 
             # Add movement records based on the by_mirror dict.
-            for mirror_id, delta in sorted(by_mirror.items()):
+            for mirror_id, deltas in sorted(by_mirror.items()):
+                wallet_delta, vault_delta = deltas
                 old_movement = movement_rows.get((number, mirror_id))
 
                 if old_movement is not None:
@@ -289,12 +291,17 @@ class SyncView:
                             "recorded action is %s, new action is %s" % (
                                 number, transfer_id,
                                 old_movement.action, action))
-                    if old_movement.delta != delta:
+                    if (old_movement.wallet_delta != wallet_delta or
+                            old_movement.vault_delta != vault_delta):
                         raise ValueError(
                             "Movement %s in transfer %s has changed:"
-                            "recorded delta is %s, new delta is %s" % (
+                            "recorded delta is %s + %s, "
+                            "new delta is %s + %s" % (
                                 number, transfer_id,
-                                old_movement.delta, delta))
+                                old_movement.wallet_delta,
+                                old_movement.vault_delta,
+                                wallet_delta,
+                                vault_delta))
                     continue
 
                 # Record the movement.
@@ -304,7 +311,8 @@ class SyncView:
                     mirror_id=mirror_id,
                     action=action,
                     ts=ts,
-                    delta=delta,
+                    wallet_delta=wallet_delta,
+                    vault_delta=vault_delta,
                 )
                 dbsession.add(row)
                 dbsession.flush()  # Assign row.id
@@ -325,7 +333,10 @@ class SyncView:
             new_record=new_record)
 
     def summarize_movement(self, movement, transfer_id):
-        """Summarize a movement: return {mirror_id: delta}"""
+        """Summarize a movement.
+
+        Return {mirror_id: [wallet_delta, vault_delta]}.
+        """
         number = movement['number']
         from_id = movement['from_id']
         to_id = movement['to_id']
@@ -335,7 +346,7 @@ class SyncView:
             # reconciliation.
             # (Note: sometimes issuance movements show notes from another
             # issuer, but that only indicates the issuer is holding another
-            # issuer's notes and is giving them out.)
+            # issuer's notes and will probably give them out soon.)
             return {}
 
         if not to_id:
@@ -344,38 +355,54 @@ class SyncView:
                 % (number, transfer_id))
 
         profile_id = self.profile_id
-        by_mirror = collections.defaultdict(Decimal)  # {mirror_id: delta}
+        by_mirror = collections.defaultdict(
+            lambda: [zero, zero])  # {mirror_id: [wallet_delta, vault_delta]}
 
         for loop in movement['loops']:
             loop_id = loop['loop_id']
             currency = loop['currency']
             issuer_id = loop['issuer_id']
+            amount = Decimal(loop['amount'])
+            wallet_delta = zero
+            vault_delta = zero
 
             if from_id == profile_id and to_id != profile_id:
                 if from_id == issuer_id:
                     # Notes were put into circulation.
                     target_id = 'c'
+                    vault_delta = -amount
                 else:
                     # Notes were sent to an account or other wallet.
                     target_id = to_id
-                delta = -Decimal(loop['amount'])
+                    wallet_delta = -amount
 
             elif to_id == profile_id and from_id != profile_id:
                 if to_id == issuer_id:
                     # Notes were taken out of circulation.
                     target_id = 'c'
+                    vault_delta = amount
                 else:
                     # Notes were received from an account
                     # or other wallet.
                     target_id = from_id
-                delta = Decimal(loop['amount'])
+                    wallet_delta = amount
 
             else:
                 # Ignore movements from the profile to itself.
                 continue
 
-            mirror = self.prepare_mirror(target_id, loop_id, currency)
-            by_mirror[mirror.id] += delta
+            # Add to the circulation mirror.
+            circ_mirror = self.prepare_mirror('c', loop_id, currency)
+            amounts = by_mirror[circ_mirror.id]
+            if wallet_delta:
+                amounts[0] += wallet_delta
+            if vault_delta:
+                amounts[1] += vault_delta
+
+            if target_id != 'c' and wallet_delta:
+                # Add to a wallet-specific or account-specific mirror.
+                mirror = self.prepare_mirror(target_id, loop_id, currency)
+                by_mirror[mirror.id][0] += wallet_delta
 
         return by_mirror
 
@@ -591,18 +618,28 @@ class SyncView:
                 continue
 
             conflict = False
+            wallet_total = zero
+            vault_total = zero
             for movement in mvlist:
                 if movement.id in done_movement_ids:
                     conflict = True
                     break
+                wallet_total += movement.wallet_delta
+                vault_total += movement.vault_delta
 
             if conflict:
                 continue
 
-            movement = mvlist[-1]
+            if wallet_total != -vault_total:
+                raise AssertionError(
+                    "find_internal_movements() returned an unbalanced "
+                    "movement list for transfer %s: %s != %s" % (
+                        record.transfer_id, wallet_total, -vault_total))
+
+            sample_movement = mvlist[-1]
             reco = Reco(
-                mirror_id=movement.mirror_id,
-                entry_date=movement.ts.date(),
+                mirror_id=sample_movement.mirror_id,
+                entry_date=sample_movement.ts.date(),
                 auto=True,
             )
             dbsession.add(reco)
@@ -618,6 +655,17 @@ class SyncView:
                     movement_id=movement.id,
                     event_type='autoreco',
                     changes={'reco_id': reco_id},
+                ))
+
+            if wallet_total:
+                # Add an Exchange record to balance the wallet and vault
+                # totals.
+                dbsession.add(Exchange(
+                    mirror_id=sample_movement.mirror_id,
+                    transfer_record_id=record.id,
+                    origin_reco_id=reco_id,
+                    wallet_delta=-wallet_total,
+                    vault_delta=-vault_total,
                 ))
 
         if added:
@@ -651,7 +699,7 @@ def find_internal_movements(movements, done_movement_ids):
     # Group by mirror, filtering out movements that somehow moved nothing.
     groups = collections.defaultdict(list)
     for movement in movements:
-        if movement.delta != zero:
+        if movement.wallet_delta + movement.vault_delta != zero:
             groups[movement.mirror_id].append(movement)
 
     # all_internal_seqs is a list of movement sequences that
@@ -733,7 +781,7 @@ def find_internal_movements_for_mirror(group, done_movement_ids):
                 return
 
     for index, movement in enumerate(group):
-        delta = movement.delta
+        delta = movement.wallet_delta + movement.vault_delta
         new_amount = prev_amount + delta
 
         if (movement.id in done_movement_ids or

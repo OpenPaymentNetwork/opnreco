@@ -1,5 +1,6 @@
 
 from decimal import Decimal
+from opnreport.models.db import Exchange
 from opnreport.models.db import File
 from opnreport.models.db import Mirror
 from opnreport.models.db import MirrorEntry
@@ -235,6 +236,13 @@ def reco_report_view(request):
     if mirror is None:
         return {}
 
+    if mirror.target_id == 'c':
+        movement_delta_c = Movement.vault_delta
+        exchange_delta_c = Exchange.vault_delta
+    else:
+        movement_delta_c = Movement.wallet_delta
+        exchange_delta_c = Exchange.wallet_delta
+
     mirror_id = mirror.id
     dbsession = request.dbsession
 
@@ -252,18 +260,18 @@ def reco_report_view(request):
     # reconciled movements.
     workflow_type_rows = (
         dbsession.query(
-            func.sign(-Movement.delta).label('sign'),
+            func.sign(-movement_delta_c).label('sign'),
             TransferRecord.workflow_type,
         )
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
         .outerjoin(Reco, Reco.id == MovementReco.reco_id)
         .filter(
             Movement.mirror_id == mirror_id,
-            Movement.delta != 0,
+            movement_delta_c != 0,
             Movement.transfer_record_id == TransferRecord.id,
             or_(~Reco.auto, Reco.auto == null))
         .group_by(
-            func.sign(-Movement.delta),
+            func.sign(-movement_delta_c),
             TransferRecord.workflow_type)
         .all())
 
@@ -278,19 +286,36 @@ def reco_report_view(request):
     # Negate the amounts because we're showing compensating amounts.
     outstanding_rows = (
         dbsession.query(
-            func.sign(-Movement.delta).label('sign'),
+            func.sign(-movement_delta_c).label('sign'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
-            (-Movement.delta).label('delta'),
+            (-movement_delta_c).label('delta'),
             TransferRecord.start,
             Movement.id,
         )
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
         .filter(
             Movement.mirror_id == mirror_id,
-            Movement.delta != 0,
+            movement_delta_c != 0,
             Movement.transfer_record_id == TransferRecord.id,
             MovementReco.reco_id == null)
+        .all())
+
+    # exchange_rows lists the exchanges not yet reconciled.
+    # Don't negate the amounts.
+    exchange_rows = (
+        dbsession.query(
+            func.sign(exchange_delta_c).label('sign'),
+            TransferRecord.transfer_id,
+            exchange_delta_c.label('delta'),
+            TransferRecord.start,
+            Exchange.id,
+        )
+        .filter(
+            Exchange.mirror_id == mirror_id,
+            exchange_delta_c != 0,
+            Exchange.transfer_record_id == TransferRecord.id,
+            Exchange.reco_id == null)
         .all())
 
     # Create outstanding_map:
@@ -311,7 +336,20 @@ def reco_report_view(request):
         # Add the total of outstanding movements to workflow_types_pre.
         workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
-    # Convert from defaultdicts to dicts for JSON encoding.
+    # Add the exchanges to outstanding_map and workflow_types_pre.
+    for r in exchange_rows:
+        str_sign = str(r.sign)
+        workflow_type = '_exchange'
+        outstanding_map[str_sign][workflow_type].append({
+            'transfer_id': r.transfer_id,
+            'delta': str(r.delta),
+            'ts': r.start.isoformat() + 'Z',
+            'id': str(r.id),
+        })
+        # Add the total of outstanding movements to workflow_types_pre.
+        workflow_types_pre[(str_sign, workflow_type)] += r.delta
+
+    # Convert outstanding_map from defaultdicts to dicts for JSON encoding.
     for sign, m in list(outstanding_map.items()):
         outstanding_map[sign] = dict(m)
         for lst in m.values():

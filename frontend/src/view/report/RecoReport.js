@@ -94,6 +94,7 @@ const wfTypeTitles = {
   cobrand_notes: 'Co-brand Pages',
   combine: 'Combine',
   customize_notes: 'Customize Pages',  // BBB
+  _exchange: '[Exchange]',
   expire: 'Expire Cash',
   fund: 'Fund',
   fxdeposit: 'Deposit Foreign Currency',
