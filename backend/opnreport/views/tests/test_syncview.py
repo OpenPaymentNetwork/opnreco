@@ -599,6 +599,178 @@ class TestDownloadView(unittest.TestCase):
         event = events[0]
         self.assertEqual('download', event.event_type)
 
+    @responses.activate
+    def test_p2p_with_exchange_from_issuer_perspective(self):
+        from opnreport.models import db
+
+        responses.add(
+            responses.POST,
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [{
+                    'id': '501',
+                    'workflow_type': 'profile_to_profile',
+                    'start': '2018-08-01T04:05:06Z',
+                    'timestamp': '2018-08-01T04:05:08Z',
+                    'next_activity': 'completed',
+                    'completed': True,
+                    'canceled': False,
+                    'sender_id': '11',
+                    'sender_uid': 'wingcash:11',
+                    'sender_info': {
+                        'title': "Testy User",
+                    },
+                    'recipient_id': '12',
+                    'recipient_uid': 'wingcash:12',
+                    'recipient_info': {
+                        'title': "Friend",
+                    },
+                    'movements': [
+                        {
+                            # Replaced $0.30 from multiple issuers
+                            'number': 1,
+                            'timestamp': '2018-08-02T05:06:07Z',
+                            'action': 'split',
+                            'from_id': '11',
+                            'to_id': '19',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '.20',
+                                'issuer_id': '19',
+                            }, {
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '.10',
+                                'issuer_id': '21',
+                            }],
+                        }, {
+                            # Replaced with $0.25 + $0.05 from 1 issuer
+                            'number': 2,
+                            'timestamp': '2018-08-02T05:06:07Z',
+                            'action': 'split',
+                            'from_id': '19',
+                            'to_id': '11',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '0.30',
+                                'issuer_id': '19',
+                            }],
+                        }, {
+                            # Send $0.25, profile to profile
+                            'number': 3,
+                            'timestamp': '2018-08-02T05:06:07Z',
+                            'action': 'move',
+                            'from_id': '11',
+                            'to_id': '12',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '0',
+                                'amount': '0.25',
+                                'issuer_id': '19',
+                            }],
+                        },
+                    ],
+                }],
+                'more': False,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
+            })
+        obj = self._make(profile_id='19')
+        obj()
+
+        downloads = self.dbsession.query(db.OPNDownload).all()
+        self.assertEqual(1, len(downloads))
+        self.assertEqual('19', downloads[0].profile_id)
+
+        events = self.dbsession.query(db.ProfileLog).all()
+        self.assertEqual([
+            'opn_sync',
+            'add_mirror',
+            'add_mirror',
+            'update_mirror_target_title',
+            'update_mirror_target_title',
+        ], [e.event_type for e in events])
+        event = events[0]
+        self.assertEqual('19', event.profile_id)
+        self.assertEqual(
+            {'sync_ts', 'progress_percent', 'transfers'},
+            set(event.memo.keys()))
+
+        records = self.dbsession.query(db.TransferRecord).all()
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertEqual('profile_to_profile', record.workflow_type)
+        self.assertEqual(
+            datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
+        self.assertEqual(
+            datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
+        self.assertEqual(True, record.completed)
+        self.assertEqual(False, record.canceled)
+        self.assertEqual('11', record.sender_id)
+        self.assertEqual('wingcash:11', record.sender_uid)
+        self.assertEqual('Testy User', record.sender_title)
+        self.assertEqual('12', record.recipient_id)
+        self.assertEqual('wingcash:12', record.recipient_uid)
+        self.assertEqual('Friend', record.recipient_title)
+
+        mirrors = (
+            self.dbsession.query(db.Mirror)
+            .order_by(db.Mirror.target_id)
+            .all())
+        self.assertEqual(2, len(mirrors))
+        mirror = mirrors[1]
+        self.assertEqual('19', mirror.profile_id)
+        self.assertEqual('c', mirror.target_id)
+        self.assertEqual('0', mirror.loop_id)
+        self.assertEqual('USD', mirror.currency)
+
+        movements = (
+            self.dbsession.query(db.Movement)
+            .filter(db.Movement.mirror_id == mirror.id)
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(2, len(movements))
+        m = movements[0]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('0.20'), m.vault_delta)
+        self.assertEqual(Decimal('0.10'), m.wallet_delta)
+
+        m = movements[1]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual(mirror.id, m.mirror_id)
+        self.assertEqual(Decimal('-0.30'), m.vault_delta)
+        self.assertEqual(zero, m.wallet_delta)
+
+        reco_ids = dict(  # {movement_id: reco_id}
+            self.dbsession.query(
+                db.MovementReco.movement_id,
+                db.MovementReco.reco_id)
+            .all())
+        self.assertEqual(2, len(reco_ids))
+
+        exchanges = (
+            self.dbsession.query(db.Exchange)
+            .all())
+        self.assertEqual(1, len(exchanges))
+        exchange = exchanges[0]
+        self.assertEqual(mirror.id, exchange.mirror_id)
+        self.assertEqual(Decimal('-0.10'), exchange.wallet_delta)
+        self.assertEqual(Decimal('0.10'), exchange.vault_delta)
+        self.assertEqual(reco_ids[movements[1].id], exchange.origin_reco_id)
+
+        self.assertEqual(
+            zero, sum(row.wallet_delta for row in movements + exchanges))
+        self.assertEqual(
+            zero, sum(row.vault_delta for row in movements + exchanges))
+
+        events = self.dbsession.query(db.MovementLog).all()
+        self.assertEqual(5, len(events))
+        event = events[0]
+        self.assertEqual('download', event.event_type)
+
     def test_redownload_with_updates(self):
         from opnreport.models import db
 

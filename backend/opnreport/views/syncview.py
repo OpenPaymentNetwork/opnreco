@@ -394,12 +394,17 @@ class SyncView:
             # Add to the circulation mirror.
             circ_mirror = self.prepare_mirror('c', loop_id, currency)
             amounts = by_mirror[circ_mirror.id]
-            if wallet_delta:
-                amounts[0] += wallet_delta
             if vault_delta:
+                # Add to the circulation vault.
                 amounts[1] += vault_delta
                 if not circ_mirror.has_vault:
                     circ_mirror.has_vault = True
+            if wallet_delta:
+                # Add to the circulation wallet so that it's possible to
+                # detect hills and valleys containing exchanges with other
+                # issuers. Without this, auto-reco detects only hills and
+                # valleys in exchanges that don't involve other issuers.
+                amounts[0] += wallet_delta
 
             if target_id != 'c' and wallet_delta:
                 # Add to a wallet-specific or account-specific mirror.
