@@ -358,7 +358,7 @@ function mapStateToProps(state, ownProps) {
   if (account) {
     const recoReportURL = fOPNReport.pathToURL(
       `/reco-report/${account.target_id}/${account.loop_id}/` +
-      `${account.currency}/${file ? file.id : ''}`);
+      `${account.currency}/${file ? file.id : 'current'}`);
     const recoReport = fetchcache.get(state, recoReportURL);
     const loading = fetchcache.fetching(state, recoReportURL);
     const loadError = !!fetchcache.getError(state, recoReportURL);

@@ -87,7 +87,8 @@ class App extends React.Component {
             <main className={classes.main}>
               <Switch>
                 <Route path="/about-us" component={About} />
-                <Route path="/:tab(|reco|transactions|liabilities)" component={Home} />
+                <Route path="/:tab(t)/:transferId" component={Home} />
+                <Route path="/:tab(|reco|transactions|liabilities|t)" component={Home} />
               </Switch>
             </main>
           </div>

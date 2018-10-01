@@ -26,6 +26,7 @@ const initialState = {
   syncedAt: null,
   syncProgress: null,
   tokenRefresh: false,
+  transferId: null,
 };
 
 export const openDrawer = () => ({type: OPEN_DRAWER});

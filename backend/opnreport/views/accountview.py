@@ -196,24 +196,24 @@ def accounts_view(request):
 def get_mirror(request):
     """Get the mirror specified in the request subpath or raise HTTPBadRequest.
 
-    The subpath must contain a target_id, loop_id, currency, and an optional
-    file_id.
+    The subpath must contain a target_id, loop_id, currency, and file_id,
+    where file_id may be 'current'.
     """
     subpath = request.subpath
     if not subpath:
         raise HTTPBadRequest('subpath required')
-    if len(subpath) < 3:
-        raise HTTPBadRequest('at least 3 subpath elements required')
+    if len(subpath) < 4:
+        raise HTTPBadRequest('at least 4 subpath elements required')
 
-    target_id, loop_id, currency = subpath[:3]
+    target_id, loop_id, currency, file_id_str = subpath[:4]
 
-    if len(subpath) > 3 and subpath[3]:
+    if file_id_str == 'current':
+        file_id = None
+    else:
         try:
-            file_id = int(subpath[3])
+            file_id = int(file_id_str)
         except ValueError:
             raise HTTPBadRequest('bad file_id')
-    else:
-        file_id = None
 
     profile = request.profile
     profile_id = profile.id
