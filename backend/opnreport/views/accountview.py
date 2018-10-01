@@ -13,6 +13,7 @@ from opnreport.models.site import API
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import func
+from sqlalchemy import and_
 from sqlalchemy import or_
 import collections
 
@@ -28,8 +29,8 @@ zero = Decimal()
 def accounts_view(request):
     """Return the profile's list of accounts.
 
-    An account is a list of time-boxed mirrors of bank accounts or wallets
-    that the profile can reconcile with.
+    An account is a list of time-boxed mirrors of bank accounts the
+    profile can reconcile with.
 
     Returns {
         'accounts': {account_key: {
@@ -57,26 +58,30 @@ def accounts_view(request):
     profile_id = profile.id
     dbsession = request.dbsession
 
+    mirror_filter = and_(Mirror.profile_id == profile_id, or_(
+        and_(Mirror.target_id == 'c', Mirror.has_vault),
+        Mirror.target_is_dfi_account))
+
     unfiled_mirrors = (
         dbsession.query(Mirror)
-        .filter_by(profile_id=profile_id, file_id=null)
-        .filter(or_(Mirror.target_id == 'c', Mirror.target_is_dfi_account))
+        .filter(mirror_filter, Mirror.file_id == null)
         .all())
     unfiled_mirror_ids = [m.id for m in unfiled_mirrors]
 
     filed_mirrors = (
         dbsession.query(Mirror)
-        .filter_by(profile_id=profile_id)
-        .filter(Mirror.file_id != null)
-        .filter(or_(Mirror.target_id == 'c', Mirror.target_is_dfi_account))
-        .filter(~Mirror.id.in_(unfiled_mirror_ids))
+        .filter(
+            mirror_filter,
+            Mirror.file_id != null,
+            ~Mirror.id.in_(unfiled_mirror_ids))
         .order_by(Mirror.last_update.desc())
         .all())
 
     file_rows = (
         dbsession.query(File, Mirror)
-        .filter(File.mirror_id == Mirror.id, File.profile_id == profile_id)
-        .filter(or_(Mirror.target_id == 'c', Mirror.target_is_dfi_account))
+        .filter(
+            mirror_filter,
+            File.mirror_id == Mirror.id, File.profile_id == profile_id)
         .order_by(File.end_date.desc())
         .all())
 

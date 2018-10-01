@@ -398,6 +398,8 @@ class SyncView:
                 amounts[0] += wallet_delta
             if vault_delta:
                 amounts[1] += vault_delta
+                if not circ_mirror.has_vault:
+                    circ_mirror.has_vault = True
 
             if target_id != 'c' and wallet_delta:
                 # Add to a wallet-specific or account-specific mirror.

@@ -185,6 +185,8 @@ class Mirror(Base):
     loop_title = Column(Unicode, nullable=True)
     # last_update is when the target_title and loop_title were last updated.
     last_update = Column(DateTime, nullable=True)
+    # has_vault is true if notes moved into or out of this mirror's vault.
+    has_vault = Column(Boolean, nullable=False, default=False)
 
     profile = backref(Profile)
 
@@ -208,6 +210,7 @@ class Mirror(Base):
             'last_update': (
                 None if last_update is None
                 else last_update.isoformat() + 'Z'),
+            'has_vault': self.has_vault,
         }
 
 
