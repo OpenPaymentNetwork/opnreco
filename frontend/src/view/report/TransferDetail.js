@@ -69,6 +69,7 @@ class TransferDetail extends React.Component {
     recordURL: PropTypes.string,
     record: PropTypes.object,
     loading: PropTypes.bool,
+    loadError: PropTypes.any,
     transferId: PropTypes.string,
   };
 
@@ -165,7 +166,15 @@ class TransferDetail extends React.Component {
   render() {
     const form = this.renderForm();
 
-    const {classes, recordURL, record, loading, transferId} = this.props;
+    const {
+      classes,
+      recordURL,
+      record,
+      loading,
+      loadError,
+      transferId,
+    } = this.props;
+
     if (!recordURL) {
       // No account or transfer ID selected.
       return (
@@ -185,10 +194,16 @@ class TransferDetail extends React.Component {
     if (!record) {
       if (loading) {
         detail = <CircularProgress style={{padding: '16px'}} />;
+      } else if (loadError) {
+        detail = (
+          <div style={{padding: '16px'}}>
+            <p>An error occurred while retrieving transfer {transferId}.</p>
+            <p>{loadError}</p>
+          </div>);
       } else {
         detail = (
           <div style={{padding: '16px'}}>
-            Unable to locate transfer {transferId}
+            Unable to retrieve transfer {transferId}
           </div>);
       }
     } else {
@@ -236,7 +251,7 @@ function mapStateToProps(state, ownProps) {
       `${account.currency}/${file ? file.id : 'current'}/${transferId}`);
     const record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
-    const loadError = !!fetchcache.getError(state, recordURL);
+    const loadError = fetchcache.getError(state, recordURL);
     return {
       transferId,
       recordURL,
