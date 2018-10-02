@@ -13,6 +13,7 @@ const TOKEN_REFRESH_REQUEST = 'app/TOKEN_REFRESH_REQUEST';
 const TOKEN_REFRESH_SUCCESS = 'app/TOKEN_REFRESH_SUCCESS';
 const TOKEN_REFRESH_CANCEL = 'app/TOKEN_REFRESH_CANCEL';
 const SET_LOGGING_OUT = 'app/SET_LOGGING_OUT';
+const SET_TRANSFER_ID = 'app/SET_TRANSFER_ID';
 
 const initialState = {
   // [{resolve, reject}]
@@ -83,6 +84,11 @@ export const setLoggingOut = (loggingOut) => ({
   payload: {loggingOut},
 });
 
+export const setTransferId = (transferId) => ({
+  type: SET_TRANSFER_ID,
+  payload: {transferId},
+});
+
 const actionHandlers = {
   [OPEN_DRAWER]: (state) => ({...state, drawerOpen: true}),
 
@@ -136,6 +142,11 @@ const actionHandlers = {
   [SET_LOGGING_OUT]: (state, {payload: {loggingOut}}) => ({
     ...state,
     loggingOut,
+  }),
+
+  [SET_TRANSFER_ID]: (state, {payload: {transferId}}) => ({
+    ...state,
+    transferId,
   }),
 };
 

@@ -3,26 +3,42 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import { getCurrencyFormatter } from '../../util/currency';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import IconButton from '@material-ui/core/IconButton';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
+import SearchIcon from '@material-ui/icons/Search';
+import CancelIcon from '@material-ui/icons/Cancel';
+import { setTransferId } from '../../reducer/app';
 
 
 const styles = {
   root: {
     fontSize: '1.1rem',
   },
+  searchIconBox: {
+    margin: '0 auto',
+    maxWidth: 800,
+    textAlign: 'right',
+  },
+  cancelButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
   formPaper: {
-    margin: '32px auto',
+    margin: '16px auto',
     maxWidth: 800,
     textAlign: 'center',
+    position: 'relative',
   },
   formButton: {
     margin: '16px',
@@ -31,7 +47,7 @@ const styles = {
     margin: '16px',
   },
   tablePaper: {
-    margin: '32px auto',
+    margin: '0 auto 16px auto',
     maxWidth: 800,
   },
   table: {
@@ -48,30 +64,96 @@ const styles = {
 class TransferDetail extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    dispatch: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
     recordURL: PropTypes.string,
     record: PropTypes.object,
     loading: PropTypes.bool,
+    transferId: PropTypes.string,
   };
 
   constructor(props) {
     super(props);
     this.binder = binder(this);
-    this.state = {typingTransferId: ''};
+    this.state = {
+      showSearch: props.transferId ? false : true,
+      typingTransferId: '',
+    };
+  }
+
+  handleShowSearch() {
+    this.setState({showSearch: true});
+  }
+
+  handleHideSearch() {
+    this.setState({showSearch: false});
+  }
+
+  handleKeyDown(event) {
+    if (event.key === 'Enter') {
+      this.handleTransferIdSubmit();
+    }
+  }
+
+  handleTransferIdChange(event) {
+    // Allow only numbers and dashes.
+    const {value} = event.target;
+    const re = /[0-9-]+/g;
+    const text = [];
+    for(;;) {
+      const match = re.exec(value);
+      if (!match) {
+        break;
+      }
+      text.push(match[0]);
+    }
+    this.setState({typingTransferId: text.join('')});
+  }
+
+  handleTransferIdSubmit() {
+    const transferId = this.state.typingTransferId;
+    if (transferId) {
+      this.props.dispatch(setTransferId(transferId));
+      this.props.history.push(`/t/${transferId}`);
+    }
   }
 
   renderForm() {
     const {classes} = this.props;
+    const {showSearch, typingTransferId} = this.state;
+
+    if (!showSearch) {
+      return (
+        <div className={classes.searchIconBox}>
+          <IconButton onClick={this.binder(this.handleShowSearch)}>
+            <SearchIcon/>
+          </IconButton>
+        </div>
+      );
+    }
+
     return (
       <div>
         <Paper className={classes.formPaper}>
+          <IconButton className={classes.cancelButton}
+            onClick={this.binder(this.handleHideSearch)}
+          >
+            <CancelIcon />
+          </IconButton>
           <TextField
             id="transfer-id-input"
             label="Transfer ID"
             className={classes.transferIdField}
-            value={this.state.typingTransferId}
+            value={typingTransferId}
             onChange={this.binder(this.handleTransferIdChange)}
+            onKeyDown={this.binder(this.handleKeyDown)}
           />
-          <Button className={classes.formButton} variant="outlined">
+          <Button
+            className={classes.formButton}
+            variant="outlined"
+            onClick={this.binder(this.handleTransferIdSubmit)}
+            disabled={!typingTransferId}
+          >
             Go
           </Button>
         </Paper>
@@ -80,30 +162,54 @@ class TransferDetail extends React.Component {
     );
   }
 
-  handleTransferIdChange() {
-  }
-
   render() {
     const form = this.renderForm();
 
-    const {classes, recordURL, record, loading} = this.props;
+    const {classes, recordURL, record, loading, transferId} = this.props;
     if (!recordURL) {
-      // No account selected.
-      return form;
+      // No account or transfer ID selected.
+      return (
+        <div className={classes.root}>
+          {form}
+        </div>
+      );
     }
 
-    const require = <Require fetcher={fOPNReport} urls={[recordURL]} />;
+    const require = (
+      <Require fetcher={fOPNReport}
+        urls={[recordURL]}
+        options={{suppressServerError: true}} />);
+
+    let detail;
 
     if (!record) {
       if (loading) {
-        return (
-          <div className={classes.root}>
-            {require}
-            {form}
-            <CircularProgress margin="16px" />
+        detail = <CircularProgress style={{padding: '16px'}} />;
+      } else {
+        detail = (
+          <div style={{padding: '16px'}}>
+            Unable to locate transfer {transferId}
           </div>);
       }
-      return <div className={classes.root}>{require}</div>;
+    } else {
+      detail = (
+        <table className={classes.table}>
+          <thead>
+            <tr>
+              <th className={`${classes.cell} ${classes.headCell}`}
+                colSpan="2"
+              >
+                Transfer
+                {' in file '}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+            </tr>
+          </tbody>
+        </table>
+      );
     }
 
     return (
@@ -111,20 +217,7 @@ class TransferDetail extends React.Component {
         {require}
         {form}
         <Paper className={classes.tablePaper}>
-          <table className={classes.table}>
-            <thead>
-              <tr>
-                <th className={`${classes.cell} ${classes.headCell}`} colSpan="2">
-                  Transfer
-                  {' in file '}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-              </tr>
-            </tbody>
-          </table>
+          {detail}
         </Paper>
         <div style={{height: 1}}></div>
       </Typography>
@@ -134,8 +227,9 @@ class TransferDetail extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const transferId = state.app.transferId;
-  const {account, file} = ownProps;
+  const {account, file, match} = ownProps;
+  const transferId = match.params.transferId;
+
   if (account && transferId) {
     const recordURL = fOPNReport.pathToURL(
       `/transfer-record/${account.target_id}/${account.loop_id}/` +
@@ -151,12 +245,15 @@ function mapStateToProps(state, ownProps) {
       loadError,
     };
   } else {
-    return {};
+    return {
+      transferId,
+    };
   }
 }
 
 
 export default compose(
   withStyles(styles),
+  withRouter,
   connect(mapStateToProps),
 )(TransferDetail);

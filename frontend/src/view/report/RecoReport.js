@@ -3,8 +3,11 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { withStyles } from '@material-ui/core/styles';
 import { getCurrencyFormatter } from '../../util/currency';
+import { toggleNode } from '../../reducer/tree';
+import { setTransferId } from '../../reducer/app';
+import { withRouter } from 'react-router';
+import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -120,7 +123,10 @@ const wfTypeTitles = {
 };
 
 
-/** Return an identifier with dashes embedded for readability. */
+/**
+ * Return an identifier with dashes embedded for readability.
+ * This matches the method OPN uses to expand transfer IDs.
+ */
 function dashed(s) {
   let pos = 0;
   const parts = [];
@@ -136,35 +142,34 @@ function dashed(s) {
 class RecoReport extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    dispatch: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
     recoReportURL: PropTypes.string,
     recoReport: PropTypes.object,
     loading: PropTypes.bool,
     file: PropTypes.object,
+    expanded: PropTypes.object,  // a Map or undefined
   };
 
   constructor(props) {
     super(props);
     this.binder = binder(this);
     this.binder1 = binder1(this);
-    this.state = {
-      expanded: {},  // 'sign|wfType': 1
-    };
   }
 
-  handleExpand(expandKey) {
-    const {expanded} = this.state;
-    this.setState({
-      expanded: {
-        ...expanded,
-        [expandKey]: !expanded[expandKey],
-      },
-    });
+  handleToggleNode(expandKey) {
+    this.props.dispatch(toggleNode('reco', expandKey));
+  }
+
+  handleClickTransfer(tid, event) {
+    event.preventDefault();
+    this.props.dispatch(setTransferId(tid));
+    this.props.history.push(`/t/${tid}`);
   }
 
   renderOutstanding(sign, cfmt) {
-    const {classes, recoReport} = this.props;
+    const {classes, recoReport, expanded} = this.props;
     const {workflow_types, outstanding_map} = recoReport;
-    const {expanded} = this.state;
 
     const wfTypes = workflow_types[sign] || {};
 
@@ -211,7 +216,7 @@ class RecoReport extends React.Component {
     const res = [];
     sortable.forEach(item => {
       const expandKey = `${sign}|${item.wfType}`;
-      const isExpanded = expanded[expandKey];
+      const isExpanded = expanded ? expanded.get(expandKey) : false;
 
       const outstandingList = outstanding_map[sign][item.wfType];
 
@@ -222,7 +227,7 @@ class RecoReport extends React.Component {
 
       res.push(
         <tr className={trCN} key={item.wfType}
-          onClick={this.binder1(this.handleExpand, expandKey)}
+          onClick={this.binder1(this.handleToggleNode, expandKey)}
         >
           <td className={typeCellCN}>
             <span className={arrowCN}>&#x2BC8;</span> {item.title}
@@ -238,10 +243,15 @@ class RecoReport extends React.Component {
         if (outstandingList) {
           outstandingList.forEach(movement => {
             const date = new Date(movement.ts).toLocaleDateString();
+            const tid = dashed(movement.transfer_id);
             res.push(
               <tr className={transferRowCN} key={movement.id}>
                 <td className={movementCellCN}>
-                  <a href="#">Transfer {dashed(movement.transfer_id)} ({date})</a>
+                  <a href={`/t/${tid}`}
+                    onClick={this.binder1(this.handleClickTransfer, tid)}
+                  >
+                    Transfer {tid} ({date})
+                  </a>
                 </td>
                 <td className={miniAmountCellCN}>
                   {cfmt(movement.delta)}
@@ -355,6 +365,7 @@ class RecoReport extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const {account, file} = ownProps;
+  const expanded = state.tree.reco;
   if (account) {
     const recoReportURL = fOPNReport.pathToURL(
       `/reco-report/${account.target_id}/${account.loop_id}/` +
@@ -367,14 +378,16 @@ function mapStateToProps(state, ownProps) {
       recoReport,
       loading,
       loadError,
+      expanded,
     };
   } else {
-    return {};
+    return {expanded};
   }
 }
 
 
 export default compose(
   withStyles(styles),
+  withRouter,
   connect(mapStateToProps),
 )(RecoReport);

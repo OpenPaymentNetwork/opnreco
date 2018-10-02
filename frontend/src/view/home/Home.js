@@ -44,6 +44,7 @@ class Home extends React.Component {
     accountKey: PropTypes.string,
     file: PropTypes.object,
     fileId: PropTypes.string,
+    transferId: PropTypes.string,
   };
 
   constructor(props) {
@@ -52,14 +53,31 @@ class Home extends React.Component {
   }
 
   handleTabChange(event, value) {
-    this.props.history.push(`/${value}`);
+    if (value === 't' && this.props.transferId) {
+      this.props.history.push(`/${value}/${this.props.transferId}`);
+    } else {
+      this.props.history.push(`/${value}`);
+    }
+  }
+
+  handleTabClick(event) {
+    event.preventDefault();
   }
 
   render() {
-    const {classes, match, account, accountKey, file, fileId} = this.props;
+    const {
+      classes,
+      match,
+      account,
+      accountKey,
+      file,
+      fileId,
+      transferId,
+    } = this.props;
 
     const tab = match.params.tab || 'reco';
 
+    const transferPath = transferId ? `/t/${transferId}` : '/t';
     const tabs = (
       <Tabs
         className={classes.tabs}
@@ -68,10 +86,14 @@ class Home extends React.Component {
         scrollButtons="auto"
         onChange={this.binder(this.handleTabChange)}
       >
-        <Tab value="reco" label="Reconciliation" />
-        <Tab value="transactions" label="Transactions" />
-        <Tab value="liabilities" label="Liabilities" />
-        <Tab value="t" label="Transfer Details" />
+        <Tab value="reco" label="Reconciliation" href="/reco"
+          onClick={this.binder(this.handleTabClick)} />
+        <Tab value="transactions" label="Transactions" href="/transactions"
+          onClick={this.binder(this.handleTabClick)} />
+        <Tab value="liabilities" label="Liabilities" href="/liabilities"
+          onClick={this.binder(this.handleTabClick)} />
+        <Tab value="t" label="Transfer Details" href={transferPath}
+          onClick={this.binder(this.handleTabClick)} />
       </Tabs>
     );
 
@@ -139,6 +161,7 @@ function mapStateToProps(state) {
     accountKey: account ? selectedAccountKey : null,
     file,
     fileId: file ? fileId : null,
+    transferId: state.app.transferId,
   };
 }
 

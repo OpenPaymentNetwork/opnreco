@@ -120,22 +120,24 @@ export class OPNFetcher {
                 };
                 dispatch(tokenRefreshRequest(deferred));
               }
-            } else if (!suppressServerError) {
-              let e = error;
-              if (error.message &&
-                (error.message === 'Type error' ||
-                  error.message === 'Failed to fetch')) {
-                e = 'An error occurred while contacting the server.';
+            } else {
+              if (!suppressServerError) {
+                let e = error;
+                if (error.message &&
+                  (error.message === 'Type error' ||
+                    error.message === 'Failed to fetch')) {
+                  e = 'An error occurred while contacting the server.';
+                }
+                /* eslint {"no-console": 0} */
+                if (typeof console !== 'undefined') {
+                  console.error('Server error', {
+                    url,
+                    fetchOptions,
+                    error,
+                  });
+                }
+                dispatch(setServerError(e));
               }
-              /* eslint {"no-console": 0} */
-              if (typeof console !== 'undefined') {
-                console.error('Server error', {
-                  url,
-                  fetchOptions,
-                  error,
-                });
-              }
-              dispatch(setServerError(e));
               reject(error);
             }
           });
