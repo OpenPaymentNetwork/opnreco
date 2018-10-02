@@ -193,7 +193,10 @@ class TransferDetail extends React.Component {
 
     if (!record) {
       if (loading) {
-        detail = <CircularProgress style={{padding: '16px'}} />;
+        detail = (
+          <div style={{textAlign: 'center'}}>
+            <CircularProgress style={{padding: '16px'}} />
+          </div>);
       } else if (loadError) {
         detail = (
           <div style={{padding: '16px'}}>
