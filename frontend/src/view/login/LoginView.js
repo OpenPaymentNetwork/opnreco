@@ -20,6 +20,13 @@ class LoginView extends React.Component {
     this.props.dispatch(startOAuth());
   }
 
+  componentDidUpdate() {
+    if (!this.props.oauthState) {
+      // This can happen after logout. Just fix it. :-)
+      this.props.dispatch(startOAuth());
+    }
+  }
+
   render() {
     const {deviceUUID, oauthState, forceLogin} = this.props;
 

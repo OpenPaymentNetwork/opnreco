@@ -11,6 +11,7 @@ from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from pyramid.httpexceptions import HTTPBadRequest
+from pyramid.httpexceptions import HTTPNotFound
 from pyramid.view import view_config
 from sqlalchemy import func
 from sqlalchemy import and_
@@ -239,7 +240,7 @@ def get_mirror(request):
 def reco_report_view(request):
     mirror = get_mirror(request)
     if mirror is None:
-        return {}
+        raise HTTPNotFound()
 
     if mirror.target_id == 'c':
         movement_delta_c = Movement.vault_delta
@@ -380,4 +381,106 @@ def reco_report_view(request):
         'outstanding_balance': str(outstanding_balance),
         'workflow_types': workflow_types,
         'outstanding_map': outstanding_map,
+    }
+
+
+@view_config(
+    name='transfer-record',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def transfer_record_view(request):
+    mirror = get_mirror(request)
+    if mirror is None:
+        raise HTTPNotFound()
+
+    # When looking at a 'c' target, we want to examine only the 'c'
+    # movements and exchanges.
+    # When looking at a non-'c' target, we want to examine only the non-'c'
+    # movements and exchanges.
+    if mirror.target_id == 'c':
+        mirror_filter = and_(
+            Mirror.target_id == 'c', Mirror.file_id == mirror.file_id)
+    else:
+        mirror_filter = and_(
+            Mirror.target_id != 'c', Mirror.file_id == mirror.file_id)
+
+    transfer_id = request.subpath[4].replace('-', '')
+    dbsession = request.dbsession
+
+    record = (
+        dbsession.query(TransferRecord)
+        .filter(
+            TransferRecord.profile_id == mirror.profile_id,
+            TransferRecord.file_id == mirror.file_id,
+            TransferRecord.transfer_id == transfer_id)
+        .first())
+
+    if record is None:
+        raise HTTPNotFound(json_body={
+            'error': 'transfer_not_found',
+            'error_description': (
+                'There is no record of transfer %s in this file.'
+                % transfer_id),
+        })
+
+    movement_rows = (
+        dbsession.query(Movement, Reco)
+        .join(Mirror, Mirror.id == Movement.mirror_id)
+        .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
+        .outerjoin(Reco, Reco.id == MovementReco.reco_id)
+        .filter(
+            Movement.transfer_record_id == record.id,
+            mirror_filter)
+        .order_by(Movement.number)
+        .all())
+
+    movements_json = []
+    for movement, reco in movement_rows:
+        movements_json.append({
+            'number': movement.number,
+            'action': movement.action,
+            'ts': movement.ts.isoformat() + 'Z',
+            'wallet_delta': str(movement.wallet_delta),
+            'vault_delta': str(movement.vault_delta),
+            'reco_id': None if reco is None else str(reco.id),
+            'auto': False if reco is None else reco.auto,
+            'auto_edited': False if reco is None else reco.auto_edited,
+        })
+
+    exchange_rows = (
+        dbsession.query(Exchange, Reco)
+        .join(Mirror, Mirror.id == Exchange.mirror_id)
+        .outerjoin(Reco, Reco.id == Exchange.reco_id)
+        .filter(
+            Exchange.transfer_record_id == record.id,
+            mirror_filter)
+        .order_by(Exchange.id)
+        .all())
+
+    exchanges_json = []
+    for exchange, reco in exchange_rows:
+        exchanges_json.append({
+            'wallet_delta': str(exchange.wallet_delta),
+            'vault_delta': str(exchange.vault_delta),
+            'reco_id': None if reco is None else str(reco.id),
+            'auto': False if reco is None else reco.auto,
+            'auto_edited': False if reco is None else reco.auto_edited,
+        })
+
+    return {
+        'workflow_type': record.workflow_type,
+        'start': record.start.isoformat() + 'Z',
+        'timestamp': record.timestamp.isoformat() + 'Z',
+        'next_activity': record.next_activity,
+        'completed': record.completed,
+        'canceled': record.canceled,
+        'sender_id': record.sender_id,
+        'sender_uid': record.sender_uid,
+        'sender_title': record.sender_title,
+        'recipient_id': record.recipient_id,
+        'recipient_uid': record.recipient_uid,
+        'recipient_title': record.recipient_title,
+        'movements': movements_json,
+        'exchanges': exchanges_json,
     }

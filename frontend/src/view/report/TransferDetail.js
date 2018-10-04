@@ -200,7 +200,6 @@ class TransferDetail extends React.Component {
       } else if (loadError) {
         detail = (
           <div style={{padding: '16px'}}>
-            <p>An error occurred while retrieving transfer {transferId}.</p>
             <p>{loadError}</p>
           </div>);
       } else {
