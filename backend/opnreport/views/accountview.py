@@ -252,6 +252,14 @@ def reco_report_view(request):
     mirror_id = mirror.id
     dbsession = request.dbsession
 
+    movement_filter = and_(
+        Movement.transfer_record_id == TransferRecord.id,
+        Movement.target_id == mirror.target_id,
+        Movement.loop_id == mirror.loop_id,
+        Movement.currency == mirror.currency,
+        movement_delta_c != 0,
+    )
+
     # reconciled_delta is the total of reconciled DFI entries in this mirror.
     reconciled_delta = (
         dbsession.query(func.sum(MirrorEntry.delta))
@@ -260,10 +268,18 @@ def reco_report_view(request):
         .filter(MirrorEntry.mirror_id == mirror_id)
         .scalar()) or 0
 
+    include_unreconciled = (mirror.file_id is None)
+
     # workflow_type_rows lists the workflow types of movements
-    # involved in this mirror. Include the effects of manually
+    # involved in this mirror. Include manually
     # reconciled movements, but not the effects of automatically
-    # reconciled movements.
+    # reconciled movements. Include unreconciled movements if
+    # mirror.file_id is None.
+    if include_unreconciled:
+        reco_filter = or_(
+            Reco.mirror_id == null, Reco.mirror_id == mirror_id)
+    else:
+        reco_filter = (Reco.mirror_id == mirror_id)
     workflow_type_rows = (
         dbsession.query(
             func.sign(-movement_delta_c).label('sign'),
@@ -272,10 +288,9 @@ def reco_report_view(request):
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
         .outerjoin(Reco, Reco.id == MovementReco.reco_id)
         .filter(
-            Movement.mirror_id == mirror_id,
-            movement_delta_c != 0,
-            Movement.transfer_record_id == TransferRecord.id,
-            or_(~Reco.auto, Reco.auto == null))
+            movement_filter,
+            reco_filter,
+            or_(Reco.auto == null, ~Reco.auto))
         .group_by(
             func.sign(-movement_delta_c),
             TransferRecord.workflow_type)
@@ -288,41 +303,46 @@ def reco_report_view(request):
         workflow_type = r.workflow_type
         workflow_types_pre[(str(r.sign), r.workflow_type)] = zero
 
-    # outstanding_rows lists the movements not yet reconciled.
-    # Negate the amounts because we're showing compensating amounts.
-    outstanding_rows = (
-        dbsession.query(
-            func.sign(-movement_delta_c).label('sign'),
-            TransferRecord.workflow_type,
-            TransferRecord.transfer_id,
-            (-movement_delta_c).label('delta'),
-            TransferRecord.start,
-            Movement.id,
-        )
-        .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
-        .filter(
-            Movement.mirror_id == mirror_id,
-            movement_delta_c != 0,
-            Movement.transfer_record_id == TransferRecord.id,
-            MovementReco.reco_id == null)
-        .all())
+    if include_unreconciled:
+        # outstanding_rows lists the movements not yet reconciled.
+        # Negate the amounts because we're showing compensating amounts.
+        outstanding_rows = (
+            dbsession.query(
+                func.sign(-movement_delta_c).label('sign'),
+                TransferRecord.workflow_type,
+                TransferRecord.transfer_id,
+                (-movement_delta_c).label('delta'),
+                TransferRecord.start,
+                Movement.id,
+            )
+            .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
+            .filter(
+                movement_filter,
+                MovementReco.reco_id == null)
+            .all())
 
-    # exchange_rows lists the exchanges not yet reconciled.
-    # Don't negate the amounts.
-    exchange_rows = (
-        dbsession.query(
-            func.sign(exchange_delta_c).label('sign'),
-            TransferRecord.transfer_id,
-            exchange_delta_c.label('delta'),
-            TransferRecord.start,
-            Exchange.id,
-        )
-        .filter(
-            Exchange.mirror_id == mirror_id,
-            exchange_delta_c != 0,
-            Exchange.transfer_record_id == TransferRecord.id,
-            Exchange.reco_id == null)
-        .all())
+        # exchange_rows lists the exchanges not yet reconciled.
+        # Don't negate the amounts.
+        exchange_rows = (
+            dbsession.query(
+                func.sign(exchange_delta_c).label('sign'),
+                TransferRecord.transfer_id,
+                exchange_delta_c.label('delta'),
+                TransferRecord.start,
+                Exchange.id,
+            )
+            .filter(
+                Exchange.target_id == mirror.target_id,
+                Exchange.loop_id == mirror.loop_id,
+                Exchange.currency == mirror.currency,
+                exchange_delta_c != 0,
+                Exchange.transfer_record_id == TransferRecord.id,
+                Exchange.reco_id == null)
+            .all())
+
+    else:
+        outstanding_rows = ()
+        exchange_rows = ()
 
     # Create outstanding_map:
     # {str(sign): {workflow_type: [{transfer_id, delta, ts, id}]}}.
@@ -394,17 +414,6 @@ def transfer_record_view(request):
     if mirror is None:
         raise HTTPNotFound()
 
-    # When looking at a 'c' target, we want to examine only the 'c'
-    # movements and exchanges.
-    # When looking at a non-'c' target, we want to examine only the non-'c'
-    # movements and exchanges.
-    if mirror.target_id == 'c':
-        mirror_filter = and_(
-            Mirror.target_id == 'c', Mirror.file_id == mirror.file_id)
-    else:
-        mirror_filter = and_(
-            Mirror.target_id != 'c', Mirror.file_id == mirror.file_id)
-
     transfer_id = request.subpath[4].replace('-', '')
     dbsession = request.dbsession
 
@@ -426,35 +435,62 @@ def transfer_record_view(request):
 
     movement_rows = (
         dbsession.query(Movement, Reco)
-        .join(Mirror, Mirror.id == Movement.mirror_id)
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
         .outerjoin(Reco, Reco.id == MovementReco.reco_id)
-        .filter(
-            Movement.transfer_record_id == record.id,
-            mirror_filter)
-        .order_by(Movement.number)
+        .filter(Movement.transfer_record_id == record.id)
         .all())
 
-    movements_json = []
+    # Create movement_groups in order to unite the doubled movement
+    # rows in a single row.
+    # movement_groups: {
+    #    (number, orig_target_id, loop_id, currency):
+    #    [Movement, target_reco, c_reco]
+    # }
+    movement_groups = {}
     for movement, reco in movement_rows:
+        key = (
+            movement.number,
+            movement.orig_target_id,
+            movement.loop_id,
+            movement.currency)
+        group = movement_groups.get(key)
+        if group is None:
+            movement_groups[key] = group = [movement, None, None]
+        if movement.target_id == 'c':
+            group[2] = reco
+        else:
+            group[1] = reco
+
+    def reco_to_json(r):
+        if r is None:
+            return {}
+        return {
+            'id': r.id,
+            'auto': r.auto,
+            'auto_edited': r.auto_edited,
+        }
+
+    movements_json = []
+    for key, group in sorted(movement_groups.items()):
+        number, target_id, loop_id, currency = key
+        movement, target_reco, c_reco = group
         movements_json.append({
-            'number': movement.number,
+            'number': number,
+            'target_id': target_id,
+            'loop_id': loop_id,
+            'currency': currency,
             'action': movement.action,
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(movement.wallet_delta),
             'vault_delta': str(movement.vault_delta),
-            'reco_id': None if reco is None else str(reco.id),
-            'auto': False if reco is None else reco.auto,
-            'auto_edited': False if reco is None else reco.auto_edited,
+            'target_reco': reco_to_json(target_reco),
+            'c_reco': reco_to_json(c_reco),
         })
 
     exchange_rows = (
         dbsession.query(Exchange, Reco)
-        .join(Mirror, Mirror.id == Exchange.mirror_id)
         .outerjoin(Reco, Reco.id == Exchange.reco_id)
-        .filter(
-            Exchange.transfer_record_id == record.id,
-            mirror_filter)
+        .filter(Exchange.transfer_record_id == record.id)
         .order_by(Exchange.id)
         .all())
 
@@ -463,9 +499,7 @@ def transfer_record_view(request):
         exchanges_json.append({
             'wallet_delta': str(exchange.wallet_delta),
             'vault_delta': str(exchange.vault_delta),
-            'reco_id': None if reco is None else str(reco.id),
-            'auto': False if reco is None else reco.auto,
-            'auto_edited': False if reco is None else reco.auto_edited,
+            'reco': reco_to_json(reco),
         })
 
     return {

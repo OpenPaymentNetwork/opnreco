@@ -2,6 +2,7 @@
 from sqlalchemy.orm import backref
 from sqlalchemy import BigInteger
 from sqlalchemy import Boolean
+from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import Date
 from sqlalchemy import DateTime
@@ -152,10 +153,82 @@ class TransferDownloadRecord(Base):
     transfer_record = backref(TransferRecord)
 
 
+class Movement(Base):
+    """A movement in a transfer applied to the profile.
+
+    Note: two rows are created for every movement, one for the target account
+    or wallet, and one for the 'c' ('circulation' or 'common') target. This
+    doubling reflects the fact that the user may need to run a separate
+    reconciliation for the circulation account and the target account.
+
+    The UI should do what it can to show only one of the two reconciliations;
+    for example, if the target has no vault, the circulation reconciliation
+    should not be shown; as another example, if the target is a wallet rather
+    than a DFI account, the target reconciliation should not be shown.
+
+    Note: movement rows are meant to be immutable.
+    """
+    __tablename__ = 'movement'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    transfer_record_id = Column(
+        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+    number = Column(Integer, nullable=False)
+
+    # target_id can be 'c' (for 'common' or 'circulation'). The 'c'
+    # row is the doubled row.
+    target_id = Column(String, nullable=False)
+    # orig_target_id is never 'c'.
+    orig_target_id = Column(
+        String, CheckConstraint(
+            "orig_target_id != 'c'", name='orig_target_id_not_c'),
+        nullable=False)
+    loop_id = Column(String, nullable=False)
+    currency = Column(String(3), nullable=False)
+
+    action = Column(String, nullable=False)
+    ts = Column(DateTime, nullable=False)
+
+    # The delta is positive for movements into the wallet or vault
+    # or negative for movements out of the wallet or vault.
+    wallet_delta = Column(Numeric, nullable=False)
+    vault_delta = Column(Numeric, nullable=False)
+
+    transfer_record = backref(TransferRecord)
+
+
+Index(
+    'ix_movement_unique',
+    Movement.transfer_record_id,
+    Movement.number,
+    Movement.target_id,
+    Movement.orig_target_id,
+    Movement.loop_id,
+    Movement.currency,
+    unique=True)
+
+
+class MovementLog(Base):
+    """Log of changes to a movement"""
+    __tablename__ = 'movement_log'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    ts = Column(DateTime, nullable=False, server_default=now_func)
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'),
+        nullable=False, index=True)
+    event_type = Column(String, nullable=False)
+    comment = Column(Unicode, nullable=True)
+
+    # changes is a dict. The possible changes are:
+    # reco_id
+    changes = Column(JSONB, nullable=False)
+
+    movement = backref(Movement)
+
+
 class Mirror(Base):
     """A time-boxed record of movements that should mirror OPN transfers.
 
-    Represents a period of time at an account at a DFI, someone else's wallet,
+    Represents a period of time for an account at a DFI, someone else's wallet,
     or the circulating omnibus account managed by an issuer.
 
     A mirror could be called an "account period", but mirror is shorter. ;-)
@@ -222,59 +295,6 @@ Index(
     Mirror.currency,
     Mirror.file_id,
     unique=True)
-
-
-class Movement(Base):
-    """A movement in a transfer applied to the profile.
-
-    Note: movement rows are designed to be immutable.
-    """
-    __tablename__ = 'movement'
-    id = Column(BigInteger, nullable=False, primary_key=True)
-    transfer_record_id = Column(
-        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
-    number = Column(Integer, nullable=False)
-
-    mirror_id = Column(
-        BigInteger, ForeignKey('mirror.id'),
-        nullable=False, index=True)
-
-    action = Column(String, nullable=False)
-    ts = Column(DateTime, nullable=False)
-
-    # The delta is positive for movements into the wallet or vault
-    # or negative for movements out of the wallet or vault.
-    wallet_delta = Column(Numeric, nullable=False)
-    vault_delta = Column(Numeric, nullable=False)
-
-    transfer_record = backref(TransferRecord)
-    mirror = backref(Mirror)
-
-
-Index(
-    'ix_movement_unique',
-    Movement.transfer_record_id,
-    Movement.number,
-    Movement.mirror_id,
-    unique=True)
-
-
-class MovementLog(Base):
-    """Log of changes to a movement"""
-    __tablename__ = 'movement_log'
-    id = Column(BigInteger, nullable=False, primary_key=True)
-    ts = Column(DateTime, nullable=False, server_default=now_func)
-    movement_id = Column(
-        BigInteger, ForeignKey('movement.id'),
-        nullable=False, index=True)
-    event_type = Column(String, nullable=False)
-    comment = Column(Unicode, nullable=True)
-
-    # changes is a dict. The possible changes are:
-    # reco_id
-    changes = Column(JSONB, nullable=False)
-
-    movement = backref(Movement)
 
 
 class MirrorStatement(Base):
@@ -402,11 +422,11 @@ class Exchange(Base):
     """
     __tablename__ = 'exchange'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    mirror_id = Column(
-        BigInteger, ForeignKey('mirror.id'),
-        nullable=False, index=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+    target_id = Column(String, nullable=False)
+    loop_id = Column(String, nullable=False)
+    currency = Column(String(3), nullable=False)
     # origin_reco_id identifies the auto-generated reco that originated the
     # exchange.
     origin_reco_id = Column(

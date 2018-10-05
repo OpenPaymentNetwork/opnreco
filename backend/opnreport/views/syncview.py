@@ -251,13 +251,25 @@ class SyncView:
         transfer_id = item['id']
         dbsession = self.request.dbsession
 
-        # Prepare movement_rows, a dict of movements already imported.
+        # Prepare movement_dict, a dict of movements already imported.
         rows = (
             dbsession.query(Movement)
             .filter_by(transfer_record_id=record.id)
             .all())
-        # movement_rows: {(number, mirror_id): Movement}
-        movement_rows = {(row.number, row.mirror_id): row for row in rows}
+        # movement_rows: {
+        #     (number, target_id, orig_target_id, loop_id, currency):
+        #     Movement
+        # }
+        movement_dict = {}
+        for movement in rows:
+            key5 = (
+                movement.number,
+                movement.target_id,
+                movement.orig_target_id,
+                movement.loop_id,
+                movement.currency,
+            )
+            movement_dict[key5] = movement
 
         for movement in item['movements']:
             number = movement.get('number')
@@ -268,13 +280,14 @@ class SyncView:
             ts = to_datetime(movement['timestamp'])
             action = movement['action']
 
-            by_mirror = self.summarize_movement(
+            by_target = self.summarize_movement(
                 movement, transfer_id=transfer_id)
 
             # Add movement records based on the by_mirror dict.
-            for mirror_id, deltas in sorted(by_mirror.items()):
+            for key4, deltas in sorted(by_target.items()):
                 wallet_delta, vault_delta = deltas
-                old_movement = movement_rows.get((number, mirror_id))
+                key5 = (number,) + key4
+                old_movement = movement_dict.get(key5)
 
                 if old_movement is not None:
                     # The movement is already recorded.
@@ -305,22 +318,26 @@ class SyncView:
                     continue
 
                 # Record the movement.
-                row = Movement(
+                target_id, orig_target_id, loop_id, currency = key4
+                movement = Movement(
                     transfer_record_id=record.id,
                     number=number,
-                    mirror_id=mirror_id,
+                    target_id=target_id,
+                    orig_target_id=orig_target_id,
+                    loop_id=loop_id,
+                    currency=currency,
                     action=action,
                     ts=ts,
                     wallet_delta=wallet_delta,
                     vault_delta=vault_delta,
                 )
-                dbsession.add(row)
+                dbsession.add(movement)
                 dbsession.flush()  # Assign row.id
 
-                movement_rows[(number, mirror_id)] = row
+                movement_dict[key5] = movement
 
                 dbsession.add(MovementLog(
-                    movement_id=row.id,
+                    movement_id=movement.id,
                     event_type='download',
                     # Only the immutable attributes changed.
                     # There were no changes to mutable attributes.
@@ -329,13 +346,16 @@ class SyncView:
 
         self.autoreco(
             record=record,
-            movements=movement_rows.values(),
+            movements=movement_dict.values(),
             new_record=new_record)
 
     def summarize_movement(self, movement, transfer_id):
         """Summarize a movement.
 
-        Return {mirror_id: [wallet_delta, vault_delta]}.
+        Return {
+            (target_id, orig_target_id, loop_id, currency):
+            [wallet_delta, vault_delta],
+        }, where target_id can be 'c', but orig_target_id can not.
         """
         number = movement['number']
         from_id = movement['from_id']
@@ -355,8 +375,10 @@ class SyncView:
                 % (number, transfer_id))
 
         profile_id = self.profile_id
-        by_mirror = collections.defaultdict(
-            lambda: [zero, zero])  # {mirror_id: [wallet_delta, vault_delta]}
+        # by_target:
+        # {(target_id, loop_id, currency): [wallet_delta, vault_delta]}
+        by_target = collections.defaultdict(
+            lambda: [zero, zero])
 
         for loop in movement['loops']:
             loop_id = loop['loop_id']
@@ -367,55 +389,54 @@ class SyncView:
             vault_delta = zero
 
             if from_id == profile_id and to_id != profile_id:
+                target_id = to_id
                 if from_id == issuer_id:
                     # Notes were put into circulation.
-                    target_id = 'c'
                     vault_delta = -amount
                 else:
                     # Notes were sent to an account or other wallet.
-                    target_id = to_id
                     wallet_delta = -amount
 
             elif to_id == profile_id and from_id != profile_id:
+                target_id = from_id
                 if to_id == issuer_id:
                     # Notes were taken out of circulation.
-                    target_id = 'c'
                     vault_delta = amount
                 else:
-                    # Notes were received from an account
-                    # or other wallet.
-                    target_id = from_id
+                    # Notes were received from an account or other wallet.
                     wallet_delta = amount
 
             else:
                 # Ignore movements from the profile to itself.
                 continue
 
-            # Add to the circulation mirror.
-            circ_mirror = self.prepare_mirror('c', loop_id, currency)
-            amounts = by_mirror[circ_mirror.id]
+            # Add to the 'c' (circulation/common) movements.
+            c_target_key = ('c', target_id, loop_id, currency)
+            c_mirror = self.prepare_mirror('c', loop_id, currency)
+            amounts = by_target[c_target_key]
             if vault_delta:
-                # Add to the circulation vault.
                 amounts[1] += vault_delta
-                if not circ_mirror.has_vault:
-                    circ_mirror.has_vault = True
+                if not c_mirror.has_vault:
+                    c_mirror.has_vault = True
             if wallet_delta:
-                # Add to the circulation wallet so that it's possible to
-                # detect hills and valleys containing exchanges with other
-                # issuers. Without this, auto-reco detects only hills and
-                # valleys in exchanges that don't involve other issuers.
                 amounts[0] += wallet_delta
 
-            if target_id != 'c' and wallet_delta:
-                # Add to a wallet-specific or account-specific mirror.
-                mirror = self.prepare_mirror(target_id, loop_id, currency)
-                by_mirror[mirror.id][0] += wallet_delta
+            # Add to the wallet-specific or account-specific movements.
+            target_key = (target_id, target_id, loop_id, currency)
+            self.prepare_mirror(target_id, loop_id, currency)
+            amounts = by_target[target_key]
+            if vault_delta:
+                amounts[1] += vault_delta
+            if wallet_delta:
+                amounts[0] += wallet_delta
 
-        return by_mirror
+        return by_target
 
     def prepare_mirror(self, target_id, loop_id, currency):
-        key = (target_id, loop_id, currency)
-        mirror = self.mirrors.get(key)
+        """Return a mirror for a target_key: (target_id, loop_id, currency).
+        """
+        target_key = (target_id, loop_id, currency)
+        mirror = self.mirrors.get(target_key)
         if mirror is not None:
             return mirror
 
@@ -432,7 +453,7 @@ class SyncView:
             ).first()
         )
         if mirror is not None:
-            self.mirrors[key] = mirror
+            self.mirrors[target_key] = mirror
         else:
             mirror = Mirror(
                 profile_id=profile_id,
@@ -643,9 +664,15 @@ class SyncView:
                     "movement list for transfer %s: %s != %s" % (
                         record.transfer_id, wallet_total, -vault_total))
 
-            sample_movement = mvlist[-1]
+            sample_movement = mvlist[-1]  # Use the date of the last movement
+            target_id = sample_movement.target_id
+            loop_id = sample_movement.loop_id
+            currency = sample_movement.currency
+
+            mirror = self.prepare_mirror(target_id, loop_id, currency)
+
             reco = Reco(
-                mirror_id=sample_movement.mirror_id,
+                mirror_id=mirror.id,
                 entry_date=sample_movement.ts.date(),
                 auto=True,
             )
@@ -668,8 +695,10 @@ class SyncView:
                 # Add an Exchange record to balance the wallet and vault
                 # totals.
                 dbsession.add(Exchange(
-                    mirror_id=sample_movement.mirror_id,
                     transfer_record_id=record.id,
+                    target_id=target_id,
+                    loop_id=loop_id,
+                    currency=currency,
                     origin_reco_id=reco_id,
                     wallet_delta=-wallet_total,
                     vault_delta=-vault_total,
@@ -681,6 +710,8 @@ class SyncView:
 
 def find_internal_movements(movements, done_movement_ids):
     """Find internal movements that can be auto-reconciled.
+
+    Return [[movement]].
 
     Automatic reconciliation looks for sequences of internal movements
     that balance out exactly and generates automatic reconciliation
@@ -703,18 +734,22 @@ def find_internal_movements(movements, done_movement_ids):
     some false positives.
     """
 
-    # Group by mirror, filtering out movements that somehow moved nothing.
+    # Group by target, loop_id, and currency,
+    # filtering out movements that somehow moved nothing.
+    # (Note that we specifically ignore Movement.orig_target_id
+    # because it is not relevant here.)
     groups = collections.defaultdict(list)
     for movement in movements:
         if movement.wallet_delta + movement.vault_delta != zero:
-            groups[movement.mirror_id].append(movement)
+            key = (movement.target_id, movement.loop_id, movement.currency)
+            groups[key].append(movement)
 
     # all_internal_seqs is a list of movement sequences that
     # constitute internal movements.
-    # [[movement]]
+    # all_internal_seqs: [[movement]]
     all_internal_seqs = []
 
-    for mirror_id, group in groups.items():
+    for key, group in groups.items():
         if len(group) < 2:
             # No hill or valley is possible.
             continue
@@ -722,7 +757,7 @@ def find_internal_movements(movements, done_movement_ids):
         # Order the movements in the group.
         group.sort(key=lambda movement: movement.number)
 
-        internal_seqs = find_internal_movements_for_mirror(
+        internal_seqs = find_internal_movements_for_group(
             group=group,
             done_movement_ids=done_movement_ids)
         if internal_seqs:
@@ -734,8 +769,9 @@ def find_internal_movements(movements, done_movement_ids):
 non_internal_actions = frozenset(('move',))
 
 
-def find_internal_movements_for_mirror(group, done_movement_ids):
-    # Note: group must be ordered.
+def find_internal_movements_for_group(group, done_movement_ids):
+    # Note: group must be ordered by number and all movements
+    # in the group must be for the same loop_id and currency.
     # internal_seqs: [[movement]]
     internal_seqs = []
 
