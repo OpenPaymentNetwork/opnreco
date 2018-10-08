@@ -5,9 +5,11 @@ import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import { wfTypeTitles } from '../../util/transferfmt';
 import { getCurrencyFormatter } from '../../util/currency';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
 import IconButton from '@material-ui/core/IconButton';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -58,10 +60,19 @@ const styles = {
   cell: {
     border: '1px solid #bbb',
   },
+  fieldNameCell: {
+    padding: '2px 8px',
+  },
+  fieldValueCell: {
+    padding: '2px 8px',
+  },
+  detailButton: {
+    margin: '8px',
+  },
 };
 
 
-class TransferDetail extends React.Component {
+class TransferRecord extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -163,6 +174,16 @@ class TransferDetail extends React.Component {
     );
   }
 
+  renderProfileLink(publicURL, id, title) {
+    if (!id) {
+      return <span>{title}</span>;
+    }
+    return (
+      <a href={`${publicURL}/p/${id}`}
+        target="_blank" rel="noopener noreferrer">{title}</a>
+    );
+  }
+
   render() {
     const form = this.renderForm();
 
@@ -189,40 +210,99 @@ class TransferDetail extends React.Component {
         urls={[recordURL]}
         options={{suppressServerError: true}} />);
 
-    let detail;
+    const fieldNameCell = `${classes.cell} ${classes.fieldNameCell}`;
+    const fieldValueCell = `${classes.cell} ${classes.fieldValueCell}`;
+
+    /* global process: false */
+    const publicURL = process.env.REACT_APP_OPN_PUBLIC_URL;
+    const transferURL = `${publicURL}/t/${transferId}`;
+
+    let content;
 
     if (!record) {
       if (loading) {
-        detail = (
+        content = (
           <div style={{textAlign: 'center'}}>
             <CircularProgress style={{padding: '16px'}} />
           </div>);
       } else if (loadError) {
-        detail = (
+        content = (
           <div style={{padding: '16px'}}>
             <p>{loadError}</p>
           </div>);
       } else {
-        detail = (
+        content = (
           <div style={{padding: '16px'}}>
             Unable to retrieve transfer {transferId}
           </div>);
       }
     } else {
-      detail = (
+      content = (
         <table className={classes.table}>
           <thead>
             <tr>
               <th className={`${classes.cell} ${classes.headCell}`}
                 colSpan="2"
               >
-                Transfer
-                {' in file '}
+                Transfer {transferId}{' '}
+                <Button href={transferURL}
+                  variant="outlined"
+                  className={classes.detailButton}
+                  target="_blank" rel="noopener noreferrer"
+                >
+                  View Details
+                </Button>
+
               </th>
             </tr>
           </thead>
           <tbody>
             <tr>
+              <td className={fieldNameCell}>
+                Type
+              </td>
+              <td className={fieldValueCell}>
+                {wfTypeTitles[record.workflow_type] || record.workflow_type}
+              </td>
+            </tr>
+            <tr>
+              <td className={fieldNameCell}>
+                Start
+              </td>
+              <td className={fieldValueCell}>
+                <FormattedDate value={record.start} />
+                {' '}
+                <FormattedTime value={record.start} />
+                {' '}
+                (<FormattedRelative value={record.start} />)
+              </td>
+            </tr>
+            <tr>
+              <td className={fieldNameCell}>
+                Status
+              </td>
+              <td className={fieldValueCell}>
+                {record.canceled ? 'Canceled' :
+                  (record.completed ? 'Completed' : 'Waiting')}
+              </td>
+            </tr>
+            <tr>
+              <td className={fieldNameCell}>
+                Sender
+              </td>
+              <td className={fieldValueCell}>
+                {this.renderProfileLink(
+                  publicURL, record.sender_id, record.sender_title)}
+              </td>
+            </tr>
+            <tr>
+              <td className={fieldNameCell}>
+                Recipient
+              </td>
+              <td className={fieldValueCell}>
+                {this.renderProfileLink(
+                  publicURL, record.recipient_id, record.recipient_title)}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -234,7 +314,7 @@ class TransferDetail extends React.Component {
         {require}
         {form}
         <Paper className={classes.tablePaper}>
-          {detail}
+          {content}
         </Paper>
         <div style={{height: 1}}></div>
       </Typography>
@@ -273,4 +353,4 @@ export default compose(
   withStyles(styles),
   withRouter,
   connect(mapStateToProps),
-)(TransferDetail);
+)(TransferRecord);

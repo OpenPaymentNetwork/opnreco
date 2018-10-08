@@ -113,6 +113,8 @@ class TransferRecord(Base):
 
     workflow_type = Column(String, nullable=False)    # Never changes
     start = Column(DateTime, nullable=False)          # Never changes
+    currency = Column(String, nullable=False)         # May change
+    amount = Column(Numeric, nullable=False)          # May change
     timestamp = Column(DateTime, nullable=False)      # May change
     next_activity = Column(String, nullable=False)    # May change
     completed = Column(Boolean, nullable=False)       # May change
