@@ -48,9 +48,10 @@ class Profile(Base):
     first_sync_ts = Column(DateTime, nullable=True)
     last_sync_ts = Column(DateTime, nullable=True)
     last_sync_transfer_id = Column(String, nullable=True)
-    # sync_total is the number of transfer records in this download.
+    # sync_total is the number of transfer records in this sync operation.
     sync_total = Column(BigInteger, nullable=False, default=0)
-    # sync_done is the number of transfer records downloaded successfully.
+    # sync_done is the number of transfer records downloaded
+    # successfully in this sync operation.
     sync_done = Column(BigInteger, nullable=False, default=0)
 
 
@@ -186,7 +187,11 @@ class Movement(Base):
         nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
+    issuer_id = Column(String, nullable=False)
 
+    from_id = Column(String, nullable=False)
+    to_id = Column(String, nullable=False)
+    amount = Column(Numeric, nullable=False)
     action = Column(String, nullable=False)
     ts = Column(DateTime, nullable=False)
 
@@ -206,6 +211,7 @@ Index(
     Movement.orig_target_id,
     Movement.loop_id,
     Movement.currency,
+    Movement.issuer_id,
     unique=True)
 
 

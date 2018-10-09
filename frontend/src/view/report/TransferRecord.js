@@ -77,6 +77,7 @@ class TransferRecord extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
+    profileId: PropTypes.string.isRequired,
     recordURL: PropTypes.string,
     record: PropTypes.object,
     loading: PropTypes.bool,
@@ -193,6 +194,7 @@ class TransferRecord extends React.Component {
       record,
       loading,
       loadError,
+      profileId,
       transferId,
     } = this.props;
 
@@ -215,7 +217,7 @@ class TransferRecord extends React.Component {
 
     /* global process: false */
     const publicURL = process.env.REACT_APP_OPN_PUBLIC_URL;
-    const transferURL = `${publicURL}/t/${transferId}`;
+    const transferURL = `${publicURL}/p/${profileId}/t/${transferId}`;
 
     let content;
 
@@ -288,6 +290,15 @@ class TransferRecord extends React.Component {
             </tr>
             <tr>
               <td className={fieldNameCell}>
+                Amount
+              </td>
+              <td className={fieldValueCell}>
+                {record.currency} {
+                  getCurrencyFormatter(record.currency)(record.amount)}
+              </td>
+            </tr>
+            <tr>
+              <td className={fieldNameCell}>
                 Sender
               </td>
               <td className={fieldValueCell}>
@@ -303,6 +314,13 @@ class TransferRecord extends React.Component {
                 {this.renderProfileLink(
                   publicURL, record.recipient_id, record.recipient_title)}
               </td>
+            </tr>
+            <tr>
+              <th className={`${classes.cell} ${classes.headCell}`}
+                colSpan="2"
+              >
+                Movements
+              </th>
             </tr>
           </tbody>
         </table>
@@ -326,6 +344,7 @@ class TransferRecord extends React.Component {
 function mapStateToProps(state, ownProps) {
   const {account, file, match} = ownProps;
   const transferId = match.params.transferId;
+  const profileId = state.login.id;
 
   if (account && transferId) {
     const recordURL = fOPNReport.pathToURL(
@@ -335,6 +354,7 @@ function mapStateToProps(state, ownProps) {
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);
     return {
+      profileId,
       transferId,
       recordURL,
       record,
@@ -343,6 +363,7 @@ function mapStateToProps(state, ownProps) {
     };
   } else {
     return {
+      profileId,
       transferId,
     };
   }

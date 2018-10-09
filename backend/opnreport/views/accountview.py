@@ -16,6 +16,7 @@ from pyramid.view import view_config
 from sqlalchemy import func
 from sqlalchemy import and_
 from sqlalchemy import or_
+from sqlalchemy import case
 import collections
 
 null = None
@@ -416,6 +417,8 @@ def transfer_record_view(request):
 
     transfer_id = request.subpath[4].replace('-', '')
     dbsession = request.dbsession
+    profile = request.profile
+    profile_id = profile.id
 
     record = (
         dbsession.query(TransferRecord)
@@ -429,7 +432,7 @@ def transfer_record_view(request):
         raise HTTPNotFound(json_body={
             'error': 'transfer_not_found',
             'error_description': (
-                'There is no record of transfer %s in this file.'
+                'Transfer %s is not found in your OPN Reports database.'
                 % transfer_id),
         })
 
@@ -440,10 +443,27 @@ def transfer_record_view(request):
         .filter(Movement.transfer_record_id == record.id)
         .all())
 
+    title_rows = (
+        dbsession.query(Mirror.target_id, Mirror.target_title)
+        .filter(
+            Mirror.profile_id == profile_id,
+            Mirror.target_title != null,
+            Mirror.target_title != '')
+        .order_by(
+            case([
+                (Mirror.file_id == null, 1),
+            ], else_=0),
+            Mirror.start_date,
+        ).all())
+
+    target_titles = {profile_id: profile.title}
+    for target_id, target_title in title_rows:
+        target_titles[target_id] = target_title
+
     # Create movement_groups in order to unite the doubled movement
     # rows in a single row.
     # movement_groups: {
-    #    (number, orig_target_id, loop_id, currency):
+    #    (number, orig_target_id, loop_id, currency, issuer_id):
     #    [Movement, target_reco, c_reco]
     # }
     movement_groups = {}
@@ -452,7 +472,8 @@ def transfer_record_view(request):
             movement.number,
             movement.orig_target_id,
             movement.loop_id,
-            movement.currency)
+            movement.currency,
+            movement.issuer_id)
         group = movement_groups.get(key)
         if group is None:
             movement_groups[key] = group = [movement, None, None]
@@ -465,20 +486,28 @@ def transfer_record_view(request):
         if r is None:
             return {}
         return {
-            'id': r.id,
+            'id': str(r.id),
             'auto': r.auto,
             'auto_edited': r.auto_edited,
         }
 
     movements_json = []
     for key, group in sorted(movement_groups.items()):
-        number, target_id, loop_id, currency = key
+        number, target_id, loop_id, currency, issuer_id = key
         movement, target_reco, c_reco = group
         movements_json.append({
             'number': number,
             'target_id': target_id,
+            'target_title': target_titles.get(target_id, ''),
             'loop_id': loop_id,
             'currency': currency,
+            'amount': str(movement.amount),
+            'issuer_id': movement.issuer_id,
+            'issuer_title': target_titles.get(issuer_id, ''),
+            'from_id': movement.from_id,
+            'from_title': target_titles.get(movement.from_id, ''),
+            'to_id': movement.to_id,
+            'to_title': target_titles.get(movement.to_id, ''),
             'action': movement.action,
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(movement.wallet_delta),
@@ -506,6 +535,8 @@ def transfer_record_view(request):
         'workflow_type': record.workflow_type,
         'start': record.start.isoformat() + 'Z',
         'timestamp': record.timestamp.isoformat() + 'Z',
+        'currency': record.currency,
+        'amount': str(record.amount),
         'next_activity': record.next_activity,
         'completed': record.completed,
         'canceled': record.canceled,

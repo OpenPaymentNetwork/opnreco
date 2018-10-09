@@ -191,6 +191,8 @@ class SyncView:
             kw = {
                 'workflow_type': item['workflow_type'],
                 'start': to_datetime(item['start']),
+                'currency': item['currency'],
+                'amount': Decimal(item['amount']),
                 'timestamp': to_datetime(item['timestamp']),
                 'next_activity': item['next_activity'],
                 'completed': item['completed'],
@@ -257,19 +259,21 @@ class SyncView:
             .filter_by(transfer_record_id=record.id)
             .all())
         # movement_rows: {
-        #     (number, target_id, orig_target_id, loop_id, currency):
+        #     (number, target_id, orig_target_id, loop_id, currency,
+        #      issuer_id):
         #     Movement
         # }
         movement_dict = {}
         for movement in rows:
-            key5 = (
+            key6 = (
                 movement.number,
                 movement.target_id,
                 movement.orig_target_id,
                 movement.loop_id,
                 movement.currency,
+                movement.issuer_id,
             )
-            movement_dict[key5] = movement
+            movement_dict[key6] = movement
 
         for movement in item['movements']:
             number = movement.get('number')
@@ -279,15 +283,17 @@ class SyncView:
                     "movement numbers. (OPN: upgrade and run bin/resummarize)")
             ts = to_datetime(movement['timestamp'])
             action = movement['action']
+            from_id = movement['from_id']
+            to_id = movement['to_id']
 
             by_target = self.summarize_movement(
                 movement, transfer_id=transfer_id)
 
             # Add movement records based on the by_mirror dict.
-            for key4, deltas in sorted(by_target.items()):
-                wallet_delta, vault_delta = deltas
-                key5 = (number,) + key4
-                old_movement = movement_dict.get(key5)
+            for key5, deltas in sorted(by_target.items()):
+                amount, wallet_delta, vault_delta = deltas
+                key6 = (number,) + key5
+                old_movement = movement_dict.get(key6)
 
                 if old_movement is not None:
                     # The movement is already recorded.
@@ -298,6 +304,17 @@ class SyncView:
                             "recorded timestamp is %s, new timestamp is %s" % (
                                 number, transfer_id,
                                 old_movement.ts.isoformat(), ts.isoformat()))
+                    if (old_movement.from_id != from_id or
+                            old_movement.to_id != to_id):
+                        raise ValueError(
+                            "Movement %s in transfer %s has changed:"
+                            "movement was from %s to %s, "
+                            "new movement is from %s to %s" % (
+                                number, transfer_id,
+                                old_movement.from_id,
+                                old_movement.to_id,
+                                from_id,
+                                to_id))
                     if old_movement.action != action:
                         raise ValueError(
                             "Movement %s in transfer %s has changed:"
@@ -308,17 +325,19 @@ class SyncView:
                             old_movement.vault_delta != vault_delta):
                         raise ValueError(
                             "Movement %s in transfer %s has changed:"
-                            "recorded delta is %s + %s, "
-                            "new delta is %s + %s" % (
+                            "recorded delta is (%s, %s, %s), "
+                            "new delta is (%s, %s, %s)" % (
                                 number, transfer_id,
+                                old_movement.amount,
                                 old_movement.wallet_delta,
                                 old_movement.vault_delta,
+                                amount,
                                 wallet_delta,
                                 vault_delta))
                     continue
 
                 # Record the movement.
-                target_id, orig_target_id, loop_id, currency = key4
+                target_id, orig_target_id, loop_id, currency, issuer_id = key5
                 movement = Movement(
                     transfer_record_id=record.id,
                     number=number,
@@ -326,6 +345,10 @@ class SyncView:
                     orig_target_id=orig_target_id,
                     loop_id=loop_id,
                     currency=currency,
+                    issuer_id=issuer_id,
+                    from_id=from_id,
+                    to_id=to_id,
+                    amount=amount,
                     action=action,
                     ts=ts,
                     wallet_delta=wallet_delta,
@@ -334,7 +357,7 @@ class SyncView:
                 dbsession.add(movement)
                 dbsession.flush()  # Assign row.id
 
-                movement_dict[key5] = movement
+                movement_dict[key6] = movement
 
                 dbsession.add(MovementLog(
                     movement_id=movement.id,
@@ -353,8 +376,8 @@ class SyncView:
         """Summarize a movement.
 
         Return {
-            (target_id, orig_target_id, loop_id, currency):
-            [wallet_delta, vault_delta],
+            (target_id, orig_target_id, loop_id, currency, issuer_id):
+            [amount, wallet_delta, vault_delta],
         }, where target_id can be 'c', but orig_target_id can not.
         """
         number = movement['number']
@@ -376,9 +399,9 @@ class SyncView:
 
         profile_id = self.profile_id
         # by_target:
-        # {(target_id, loop_id, currency): [wallet_delta, vault_delta]}
+        # {(target_id, loop_id, currency): [amount, wallet_delta, vault_delta]}
         by_target = collections.defaultdict(
-            lambda: [zero, zero])
+            lambda: [zero, zero, zero])
 
         for loop in movement['loops']:
             loop_id = loop['loop_id']
@@ -406,29 +429,44 @@ class SyncView:
                     # Notes were received from an account or other wallet.
                     wallet_delta = amount
 
+            elif issuer_id == profile_id:
+                # The issuer is observing a movement, but the movement
+                # is to and from other profiles' wallets or accounts, not
+                # the issuer's wallet or vault. Use the issuer as the target,
+                # but don't record any wallet or vault movement.
+                target_id = issuer_id
+
             else:
                 # Ignore movements from the profile to itself.
                 continue
 
             # Add to the 'c' (circulation/common) movements.
-            c_target_key = ('c', target_id, loop_id, currency)
+            c_target_key = ('c', target_id, loop_id, currency, issuer_id)
             c_mirror = self.prepare_mirror('c', loop_id, currency)
             amounts = by_target[c_target_key]
+            amounts[0] += amount
             if vault_delta:
-                amounts[1] += vault_delta
+                amounts[2] += vault_delta
                 if not c_mirror.has_vault:
                     c_mirror.has_vault = True
             if wallet_delta:
-                amounts[0] += wallet_delta
+                amounts[1] += wallet_delta
 
             # Add to the wallet-specific or account-specific movements.
-            target_key = (target_id, target_id, loop_id, currency)
+            target_key = (target_id, target_id, loop_id, currency, issuer_id)
             self.prepare_mirror(target_id, loop_id, currency)
             amounts = by_target[target_key]
+            amounts[0] += amount
             if vault_delta:
-                amounts[1] += vault_delta
+                amounts[2] += vault_delta
             if wallet_delta:
-                amounts[0] += wallet_delta
+                amounts[1] += wallet_delta
+
+            # Ensure there is a mirror for the issuer, from_id profile, and
+            # to_id profile.
+            for pid in (from_id, to_id, issuer_id):
+                if pid != target_id and pid != profile_id:
+                    self.prepare_mirror(pid, loop_id, currency)
 
         return by_target
 

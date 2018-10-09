@@ -99,6 +99,8 @@ class TestDownloadView(unittest.TestCase):
                     'id': '500',
                     'workflow_type': 'redeem',
                     'start': '2018-08-01T04:05:06Z',
+                    'currency': 'USD',
+                    'amount': '1.25',
                     'timestamp': '2018-08-01T04:05:08Z',
                     'next_activity': 'completed',
                     'completed': True,
@@ -143,7 +145,12 @@ class TestDownloadView(unittest.TestCase):
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/19',
-            json={'title': "Super Bank"})
+            json={'title': "Super Bank 19"})
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/20',
+            json={'title': "Super Bank 20"})
 
         responses.add(
             responses.GET,
@@ -162,9 +169,13 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_mirror',
             'add_mirror',
+            'add_mirror',
+            'add_mirror',
             'update_mirror_target_title',
             'update_mirror_target_title',
             'update_mirror_target_is_dfi_account',
+            'update_mirror_target_title',
+            'update_mirror_target_title',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.profile_id)
@@ -192,7 +203,7 @@ class TestDownloadView(unittest.TestCase):
         mirrors = (
             self.dbsession.query(db.Mirror)
             .order_by(db.Mirror.target_id).all())
-        self.assertEqual(2, len(mirrors))
+        self.assertEqual(4, len(mirrors))
         mirror = mirrors[0]
         self.assertEqual('11', mirror.profile_id)
         self.assertEqual('1102', mirror.target_id)
@@ -204,18 +215,29 @@ class TestDownloadView(unittest.TestCase):
         movements = (
             self.dbsession.query(db.Movement)
             .filter_by(target_id='1102').all())
-        self.assertEqual(1, len(movements))
+        self.assertEqual(2, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual(2, m.number)
         self.assertEqual('1102', m.target_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
+        self.assertEqual('19', m.issuer_id)
         self.assertEqual(datetime.datetime(2018, 1, 2, 5, 6, 7), m.ts)
-        self.assertEqual(Decimal('-1.25'), m.wallet_delta)
+        self.assertEqual(Decimal('-1.00'), m.wallet_delta)
+
+        m = movements[1]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual(2, m.number)
+        self.assertEqual('1102', m.target_id)
+        self.assertEqual('0', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual('20', m.issuer_id)
+        self.assertEqual(datetime.datetime(2018, 1, 2, 5, 6, 7), m.ts)
+        self.assertEqual(Decimal('-0.25'), m.wallet_delta)
 
         events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(4, len(events))
         event = events[0]
         self.assertEqual('download', event.event_type)
 
@@ -234,6 +256,8 @@ class TestDownloadView(unittest.TestCase):
                     'id': '500',
                     'workflow_type': 'redeem',
                     'start': '2018-08-01T04:05:06Z',
+                    'currency': 'USD',
+                    'amount': '1.00',
                     'timestamp': '2018-08-01T04:05:08Z',
                     'next_activity': 'completed',
                     'completed': True,
@@ -266,6 +290,12 @@ class TestDownloadView(unittest.TestCase):
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
             })
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/19',
+            json={'title': "Super Bank 19"})
+
         obj = self._make(profile_id='19')
         obj()
 
@@ -273,7 +303,9 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(downloads))
         self.assertEqual('19', downloads[0].profile_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
+        events = (
+            self.dbsession.query(db.ProfileLog)
+            .order_by(db.ProfileLog.id).all())
         self.assertEqual(6, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
@@ -349,6 +381,8 @@ class TestDownloadView(unittest.TestCase):
                     'id': '501',
                     'workflow_type': 'grant',
                     'start': '2018-08-01T04:05:06Z',
+                    'currency': 'USD',
+                    'amount': '1.25',
                     'timestamp': '2018-08-01T04:05:08Z',
                     'next_activity': 'completed',
                     'completed': True,
@@ -401,7 +435,7 @@ class TestDownloadView(unittest.TestCase):
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/19',
-            json={'title': "Super Bank"})
+            json={'title': "Super Bank 19"})
 
         responses.add(
             responses.GET,
@@ -494,6 +528,8 @@ class TestDownloadView(unittest.TestCase):
                     'id': '501',
                     'workflow_type': 'grant',
                     'start': '2018-08-01T04:05:06Z',
+                    'currency': 'USD',
+                    'amount': '1.25',
                     'timestamp': '2018-08-01T04:05:08Z',
                     'next_activity': 'completed',
                     'completed': True,
@@ -562,8 +598,10 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(downloads))
         self.assertEqual('19', downloads[0].profile_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(5, len(events))
+        events = (
+            self.dbsession.query(db.ProfileLog)
+            .order_by(db.ProfileLog.id)
+            .all())
         self.assertEqual([
             'opn_sync',
             'add_mirror',
@@ -644,6 +682,8 @@ class TestDownloadView(unittest.TestCase):
                     'id': '501',
                     'workflow_type': 'profile_to_profile',
                     'start': '2018-08-01T04:05:06Z',
+                    'currency': 'USD',
+                    'amount': '0.25',
                     'timestamp': '2018-08-01T04:05:08Z',
                     'next_activity': 'completed',
                     'completed': True,
@@ -710,6 +750,17 @@ class TestDownloadView(unittest.TestCase):
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
             })
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/19',
+            json={'title': "Super Bank 19"})
+
+        responses.add(
+            responses.GET,
+            'https://opn.example.com:9999/p/21',
+            json={'title': "Super Bank 21"})
+
         obj = self._make(profile_id='19')
         obj()
 
@@ -717,11 +768,20 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(downloads))
         self.assertEqual('19', downloads[0].profile_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
+        events = (
+            self.dbsession.query(db.ProfileLog)
+            .order_by(db.ProfileLog.id)
+            .all())
         self.assertEqual([
             'opn_sync',
             'add_mirror',
             'add_mirror',
+            'add_mirror',
+            'add_mirror',
+            'add_mirror',
+            'update_mirror_target_title',
+            'update_mirror_target_title',
+            'update_mirror_target_title',
             'update_mirror_target_title',
             'update_mirror_target_title',
         ], [e.event_type for e in events])
@@ -752,8 +812,8 @@ class TestDownloadView(unittest.TestCase):
             self.dbsession.query(db.Mirror)
             .order_by(db.Mirror.target_id)
             .all())
-        self.assertEqual(2, len(mirrors))
-        mirror = mirrors[1]
+        self.assertEqual(5, len(mirrors))
+        mirror = mirrors[4]
         self.assertEqual('19', mirror.profile_id)
         self.assertEqual('c', mirror.target_id)
         self.assertEqual('0', mirror.loop_id)
@@ -764,16 +824,26 @@ class TestDownloadView(unittest.TestCase):
             .filter(db.Movement.target_id == 'c')
             .order_by(db.Movement.number)
             .all())
-        self.assertEqual(2, len(movements))
+        self.assertEqual(4, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual('c', m.target_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
+        self.assertEqual('19', m.issuer_id)
         self.assertEqual(Decimal('0.20'), m.vault_delta)
-        self.assertEqual(Decimal('0.10'), m.wallet_delta)
+        self.assertEqual(Decimal('0'), m.wallet_delta)
 
         m = movements[1]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('c', m.target_id)
+        self.assertEqual('0', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual('21', m.issuer_id)
+        self.assertEqual(Decimal('0'), m.vault_delta)
+        self.assertEqual(Decimal('0.10'), m.wallet_delta)
+
+        m = movements[2]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual('c', m.target_id)
         self.assertEqual('0', m.loop_id)
@@ -788,7 +858,7 @@ class TestDownloadView(unittest.TestCase):
             .join(db.Movement, db.MovementReco.movement_id == db.Movement.id)
             .filter(db.Movement.target_id == 'c')
             .all())
-        self.assertEqual(2, len(reco_ids))
+        self.assertEqual(3, len(reco_ids))
 
         exchanges = (
             self.dbsession.query(db.Exchange)
@@ -808,8 +878,9 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(
             zero, sum(row.vault_delta for row in movements + exchanges))
 
-        events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(8, len(events))
+        events = (
+            self.dbsession.query(db.MovementLog)
+            .order_by(db.MovementLog.id).all())
         event = events[0]
         self.assertEqual('download', event.event_type)
 
@@ -821,6 +892,8 @@ class TestDownloadView(unittest.TestCase):
                 'id': '500',
                 'workflow_type': 'redeem',
                 'start': '2018-08-01T04:05:06Z',
+                'currency': 'USD',
+                'amount': '1.00',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'someactivity',
                 'completed': False,
@@ -918,6 +991,7 @@ class TestDownloadView(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
+
             obj()
 
         events = (
@@ -1061,6 +1135,8 @@ class TestDownloadView(unittest.TestCase):
                 'id': '500',
                 'workflow_type': 'redeem',
                 'start': '2018-08-01T04:05:06Z',
+                'currency': 'USD',
+                'amount': '1.00',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'send_to_dfi',
                 'completed': False,
@@ -1129,6 +1205,8 @@ class TestDownloadView(unittest.TestCase):
                 'id': '500',
                 'workflow_type': 'redeem',
                 'start': '2018-08-01T04:05:06Z',
+                'currency': 'USD',
+                'amount': '1.00',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'send_to_dfi',
                 'completed': False,
@@ -1170,6 +1248,7 @@ class TestDownloadView(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
+
             obj = self._make(profile_id='19')
             obj()
 
@@ -1221,6 +1300,8 @@ class TestDownloadView(unittest.TestCase):
                 'id': '500',
                 'workflow_type': 'redeem',
                 'start': '2018-08-01T04:05:06Z',
+                'currency': 'USD',
+                'amount': '1.00',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'send_to_dfi',
                 'completed': False,
@@ -1262,6 +1343,7 @@ class TestDownloadView(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
+
             obj = self._make(profile_id='19')
             obj()
 
@@ -1290,6 +1372,8 @@ class TestDownloadView(unittest.TestCase):
                 'id': '501',
                 'workflow_type': 'grant',
                 'start': '2018-08-01T04:05:06Z',
+                'currency': 'USD',
+                'amount': '1.00',
                 'timestamp': '2018-08-01T04:05:08Z',
                 'next_activity': 'someactivity',
                 'completed': False,
