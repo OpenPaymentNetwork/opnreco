@@ -75,6 +75,7 @@ def profile(request):
         values = {
             'id': profile_info['id'],
             'title': profile_info['title'],
+            'username': profile_info['username'] or '',
         }
         stmt = (
             sqlalchemy.dialects.postgresql.insert(
@@ -99,11 +100,14 @@ def profile(request):
     else:
         now = datetime.datetime.utcnow()
         if now - profile.last_update >= datetime.timedelta(seconds=60 * 15):
-            # Update the profile title.
+            # Update the profile title and username.
             wallet_info = request.wallet_info
             profile_info = wallet_info['profile']
             if profile.title != profile_info['title']:
                 profile.title = profile_info['title']
+            username = profile_info['username'] or ''
+            if profile.username != username:
+                profile.username = username
             profile.last_update = now
 
     return profile

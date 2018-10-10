@@ -52,6 +52,9 @@ class SyncView:
         # profile_titles is a cache of {profile_id: title}.
         self.profile_titles = {}
 
+        # profile_usernames is a cache of {profile_id: username}.
+        self.profile_usernames = {}
+
         # loop_titles is a cache of {loop_id: title}.
         self.loop_titles = {}
 
@@ -172,7 +175,6 @@ class SyncView:
         record_list = (
             dbsession.query(TransferRecord)
             .filter(TransferRecord.profile_id == profile_id)
-            .filter(TransferRecord.file_id == null)
             .filter(TransferRecord.transfer_id.in_(transfer_ids))
             .all())
 
@@ -212,7 +214,6 @@ class SyncView:
                 new_record = True
                 record = TransferRecord(
                     transfer_id=transfer_id,
-                    file_id=null,
                     profile_id=profile_id,
                     **kw)
                 changed.append('new')
@@ -521,9 +522,13 @@ class SyncView:
         return {a['id']: a for a in account_list}
 
     def get_target_info(self, target_id):
-        """Return (title, is_dfi_account)."""
+        """Return {title, is_dfi_account, username (optional)}."""
         if target_id == 'c':
-            return self.profile.title, False
+            return {
+                'title': self.profile.title,
+                'username': self.profile.username,
+                'is_dfi_account': False,
+            }
 
         account = self.account_map.get(target_id)
         if account:
@@ -534,28 +539,45 @@ class SyncView:
             if account['alias']:
                 title += ' (%s)' % account['alias']
 
-            return title, True
+            return {
+                'title': title,
+                'username': '',
+                'is_dfi_account': True,
+            }
 
         profile_titles = self.profile_titles
+        profile_usernames = self.profile_usernames
 
         title = profile_titles.get(target_id)
         if title:
-            return title, False
+            res = {'title': title, 'is_dfi_account': False}
+            if target_id in profile_usernames:
+                res['username'] = profile_usernames[target_id]
+            return res
 
         url = '%s/p/%s' % (self.api_url, target_id)
         headers = {'Authorization': 'Bearer %s' % self.request.access_token}
         r = requests.get(url, headers=headers)
         if check_requests_response(r, raise_exc=False):
-            title = r.json()['title']
+            r_json = r.json()
+            title = r_json['title']
             if title:
+                username = r_json['username'] or ''
                 profile_titles[target_id] = title
-                return title, False
+                profile_usernames[target_id] = username
+                return {
+                    'title': title,
+                    'username': username,
+                    'is_dfi_account': False,
+                }
 
         log.warning("Unable to get the title of holder %s", target_id)
 
-        title = ''
-        profile_titles[target_id] = title  # Don't try again.
-        return title, False
+        profile_titles[target_id] = ''  # Don't try again.
+        return {
+            'title': '',
+            'is_dfi_account': False,
+        }
 
     def get_loop_title(self, loop_id):
         """Return the title of a note design."""
@@ -580,7 +602,7 @@ class SyncView:
         return ''
 
     def update_mirrors(self):
-        """Update the target_title and loop_title of the profile's mirrors."""
+        """Update the target_* and loop_title of the profile's mirrors."""
         update_check_time = (
             datetime.datetime.utcnow() - datetime.timedelta(seconds=60 * 10))
         dbsession = self.request.dbsession
@@ -602,45 +624,43 @@ class SyncView:
                 break
 
             for mirror in mirrors:
-                # Get the title of the target.
-                target_title, target_is_dfi_account = self.get_target_info(
-                    mirror.target_id)
+                # Get the title and other info about the target.
+                target_info = self.get_target_info(mirror.target_id)
+                target_title = target_info['title']
+                target_is_dfi_account = target_info['is_dfi_account']
 
+                changes = {}
                 if target_title:
                     if target_title != mirror.target_title:
                         mirror.target_title = target_title
-                        dbsession.add(ProfileLog(
-                            profile_id=self.profile_id,
-                            event_type='update_mirror_target_title',
-                            memo={
-                                'mirror_id': mirror.id,
-                                'target_id': mirror.target_id,
-                                'target_title': target_title,
-                            }))
+                        changes['target_title'] = target_title
 
                     if target_is_dfi_account != mirror.target_is_dfi_account:
                         mirror.target_is_dfi_account = target_is_dfi_account
-                        dbsession.add(ProfileLog(
-                            profile_id=self.profile_id,
-                            event_type='update_mirror_target_is_dfi_account',
-                            memo={
-                                'mirror_id': mirror.id,
-                                'target_id': mirror.target_id,
-                                'target_is_dfi_account': target_is_dfi_account,
-                            }))
+                        changes['target_is_dfi_account'] = (
+                            target_is_dfi_account)
+
+                    if 'username' in target_info:
+                        username = target_info['username']
+                        if mirror.target_username != username:
+                            mirror.target_username = username
+                            changes['target_username'] = username
 
                 if mirror.loop_id != '0':
                     loop_title = self.get_loop_title(mirror.loop_id)
                     if loop_title and loop_title != mirror.loop_title:
                         mirror.loop_title = loop_title
-                        dbsession.add(ProfileLog(
-                            profile_id=self.profile_id,
-                            event_type='update_mirror_loop_title',
-                            memo={
-                                'mirror_id': mirror.id,
-                                'loop_id': mirror.loop_id,
-                                'title': loop_title,
-                            }))
+                        changes['loop_title'] = loop_title
+
+                if changes:
+                    dbsession.add(ProfileLog(
+                        profile_id=self.profile_id,
+                        event_type='update_mirror',
+                        memo={
+                            'mirror_id': mirror.id,
+                            'target_id': mirror.target_id,
+                            'changes': changes,
+                        }))
 
                 mirror.last_update = now_func
 

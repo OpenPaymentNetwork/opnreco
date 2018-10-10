@@ -411,11 +411,11 @@ def reco_report_view(request):
     permission='use_app',
     renderer='json')
 def transfer_record_view(request):
-    mirror = get_mirror(request)
-    if mirror is None:
-        raise HTTPNotFound()
+    subpath = request.subpath
+    if not subpath:
+        raise HTTPBadRequest()
 
-    transfer_id = request.subpath[4].replace('-', '')
+    transfer_id = request.subpath[0].replace('-', '')
     dbsession = request.dbsession
     profile = request.profile
     profile_id = profile.id
@@ -423,8 +423,7 @@ def transfer_record_view(request):
     record = (
         dbsession.query(TransferRecord)
         .filter(
-            TransferRecord.profile_id == mirror.profile_id,
-            TransferRecord.file_id == mirror.file_id,
+            TransferRecord.profile_id == profile_id,
             TransferRecord.transfer_id == transfer_id)
         .first())
 
@@ -443,10 +442,22 @@ def transfer_record_view(request):
         .filter(Movement.transfer_record_id == record.id)
         .all())
 
-    title_rows = (
-        dbsession.query(Mirror.target_id, Mirror.target_title)
+    target_ids = set()
+    loop_ids = set()
+    for m, _reco in movement_rows:
+        target_ids.update([m.from_id, m.to_id, m.issuer_id])
+        loop_ids.add(m.loop_id)
+    target_ids.discard(profile_id)
+    loop_ids.discard('0')
+
+    target_title_rows = (
+        dbsession.query(
+            Mirror.target_id,
+            Mirror.target_title,
+            Mirror.target_username)
         .filter(
             Mirror.profile_id == profile_id,
+            Mirror.target_id.in_(target_ids),
             Mirror.target_title != null,
             Mirror.target_title != '')
         .order_by(
@@ -456,9 +467,31 @@ def transfer_record_view(request):
             Mirror.start_date,
         ).all())
 
-    target_titles = {profile_id: profile.title}
-    for target_id, target_title in title_rows:
+    target_titles = {}
+    target_usernames = {}
+    for target_id, target_title, target_username in target_title_rows:
         target_titles[target_id] = target_title
+        target_usernames[target_id] = target_username
+    target_titles[profile_id] = profile.title
+    target_usernames[profile_id] = profile.username
+
+    loop_title_rows = (
+        dbsession.query(Mirror.loop_id, Mirror.loop_title)
+        .filter(
+            Mirror.profile_id == profile_id,
+            Mirror.loop_id.in_(loop_ids),
+            Mirror.loop_title != null,
+            Mirror.loop_title != '')
+        .order_by(
+            case([
+                (Mirror.file_id == null, 1),
+            ], else_=0),
+            Mirror.start_date,
+        ).all())
+
+    loop_titles = {}
+    for loop_id, loop_title in loop_title_rows:
+        loop_titles[loop_id] = loop_title
 
     # Create movement_groups in order to unite the doubled movement
     # rows in a single row.
@@ -498,16 +531,12 @@ def transfer_record_view(request):
         movements_json.append({
             'number': number,
             'target_id': target_id,
-            'target_title': target_titles.get(target_id, ''),
             'loop_id': loop_id,
             'currency': currency,
             'amount': str(movement.amount),
             'issuer_id': movement.issuer_id,
-            'issuer_title': target_titles.get(issuer_id, ''),
             'from_id': movement.from_id,
-            'from_title': target_titles.get(movement.from_id, ''),
             'to_id': movement.to_id,
-            'to_title': target_titles.get(movement.to_id, ''),
             'action': movement.action,
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(movement.wallet_delta),
@@ -548,4 +577,7 @@ def transfer_record_view(request):
         'recipient_title': record.recipient_title,
         'movements': movements_json,
         'exchanges': exchanges_json,
+        'target_titles': target_titles,
+        'target_usernames': target_usernames,
+        'loop_titles': loop_titles,
     }

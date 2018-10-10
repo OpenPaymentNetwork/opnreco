@@ -8,7 +8,7 @@ import Table from '@material-ui/core/Table';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
-import TransferRecord from '../report/TransferRecord';
+import TransferSummary from '../report/TransferSummary';
 
 
 export default class TabContent extends React.Component {
@@ -74,7 +74,7 @@ export default class TabContent extends React.Component {
     case 'liabilities':
       return this.renderLiabilitiesTab();
     case 't':
-      return <TransferRecord account={account} file={file} />;
+      return <TransferSummary account={account} file={file} />;
     default:
       return null;
     }

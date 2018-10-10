@@ -41,6 +41,7 @@ class Profile(Base):
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
+    username = Column(String, nullable=False)
     # last_update is when the profile title was last updated
     last_update = Column(DateTime, nullable=True, server_default=now_func)
     # first_sync_ts is set when a sync has started but not
@@ -80,7 +81,7 @@ class OPNDownload(Base):
 
 
 class File(Base):
-    """A permanent record of transfer records and mirror entries.
+    """A permanent record of a mirror and its reconciliations.
 
     Once a file is created and populated, this tool never changes the file
     contents.
@@ -109,7 +110,6 @@ class TransferRecord(Base):
     __tablename__ = 'transfer_record'
     id = Column(BigInteger, nullable=False, primary_key=True)
     profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
-    file_id = Column(BigInteger, ForeignKey('file.id'), nullable=True)
     transfer_id = Column(String, nullable=False)
 
     workflow_type = Column(String, nullable=False)    # Never changes
@@ -135,7 +135,6 @@ class TransferRecord(Base):
 Index(
     'ix_transfer_record_unique',
     TransferRecord.profile_id,
-    TransferRecord.file_id,
     TransferRecord.transfer_id,
     unique=True)
 
@@ -262,6 +261,7 @@ class Mirror(Base):
     # target_title is based on target_id only and does not refer
     # to the loop_id and currency.
     target_title = Column(Unicode, nullable=True)
+    target_username = Column(String, nullable=True)
     target_is_dfi_account = Column(Boolean, nullable=False, default=False)
     loop_title = Column(Unicode, nullable=True)
     # last_update is when the target_title and loop_title were last updated.

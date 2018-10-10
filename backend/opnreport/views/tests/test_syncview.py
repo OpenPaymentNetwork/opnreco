@@ -41,6 +41,7 @@ class TestDownloadView(unittest.TestCase):
         profile = Profile(
             id=profile_id,
             title="Test Profile",
+            username='testy',
         )
         self.dbsession.add(profile)
         self.dbsession.flush()
@@ -145,12 +146,12 @@ class TestDownloadView(unittest.TestCase):
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/19',
-            json={'title': "Super Bank 19"})
+            json={'title': "Super Bank 19", 'username': 'bank19'})
 
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/20',
-            json={'title': "Super Bank 20"})
+            json={'title': "Super Bank 20", 'username': 'bank20'})
 
         responses.add(
             responses.GET,
@@ -171,11 +172,10 @@ class TestDownloadView(unittest.TestCase):
             'add_mirror',
             'add_mirror',
             'add_mirror',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
-            'update_mirror_target_is_dfi_account',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
+            'update_mirror',
+            'update_mirror',
+            'update_mirror',
+            'update_mirror',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.profile_id)
@@ -294,7 +294,7 @@ class TestDownloadView(unittest.TestCase):
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/19',
-            json={'title': "Super Bank 19"})
+            json={'title': "Super Bank 19", 'username': 'bank19'})
 
         obj = self._make(profile_id='19')
         obj()
@@ -306,7 +306,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(6, len(events))
+        self.assertEqual(5, len(events))
         event = events[0]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -435,7 +435,7 @@ class TestDownloadView(unittest.TestCase):
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/19',
-            json={'title': "Super Bank 19"})
+            json={'title': "Super Bank 19", 'username': 'bank19'})
 
         responses.add(
             responses.GET,
@@ -454,8 +454,8 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_mirror',
             'add_mirror',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
+            'update_mirror',
+            'update_mirror',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.profile_id)
@@ -606,8 +606,8 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_mirror',
             'add_mirror',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
+            'update_mirror',
+            'update_mirror',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('19', event.profile_id)
@@ -754,12 +754,12 @@ class TestDownloadView(unittest.TestCase):
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/19',
-            json={'title': "Super Bank 19"})
+            json={'title': "Super Bank 19", 'username': 'bank19'})
 
         responses.add(
             responses.GET,
             'https://opn.example.com:9999/p/21',
-            json={'title': "Super Bank 21"})
+            json={'title': "Super Bank 21", 'username': 'bank21'})
 
         obj = self._make(profile_id='19')
         obj()
@@ -779,11 +779,11 @@ class TestDownloadView(unittest.TestCase):
             'add_mirror',
             'add_mirror',
             'add_mirror',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
+            'update_mirror',
+            'update_mirror',
+            'update_mirror',
+            'update_mirror',
+            'update_mirror',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('19', event.profile_id)
@@ -997,7 +997,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(7, len(events))
+        self.assertEqual(6, len(events))
         event = events[1]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -1084,7 +1084,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.ProfileLog)
             .order_by(db.ProfileLog.id).all())
-        self.assertEqual(8, len(events))
+        self.assertEqual(7, len(events))
         event = events[-1]
         self.assertEqual('19', event.profile_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -1437,8 +1437,8 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_mirror',
             'add_mirror',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
+            'update_mirror',
+            'update_mirror',
         ], [e.event_type for e in events])
 
         event = events[0]
@@ -1492,8 +1492,8 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_mirror',
             'add_mirror',
-            'update_mirror_target_title',
-            'update_mirror_target_title',
+            'update_mirror',
+            'update_mirror',
             'opn_sync',
         ], [e.event_type for e in events])
         event = events[-1]

@@ -72,7 +72,7 @@ const styles = {
 };
 
 
-class TransferRecord extends React.Component {
+class TransferSummary extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -177,11 +177,28 @@ class TransferRecord extends React.Component {
 
   renderProfileLink(publicURL, id, title) {
     if (!id) {
-      return <span>{title}</span>;
+      return <span>{title || `[Profile ${id}]`}</span>;
     }
+
+    // Prefer the title/username from target_titles and target_usernames.
+    const {record} = this.props;
+    const titles = record.target_titles;
+    let text = title;
+    if (titles) {
+      const title1 = titles[id];
+      if (title1) {
+        const username = record.target_usernames[id];
+        if (username) {
+          text = <span>{title1} (<em>{username}</em>)</span>;
+        } else {
+          text = title1;
+        }
+      }
+    }
+
     return (
       <a href={`${publicURL}/p/${id}`}
-        target="_blank" rel="noopener noreferrer">{title}</a>
+        target="_blank" rel="noopener noreferrer">{text}</a>
     );
   }
 
@@ -342,14 +359,12 @@ class TransferRecord extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {account, file, match} = ownProps;
+  const {account, match} = ownProps;
   const transferId = match.params.transferId;
   const profileId = state.login.id;
 
   if (account && transferId) {
-    const recordURL = fOPNReport.pathToURL(
-      `/transfer-record/${account.target_id}/${account.loop_id}/` +
-      `${account.currency}/${file ? file.id : 'current'}/${transferId}`);
+    const recordURL = fOPNReport.pathToURL(`/transfer-record/${transferId}`);
     const record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);
@@ -374,4 +389,4 @@ export default compose(
   withStyles(styles),
   withRouter,
   connect(mapStateToProps),
-)(TransferRecord);
+)(TransferSummary);
