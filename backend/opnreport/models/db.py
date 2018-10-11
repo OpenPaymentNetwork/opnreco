@@ -35,14 +35,14 @@ Base = declarative_base(metadata=metadata)
 now_func = func.timezone('UTC', func.current_timestamp())
 
 
-class Profile(Base):
-    """Info about a profile that has used this tool."""
-    __tablename__ = 'profile'
+class Owner(Base):
+    """Info about an OPN profile that has used this tool."""
+    __tablename__ = 'owner'
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
     username = Column(String, nullable=False)
-    # last_update is when the profile title was last updated
+    # last_update is when the title and username were last updated.
     last_update = Column(DateTime, nullable=True, server_default=now_func)
     # first_sync_ts is set when a sync has started but not
     # finished.  It contains the first_sync_ts from the first batch.
@@ -56,13 +56,13 @@ class Profile(Base):
     sync_done = Column(BigInteger, nullable=False, default=0)
 
 
-class ProfileLog(Base):
-    """Log of an event related to a profile"""
-    __tablename__ = 'profile_log'
+class OwnerLog(Base):
+    """Log of an event related to an owner"""
+    __tablename__ = 'owner_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
     event_type = Column(String, nullable=False)
     remote_addr = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
@@ -70,12 +70,12 @@ class ProfileLog(Base):
 
 
 class OPNDownload(Base):
-    """A record of OPN data downloaded for a profile.
+    """A record of OPN data downloaded for an owner.
     """
     __tablename__ = 'opn_download'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), index=True, nullable=False)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), index=True, nullable=False)
     ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
@@ -88,8 +88,8 @@ class File(Base):
     """
     __tablename__ = 'file'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(
-        String, ForeignKey('profile.id'), nullable=False, index=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
     mirror_id = Column(
         BigInteger, ForeignKey('mirror.id'), nullable=False, index=True)
     end_date = Column(Date, nullable=False)
@@ -98,18 +98,17 @@ class File(Base):
 
 
 class TransferRecord(Base):
-    """A profile's transfer record.
+    """An owner's transfer record.
 
-    Each profile has a different filtered view of the list of movements
-    for a transfer, so this app only keeps profile-specific transfer records,
-    not cross-profile transfer records.
+    Each owner has a different filtered view of the list of movements
+    for a transfer, so this app only keeps owner-specific transfer records.
 
     Note: transfers have other fields that aren't reflected here because they
     aren't important for this app.
     """
     __tablename__ = 'transfer_record'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
+    owner_id = Column(String, ForeignKey('owner.id'), nullable=False)
     transfer_id = Column(String, nullable=False)
 
     workflow_type = Column(String, nullable=False)    # Never changes
@@ -123,18 +122,18 @@ class TransferRecord(Base):
 
     sender_id = Column(String, nullable=True)         # May change
     sender_uid = Column(Unicode, nullable=True)       # May change
-    sender_title = Column(Unicode, nullable=True)     # May change
+    sender_info = Column(JSONB, nullable=True)        # May change
 
     recipient_id = Column(String, nullable=True)      # May change
     recipient_uid = Column(Unicode, nullable=True)    # May change
-    recipient_title = Column(Unicode, nullable=True)  # May change
+    recipient_info = Column(JSONB, nullable=True)     # May change
 
-    profile = backref(Profile)
+    owner = backref(Owner)
 
 
 Index(
     'ix_transfer_record_unique',
-    TransferRecord.profile_id,
+    TransferRecord.owner_id,
     TransferRecord.transfer_id,
     unique=True)
 
@@ -156,17 +155,17 @@ class TransferDownloadRecord(Base):
 
 
 class Movement(Base):
-    """A movement in a transfer applied to the profile.
+    """A movement in a transfer record.
 
-    Note: two rows are created for every movement, one for the target account
-    or wallet, and one for the 'c' ('circulation' or 'common') target. This
+    Note: two rows are created for every movement, one for the peer mirror,
+    and one for the 'c' ('circulation' or 'common') mirror. This
     doubling reflects the fact that the user may need to run a separate
-    reconciliation for the circulation account and the target account.
+    reconciliation for the circulation account and the peer account.
 
     The UI should do what it can to show only one of the two reconciliations;
-    for example, if the target has no vault, the circulation reconciliation
-    should not be shown; as another example, if the target is a wallet rather
-    than a DFI account, the target reconciliation should not be shown.
+    for example, if the peer has no vault, the circulation reconciliation
+    should not be shown; as another example, if the peer is a wallet rather
+    than a DFI account, the peer reconciliation should not be shown.
 
     Note: movement rows are meant to be immutable.
     """
@@ -176,13 +175,13 @@ class Movement(Base):
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
     number = Column(Integer, nullable=False)
 
-    # target_id can be 'c' (for 'common' or 'circulation'). The 'c'
+    # peer_id can be 'c' (for 'common' or 'circulation'). The 'c'
     # row is the doubled row.
-    target_id = Column(String, nullable=False)
-    # orig_target_id is never 'c'.
-    orig_target_id = Column(
+    peer_id = Column(String, nullable=False)
+    # orig_peer_id is never 'c'.
+    orig_peer_id = Column(
         String, CheckConstraint(
-            "orig_target_id != 'c'", name='orig_target_id_not_c'),
+            "orig_peer_id != 'c'", name='orig_peer_id_not_c'),
         nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
@@ -206,8 +205,8 @@ Index(
     'ix_movement_unique',
     Movement.transfer_record_id,
     Movement.number,
-    Movement.target_id,
-    Movement.orig_target_id,
+    Movement.peer_id,
+    Movement.orig_peer_id,
     Movement.loop_id,
     Movement.currency,
     Movement.issuer_id,
@@ -232,52 +231,86 @@ class MovementLog(Base):
     movement = backref(Movement)
 
 
+class Peer(Base):
+    """Info about a peer (an OPN holder).
+
+    Peers are updated automatically until frozen into a file.
+    """
+    __tablename__ = 'peer'
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, primary_key=True)
+    peer_id = Column(
+        String, nullable=False, primary_key=True)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, primary_key=True)
+
+    title = Column(Unicode, nullable=True)
+    username = Column(String, nullable=True)
+    is_dfi_account = Column(Boolean, nullable=False, default=False)
+
+    # Note: don't try to update if removed or if file_id is non-null.
+    removed = Column(Boolean, nullable=False, default=False)
+    last_update = Column(DateTime, nullable=True)
+
+
+class CashDesign(Base):
+    """Info about an unfiled cash design.
+
+    Cash designs are updated automatically until frozen into a file.
+    """
+    __tablename__ = 'cash_design'
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, primary_key=True)
+    loop_id = Column(
+        String, nullable=False, primary_key=True)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, primary_key=True)
+
+    title = Column(Unicode, nullable=True)
+
+    # Note: don't try to update if removed or if file_id is non-null.
+    removed = Column(Boolean, nullable=False, default=False)
+    last_update = Column(DateTime, nullable=True)
+
+
 class Mirror(Base):
     """A time-boxed record of movements that should mirror OPN transfers.
 
-    Represents a period of time for an account at a DFI, someone else's wallet,
-    or the circulating omnibus account managed by an issuer.
+    Represents a period of time for transfers with a specific peer,
+    where a peer is a wallet, account, or the circulating omnibus account
+    managed by an issuer.
 
-    A mirror could be called an "account period", but mirror is shorter. ;-)
+    A mirror could be called an "peer time period", but mirror is shorter. ;-)
 
-    The time period is defined by the file_id. When file_id is not set,
-    the time period is not yet defined.
+    The end of the time period is defined by the file_id. When file_id is
+    not set, the time period is not yet defined.
 
-    A different mirror exists for each existent combination of
-    holding profile, target_id (or 'c' for circulation),
+    A different mirror exists for each existent combination of owner, peer_id,
     loop_id, currency, and file_id.
     """
     __tablename__ = 'mirror'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    profile_id = Column(String, ForeignKey('profile.id'), nullable=False)
-    # target_id is either an OPN holder ID or
+    owner_id = Column(String, ForeignKey('owner.id'), nullable=False)
+    # peer_id is either an OPN holder ID or
     # the letter 'c' for circulating.
-    target_id = Column(String, nullable=False)
+    peer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
     file_id = Column(BigInteger, ForeignKey('file.id'), nullable=True)
     start_date = Column(Date, nullable=True)
     start_balance = Column(Numeric, nullable=False, default=0)
-    # target_title is based on target_id only and does not refer
-    # to the loop_id and currency.
-    target_title = Column(Unicode, nullable=True)
-    target_username = Column(String, nullable=True)
-    target_is_dfi_account = Column(Boolean, nullable=False, default=False)
-    loop_title = Column(Unicode, nullable=True)
-    # last_update is when the target_title and loop_title were last updated.
-    last_update = Column(DateTime, nullable=True)
     # has_vault is true if notes moved into or out of this mirror's vault.
     has_vault = Column(Boolean, nullable=False, default=False)
 
-    profile = backref(Profile)
+    owner = backref(Owner)
 
     def getstate(self):
         start_date = self.start_date
         last_update = self.last_update
         return {
             'id': str(self.id),
-            'profile_id': self.profile_id,
-            'target_id': self.target_id,
+            'owner_id': self.owner_id,
+            'peer_id': self.peer_id,
             'loop_id': self.loop_id,
             'currency': self.currency,
             'file_id': str(self.file_id),
@@ -285,9 +318,6 @@ class Mirror(Base):
                 None if start_date is None
                 else start_date.isoformat() + 'Z'),
             'start_balance': str(self.start_balance),
-            'target_title': self.target_title,
-            'target_is_dfi_account': self.target_is_dfi_account,
-            'loop_title': self.loop_title,
             'last_update': (
                 None if last_update is None
                 else last_update.isoformat() + 'Z'),
@@ -297,8 +327,8 @@ class Mirror(Base):
 
 Index(
     'ix_mirror_unique',
-    Mirror.profile_id,
-    Mirror.target_id,
+    Mirror.owner_id,
+    Mirror.peer_id,
     Mirror.loop_id,
     Mirror.currency,
     Mirror.file_id,
@@ -315,7 +345,7 @@ class MirrorStatement(Base):
     ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
-    profile = backref(Profile)
+    owner = backref(Owner)
 
 
 class MirrorEntry(Base):
@@ -342,7 +372,7 @@ class MirrorEntry(Base):
     # desc contains descriptive info provided by the bank.
     desc = Column(JSONB, nullable=False)
 
-    profile = backref(Profile)
+    mirror = backref(Mirror)
     statement = backref(MirrorStatement)
 
 
@@ -432,7 +462,7 @@ class Exchange(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
-    target_id = Column(String, nullable=False)
+    peer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
     # origin_reco_id identifies the auto-generated reco that originated the

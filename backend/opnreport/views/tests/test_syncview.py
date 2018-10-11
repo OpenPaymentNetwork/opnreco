@@ -35,20 +35,20 @@ class TestDownloadView(unittest.TestCase):
         from ..syncview import SyncView
         return SyncView
 
-    def _make(self, profile_id='11'):
-        from opnreport.models.db import Profile
+    def _make(self, owner_id='11'):
+        from opnreport.models.db import Owner
 
-        profile = Profile(
-            id=profile_id,
+        owner = Owner(
+            id=owner_id,
             title="Test Profile",
             username='testy',
         )
-        self.dbsession.add(profile)
+        self.dbsession.add(owner)
         self.dbsession.flush()
 
         request = pyramid.testing.DummyRequest(
             dbsession=self.dbsession,
-            profile=profile,
+            owner=owner,
             access_token='example-token',
             remote_addr='127.0.0.1',
             user_agent='Test UA',
@@ -79,11 +79,11 @@ class TestDownloadView(unittest.TestCase):
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('11', downloads[0].profile_id)
+        self.assertEqual('11', downloads[0].owner_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
+        events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual(1, len(events))
-        self.assertEqual('11', events[0].profile_id)
+        self.assertEqual('11', events[0].owner_id)
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(0, len(records))

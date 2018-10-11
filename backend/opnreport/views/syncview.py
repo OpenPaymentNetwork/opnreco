@@ -1,5 +1,6 @@
 
 from decimal import Decimal
+from opnreport.models.db import CashDesign
 from opnreport.models.db import Exchange
 from opnreport.models.db import Mirror
 from opnreport.models.db import Movement
@@ -7,7 +8,8 @@ from opnreport.models.db import MovementLog
 from opnreport.models.db import MovementReco
 from opnreport.models.db import now_func
 from opnreport.models.db import OPNDownload
-from opnreport.models.db import ProfileLog
+from opnreport.models.db import OwnerLog
+from opnreport.models.db import Peer
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferDownloadRecord
 from opnreport.models.db import TransferRecord
@@ -44,39 +46,38 @@ class SyncView:
     """
     def __init__(self, request):
         self.request = request
-        self.profile = profile = request.profile
-        self.profile_id = profile.id
-        self.mirrors = {}  # {(target_id, loop_id, currency): mirror}
+        self.owner = owner = request.owner
+        self.owner_id = owner.id
         self.api_url = os.environ['opn_api_url']
 
-        # profile_titles is a cache of {profile_id: title}.
-        self.profile_titles = {}
+        # peers is a cache of {peer_id: Peer}.
+        self.peers = {}
 
-        # profile_usernames is a cache of {profile_id: username}.
-        self.profile_usernames = {}
+        # cash_designs is a cache of {loop_id: CashDesign}.
+        self.cash_designs = {}
 
-        # loop_titles is a cache of {loop_id: title}.
-        self.loop_titles = {}
+        # mirrors: {(peer_id, loop_id, currency): mirror}
+        self.mirrors = {}
 
     def __call__(self):
         request = self.request
-        profile = self.profile
+        owner = self.owner
 
-        if profile.first_sync_ts is None:
+        if owner.first_sync_ts is None:
             # Start a new sync. Download transfers created or changed
             # after 5 minutes before the last sync. (Add 5 minutes in
             # case some transfers showed up out of order.)
-            if profile.last_sync_ts is not None:
+            if owner.last_sync_ts is not None:
                 sync_ts = (
-                    profile.last_sync_ts - datetime.timedelta(seconds=60 * 5))
+                    owner.last_sync_ts - datetime.timedelta(seconds=60 * 5))
             else:
                 sync_ts = datetime.datetime(1970, 1, 1)
             sync_transfer_id = None
             count_remain = True
         else:
             # A sync was started but not finished. Download the next batch.
-            sync_ts = profile.last_sync_ts
-            sync_transfer_id = profile.last_sync_transfer_id
+            sync_ts = owner.last_sync_ts
+            sync_transfer_id = owner.last_sync_transfer_id
             count_remain = False
         sync_ts_iso = sync_ts.isoformat() + 'Z'
 
@@ -101,31 +102,31 @@ class SyncView:
 
         if more:
             len_results = len(transfers_download['results'])
-            if profile.first_sync_ts is None:
-                profile.first_sync_ts = to_datetime(
+            if owner.first_sync_ts is None:
+                owner.first_sync_ts = to_datetime(
                     transfers_download['first_sync_ts'])
-                profile.sync_total = len_results + transfers_download['remain']
-                profile.sync_done = len_results
+                owner.sync_total = len_results + transfers_download['remain']
+                owner.sync_done = len_results
             else:
-                profile.sync_done += len_results
-            profile.last_sync_ts = to_datetime(
+                owner.sync_done += len_results
+            owner.last_sync_ts = to_datetime(
                 transfers_download['last_sync_ts'])
-            profile.last_transfer_id = (
+            owner.last_transfer_id = (
                 transfers_download['results'][-1]['id'])
             # Note: avoid division by zero.
             progress_percent = int(
-                100.0 * profile.sync_done / profile.sync_total
-                if profile.sync_total else 0.0)
+                100.0 * owner.sync_done / owner.sync_total
+                if owner.sync_total else 0.0)
         else:
-            profile.first_sync_ts = None
-            profile.last_sync_transfer_id = None
-            profile.last_sync_ts = now
-            profile.sync_total = 0
-            profile.sync_done = 0
+            owner.first_sync_ts = None
+            owner.last_sync_transfer_id = None
+            owner.last_sync_ts = now
+            owner.sync_total = 0
+            owner.sync_done = 0
             progress_percent = 100
 
         opn_download = OPNDownload(
-            profile_id=profile.id,
+            owner_id=owner.id,
             content={
                 'transfers': transfers_download,
                 'more': more,
@@ -136,8 +137,8 @@ class SyncView:
 
         self.opn_download_id = opn_download.id
 
-        dbsession.add(ProfileLog(
-            profile_id=profile.id,
+        dbsession.add(OwnerLog(
+            owner_id=owner.id,
             event_type='opn_sync',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
@@ -156,7 +157,7 @@ class SyncView:
         ))
 
         self.import_transfer_records(transfers_download)
-        self.update_mirrors()
+        # self.update_mirrors()
 
         return {
             'count': len(transfers_download['results']),
@@ -168,26 +169,43 @@ class SyncView:
     def import_transfer_records(self, transfers_download):
         """Add and update TransferRecord rows."""
         dbsession = self.request.dbsession
-        profile_id = self.profile_id
+        owner_id = self.owner_id
 
         transfer_ids = [item['id'] for item in transfers_download['results']]
 
+        if not transfer_ids:
+            return
+
         record_list = (
             dbsession.query(TransferRecord)
-            .filter(TransferRecord.profile_id == profile_id)
+            .filter(TransferRecord.owner_id == owner_id)
             .filter(TransferRecord.transfer_id.in_(transfer_ids))
             .all())
 
         record_map = {record.transfer_id: record for record in record_list}
 
+        peer_ids = set()
         for item in transfers_download['results']:
-            sender_title = (item['sender_info'] or {}).get('title')
-            if sender_title:
-                self.profile_titles[item['sender_id']] = sender_title
+            sender_id = item['sender_id']
+            if sender_id:
+                peer_ids.add(sender_id)
+            recipient_id = item['recipient_id']
+            if recipient_id:
+                peer_ids.add(recipient_id)
 
-            recipient_title = (item['recipient_info'] or {}).get('title')
-            if recipient_title:
-                self.profile_titles[item['recipient_id']] = recipient_title
+        peer_rows = (
+            dbsession.query(Peer)
+            .filter(Peer.owner_id == owner_id)
+            .filter(Peer.file_id == null)
+            .filter(Peer.peer_id.in_(peer_ids))
+            .all())
+
+        for peer in peer_rows:
+            self.peers[peer.id] = peer
+
+        for item in transfers_download['results']:
+            self.import_peer(item['sender_id'], item['sender_info'])
+            self.import_peer(item['recipient_id'], item['recipient_info'])
 
             changed = []
             kw = {
@@ -201,10 +219,10 @@ class SyncView:
                 'canceled': item['canceled'],
                 'sender_id': item['sender_id'] or None,
                 'sender_uid': item['sender_uid'] or None,
-                'sender_title': sender_title,
+                'sender_info': item['sender_info'],
                 'recipient_id': item['recipient_id'] or None,
                 'recipient_uid': item['recipient_uid'] or None,
-                'recipient_title': (item['recipient_info'] or {}).get('title'),
+                'recipient_info': item['recipient_info'],
             }
 
             transfer_id = item['id']
@@ -214,9 +232,9 @@ class SyncView:
                 new_record = True
                 record = TransferRecord(
                     transfer_id=transfer_id,
-                    profile_id=profile_id,
+                    owner_id=owner_id,
                     **kw)
-                changed.append('new')
+                changed.append(kw)
                 dbsession.add(record)
                 dbsession.flush()  # Assign record.id
                 record_map[transfer_id] = record
@@ -250,6 +268,53 @@ class SyncView:
             if item['movements']:
                 self.import_movements(record, item, new_record=new_record)
 
+    def import_peer(self, peer_id, info):
+        """Import a peer from a transfer record."""
+        peer = self.peers.get(peer_id)
+        if peer is None:
+            peer = Peer(
+                owner_id=self.owner_id,
+                peer_id=peer_id,
+                file_id=None,
+                title=info.get('title'),
+                username=info.get('screen_name'),
+                is_dfi_account=info.get('is_dfi_account'),
+                last_update=now_func,
+            )
+            dbsession = self.request.dbsession
+            dbsession.add(peer)
+            self.peers[peer_id] = peer
+
+            dbsession.add(OwnerLog(
+                owner_id=self.owner_id,
+                event_type='add_peer',
+                memo={
+                    'peer_id': peer_id,
+                    'info': info,
+                }))
+
+        else:
+            found = 0
+            changes = {}
+            for attr in ('title', 'screen_name', 'is_dfi_account'):
+                value = info.get(attr)
+                if value:
+                    found += 1
+                    if getattr(peer, attr) != value:
+                        changes[attr] = value
+                        setattr(peer, attr, value)
+            if found:
+                peer.last_update = now_func
+
+                if changes:
+                    self.request.dbsession.add(OwnerLog(
+                        owner_id=self.owner_id,
+                        event_type='update_peer',
+                        memo={
+                            'peer_id': peer_id,
+                            'changes': changes,
+                        }))
+
     def import_movements(self, record, item, new_record):
         transfer_id = item['id']
         dbsession = self.request.dbsession
@@ -260,7 +325,7 @@ class SyncView:
             .filter_by(transfer_record_id=record.id)
             .all())
         # movement_rows: {
-        #     (number, target_id, orig_target_id, loop_id, currency,
+        #     (number, peer_id, orig_peer_id, loop_id, currency,
         #      issuer_id):
         #     Movement
         # }
@@ -268,8 +333,8 @@ class SyncView:
         for movement in rows:
             key6 = (
                 movement.number,
-                movement.target_id,
-                movement.orig_target_id,
+                movement.peer_id,
+                movement.orig_peer_id,
                 movement.loop_id,
                 movement.currency,
                 movement.issuer_id,
@@ -287,11 +352,11 @@ class SyncView:
             from_id = movement['from_id']
             to_id = movement['to_id']
 
-            by_target = self.summarize_movement(
+            by_peer = self.summarize_movement(
                 movement, transfer_id=transfer_id)
 
             # Add movement records based on the by_mirror dict.
-            for key5, deltas in sorted(by_target.items()):
+            for key5, deltas in sorted(by_peer.items()):
                 amount, wallet_delta, vault_delta = deltas
                 key6 = (number,) + key5
                 old_movement = movement_dict.get(key6)
@@ -338,12 +403,12 @@ class SyncView:
                     continue
 
                 # Record the movement.
-                target_id, orig_target_id, loop_id, currency, issuer_id = key5
+                peer_id, orig_peer_id, loop_id, currency, issuer_id = key5
                 movement = Movement(
                     transfer_record_id=record.id,
                     number=number,
-                    target_id=target_id,
-                    orig_target_id=orig_target_id,
+                    peer_id=peer_id,
+                    orig_peer_id=orig_peer_id,
                     loop_id=loop_id,
                     currency=currency,
                     issuer_id=issuer_id,
@@ -377,31 +442,23 @@ class SyncView:
         """Summarize a movement.
 
         Return {
-            (target_id, orig_target_id, loop_id, currency, issuer_id):
+            (peer_id, orig_peer_id, loop_id, currency, issuer_id):
             [amount, wallet_delta, vault_delta],
-        }, where target_id can be 'c', but orig_target_id can not.
+        }, where peer_id can be 'c', but orig_peer_id can not.
         """
         number = movement['number']
         from_id = movement['from_id']
         to_id = movement['to_id']
-
-        if not from_id:
-            # Ignore issuance movements. They have no effect on
-            # reconciliation.
-            # (Note: sometimes issuance movements show notes from another
-            # issuer, but that only indicates the issuer is holding another
-            # issuer's notes and will probably give them out soon.)
-            return {}
 
         if not to_id:
             raise AssertionError(
                 "Movement %s in transfer %s has no to_id"
                 % (number, transfer_id))
 
-        profile_id = self.profile_id
-        # by_target:
-        # {(target_id, loop_id, currency): [amount, wallet_delta, vault_delta]}
-        by_target = collections.defaultdict(
+        owner_id = self.owner_id
+        # by_peer:
+        # {(peer_id, loop_id, currency): [amount, wallet_delta, vault_delta]}
+        by_peer = collections.defaultdict(
             lambda: [zero, zero, zero])
 
         for loop in movement['loops']:
@@ -412,8 +469,12 @@ class SyncView:
             wallet_delta = zero
             vault_delta = zero
 
-            if from_id == profile_id and to_id != profile_id:
-                target_id = to_id
+            if not from_id:
+                # Issuance movement.
+                peer_id = to_id
+
+            elif from_id == owner_id and to_id != owner_id:
+                peer_id = to_id
                 if from_id == issuer_id:
                     # Notes were put into circulation.
                     vault_delta = -amount
@@ -421,8 +482,8 @@ class SyncView:
                     # Notes were sent to an account or other wallet.
                     wallet_delta = -amount
 
-            elif to_id == profile_id and from_id != profile_id:
-                target_id = from_id
+            elif to_id == owner_id and from_id != owner_id:
+                peer_id = from_id
                 if to_id == issuer_id:
                     # Notes were taken out of circulation.
                     vault_delta = amount
@@ -430,21 +491,21 @@ class SyncView:
                     # Notes were received from an account or other wallet.
                     wallet_delta = amount
 
-            elif issuer_id == profile_id:
+            elif issuer_id == owner_id:
                 # The issuer is observing a movement, but the movement
-                # is to and from other profiles' wallets or accounts, not
-                # the issuer's wallet or vault. Use the issuer as the target,
-                # but don't record any wallet or vault movement.
-                target_id = issuer_id
+                # does not involve the issuer's wallet or vault.
+                # Use the issuer as the peer, but don't record any
+                # wallet or vault movement.
+                peer_id = issuer_id
 
             else:
-                # Ignore movements from the profile to itself.
+                # Ignore movements from the owner to itself.
                 continue
 
             # Add to the 'c' (circulation/common) movements.
-            c_target_key = ('c', target_id, loop_id, currency, issuer_id)
+            c_peer_key = ('c', peer_id, loop_id, currency, issuer_id)
             c_mirror = self.prepare_mirror('c', loop_id, currency)
-            amounts = by_target[c_target_key]
+            amounts = by_peer[c_peer_key]
             amounts[0] += amount
             if vault_delta:
                 amounts[2] += vault_delta
@@ -454,222 +515,213 @@ class SyncView:
                 amounts[1] += wallet_delta
 
             # Add to the wallet-specific or account-specific movements.
-            target_key = (target_id, target_id, loop_id, currency, issuer_id)
-            self.prepare_mirror(target_id, loop_id, currency)
-            amounts = by_target[target_key]
+            peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
+            self.prepare_mirror(peer_id, loop_id, currency)
+            amounts = by_peer[peer_key]
             amounts[0] += amount
             if vault_delta:
                 amounts[2] += vault_delta
             if wallet_delta:
                 amounts[1] += wallet_delta
 
-            # Ensure there is a mirror for the issuer, from_id profile, and
-            # to_id profile.
-            for pid in (from_id, to_id, issuer_id):
-                if pid != target_id and pid != profile_id:
-                    self.prepare_mirror(pid, loop_id, currency)
+        return by_peer
 
-        return by_target
-
-    def prepare_mirror(self, target_id, loop_id, currency):
-        """Return a mirror for a target_key: (target_id, loop_id, currency).
+    def prepare_mirror(self, peer_id, loop_id, currency):
+        """Return a mirror for a peer_key: (peer_id, loop_id, currency).
         """
-        target_key = (target_id, loop_id, currency)
-        mirror = self.mirrors.get(target_key)
+        peer_key = (peer_id, loop_id, currency)
+        mirror = self.mirrors.get(peer_key)
         if mirror is not None:
             return mirror
 
         dbsession = self.request.dbsession
-        profile_id = self.profile_id
+        owner_id = self.owner_id
         mirror = (
             dbsession.query(Mirror)
             .filter_by(
-                profile_id=profile_id,
-                target_id=target_id,
+                owner_id=owner_id,
+                peer_id=peer_id,
                 file_id=null,
                 loop_id=loop_id,
                 currency=currency,
             ).first()
         )
         if mirror is not None:
-            self.mirrors[target_key] = mirror
+            self.mirrors[peer_key] = mirror
         else:
             mirror = Mirror(
-                profile_id=profile_id,
-                target_id=target_id,
+                owner_id=owner_id,
+                peer_id=peer_id,
                 file_id=null,
                 loop_id=loop_id,
                 currency=currency)
             dbsession.add(mirror)
             dbsession.flush()  # Assign mirror.id
 
-            dbsession.add(ProfileLog(
-                profile_id=self.profile_id,
+            dbsession.add(OwnerLog(
+                owner_id=self.owner_id,
                 event_type='add_mirror',
                 memo={
                     'mirror_id': mirror.id,
-                    'target_id': target_id,
+                    'peer_id': peer_id,
                     'loop_id': loop_id,
                     'currency': currency,
                 }))
 
         return mirror
 
-    @reify
-    def account_map(self):
-        # Get the map of accounts from /wallet/info.
-        account_list = self.request.wallet_info['profile']['accounts']
-        return {a['id']: a for a in account_list}
+    # @reify
+    # def account_map(self):
+    #     # Get the map of accounts from /wallet/info.
+    #     account_list = self.request.wallet_info['profile']['accounts']
+    #     return {a['id']: a for a in account_list}
 
-    def get_target_info(self, target_id):
-        """Return {title, is_dfi_account, username (optional)}."""
-        if target_id == 'c':
-            return {
-                'title': self.profile.title,
-                'username': self.profile.username,
-                'is_dfi_account': False,
-            }
+    # def get_target_info(self, target_id):
+    #     """Return {title, is_dfi_account, username (optional)}."""
+    #     if target_id == 'c':
+    #         return {
+    #             'title': self.profile.title,
+    #             'username': self.profile.username,
+    #             'is_dfi_account': False,
+    #         }
 
-        if target_id == '5916553470':
-            import pdb; pdb.set_trace()
+    #     account = self.account_map.get(target_id)
+    #     if account:
+    #         title = '%s at %s' % (
+    #             account['redacted_account_num'],
+    #             account['rdfi_name'],
+    #         )
+    #         if account['alias']:
+    #             title += ' (%s)' % account['alias']
 
-        account = self.account_map.get(target_id)
-        if account:
-            title = '%s at %s' % (
-                account['redacted_account_num'],
-                account['rdfi_name'],
-            )
-            if account['alias']:
-                title += ' (%s)' % account['alias']
+    #         return {
+    #             'title': title,
+    #             'username': '',
+    #             'is_dfi_account': True,
+    #         }
 
-            return {
-                'title': title,
-                'username': '',
-                'is_dfi_account': True,
-            }
+    #     profile_titles = self.profile_titles
+    #     profile_usernames = self.profile_usernames
 
-        profile_titles = self.profile_titles
-        profile_usernames = self.profile_usernames
+    #     title = profile_titles.get(target_id)
+    #     if title:
+    #         res = {'title': title, 'is_dfi_account': False}
+    #         if target_id in profile_usernames:
+    #             res['username'] = profile_usernames[target_id]
+    #         return res
 
-        title = profile_titles.get(target_id)
-        if title:
-            res = {'title': title, 'is_dfi_account': False}
-            if target_id in profile_usernames:
-                res['username'] = profile_usernames[target_id]
-            return res
+    #     url = '%s/p/%s' % (self.api_url, target_id)
+    #     headers = {'Authorization': 'Bearer %s' % self.request.access_token}
+    #     r = requests.get(url, headers=headers)
+    #     if check_requests_response(r, raise_exc=False):
+    #         r_json = r.json()
+    #         title = r_json['title']
+    #         if title:
+    #             username = r_json['username'] or ''
+    #             profile_titles[target_id] = title
+    #             profile_usernames[target_id] = username
+    #             return {
+    #                 'title': title,
+    #                 'username': username,
+    #                 'is_dfi_account': False,
+    #             }
 
-        url = '%s/p/%s' % (self.api_url, target_id)
-        headers = {'Authorization': 'Bearer %s' % self.request.access_token}
-        r = requests.get(url, headers=headers)
-        if check_requests_response(r, raise_exc=False):
-            r_json = r.json()
-            title = r_json['title']
-            if title:
-                username = r_json['username'] or ''
-                profile_titles[target_id] = title
-                profile_usernames[target_id] = username
-                return {
-                    'title': title,
-                    'username': username,
-                    'is_dfi_account': False,
-                }
+    #     log.warning("Unable to get the title of holder %s", target_id)
 
-        log.warning("Unable to get the title of holder %s", target_id)
+    #     profile_titles[target_id] = ''  # Don't try again.
+    #     return {
+    #         'title': '',
+    #         'is_dfi_account': False,
+    #     }
 
-        profile_titles[target_id] = ''  # Don't try again.
-        return {
-            'title': '',
-            'is_dfi_account': False,
-        }
+    # def get_loop_title(self, loop_id):
+    #     """Return the title of a note design."""
+    #     loop_titles = self.loop_titles
 
-    def get_loop_title(self, loop_id):
-        """Return the title of a note design."""
-        loop_titles = self.loop_titles
+    #     title = loop_titles.get(loop_id)
+    #     if title:
+    #         return title, False
 
-        title = loop_titles.get(loop_id)
-        if title:
-            return title, False
+    #     url = '%s/design/%s' % (self.api_url, loop_id)
+    #     headers = {'Authorization': 'Bearer %s' % self.request.access_token}
+    #     r = requests.get(url, headers=headers)
+    #     if check_requests_response(r, raise_exc=False):
+    #         title = r.json()['title']
+    #         loop_titles[loop_id] = title
+    #         return title
 
-        url = '%s/design/%s' % (self.api_url, loop_id)
-        headers = {'Authorization': 'Bearer %s' % self.request.access_token}
-        r = requests.get(url, headers=headers)
-        if check_requests_response(r, raise_exc=False):
-            title = r.json()['title']
-            loop_titles[loop_id] = title
-            return title
+    #     # The error details were logged by
+    #     # check_requests_response().
+    #     log.warning("Unable to get the title of cash loop %s", loop_id)
 
-        # The error details were logged by
-        # check_requests_response().
-        log.warning("Unable to get the title of cash loop %s", loop_id)
+    #     return ''
 
-        return ''
+    # def update_mirrors(self):
+    #     """Update the target_* and loop_title of the profile's mirrors."""
+    #     update_check_time = (
+    #         datetime.datetime.utcnow() - datetime.timedelta(seconds=60 * 10))
+    #     dbsession = self.request.dbsession
+    #     seen = []
 
-    def update_mirrors(self):
-        """Update the target_* and loop_title of the profile's mirrors."""
-        update_check_time = (
-            datetime.datetime.utcnow() - datetime.timedelta(seconds=60 * 10))
-        dbsession = self.request.dbsession
-        seen = []
+    #     while True:
+    #         mirrors = (
+    #             dbsession.query(Mirror)
+    #             .filter_by(profile_id=self.profile_id)
+    #             .filter(~Mirror.id.in_(seen))
+    #             .filter(or_(
+    #                 Mirror.last_update == null,
+    #                 Mirror.last_update < update_check_time,
+    #             ))
+    #             .order_by(Mirror.id)
+    #             .limit(100)
+    #             .all())
 
-        while True:
-            mirrors = (
-                dbsession.query(Mirror)
-                .filter_by(profile_id=self.profile_id)
-                .filter(~Mirror.id.in_(seen))
-                .filter(or_(
-                    Mirror.last_update == null,
-                    Mirror.last_update < update_check_time,
-                ))
-                .order_by(Mirror.id)
-                .limit(100)
-                .all())
+    #         if not mirrors:
+    #             break
 
-            if not mirrors:
-                break
+    #         for mirror in mirrors:
+    #             # Get the title and other info about the target.
+    #             target_info = self.get_target_info(mirror.target_id)
+    #             target_title = target_info['title']
+    #             target_is_dfi_account = target_info['is_dfi_account']
 
-            for mirror in mirrors:
-                # Get the title and other info about the target.
-                target_info = self.get_target_info(mirror.target_id)
-                target_title = target_info['title']
-                target_is_dfi_account = target_info['is_dfi_account']
+    #             changes = {}
+    #             if target_title:
+    #                 if target_title != mirror.target_title:
+    #                     mirror.target_title = target_title
+    #                     changes['target_title'] = target_title
 
-                changes = {}
-                if target_title:
-                    if target_title != mirror.target_title:
-                        mirror.target_title = target_title
-                        changes['target_title'] = target_title
+    #                 if target_is_dfi_account != mirror.target_is_dfi_account:
+    #                     mirror.target_is_dfi_account = target_is_dfi_account
+    #                     changes['target_is_dfi_account'] = (
+    #                         target_is_dfi_account)
 
-                    if target_is_dfi_account != mirror.target_is_dfi_account:
-                        mirror.target_is_dfi_account = target_is_dfi_account
-                        changes['target_is_dfi_account'] = (
-                            target_is_dfi_account)
+    #                 if 'username' in target_info:
+    #                     username = target_info['username']
+    #                     if mirror.target_username != username:
+    #                         mirror.target_username = username
+    #                         changes['target_username'] = username
 
-                    if 'username' in target_info:
-                        username = target_info['username']
-                        if mirror.target_username != username:
-                            mirror.target_username = username
-                            changes['target_username'] = username
+    #             if mirror.loop_id != '0':
+    #                 loop_title = self.get_loop_title(mirror.loop_id)
+    #                 if loop_title and loop_title != mirror.loop_title:
+    #                     mirror.loop_title = loop_title
+    #                     changes['loop_title'] = loop_title
 
-                if mirror.loop_id != '0':
-                    loop_title = self.get_loop_title(mirror.loop_id)
-                    if loop_title and loop_title != mirror.loop_title:
-                        mirror.loop_title = loop_title
-                        changes['loop_title'] = loop_title
+    #             if changes:
+    #                 dbsession.add(ProfileLog(
+    #                     profile_id=self.profile_id,
+    #                     event_type='update_mirror',
+    #                     memo={
+    #                         'mirror_id': mirror.id,
+    #                         'target_id': mirror.target_id,
+    #                         'changes': changes,
+    #                     }))
 
-                if changes:
-                    dbsession.add(ProfileLog(
-                        profile_id=self.profile_id,
-                        event_type='update_mirror',
-                        memo={
-                            'mirror_id': mirror.id,
-                            'target_id': mirror.target_id,
-                            'changes': changes,
-                        }))
+    #             mirror.last_update = now_func
 
-                mirror.last_update = now_func
-
-            dbsession.flush()
-            seen.extend(m.id for m in mirrors)
+    #         dbsession.flush()
+    #         seen.extend(m.id for m in mirrors)
 
     def autoreco(self, record, movements, new_record):
         """Auto-reconcile some of the movements in a TransferRecord.
@@ -727,11 +779,11 @@ class SyncView:
                         record.transfer_id, wallet_total, -vault_total))
 
             sample_movement = mvlist[-1]  # Use the date of the last movement
-            target_id = sample_movement.target_id
+            peer_id = sample_movement.peer_id
             loop_id = sample_movement.loop_id
             currency = sample_movement.currency
 
-            mirror = self.prepare_mirror(target_id, loop_id, currency)
+            mirror = self.prepare_mirror(peer_id, loop_id, currency)
 
             reco = Reco(
                 mirror_id=mirror.id,
@@ -758,7 +810,7 @@ class SyncView:
                 # totals.
                 dbsession.add(Exchange(
                     transfer_record_id=record.id,
-                    target_id=target_id,
+                    peer_id=peer_id,
                     loop_id=loop_id,
                     currency=currency,
                     origin_reco_id=reco_id,
@@ -796,14 +848,14 @@ def find_internal_movements(movements, done_movement_ids):
     some false positives.
     """
 
-    # Group by target, loop_id, and currency,
+    # Group by peer, loop_id, and currency,
     # filtering out movements that somehow moved nothing.
-    # (Note that we specifically ignore Movement.orig_target_id
+    # (Note that we specifically ignore Movement.orig_peer_id
     # because it is not relevant here.)
     groups = collections.defaultdict(list)
     for movement in movements:
         if movement.wallet_delta + movement.vault_delta != zero:
-            key = (movement.target_id, movement.loop_id, movement.currency)
+            key = (movement.peer_id, movement.loop_id, movement.currency)
             groups[key].append(movement)
 
     # all_internal_seqs is a list of movement sequences that

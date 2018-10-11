@@ -1,8 +1,8 @@
 
 from dotenv import load_dotenv
 from opnreport.auth import OPNTokenAuthenticationPolicy
-from opnreport.models.db import Profile
-from opnreport.models.db import ProfileLog
+from opnreport.models.db import Owner
+from opnreport.models.db import OwnerLog
 from opnreport.models.site import Site
 from opnreport.render import CustomJSONRenderer
 from opnreport.util import check_requests_response
@@ -43,7 +43,7 @@ def access_token(request):
 
 
 def wallet_info(request):
-    """Get the info about the profile from OPN."""
+    """Get the info about the owner profile from OPN."""
     access_token = request.access_token
     if not access_token:
         return None
@@ -57,60 +57,60 @@ def wallet_info(request):
     return r.json()
 
 
-def profile(request):
-    """Get the Profile row for the authenticated profile"""
+def owner(request):
+    """Get the Owner row for the authenticated profile"""
     authenticated_userid = request.authenticated_userid
     if not authenticated_userid:
         return None
 
     dbsession = request.dbsession
-    profile = (
-        dbsession.query(Profile)
+    owner = (
+        dbsession.query(Owner)
         .filter_by(id=authenticated_userid)
         .first())
-    if profile is None:
-        profile_info = request.wallet_info['profile']
+    if owner is None:
+        owner_info = request.wallet_info['owner']
 
         # Insert without creating a conflict with concurrent requests.
         values = {
-            'id': profile_info['id'],
-            'title': profile_info['title'],
-            'username': profile_info['username'] or '',
+            'id': owner_info['id'],
+            'title': owner_info['title'],
+            'username': owner_info['username'] or '',
         }
         stmt = (
             sqlalchemy.dialects.postgresql.insert(
-                Profile.__table__, bind=dbsession).values(**values)
+                Owner.__table__, bind=dbsession).values(**values)
             .on_conflict_do_nothing())
         dbsession.execute(stmt)
 
-        # Now the profile should exist.
-        profile = (
-            dbsession.query(Profile)
+        # Now the owner should exist.
+        owner = (
+            dbsession.query(Owner)
             .filter_by(id=authenticated_userid)
             .one())
 
-        dbsession.add(ProfileLog(
-            profile_id=profile.id,
+        dbsession.add(OwnerLog(
+            owner_id=owner.id,
             event_type='created',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
-            memo={'title': profile.title},
+            memo={'title': owner.title},
         ))
 
     else:
         now = datetime.datetime.utcnow()
-        if now - profile.last_update >= datetime.timedelta(seconds=60 * 15):
-            # Update the profile title and username.
+        if now - owner.last_update >= datetime.timedelta(seconds=60 * 15):
+            # Update the owner's title and username.
             wallet_info = request.wallet_info
             profile_info = wallet_info['profile']
-            if profile.title != profile_info['title']:
-                profile.title = profile_info['title']
+            if owner.title != profile_info['title']:
+                owner.title = profile_info['title']
             username = profile_info['username'] or ''
-            if profile.username != username:
-                profile.username = username
-            profile.last_update = now
+            if owner.username != username:
+                owner.username = username
+            owner.last_update = now
 
-    return profile
+    return owner
 
 
 def main(global_config, **settings):
@@ -130,7 +130,7 @@ def main(global_config, **settings):
     config.add_request_method(Site, name='site', reify=True)
     config.add_request_method(access_token, name='access_token', reify=True)
     config.add_request_method(wallet_info, name='wallet_info', reify=True)
-    config.add_request_method(profile, name='profile', reify=True)
+    config.add_request_method(owner, name='owner', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 
     config.include('opnreport.cors')

@@ -1,5 +1,5 @@
 
-from opnreport.models.db import ProfileLog
+from opnreport.models.db import OwnerLog
 from opnreport.util import check_requests_response
 from pyramid.interfaces import IAuthenticationPolicy
 from pyramid.security import Authenticated
@@ -62,10 +62,6 @@ class OPNTokenAuthenticationPolicy(object):
 
         wallet_info = self._request_wallet_info(request, token)
         if wallet_info is not None:
-            # Stash the wallet_info request attr so we don't have to
-            # get it later.
-            request.wallet_info = wallet_info
-
             profile_info = wallet_info['profile']
             profile_id = profile_info['id']
             self.token_cache[token] = {
@@ -73,10 +69,11 @@ class OPNTokenAuthenticationPolicy(object):
                 'valid_until': now + self.cache_duration,
                 'wallet_info': wallet_info,
             }
+            request.wallet_info = wallet_info
 
-            request.profile  # Add the Profile to the database
-            request.dbsession.add(ProfileLog(
-                profile_id=profile_id,
+            request.owner  # Add the Owner to the database
+            request.dbsession.add(OwnerLog(
+                owner_id=profile_id,
                 event_type='access',
                 remote_addr=request.remote_addr,
                 user_agent=request.user_agent,
