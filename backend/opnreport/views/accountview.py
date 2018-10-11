@@ -454,12 +454,15 @@ def transfer_record_view(request):
         dbsession.query(
             Mirror.target_id,
             Mirror.target_title,
-            Mirror.target_username)
+            Mirror.target_username,
+            Mirror.target_is_dfi_account,
+        )
         .filter(
             Mirror.profile_id == profile_id,
             Mirror.target_id.in_(target_ids),
             Mirror.target_title != null,
-            Mirror.target_title != '')
+            Mirror.target_title != '',
+        )
         .order_by(
             case([
                 (Mirror.file_id == null, 1),
@@ -469,11 +472,25 @@ def transfer_record_view(request):
 
     target_titles = {}
     target_usernames = {}
-    for target_id, target_title, target_username in target_title_rows:
+    target_accounts = {}
+    for row in target_title_rows:
+        target_id, target_title, target_username, target_is_dfi_account = row
         target_titles[target_id] = target_title
         target_usernames[target_id] = target_username
+        target_accounts[target_id] = target_is_dfi_account
     target_titles[profile_id] = profile.title
     target_usernames[profile_id] = profile.username
+
+    target_sortables = []
+    for target_id, title in target_titles.items():
+        if target_id == profile_id:
+            sort_key = (0,)
+        else:
+            sort_key = (1, title.lower(), title, target_id)
+        target_sortables.append((target_id, sort_key))
+    target_sortables.sort(key=lambda x: x[1])
+    target_order = [x for x, y in target_sortables]
+    target_index = {x: i for (i, x) in enumerate(target_order)}
 
     loop_title_rows = (
         dbsession.query(Mirror.loop_id, Mirror.loop_title)
@@ -579,5 +596,8 @@ def transfer_record_view(request):
         'exchanges': exchanges_json,
         'target_titles': target_titles,
         'target_usernames': target_usernames,
+        'target_order': target_order,
+        'target_index': target_index,
+        'target_accounts': target_accounts,
         'loop_titles': loop_titles,
     }

@@ -530,6 +530,9 @@ class SyncView:
                 'is_dfi_account': False,
             }
 
+        if target_id == '5916553470':
+            import pdb; pdb.set_trace()
+
         account = self.account_map.get(target_id)
         if account:
             title = '%s at %s' % (
@@ -615,7 +618,8 @@ class SyncView:
                 .filter(~Mirror.id.in_(seen))
                 .filter(or_(
                     Mirror.last_update == null,
-                    Mirror.last_update < update_check_time))
+                    Mirror.last_update < update_check_time,
+                ))
                 .order_by(Mirror.id)
                 .limit(100)
                 .all())
