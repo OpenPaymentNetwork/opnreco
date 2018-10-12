@@ -110,11 +110,13 @@ class TestDownloadView(unittest.TestCase):
                     'sender_uid': 'wingcash:11',
                     'sender_info': {
                         'title': "Tester",
+                        'screen_name': 'testy',
                     },
                     'recipient_id': '1102',
                     'recipient_uid': 'wingcash:1102',
                     'recipient_info': {
                         'title': "Acct",
+                        'is_dfi_account': True,
                     },
                     'movements': [{
                         'number': 2,
@@ -163,22 +165,18 @@ class TestDownloadView(unittest.TestCase):
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('11', downloads[0].profile_id)
+        self.assertEqual('11', downloads[0].owner_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
+        events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'add_mirror',
-            'add_mirror',
-            'add_mirror',
-            'add_mirror',
-            'update_mirror',
-            'update_mirror',
-            'update_mirror',
-            'update_mirror',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
         ], [e.event_type for e in events])
         event = events[0]
-        self.assertEqual('11', event.profile_id)
+        self.assertEqual('11', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -195,31 +193,42 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
         self.assertEqual('wingcash:11', record.sender_uid)
-        self.assertEqual('Tester', record.sender_title)
         self.assertEqual('1102', record.recipient_id)
         self.assertEqual('wingcash:1102', record.recipient_uid)
-        self.assertEqual('Acct', record.recipient_title)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .order_by(db.Mirror.target_id).all())
-        self.assertEqual(4, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('11', mirror.profile_id)
-        self.assertEqual('1102', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
-        self.assertEqual('XXX45 at Test Bank (myacct)', mirror.target_title)
-        self.assertEqual(None, mirror.loop_title)
+        peers = self.dbsession.query(db.Peer).order_by(db.Peer.peer_id).all()
+        self.assertEqual(2, len(peers))
+
+        self.assertEqual('11', peers[0].owner_id)
+        self.assertEqual('11', peers[0].peer_id)
+        self.assertEqual('Test Profile', peers[0].title)
+        self.assertEqual('testy', peers[0].username)
+        self.assertEqual(False, peers[0].is_dfi_account)
+
+        self.assertEqual('11', peers[1].owner_id)
+        self.assertEqual('1102', peers[1].peer_id)
+        self.assertEqual('XXX45 at Test Bank (myacct)', peers[1].title)
+        self.assertEqual('', peers[1].username)
+        self.assertEqual(True, peers[1].is_dfi_account)
+
+        files = (
+            self.dbsession.query(db.File)
+            .order_by(db.File.peer_id).all())
+        self.assertEqual(2, len(files))
+        file = files[0]
+        self.assertEqual('11', file.owner_id)
+        self.assertEqual('1102', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='1102').all())
+            .filter_by(peer_id='1102').all())
         self.assertEqual(2, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual(2, m.number)
-        self.assertEqual('1102', m.target_id)
+        self.assertEqual('1102', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual('19', m.issuer_id)
@@ -229,7 +238,7 @@ class TestDownloadView(unittest.TestCase):
         m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual(2, m.number)
-        self.assertEqual('1102', m.target_id)
+        self.assertEqual('1102', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual('20', m.issuer_id)
@@ -296,19 +305,19 @@ class TestDownloadView(unittest.TestCase):
             'https://opn.example.com:9999/p/19',
             json={'title': "Super Bank 19", 'username': 'bank19'})
 
-        obj = self._make(profile_id='19')
+        obj = self._make(owner_id='19')
         obj()
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('19', downloads[0].profile_id)
+        self.assertEqual('19', downloads[0].owner_id)
 
         events = (
-            self.dbsession.query(db.ProfileLog)
-            .order_by(db.ProfileLog.id).all())
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id).all())
         self.assertEqual(5, len(events))
         event = events[0]
-        self.assertEqual('19', event.profile_id)
+        self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
@@ -326,23 +335,19 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
         self.assertEqual('wingcash:11', record.sender_uid)
-        self.assertEqual('Tester', record.sender_title)
         self.assertEqual('1102', record.recipient_id)
         self.assertEqual('wingcash:1102', record.recipient_uid)
-        self.assertEqual('Acct', record.recipient_title)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .filter_by(target_id='c')
+        files = (
+            self.dbsession.query(db.File)
+            .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
-        self.assertEqual('Test Profile', mirror.target_title)
-        self.assertEqual(None, mirror.loop_title)
+        self.assertEqual(1, len(files))
+        file = files[0]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         all_movements = (
             self.dbsession.query(db.Movement)
@@ -351,12 +356,12 @@ class TestDownloadView(unittest.TestCase):
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='c')
+            .filter_by(peer_id='c')
             .all())
         self.assertEqual(1, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.vault_delta)
@@ -442,23 +447,23 @@ class TestDownloadView(unittest.TestCase):
             'https://opn.example.com:9999/p/1102',
             json={'title': "Tester's Super Bank Checking Account"})
 
-        obj = self._make(profile_id='11')
+        obj = self._make(owner_id='11')
         obj()
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('11', downloads[0].profile_id)
+        self.assertEqual('11', downloads[0].owner_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
+        events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'add_mirror',
-            'add_mirror',
-            'update_mirror',
-            'update_mirror',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
         ], [e.event_type for e in events])
         event = events[0]
-        self.assertEqual('11', event.profile_id)
+        self.assertEqual('11', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
@@ -476,37 +481,50 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(False, record.canceled)
         self.assertEqual('19', record.sender_id)
         self.assertEqual('wingcash:19', record.sender_uid)
-        self.assertEqual('Issuer', record.sender_title)
         self.assertEqual('11', record.recipient_id)
         self.assertEqual('wingcash:11', record.recipient_uid)
-        self.assertEqual('Some Tester', record.recipient_title)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .order_by(db.Mirror.target_id).all())
-        self.assertEqual(2, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('11', mirror.profile_id)
-        self.assertEqual('19', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        peers = self.dbsession.query(db.Peer).order_by(db.Peer.peer_id).all()
+        self.assertEqual(2, len(peers))
+
+        self.assertEqual('11', peers[0].owner_id)
+        self.assertEqual('11', peers[0].peer_id)
+        self.assertEqual('Test Profile', peers[0].title)
+        self.assertEqual('testy', peers[0].username)
+        self.assertEqual(False, peers[0].is_dfi_account)
+
+        self.assertEqual('11', peers[1].owner_id)
+        self.assertEqual('19', peers[1].peer_id)
+        self.assertEqual('Issuer', peers[1].title)
+        self.assertEqual(None, peers[1].username)
+        self.assertEqual(False, peers[1].is_dfi_account)
+
+        files = (
+            self.dbsession.query(db.File)
+            .order_by(db.File.peer_id).all())
+        self.assertEqual(2, len(files))
+        file = files[0]
+        self.assertEqual('11', file.owner_id)
+        self.assertEqual('19', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='19')
+            .filter_by(peer_id='19')
             .order_by(db.Movement.number)
             .all())
         self.assertEqual(2, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('19', m.target_id)
+        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.wallet_delta)
 
         m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('19', m.target_id)
+        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('0.25'), m.wallet_delta)
@@ -546,7 +564,7 @@ class TestDownloadView(unittest.TestCase):
                     },
                     'movements': [
                         {
-                            # Issuance movement to ignore
+                            # Issuance movement
                             'number': 1,
                             'timestamp': '2018-08-02T05:06:06Z',
                             'action': 'issue',
@@ -591,26 +609,27 @@ class TestDownloadView(unittest.TestCase):
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
             })
-        obj = self._make(profile_id='19')
+        obj = self._make(owner_id='19')
         obj()
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('19', downloads[0].profile_id)
+        self.assertEqual('19', downloads[0].owner_id)
 
         events = (
-            self.dbsession.query(db.ProfileLog)
-            .order_by(db.ProfileLog.id)
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id)
             .all())
         self.assertEqual([
             'opn_sync',
-            'add_mirror',
-            'add_mirror',
-            'update_mirror',
-            'update_mirror',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
+            'add_file',
         ], [e.event_type for e in events])
         event = events[0]
-        self.assertEqual('19', event.profile_id)
+        self.assertEqual('19', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -627,46 +646,52 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(False, record.canceled)
         self.assertEqual('19', record.sender_id)
         self.assertEqual('wingcash:19', record.sender_uid)
-        self.assertEqual('Issuer', record.sender_title)
         self.assertEqual('11', record.recipient_id)
         self.assertEqual('wingcash:11', record.recipient_uid)
-        self.assertEqual('Some Tester', record.recipient_title)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .filter_by(target_id='c')
+        files = (
+            self.dbsession.query(db.File)
+            .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        self.assertEqual(1, len(files))
+        file = files[0]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='c')
+            .filter_by(peer_id='c')
             .order_by(db.Movement.number)
             .all())
-        self.assertEqual(2, len(movements))
+        self.assertEqual(3, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
+        self.assertEqual('0', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual(zero, m.vault_delta)
+        self.assertEqual(zero, m.wallet_delta)
+
+        m = movements[1]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('-1.00'), m.vault_delta)
         self.assertEqual(zero, m.wallet_delta)
 
-        m = movements[1]
+        m = movements[2]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('-0.25'), m.vault_delta)
         self.assertEqual(zero, m.wallet_delta)
 
         events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(4, len(events))
+        self.assertEqual(6, len(events))
         event = events[0]
         self.assertEqual('download', event.event_type)
 
@@ -761,32 +786,27 @@ class TestDownloadView(unittest.TestCase):
             'https://opn.example.com:9999/p/21',
             json={'title': "Super Bank 21", 'username': 'bank21'})
 
-        obj = self._make(profile_id='19')
+        obj = self._make(owner_id='19')
         obj()
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('19', downloads[0].profile_id)
+        self.assertEqual('19', downloads[0].owner_id)
 
         events = (
-            self.dbsession.query(db.ProfileLog)
-            .order_by(db.ProfileLog.id)
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id)
             .all())
         self.assertEqual([
             'opn_sync',
-            'add_mirror',
-            'add_mirror',
-            'add_mirror',
-            'add_mirror',
-            'add_mirror',
-            'update_mirror',
-            'update_mirror',
-            'update_mirror',
-            'update_mirror',
-            'update_mirror',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
+            'add_file',
         ], [e.event_type for e in events])
         event = events[0]
-        self.assertEqual('19', event.profile_id)
+        self.assertEqual('19', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -803,31 +823,29 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
         self.assertEqual('wingcash:11', record.sender_uid)
-        self.assertEqual('Testy User', record.sender_title)
         self.assertEqual('12', record.recipient_id)
         self.assertEqual('wingcash:12', record.recipient_uid)
-        self.assertEqual('Friend', record.recipient_title)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .order_by(db.Mirror.target_id)
+        files = (
+            self.dbsession.query(db.File)
+            .order_by(db.File.peer_id)
             .all())
-        self.assertEqual(5, len(mirrors))
-        mirror = mirrors[4]
-        self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        self.assertEqual(3, len(files))
+        file = files[2]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter(db.Movement.target_id == 'c')
+            .filter(db.Movement.peer_id == 'c')
             .order_by(db.Movement.number)
             .all())
         self.assertEqual(4, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual('19', m.issuer_id)
@@ -836,7 +854,7 @@ class TestDownloadView(unittest.TestCase):
 
         m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual('21', m.issuer_id)
@@ -845,7 +863,7 @@ class TestDownloadView(unittest.TestCase):
 
         m = movements[2]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('-0.30'), m.vault_delta)
@@ -856,17 +874,17 @@ class TestDownloadView(unittest.TestCase):
                 db.MovementReco.movement_id,
                 db.MovementReco.reco_id)
             .join(db.Movement, db.MovementReco.movement_id == db.Movement.id)
-            .filter(db.Movement.target_id == 'c')
+            .filter(db.Movement.peer_id == 'c')
             .all())
         self.assertEqual(3, len(reco_ids))
 
         exchanges = (
             self.dbsession.query(db.Exchange)
-            .filter_by(target_id='c')
+            .filter_by(peer_id='c')
             .all())
         self.assertEqual(1, len(exchanges))
         exchange = exchanges[0]
-        self.assertEqual('c', exchange.target_id)
+        self.assertEqual('c', exchange.peer_id)
         self.assertEqual('0', exchange.loop_id)
         self.assertEqual('USD', exchange.currency)
         self.assertEqual(Decimal('-0.10'), exchange.wallet_delta)
@@ -922,17 +940,18 @@ class TestDownloadView(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
-            obj = self._make(profile_id='19')
+            obj = self._make(owner_id='19')
             obj()
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('19', downloads[0].profile_id)
+        self.assertEqual('19', downloads[0].owner_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
-        self.assertEqual(1, len(events))
+        events = (
+            self.dbsession.query(db.OwnerLog).order_by(db.OwnerLog.id).all())
+        self.assertEqual(3, len(events))
         event = events[0]
-        self.assertEqual('19', event.profile_id)
+        self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
@@ -950,13 +969,11 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(False, record.canceled)
         self.assertEqual('11', record.sender_id)
         self.assertEqual('wingcash:11', record.sender_uid)
-        self.assertEqual('Tester', record.sender_title)
         self.assertEqual('1102', record.recipient_id)
         self.assertEqual('wingcash:1102', record.recipient_uid)
-        self.assertEqual('Acct', record.recipient_title)
 
-        mirrors = self.dbsession.query(db.Mirror).all()
-        self.assertEqual(0, len(mirrors))
+        files = self.dbsession.query(db.File).all()
+        self.assertEqual(0, len(files))
 
         ms = self.dbsession.query(db.Movement).all()
         self.assertEqual(0, len(ms))
@@ -995,11 +1012,11 @@ class TestDownloadView(unittest.TestCase):
             obj()
 
         events = (
-            self.dbsession.query(db.ProfileLog)
-            .order_by(db.ProfileLog.id).all())
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id).all())
         self.assertEqual(6, len(events))
-        event = events[1]
-        self.assertEqual('19', event.profile_id)
+        event = events[0]
+        self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
@@ -1009,26 +1026,26 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertFalse(records[0].canceled)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .filter_by(target_id='c')
+        files = (
+            self.dbsession.query(db.File)
+            .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        self.assertEqual(1, len(files))
+        file = files[0]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='c')
+            .filter_by(peer_id='c')
             .order_by(db.Movement.number)
             .all())
         self.assertEqual(1, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.vault_delta)
@@ -1082,11 +1099,11 @@ class TestDownloadView(unittest.TestCase):
             obj()
 
         events = (
-            self.dbsession.query(db.ProfileLog)
-            .order_by(db.ProfileLog.id).all())
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id).all())
         self.assertEqual(7, len(events))
         event = events[-1]
-        self.assertEqual('19', event.profile_id)
+        self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
@@ -1096,33 +1113,33 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertTrue(records[0].canceled)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .filter_by(target_id='c')
+        files = (
+            self.dbsession.query(db.File)
+            .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        self.assertEqual(1, len(files))
+        file = files[0]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='c')
+            .filter_by(peer_id='c')
             .order_by(db.Movement.number)
             .all())
         self.assertEqual(2, len(movements))
         m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.vault_delta)
 
         m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('-1.00'), m.vault_delta)
@@ -1165,11 +1182,11 @@ class TestDownloadView(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
-            obj = self._make(profile_id='19')
+            obj = self._make(owner_id='19')
             obj()
 
-        mirrors = self.dbsession.query(db.Mirror).all()
-        self.assertEqual(0, len(mirrors))
+        files = self.dbsession.query(db.File).all()
+        self.assertEqual(0, len(files))
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -1249,28 +1266,28 @@ class TestDownloadView(unittest.TestCase):
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
 
-            obj = self._make(profile_id='19')
+            obj = self._make(owner_id='19')
             obj()
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .filter_by(target_id='c')
+        files = (
+            self.dbsession.query(db.File)
+            .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('19', mirror.profile_id)
-        self.assertEqual('c', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        self.assertEqual(1, len(files))
+        file = files[0]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='c')
+            .filter_by(peer_id='c')
             .order_by(db.Movement.number)
             .all())
         self.assertEqual(1, len(movements))
         m = movements[0]
-        self.assertEqual('c', m.target_id)
+        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.vault_delta)
@@ -1291,6 +1308,124 @@ class TestDownloadView(unittest.TestCase):
 
         mss = self.dbsession.query(db.Movement).all()
         self.assertEqual(2, len(mss))
+
+    def test_redownload_with_profile_updates(self):
+        from opnreport.models import db
+
+        def _make_transfer_result():
+            return {
+                'id': '500',
+                'workflow_type': 'return',
+                'start': '2018-08-01T04:05:06Z',
+                'currency': 'USD',
+                'amount': '1.00',
+                'timestamp': '2018-08-01T04:05:08Z',
+                'next_activity': 'send_to_dfi',
+                'completed': False,
+                'canceled': False,
+                'sender_id': '11',
+                'sender_uid': 'wingcash:11',
+                'sender_info': {
+                    'title': "Tester",
+                },
+                'recipient_id': '19',
+                'recipient_uid': 'wingcash:19',
+                'recipient_info': {
+                    'title': "Issuer",
+                },
+                'movements': [
+                    {
+                        'number': 1,
+                        'timestamp': '2018-08-02T05:06:06Z',
+                        'action': 'redeem',
+                        'from_id': '11',
+                        'to_id': '19',
+                        'loops': [{
+                            'currency': 'USD',
+                            'loop_id': '0',
+                            'amount': '1.00',
+                            'issuer_id': '19',
+                        }],
+                    },
+                ],
+            }
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [_make_transfer_result()],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
+
+            obj = self._make(owner_id='19')
+            obj()
+
+        files = (
+            self.dbsession.query(db.File)
+            .filter_by(peer_id='c')
+            .all())
+        self.assertEqual(1, len(files))
+        file = files[0]
+        self.assertEqual('19', file.owner_id)
+        self.assertEqual('c', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
+
+        mss = self.dbsession.query(db.Movement).all()
+        self.assertEqual(2, len(mss))
+
+        movements = (
+            self.dbsession.query(db.Movement)
+            .filter_by(peer_id='c')
+            .order_by(db.Movement.number)
+            .all())
+        self.assertEqual(1, len(movements))
+        m = movements[0]
+        self.assertEqual('c', m.peer_id)
+        self.assertEqual('0', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual(Decimal('1.00'), m.vault_delta)
+
+        result1 = _make_transfer_result()
+        result1['sender_info']['screen_name'] = 'somefella'
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                'https://opn.example.com:9999/wallet/history_sync',
+                json={
+                    'results': [result1],
+                    'more': False,
+                    'first_sync_ts': '2018-08-01T04:05:10Z',
+                    'last_sync_ts': '2018-08-01T04:05:11Z',
+                })
+            obj()
+
+        mss = self.dbsession.query(db.Movement).all()
+        self.assertEqual(2, len(mss))
+
+        events = (
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id)
+            .all())
+        self.assertEqual([
+            'opn_sync',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
+            'opn_sync',
+            'update_peer',
+        ], [e.event_type for e in events])
+
+        self.assertEqual({
+            'changes': {'username': 'somefella'},
+            'peer_id': '11',
+        }, events[-1].memo)
 
     def test_sync_error(self):
         from opnreport.views.syncview import SyncError
@@ -1344,7 +1479,7 @@ class TestDownloadView(unittest.TestCase):
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
 
-            obj = self._make(profile_id='19')
+            obj = self._make(owner_id='19')
             obj()
 
         result1 = _make_transfer_result()
@@ -1417,7 +1552,7 @@ class TestDownloadView(unittest.TestCase):
                     'remain': 1,
                 })
 
-            obj = self._make(profile_id='11')
+            obj = self._make(owner_id='11')
             download_status = obj()
             self.assertGreaterEqual(download_status['progress_percent'], 0.0)
             self.assertLessEqual(download_status['progress_percent'], 100.0)
@@ -1430,30 +1565,30 @@ class TestDownloadView(unittest.TestCase):
 
         downloads = self.dbsession.query(db.OPNDownload).all()
         self.assertEqual(1, len(downloads))
-        self.assertEqual('11', downloads[0].profile_id)
+        self.assertEqual('11', downloads[0].owner_id)
 
-        events = self.dbsession.query(db.ProfileLog).all()
+        events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'add_mirror',
-            'add_mirror',
-            'update_mirror',
-            'update_mirror',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
         ], [e.event_type for e in events])
 
         event = events[0]
-        self.assertEqual('11', event.profile_id)
+        self.assertEqual('11', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
 
-        mirror = (
-            self.dbsession.query(db.Mirror).filter_by(
-                target_id='19').one())
+        file = (
+            self.dbsession.query(db.File).filter_by(
+                peer_id='19').one())
 
         mss = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='19', loop_id='0', currency='USD')
+            .filter_by(peer_id='19', loop_id='0', currency='USD')
             .all())
         self.assertEqual(1, len(mss))
 
@@ -1486,18 +1621,18 @@ class TestDownloadView(unittest.TestCase):
             }, download_status)
 
         events = (
-            self.dbsession.query(db.ProfileLog)
-            .order_by(db.ProfileLog.id).all())
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id).all())
         self.assertEqual([
             'opn_sync',
-            'add_mirror',
-            'add_mirror',
-            'update_mirror',
-            'update_mirror',
+            'add_peer',
+            'add_peer',
+            'add_file',
+            'add_file',
             'opn_sync',
         ], [e.event_type for e in events])
         event = events[-1]
-        self.assertEqual('11', event.profile_id)
+        self.assertEqual('11', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.memo.keys()))
@@ -1510,32 +1645,32 @@ class TestDownloadView(unittest.TestCase):
         self.assertFalse(record.canceled)
         self.assertEqual('502', record.transfer_id)
 
-        mirrors = (
-            self.dbsession.query(db.Mirror)
-            .order_by(db.Mirror.target_id).all())
-        self.assertEqual(2, len(mirrors))
-        mirror = mirrors[0]
-        self.assertEqual('11', mirror.profile_id)
-        self.assertEqual('19', mirror.target_id)
-        self.assertEqual('0', mirror.loop_id)
-        self.assertEqual('USD', mirror.currency)
+        files = (
+            self.dbsession.query(db.File)
+            .order_by(db.File.peer_id).all())
+        self.assertEqual(2, len(files))
+        file = files[0]
+        self.assertEqual('11', file.owner_id)
+        self.assertEqual('19', file.peer_id)
+        self.assertEqual('0', file.loop_id)
+        self.assertEqual('USD', file.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
-            .filter_by(target_id='19', loop_id='0', currency='USD')
+            .filter_by(peer_id='19', loop_id='0', currency='USD')
             .order_by(db.Movement.number)
             .all())
         self.assertEqual(2, len(movements))
         m = movements[0]
         self.assertEqual(records[0].id, m.transfer_record_id)
-        self.assertEqual('19', m.target_id)
+        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.wallet_delta)
 
         m = movements[1]
         self.assertEqual(records[1].id, m.transfer_record_id)
-        self.assertEqual('19', m.target_id)
+        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual(Decimal('1.00'), m.wallet_delta)
@@ -1582,7 +1717,7 @@ class Test_find_internal_movements(unittest.TestCase):
             m = DummyMovement()
             m.id = 101 + index
             m.number = 1 + index
-            m.target_id = 'c'
+            m.peer_id = 'c'
             m.loop_id = '0'
             m.currency = 'USD'
             m.action = 'testaction'
@@ -1651,12 +1786,30 @@ class Test_find_internal_movements(unittest.TestCase):
             [Decimal('7'), Decimal('-6'), Decimal('-1')],
         ], iseqs)
 
+    def test_valley_hill_valley(self):
+        movements = self._make_movements([
+            -1, -3, 3, '4.1', '0.9', -5, -7, 6, 1])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('-3'), Decimal('3')],
+            [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
+            [Decimal('-7'), Decimal('6'), Decimal('1')],
+        ], iseqs)
+
     def test_valley_and_hill_with_move_in_between(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 2, 3, -3, 1])
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('3'), Decimal('-3')],
+        ], iseqs)
+
+    def test_hill_and_valley_with_move_in_between(self):
+        movements = self._make_movements(['4.1', '0.9', -5, -2, -3, 3, -1])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
+            [Decimal('-3'), Decimal('3')],
         ], iseqs)
 
     def test_hill_with_non_internal_action(self):
@@ -1667,6 +1820,14 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([], iseqs)
 
+    def test_valley_with_non_internal_action(self):
+        movements = self._make_movements([
+            '-4.1',
+            {'delta': '-0.9', 'action': 'move'},
+            5])
+        iseqs = self._call(movements, {})
+        self.assertEqual([], iseqs)
+
     def test_hill_with_manual_reco_followed_by_hill(self):
         movements = self._make_movements([
             '4.1', '0.9', 5,
@@ -1674,6 +1835,15 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {2})
         self.assertEqual([
             [Decimal('7'), Decimal('-3'), Decimal('-4')],
+        ], iseqs)
+
+    def test_valley_with_manual_reco_followed_by_valley(self):
+        movements = self._make_movements([
+            '-4.1', '-0.9', -5,
+            -7, 3, 4])
+        iseqs = self._call(movements, {2})
+        self.assertEqual([
+            [Decimal('-7'), Decimal('3'), Decimal('4')],
         ], iseqs)
 
     def test_equal_hill_and_hill(self):

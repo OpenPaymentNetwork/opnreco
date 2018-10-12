@@ -1,8 +1,7 @@
 
 from decimal import Decimal
-from opnreport.models.db import CashDesign
 from opnreport.models.db import Exchange
-from opnreport.models.db import Mirror
+from opnreport.models.db import File
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementLog
 from opnreport.models.db import MovementReco
@@ -18,7 +17,6 @@ from opnreport.util import check_requests_response
 from opnreport.util import to_datetime
 from pyramid.decorator import reify
 from pyramid.view import view_config
-from sqlalchemy import or_
 import collections
 import datetime
 import logging
@@ -56,8 +54,8 @@ class SyncView:
         # cash_designs is a cache of {loop_id: CashDesign}.
         self.cash_designs = {}
 
-        # mirrors: {(peer_id, loop_id, currency): mirror}
-        self.mirrors = {}
+        # files: {(peer_id, loop_id, currency): file}
+        self.files = {}
 
     def __call__(self):
         request = self.request
@@ -157,7 +155,6 @@ class SyncView:
         ))
 
         self.import_transfer_records(transfers_download)
-        # self.update_mirrors()
 
         return {
             'count': len(transfers_download['results']),
@@ -184,6 +181,7 @@ class SyncView:
 
         record_map = {record.transfer_id: record for record in record_list}
 
+        # peer_ids is the set of all peer IDs referenced by the transfers.
         peer_ids = set()
         for item in transfers_download['results']:
             sender_id = item['sender_id']
@@ -192,16 +190,22 @@ class SyncView:
             recipient_id = item['recipient_id']
             if recipient_id:
                 peer_ids.add(recipient_id)
+            for m in item['movements']:
+                from_id = m['from_id']
+                if from_id:
+                    peer_ids.add(from_id)
+                peer_ids.add(m['to_id'])
+                for loop in m['loops']:
+                    peer_ids.add(loop['issuer_id'])
 
         peer_rows = (
             dbsession.query(Peer)
             .filter(Peer.owner_id == owner_id)
-            .filter(Peer.file_id == null)
             .filter(Peer.peer_id.in_(peer_ids))
             .all())
 
         for peer in peer_rows:
-            self.peers[peer.id] = peer
+            self.peers[peer.peer_id] = peer
 
         for item in transfers_download['results']:
             self.import_peer(item['sender_id'], item['sender_info'])
@@ -268,14 +272,45 @@ class SyncView:
             if item['movements']:
                 self.import_movements(record, item, new_record=new_record)
 
+    @reify
+    def account_map(self):
+        # Get the map of accounts from /wallet/info.
+        account_list = self.request.wallet_info['profile']['accounts']
+        return {a['id']: a for a in account_list}
+
     def import_peer(self, peer_id, info):
-        """Import a peer from a transfer record."""
+        """Import a peer from a transfer record or other source."""
+        if peer_id == self.owner_id or peer_id == 'c':
+            # Get better info from the owner profile.
+            info = {
+                'title': self.owner.title,
+                'screen_name': self.owner.username,
+                'is_dfi_account': False,
+            }
+
+        else:
+            # Is the peer an account held by the user? If so, get
+            # better info from the account map.
+            account = self.account_map.get(peer_id)
+            if account:
+                title = '%s at %s' % (
+                    account['redacted_account_num'],
+                    account['rdfi_name'],
+                )
+                if account['alias']:
+                    title += ' (%s)' % account['alias']
+
+                info = {
+                    'title': title,
+                    'screen_name': '',
+                    'is_dfi_account': True,
+                }
+
         peer = self.peers.get(peer_id)
         if peer is None:
             peer = Peer(
                 owner_id=self.owner_id,
                 peer_id=peer_id,
-                file_id=None,
                 title=info.get('title'),
                 username=info.get('screen_name'),
                 is_dfi_account=info.get('is_dfi_account'),
@@ -296,13 +331,18 @@ class SyncView:
         else:
             found = 0
             changes = {}
-            for attr in ('title', 'screen_name', 'is_dfi_account'):
-                value = info.get(attr)
+            attrs = (
+                ('title', 'title'),
+                ('screen_name', 'username'),
+                ('is_dfi_account', 'is_dfi_account'),
+            )
+            for source_attr, dest_attr in attrs:
+                value = info.get(source_attr)
                 if value:
                     found += 1
-                    if getattr(peer, attr) != value:
-                        changes[attr] = value
-                        setattr(peer, attr, value)
+                    if getattr(peer, dest_attr) != value:
+                        changes[dest_attr] = value
+                        setattr(peer, dest_attr, value)
             if found:
                 peer.last_update = now_func
 
@@ -355,7 +395,7 @@ class SyncView:
             by_peer = self.summarize_movement(
                 movement, transfer_id=transfer_id)
 
-            # Add movement records based on the by_mirror dict.
+            # Add movement records based on the by_peer dict.
             for key5, deltas in sorted(by_peer.items()):
                 amount, wallet_delta, vault_delta = deltas
                 key6 = (number,) + key5
@@ -504,77 +544,75 @@ class SyncView:
 
             # Add to the 'c' (circulation/common) movements.
             c_peer_key = ('c', peer_id, loop_id, currency, issuer_id)
-            c_mirror = self.prepare_mirror('c', loop_id, currency)
+            c_file = self.prepare_file('c', loop_id, currency)
             amounts = by_peer[c_peer_key]
             amounts[0] += amount
             if vault_delta:
                 amounts[2] += vault_delta
-                if not c_mirror.has_vault:
-                    c_mirror.has_vault = True
+                if not c_file.has_vault:
+                    c_file.has_vault = True
             if wallet_delta:
                 amounts[1] += wallet_delta
 
             # Add to the wallet-specific or account-specific movements.
             peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
-            self.prepare_mirror(peer_id, loop_id, currency)
+            file = self.prepare_file(peer_id, loop_id, currency)
             amounts = by_peer[peer_key]
             amounts[0] += amount
             if vault_delta:
                 amounts[2] += vault_delta
+                if not file.has_vault:
+                    file.has_vault = True
             if wallet_delta:
                 amounts[1] += wallet_delta
 
         return by_peer
 
-    def prepare_mirror(self, peer_id, loop_id, currency):
-        """Return a mirror for a peer_key: (peer_id, loop_id, currency).
+    def prepare_file(self, peer_id, loop_id, currency):
+        """Return the current file for (peer_id, loop_id, currency).
         """
-        peer_key = (peer_id, loop_id, currency)
-        mirror = self.mirrors.get(peer_key)
-        if mirror is not None:
-            return mirror
+        key = (peer_id, loop_id, currency)
+        file = self.files.get(key)
+        if file is not None:
+            return file
 
         dbsession = self.request.dbsession
         owner_id = self.owner_id
-        mirror = (
-            dbsession.query(Mirror)
-            .filter_by(
+        file = (
+            dbsession.query(File)
+            .filter(
+                File.owner_id == owner_id,
+                File.peer_id == peer_id,
+                File.loop_id == loop_id,
+                File.currency == currency,
+                File.is_new)
+            .first())
+
+        if file is not None:
+            self.files[key] = file
+
+        else:
+            file = File(
                 owner_id=owner_id,
                 peer_id=peer_id,
-                file_id=null,
                 loop_id=loop_id,
                 currency=currency,
-            ).first()
-        )
-        if mirror is not None:
-            self.mirrors[peer_key] = mirror
-        else:
-            mirror = Mirror(
-                owner_id=owner_id,
-                peer_id=peer_id,
-                file_id=null,
-                loop_id=loop_id,
-                currency=currency)
-            dbsession.add(mirror)
-            dbsession.flush()  # Assign mirror.id
+                is_new=True)
+            dbsession.add(file)  # Assign file.id
+
+            self.files[key] = file
 
             dbsession.add(OwnerLog(
                 owner_id=self.owner_id,
-                event_type='add_mirror',
+                event_type='add_file',
                 memo={
-                    'mirror_id': mirror.id,
+                    'file_id': file.id,
                     'peer_id': peer_id,
                     'loop_id': loop_id,
                     'currency': currency,
                 }))
 
-        return mirror
-
-    # @reify
-    # def account_map(self):
-    #     # Get the map of accounts from /wallet/info.
-    #     account_list = self.request.wallet_info['profile']['accounts']
-    #     return {a['id']: a for a in account_list}
+        return file
 
     # def get_target_info(self, target_id):
     #     """Return {title, is_dfi_account, username (optional)}."""
@@ -783,10 +821,9 @@ class SyncView:
             loop_id = sample_movement.loop_id
             currency = sample_movement.currency
 
-            mirror = self.prepare_mirror(peer_id, loop_id, currency)
-
+            file = self.prepare_file(peer_id, loop_id, currency)
             reco = Reco(
-                mirror_id=mirror.id,
+                file_id=file.id,
                 entry_date=sample_movement.ts.date(),
                 auto=True,
             )

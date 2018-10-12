@@ -38,7 +38,11 @@ class DBSessionFixture:
 
     @reify
     def engine(self):
-        return create_engine('postgresql:///opnreporttest')
+        from opnreport.models.dbmeta import json_dumps_extra
+
+        return create_engine(
+            'postgresql:///opnreporttest',
+            json_serializer=json_dumps_extra)
 
     @reify
     def connection(self):

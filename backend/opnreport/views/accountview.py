@@ -29,26 +29,30 @@ zero = Decimal()
     permission='use_app',
     renderer='json')
 def accounts_view(request):
-    """Return the profile's list of accounts.
-
-    An account is a list of time-boxed mirrors of bank accounts the
-    profile can reconcile with.
+    """Return the owner profile's list of accounts and files.
 
     Returns {
         'accounts': {account_key: {
             'account_key',
-            'target_id',
+            'peer_id',
             'loop_id',
             'currency',
-            'target_title',
-            'target_is_dfi_account',
+            'peer_title',
+            'peer_username',
+            'peer_is_dfi_account',
             'loop_title',
             'files': {file_id: {
                 'file_id',
-                'mirror_id',
-                'start_date',
-                'end_date',
+                'is_new',
                 'subtitle',
+                'start_date',
+                'start_balance',
+                'end_date',
+                'end_balance',
+                'peer_title',
+                'peer_username',
+                'peer_is_dfi_account',
+                'loop_title',
             }},
             'file_order': [file_id],
         }},
@@ -56,8 +60,8 @@ def accounts_view(request):
         'default_account': account_key,
     }.
     """
-    profile = request.profile
-    profile_id = profile.id
+    owner = request.owner
+    owner_id = owner.id
     dbsession = request.dbsession
 
     mirror_filter = and_(Mirror.profile_id == profile_id, or_(
