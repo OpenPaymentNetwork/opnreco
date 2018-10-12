@@ -585,7 +585,7 @@ class SyncView:
                 File.peer_id == peer_id,
                 File.loop_id == loop_id,
                 File.currency == currency,
-                File.is_new)
+                File.current)
             .first())
 
         if file is not None:
@@ -597,7 +597,7 @@ class SyncView:
                 peer_id=peer_id,
                 loop_id=loop_id,
                 currency=currency,
-                is_new=True)
+                current=True)
             dbsession.add(file)  # Assign file.id
 
             self.files[key] = file

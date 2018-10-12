@@ -70,9 +70,10 @@ class OwnerLog(Base):
 
 
 class Peer(Base):
-    """Info about a peer (an OPN holder).
+    """Info about a peer.
 
-    Peers are updated automatically until frozen into a file.
+    A peer is an OPN wallet, account, or the circulating omnibus account
+    managed by an issuer.
     """
     __tablename__ = 'peer'
     owner_id = Column(
@@ -83,34 +84,30 @@ class Peer(Base):
     username = Column(String, nullable=True)
     is_dfi_account = Column(Boolean, nullable=False, default=False)
 
-    # Note: don't try to update if removed or if file_id is non-null.
+    # Note: don't try to update if removed.
     removed = Column(Boolean, nullable=False, default=False)
     last_update = Column(DateTime, nullable=True)
 
 
-class CashDesign(Base):
-    """Info about an unfiled cash design.
-
-    Cash designs are updated automatically until frozen into a file.
-    """
-    __tablename__ = 'cash_design'
+class Loop(Base):
+    """Info about a cash design loop."""
+    __tablename__ = 'loop'
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, primary_key=True)
     loop_id = Column(String, nullable=False, primary_key=True)
 
     title = Column(Unicode, nullable=True)
 
-    # Note: don't try to update if removed or if file_id is non-null.
+    # Note: don't try to update if removed.
     removed = Column(Boolean, nullable=False, default=False)
     last_update = Column(DateTime, nullable=True)
 
 
 class File(Base):
-    """A time-boxed record of movements that should mirror OPN transfers.
+    """A time-boxed record of movements in OPN transfers.
 
-    Represents a period of time for transfers with a specific peer,
-    where a peer is a wallet, account, or the circulating omnibus account
-    managed by an issuer.
+    Represents the loop-specific (and hence currency-specific) movements
+    with a specific peer.
     """
     __tablename__ = 'file'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -120,8 +117,8 @@ class File(Base):
     peer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String(3), nullable=False)
-    # New recos are added to the 'is_new' file.
-    is_new = Column(Boolean, nullable=False, default=True)
+    # New recos are added to the 'current' file.
+    current = Column(Boolean, nullable=False, default=True)
     # has_vault becomes true if money ever moves in or out of the
     # vault connected with this File.
     has_vault = Column(Boolean, nullable=False, default=False)
@@ -129,26 +126,14 @@ class File(Base):
 
     owner = backref(Owner)
 
-    def getstate(self):
-        return {
-            'id': str(self.id),
-            'owner_id': self.owner_id,
-            'peer_id': self.peer_id,
-            'loop_id': self.loop_id,
-            'currency': self.currency,
-            'is_new': self.is_new,
-            'has_vault': self.has_vault,
-            'subtitle': self.subtitle,
-        }
-
 
 Index(
-    'ix_file_is_new_unique',
+    'ix_file_current_unique',
     File.owner_id,
     File.peer_id,
     File.loop_id,
     File.currency,
-    postgresql_where=File.is_new,
+    postgresql_where=File.current,
     unique=True)
 
 
@@ -170,7 +155,7 @@ class FileFrozen(Base):
     peer_is_dfi_account = Column(Boolean, nullable=False, default=False)
     loop_title = Column(Unicode, nullable=True)
 
-    file = backref(File)
+    file = backref(File, backref='frozen')
 
 
 class TransferRecord(Base):

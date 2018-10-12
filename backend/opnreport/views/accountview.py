@@ -1,39 +1,43 @@
 
 from decimal import Decimal
+from opnreport.models.db import AccountEntry
+from opnreport.models.db import AccountEntryReco
 from opnreport.models.db import Exchange
 from opnreport.models.db import File
-from opnreport.models.db import Mirror
-from opnreport.models.db import MirrorEntry
-from opnreport.models.db import MirrorEntryReco
+from opnreport.models.db import FileFrozen
+from opnreport.models.db import Loop
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
+from opnreport.models.db import Peer
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.httpexceptions import HTTPNotFound
 from pyramid.view import view_config
-from sqlalchemy import func
 from sqlalchemy import and_
-from sqlalchemy import or_
 from sqlalchemy import case
+from sqlalchemy import func
+from sqlalchemy import or_
 import collections
+import datetime
+import re
 
 null = None
 zero = Decimal()
 
 
 @view_config(
-    name='accounts',
+    name='ploops',
     context=API,
     permission='use_app',
     renderer='json')
-def accounts_view(request):
-    """Return the owner profile's list of accounts and files.
+def ploops_view(request):
+    """Return the owner profile's list of peer loops ('ploops') and files.
 
     Returns {
-        'accounts': {account_key: {
-            'account_key',
+        'ploops': {ploop_key: {
+            'ploop_key',
             'peer_id',
             'loop_id',
             'currency',
@@ -56,185 +60,224 @@ def accounts_view(request):
             }},
             'file_order': [file_id],
         }},
-        'account_order': [account_key],
-        'default_account': account_key,
+        'ploop_order': [ploop_key],
+        'default_ploop': ploop_key,
     }.
     """
     owner = request.owner
     owner_id = owner.id
     dbsession = request.dbsession
 
-    mirror_filter = and_(Mirror.profile_id == profile_id, or_(
-        and_(Mirror.target_id == 'c', Mirror.has_vault),
-        Mirror.target_is_dfi_account))
-
-    unfiled_mirrors = (
-        dbsession.query(Mirror)
-        .filter(mirror_filter, Mirror.file_id == null)
-        .all())
-    unfiled_mirror_ids = [m.id for m in unfiled_mirrors]
-
-    filed_mirrors = (
-        dbsession.query(Mirror)
-        .filter(
-            mirror_filter,
-            Mirror.file_id != null,
-            ~Mirror.id.in_(unfiled_mirror_ids))
-        .order_by(Mirror.last_update.desc())
-        .all())
+    future = datetime.utcnow() + datetime.timedelta(days=366 * 100)
 
     file_rows = (
-        dbsession.query(File, Mirror)
+        dbsession.query(File, Peer, FileFrozen, Loop)
+        .join(Peer, and_(
+            Peer.owner_id == owner_id,
+            Peer.peer_id == File.peer_id))
+        .outerjoin(FileFrozen, FileFrozen.file_id == File.id)
+        .outerjoin(Loop, and_(
+            Loop.owner_id == owner_id,
+            Loop.loop_id == File.loop_id,
+            Loop.loop_id != '0'))
         .filter(
-            mirror_filter,
-            File.mirror_id == Mirror.id, File.profile_id == profile_id)
-        .order_by(File.end_date.desc())
+            File.owner_id == owner_id,
+            or_(
+                and_(File.peer_id == 'c', File.has_vault),
+                Peer.is_dfi_account,
+                FileFrozen.peer_is_dfi_account,
+            ))
+        .order_by(
+            func.coalesce(FileFrozen.start_date, future).desc(),
+            File.id)
         .all())
 
-    # file_map: {
-    #   target_id-loop_id-currency:
-    #     [{mirror_id, file_id, start_date, end_date, subtitle}]
-    # }
-    file_map = collections.defaultdict(dict)
-    file_orders = collections.defaultdict(list)
-    for file, mirror in file_rows:
-        key = '-'.join([mirror.target_id, mirror.loop_id, mirror.currency])
-        file_id_str = str(file.id)
-        file_map[key][file_id_str] = {
-            'mirror_id': str(mirror.id),
-            'file_id': file_id_str,
-            'start_date': mirror.start_date.isoformat() + 'Z',
-            'end_date': file.end_date.isoformat() + 'Z',
-            'subtitle': file.subtitle,
-        }
-        file_orders[key].append(file_id_str)
+    # ploops: {peer_id-loop_id-currency: {files, file_order, ...}}
+    ploops = {}
 
-    # account_map: {
-    #   target_id-loop_id-currency:
-    #     {account_key, target_title, loop_title, ..., files: [file_map entry]}
-    # }
-    account_map = {}
+    for file, peer, ffz, loop in file_rows:
+        ploop_key = '-'.join([file.peer_id, file.loop_id, file.currency])
 
-    for mirror in unfiled_mirrors + filed_mirrors:
-        key = '-'.join([mirror.target_id, mirror.loop_id, mirror.currency])
-        account = account_map.get(key)
-        if not account:
-            account_map[key] = account = {
-                'account_key': key,
-                'target_id': mirror.target_id,
-                'loop_id': mirror.loop_id,
-                'currency': mirror.currency,
-                'target_title': mirror.target_title or profile.title,
-                'target_is_dfi_account': mirror.target_is_dfi_account,
-                'loop_title': mirror.loop_title or '',
-                'files': file_map[key],
-                'file_order': file_orders[key],
-                'has_current': False,
+        ploop = ploops.get(ploop_key)
+        if ploop is None:
+            loop_title = (
+                '[Cash Design %s]' % file.loop_id if loop is None
+                else loop.title)
+            ploop = {
+                'ploop_key': ploop_key,
+                'peer_id': file.peer_id,
+                'loop_id': file.loop_id,
+                'currency': file.currency,
+                'peer_title': peer.title,
+                'peer_username': peer.username,
+                'peer_is_dfi_account': peer.is_dfi_account,
+                'loop_title': loop_title,
+                'files': {},
+                'file_order': [],
             }
-        else:
-            account = account_map[key]
-            # Set the target_title and loop_title if not already set.
-            if not account['target_title'] and mirror.target_title:
-                account['target_title'] = mirror.target_title
-            if not account['loop_title'] and mirror.loop_title:
-                account['loop_title'] = mirror.loop_title
-        if mirror.file_id is None:
-            account['has_current'] = True
+            ploops[ploop_key] = ploop
 
-    # Prepare to sort account_map.
-    # Also determine the best default mirror set.
-    defaults = []
-    for account in account_map.values():
-        if account['target_id'] == 'c':
+        file_info = serialize_file(file, peer, loop)
+        file_id_str = str(file.id)
+        ploop['files'][file_id_str] = file_info
+        ploop['file_order'].append(file_id_str)
+
+    # Determine the ordering of the ploops.
+
+    ploop_ordering = []
+    default_ordering = []
+
+    for ploop_key, ploop_info in ploops.items():
+        if ploop_info['peer_id'] == 'c':
             # Show circulation first.
-            target_title = ''
-            target_id = ''
+            peer_title = ''
+            peer_id = ''
         else:
-            target_title = account['target_title']
-            target_id = account['target_id']
+            peer_title = ploop['peer_title']
+            peer_id = ploop['peer_id']
 
-        loop_id = account['loop_id']
+        loop_id = ploop['loop_id']
         if loop_id == '0':
             # Show open loop first.
             loop_title = ''
         else:
-            loop_title = account['loop_title']
+            loop_title = ploop['loop_title']
 
-        account['sort_key'] = sort_key = (
-            0 if account['target_is_dfi_account'] else 1,
-            target_title.lower(),
-            target_title,
-            target_id,
-            '' if account['currency'] == 'USD' else account['currency'],
+        sort_key = (
+            0 if ploop['peer_is_dfi_account'] else 1,
+            peer_title.lower(),
+            peer_title,
+            peer_id,
+            '' if ploop['currency'] == 'USD' else ploop['currency'],
             loop_title.lower(),
             loop_title,
             loop_id,
         )
+        ploop_ordering.append((sort_key, ploop_key))
 
-        # Prefer to reconcile issuing accounts over other types of mirrors.
+        # Prefer to show circulation files over other types of files.
         default_key = (
-            0 if account['target_id'] == 'c' else 1,
-            0 if account['loop_id'] == '0' else 1,
+            0 if ploop['peer_id'] == 'c' else 1,
+            0 if ploop['loop_id'] == '0' else 1,
         ) + sort_key
 
-        defaults.append((default_key, account['account_key']))
+        default_ordering.append((default_key, ploop_key))
 
-    # Sort.
-    accounts_sorted = sorted(
-        account_map.values(), key=lambda account: account['sort_key'])
+    ploop_ordering.sort()
+    default_ordering.sort()
 
-    # Remove the sort_keys.
-    for account in accounts_sorted:
-        del account['sort_key']
-
-    # Choose the best default mirror.
-    defaults.sort()
+    ploop_order = [ploop_key for (_, ploop_key) in ploop_ordering]
+    default_ploop = default_ordering[0][1] if default_ordering else ''
 
     return {
-        'accounts': {
-            account['account_key']: account for account in accounts_sorted},
-        'account_order': [
-            account['account_key'] for account in accounts_sorted],
-        'default_account': defaults[0][1] if defaults else '',
+        'ploops': ploops,
+        'ploop_order': ploop_order,
+        'default_ploop': default_ploop,
     }
 
 
-def get_mirror(request):
-    """Get the mirror specified in the request subpath or raise HTTPBadRequest.
+def serialize_file(file, peer, loop=None):
+    res = {
+        'file_id': str(file.id),
+        'owner_id': file.owner_id,
+        'peer_id': file.peer_id,
+        'loop_id': file.loop_id,
+        'currency': file.currency,
+        'current': file.current,
+        'has_vault': file.has_vault,
+        'subtitle': file.subtitle,
+    }
 
-    The subpath must contain a target_id, loop_id, currency, and file_id,
-    where file_id may be 'current'.
+    ffz = file.frozen
+    loop_title = (
+        '[Cash Design %s]' % file.loop_id if loop is None
+        else loop.title)
+
+    if ffz is not None:
+        res.update({
+            'peer_title': ffz.peer_title,
+            'peer_username': ffz.peer_username,
+            'peer_is_dfi_account': ffz.peer_is_dfi_account,
+            'loop_title': ffz.loop_title,
+            'start_date': ffz.start_date,
+            'start_balance': ffz.start_balance,
+            'end_date': ffz.end_date,
+            'end_balance': ffz.end_balance,
+        })
+    else:
+        res.update({
+            'start_date': None,
+            'start_balance': '0',
+            'end_date': None,
+            'end_balance': None,
+            'peer_title': peer.title,
+            'peer_username': peer.username,
+            'peer_is_dfi_account': peer.is_dfi_account,
+            'loop_title': loop_title,
+        })
+
+    return res
+
+
+def get_request_file(request):
+    """Get the file, peer, and loop specified in the request subpath.
+
+    Raise HTTPBadRequest or HTTPNotFound as needed.
+
+    The subpath must contain a ploop_key (peer_id-loop_id-currency)
+    and file_id, where file_id may be 'current'.
     """
     subpath = request.subpath
     if not subpath:
-        raise HTTPBadRequest('subpath required')
-    if len(subpath) < 4:
-        raise HTTPBadRequest('at least 4 subpath elements required')
+        raise HTTPBadRequest(
+            json_body={'error': 'subpath required'})
+    if len(subpath) < 2:
+        raise HTTPBadRequest(
+            json_body={'error': 'at least 2 subpath elements required'})
 
-    target_id, loop_id, currency, file_id_str = subpath[:4]
+    ploop_key, file_id_str = subpath[:4]
+
+    match = re.match(r'^([0-9]+)-([0-9]+)-([A-Z]{3})$', ploop_key)
+    if match is None:
+        raise HTTPBadRequest(
+            json_body={'error': 'invalid ploop_key provided'})
+    peer_id, loop_id, currency = match.groups()
+
+    owner = request.owner
+    owner_id = owner.id
+    dbsession = request.dbsession
 
     if file_id_str == 'current':
-        file_id = None
+        filter_kw = {'current': True}
     else:
         try:
             file_id = int(file_id_str)
         except ValueError:
-            raise HTTPBadRequest('bad file_id')
+            raise HTTPBadRequest(
+                json_body={'error': 'bad file_id provided'})
+        filter_kw = {'id': file_id}
 
-    profile = request.profile
-    profile_id = profile.id
-    dbsession = request.dbsession
-
-    return (
-        dbsession.query(Mirror)
+    row = (
+        dbsession.query(File, Peer, Loop)
+        .join(Peer, and_(
+            Peer.owner_id == owner_id,
+            Peer.peer_id == File.peer_id))
+        .outerjoin(Loop, and_(
+            Loop.owner_id == owner_id,
+            Loop.loop_id == File.loop_id,
+            Loop.loop_id != '0'))
         .filter_by(
-            profile_id=profile_id,
-            target_id=target_id,
+            owner_id=owner_id,
+            peer_id=peer_id,
             loop_id=loop_id,
             currency=currency,
-            file_id=file_id,
-        )
+            **filter_kw)
         .first())
+
+    if row is None:
+        raise HTTPNotFound()
+
+    return row
 
 
 @view_config(
@@ -243,48 +286,48 @@ def get_mirror(request):
     permission='use_app',
     renderer='json')
 def reco_report_view(request):
-    mirror = get_mirror(request)
-    if mirror is None:
-        raise HTTPNotFound()
+    file, peer, loop = get_request_file(request)
 
-    if mirror.target_id == 'c':
+    if file.peer_id == 'c':
         movement_delta_c = Movement.vault_delta
         exchange_delta_c = Exchange.vault_delta
     else:
         movement_delta_c = Movement.wallet_delta
         exchange_delta_c = Exchange.wallet_delta
 
-    mirror_id = mirror.id
+    file_id = file.id
     dbsession = request.dbsession
+    owner_id = request.owner.id
 
     movement_filter = and_(
+        TransferRecord.owner_id == owner_id,
         Movement.transfer_record_id == TransferRecord.id,
-        Movement.target_id == mirror.target_id,
-        Movement.loop_id == mirror.loop_id,
-        Movement.currency == mirror.currency,
+        Movement.peer_id == file.peer_id,
+        Movement.loop_id == file.loop_id,
+        Movement.currency == file.currency,
         movement_delta_c != 0,
     )
 
-    # reconciled_delta is the total of reconciled DFI entries in this mirror.
+    # reconciled_delta is the total of reconciled DFI entries in this file.
     reconciled_delta = (
-        dbsession.query(func.sum(MirrorEntry.delta))
+        dbsession.query(func.sum(AccountEntry.delta))
         .join(
-            MirrorEntryReco, MirrorEntryReco.mirror_entry_id == MirrorEntry.id)
-        .filter(MirrorEntry.mirror_id == mirror_id)
+            AccountEntryReco,
+            AccountEntryReco.account_entry_id == AccountEntry.id)
+        .filter(AccountEntry.file_id == file_id)
         .scalar()) or 0
 
-    include_unreconciled = (mirror.file_id is None)
+    include_unreconciled = file.current
 
     # workflow_type_rows lists the workflow types of movements
-    # involved in this mirror. Include manually
+    # involved in this file. Include manually
     # reconciled movements, but not the effects of automatically
     # reconciled movements. Include unreconciled movements if
-    # mirror.file_id is None.
+    # looking at a 'current' file.
     if include_unreconciled:
-        reco_filter = or_(
-            Reco.mirror_id == null, Reco.mirror_id == mirror_id)
+        reco_filter = or_(Reco.file_id == null, Reco.file_id == file_id)
     else:
-        reco_filter = (Reco.mirror_id == mirror_id)
+        reco_filter = (Reco.file_id == file_id)
     workflow_type_rows = (
         dbsession.query(
             func.sign(-movement_delta_c).label('sign'),
@@ -337,11 +380,12 @@ def reco_report_view(request):
                 Exchange.id,
             )
             .filter(
-                Exchange.target_id == mirror.target_id,
-                Exchange.loop_id == mirror.loop_id,
-                Exchange.currency == mirror.currency,
-                exchange_delta_c != 0,
+                TransferRecord.owner_id == owner_id,
                 Exchange.transfer_record_id == TransferRecord.id,
+                Exchange.peer_id == file.peer_id,
+                Exchange.loop_id == file.loop_id,
+                Exchange.currency == file.currency,
+                exchange_delta_c != 0,
                 Exchange.reco_id == null)
             .all())
 
@@ -396,12 +440,14 @@ def reco_report_view(request):
             workflow_types[str_sign] = d = {}
         d[workflow_type] = str(delta) if delta else '0'
 
-    reconciled_balance = mirror.start_balance + reconciled_delta
+    ffz = file.frozen
+    start_balance = zero if ffz is None else ffz.start_balance
+    reconciled_balance = start_balance + reconciled_delta
     outstanding_balance = reconciled_balance + sum(
         row.delta for row in outstanding_rows)
 
     return {
-        'mirror': mirror.getstate(),
+        'file': serialize_file(file, peer, loop),
         'reconciled_balance': str(reconciled_balance),
         'outstanding_balance': str(outstanding_balance),
         'workflow_types': workflow_types,

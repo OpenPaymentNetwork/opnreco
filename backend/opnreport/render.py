@@ -1,6 +1,7 @@
 
 from colander import null
 from decimal import Decimal
+import collections
 import datetime
 import json
 
@@ -51,6 +52,9 @@ def get_json_default(obj):
 
     if isinstance(obj, datetime.date):
         return obj.isoformat()
+
+    if isinstance(obj, collections.defaultdict):
+        return dict(obj)
 
     raise TypeError("Unable to serialize {!r} to JSON.".format(obj))
 
