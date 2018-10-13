@@ -221,22 +221,24 @@ class TransferSummary extends React.Component {
 
     const {record, classes} = this.props;
 
-    // Prefer the title/username from target_titles and target_usernames.
-    const titles = record.target_titles;
+    // Prefer the title/username from the peers object.
+    const peers = record.peers;
     let text = title;
-    const title1 = titles[id];
-    if (title1) {
-      const username = record.target_usernames[id];
+    let path = `p/${id}`;
+    const peer = peers[id];
+    if (peer && peer.title) {
+      const username = peer.username;
       if (username) {
-        text = <span>{title1} (<em>{username}</em>)</span>;
+        text = <span>{peer.title} (<em>{username}</em>)</span>;
+        path = username;
       } else {
-        text = title1;
+        text = peer.title;
       }
     }
 
     return (
       <a className={classes.profileLink}
-        href={`${this.publicURL}/p/${id}`}
+        href={`${this.publicURL}/${path}`}
         target="_blank" rel="noopener noreferrer">{text}</a>
     );
   }
@@ -354,13 +356,13 @@ class TransferSummary extends React.Component {
 
     const {
       movements,
-      target_order,
-      target_accounts,
-      loop_titles,
+      peers,
+      peer_order,
+      loops,
     } = record;
 
     const rightColumns = 5;
-    const columnCount = 1 + target_order.length + rightColumns;
+    const columnCount = 1 + peer_order.length + rightColumns;
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
@@ -377,20 +379,20 @@ class TransferSummary extends React.Component {
 
     const labelCells = [<td key="number" className={labelCell}>Number</td>];
 
-    target_order.forEach((targetId, index) => {
+    peer_order.forEach((peerId, index) => {
       const legendCells = [<td className={legendSpacerCell} key="number"/>];
       for (let j = 0; j < index; j++) {
         legendCells.push(<td className={legendSpacerCell} key={j}/>);
       }
       legendCells.push(
-        <td key="target" colSpan={target_order.length - index + rightColumns}
+        <td key="target" colSpan={peer_order.length - index + rightColumns}
           className={legendCell}
         >
-          {this.renderProfileLink(targetId)}
+          {this.renderProfileLink(peerId)}
         </td>
       );
-      headRows.push(<tr key={targetId}>{legendCells}</tr>);
-      labelCells.push(<td key={targetId} className={legendLabelCell}/>);
+      headRows.push(<tr key={peerId}>{legendCells}</tr>);
+      labelCells.push(<td key={peerId} className={legendLabelCell}/>);
     });
 
     labelCells.push(<td key="amount" className={labelCell}>Amount</td>);
@@ -417,24 +419,24 @@ class TransferSummary extends React.Component {
       mvCells.push(
         <td key="number" className={numCell}>{movement.number}</td>);
 
-      const getIcon = targetId => {
-        if (targetId === issuer_id) {
+      const getIcon = peerId => {
+        if (peerId === issuer_id) {
           return <span title="Issuer Vault"><MonetizationOn/></span>;
-        } else if (target_accounts[targetId]) {
+        } else if (peers[peerId] && peers[peerId].is_dfi_account) {
           return <span title="Account"><AccountBalance/></span>;
         } else {
           return <span title="Wallet"><AccountBalanceWallet/></span>;
         }
       };
 
-      target_order.forEach(targetId => {
+      peer_order.forEach(peerId => {
         let cell;
-        if (targetId === from_id) {
-          cell = <td key={targetId}>{getIcon(targetId)}</td>;
-        } else if (targetId === to_id) {
-          cell = <td key={targetId}>{getIcon(targetId)}</td>;
+        if (peerId === from_id) {
+          cell = <td key={peerId}>{getIcon(peerId)}</td>;
+        } else if (peerId === to_id) {
+          cell = <td key={peerId}>{getIcon(peerId)}</td>;
         } else {
-          cell = <td key={targetId}></td>;
+          cell = <td key={peerId}></td>;
         }
         mvCells.push(cell);
       });
@@ -449,7 +451,8 @@ class TransferSummary extends React.Component {
         loopTitle = 'Open Loop';
       } else {
         loopTitle = (
-          <em>{loop_titles[loop_id] || `Closed Loop ${loop_id}`}</em>);
+          <em>{loops[loop_id] ? loops[loop_id].title
+            : `Closed Loop ${loop_id}`}</em>);
       }
       mvCells.push(
         <td key="design" className={txtCell}>
@@ -503,7 +506,7 @@ class TransferSummary extends React.Component {
     } = this.props;
 
     if (!recordURL) {
-      // No account or transfer ID selected.
+      // No transfer ID selected.
       return (
         <div className={classes.root}>
           {form}
@@ -567,11 +570,11 @@ class TransferSummary extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {account, match} = ownProps;
+  const {match} = ownProps;
   const transferId = match.params.transferId;
   const profileId = state.login.id;
 
-  if (account && transferId) {
+  if (transferId) {
     const recordURL = fOPNReport.pathToURL(`/transfer-record/${transferId}`);
     const record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);

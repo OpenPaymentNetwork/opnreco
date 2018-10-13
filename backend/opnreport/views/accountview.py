@@ -459,13 +459,13 @@ def transfer_record_view(request):
 
     transfer_id = request.subpath[0].replace('-', '')
     dbsession = request.dbsession
-    profile = request.profile
-    profile_id = profile.id
+    owner = request.owner
+    owner_id = owner.id
 
     record = (
         dbsession.query(TransferRecord)
         .filter(
-            TransferRecord.profile_id == profile_id,
+            TransferRecord.owner_id == owner_id,
             TransferRecord.transfer_id == transfer_id)
         .first())
 
@@ -484,92 +484,84 @@ def transfer_record_view(request):
         .filter(Movement.transfer_record_id == record.id)
         .all())
 
-    target_ids = set()
-    loop_ids = set()
+    need_peer_ids = set()
+    need_loop_ids = set()
     for m, _reco in movement_rows:
-        target_ids.update([m.from_id, m.to_id, m.issuer_id])
-        loop_ids.add(m.loop_id)
-    target_ids.discard(profile_id)
-    loop_ids.discard('0')
+        need_peer_ids.update([m.from_id, m.to_id, m.issuer_id])
+        need_loop_ids.add(m.loop_id)
+    need_peer_ids.discard(owner_id)
+    need_loop_ids.discard('0')
 
-    target_title_rows = (
+    peer_rows = (
         dbsession.query(
-            Mirror.target_id,
-            Mirror.target_title,
-            Mirror.target_username,
-            Mirror.target_is_dfi_account,
+            Peer.peer_id,
+            Peer.title,
+            Peer.username,
+            Peer.is_dfi_account,
         )
         .filter(
-            Mirror.profile_id == profile_id,
-            Mirror.target_id.in_(target_ids),
-            Mirror.target_title != null,
-            Mirror.target_title != '',
-        )
-        .order_by(
-            case([
-                (Mirror.file_id == null, 1),
-            ], else_=0),
-            Mirror.start_date,
+            Peer.owner_id == owner_id,
+            Peer.peer_id.in_(need_peer_ids),
         ).all())
 
-    target_titles = {}
-    target_usernames = {}
-    target_accounts = {}
-    for row in target_title_rows:
-        target_id, target_title, target_username, target_is_dfi_account = row
-        target_titles[target_id] = target_title
-        target_usernames[target_id] = target_username
-        target_accounts[target_id] = target_is_dfi_account
-    target_titles[profile_id] = profile.title
-    target_usernames[profile_id] = profile.username
+    peers = {row.peer_id: {
+        'title': row.title,
+        'username': row.username,
+        'is_dfi_account': row.is_dfi_account,
+    } for row in peer_rows}
 
-    target_sortables = []
-    for target_id, title in target_titles.items():
-        if target_id == profile_id:
+    peers[owner_id] = {
+        'title': owner.title,
+        'username': owner.username,
+        'is_dfi_account': False,
+    }
+
+    for peer_id in set(peers).difference(need_peer_ids):
+        peers[peer_id] = {
+            'title': '[Missing profile %s]' % peer_id,
+            'username': None,
+            'is_dfi_account': False,
+        }
+
+    peer_ordering = []
+    for peer_id, peer_info in peers.items():
+        if peer_id == owner_id:
             sort_key = (0,)
         else:
-            sort_key = (1, title.lower(), title, target_id)
-        target_sortables.append((target_id, sort_key))
-    target_sortables.sort(key=lambda x: x[1])
-    target_order = [x for x, y in target_sortables]
-    target_index = {x: i for (i, x) in enumerate(target_order)}
+            title = peer_info['title']
+            sort_key = (1, title.lower(), title, peer_id)
+        peer_ordering.append((sort_key, peer_id))
+    peer_ordering.sort()
+    peer_order = [y for x, y in peer_ordering]
+    peer_index = {x: i for (i, x) in enumerate(peer_order)}
 
-    loop_title_rows = (
-        dbsession.query(Mirror.loop_id, Mirror.loop_title)
+    loop_rows = (
+        dbsession.query(Loop.loop_id, Loop.title)
         .filter(
-            Mirror.profile_id == profile_id,
-            Mirror.loop_id.in_(loop_ids),
-            Mirror.loop_title != null,
-            Mirror.loop_title != '')
-        .order_by(
-            case([
-                (Mirror.file_id == null, 1),
-            ], else_=0),
-            Mirror.start_date,
+            Loop.owner_id == owner_id,
+            Loop.loop_id.in_(need_loop_ids),
         ).all())
 
-    loop_titles = {}
-    for loop_id, loop_title in loop_title_rows:
-        loop_titles[loop_id] = loop_title
+    loops = {row.loop_id: {'title': row.title} for row in loop_rows}
 
     # Create movement_groups in order to unite the doubled movement
-    # rows in a single row.
+    # rows into a single row.
     # movement_groups: {
-    #    (number, orig_target_id, loop_id, currency, issuer_id):
-    #    [Movement, target_reco, c_reco]
+    #    (number, orig_peer_id, loop_id, currency, issuer_id):
+    #    [Movement, peer_reco, c_reco]
     # }
     movement_groups = {}
     for movement, reco in movement_rows:
         key = (
             movement.number,
-            movement.orig_target_id,
+            movement.orig_peer_id,
             movement.loop_id,
             movement.currency,
             movement.issuer_id)
         group = movement_groups.get(key)
         if group is None:
             movement_groups[key] = group = [movement, None, None]
-        if movement.target_id == 'c':
+        if movement.peer_id == 'c':
             group[2] = reco
         else:
             group[1] = reco
@@ -585,11 +577,11 @@ def transfer_record_view(request):
 
     movements_json = []
     for key, group in sorted(movement_groups.items()):
-        number, target_id, loop_id, currency, issuer_id = key
-        movement, target_reco, c_reco = group
+        number, peer_id, loop_id, currency, issuer_id = key
+        movement, peer_reco, c_reco = group
         movements_json.append({
             'number': number,
-            'target_id': target_id,
+            'peer_id': peer_id,
             'loop_id': loop_id,
             'currency': currency,
             'amount': str(movement.amount),
@@ -600,7 +592,7 @@ def transfer_record_view(request):
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(movement.wallet_delta),
             'vault_delta': str(movement.vault_delta),
-            'target_reco': reco_to_json(target_reco),
+            'peer_reco': reco_to_json(peer_reco),
             'c_reco': reco_to_json(c_reco),
         })
 
@@ -630,16 +622,12 @@ def transfer_record_view(request):
         'canceled': record.canceled,
         'sender_id': record.sender_id,
         'sender_uid': record.sender_uid,
-        'sender_title': record.sender_title,
         'recipient_id': record.recipient_id,
         'recipient_uid': record.recipient_uid,
-        'recipient_title': record.recipient_title,
         'movements': movements_json,
         'exchanges': exchanges_json,
-        'target_titles': target_titles,
-        'target_usernames': target_usernames,
-        'target_order': target_order,
-        'target_index': target_index,
-        'target_accounts': target_accounts,
-        'loop_titles': loop_titles,
+        'peers': peers,
+        'peer_order': peer_order,
+        'peer_index': peer_index,
+        'loops': loops,
     }
