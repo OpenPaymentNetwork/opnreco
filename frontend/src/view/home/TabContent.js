@@ -13,7 +13,7 @@ import TransferSummary from '../report/TransferSummary';
 
 export default class TabContent extends React.Component {
   static propTypes = {
-    account: PropTypes.object,
+    ploop: PropTypes.object,
     file: PropTypes.object,
     tab: PropTypes.string,
   };
@@ -28,12 +28,12 @@ export default class TabContent extends React.Component {
 
   componentDidCatch(error, info) {
     /* eslint {"no-console": 0} */
-    const {account, file, tab} = this.props;
+    const {ploop, file, tab} = this.props;
 
     if (typeof console !== 'undefined') {
       console.error(
         'TabContent render error',
-        {error, info, account, file, tab});
+        {error, info, ploop, file, tab});
     }
     this.setState({errorTab: this.props.tab});
   }
@@ -65,16 +65,16 @@ export default class TabContent extends React.Component {
       );
     }
 
-    const {account, file, tab} = this.props;
+    const {ploop, file, tab} = this.props;
     switch(tab) {
     case 'reco':
-      return <RecoReport account={account} file={file} />;
+      return <RecoReport ploop={ploop} file={file} />;
     case 'transactions':
       return this.renderTransactionsTab();
     case 'liabilities':
       return this.renderLiabilitiesTab();
     case 't':
-      return <TransferSummary account={account} file={file} />;
+      return <TransferSummary ploop={ploop} file={file} />;
     default:
       return null;
     }

@@ -69,7 +69,7 @@ def owner(request):
         .filter_by(id=authenticated_userid)
         .first())
     if owner is None:
-        owner_info = request.wallet_info['owner']
+        owner_info = request.wallet_info['profile']
 
         # Insert without creating a conflict with concurrent requests.
         values = {

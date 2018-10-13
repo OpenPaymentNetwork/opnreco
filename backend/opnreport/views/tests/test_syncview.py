@@ -81,9 +81,13 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(downloads))
         self.assertEqual('11', downloads[0].owner_id)
 
-        events = self.dbsession.query(db.OwnerLog).all()
+        events = (
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id)
+            .all())
         self.assertEqual(1, len(events))
         self.assertEqual('11', events[0].owner_id)
+        self.assertEqual('opn_sync', events[0].event_type)
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(0, len(records))
@@ -172,6 +176,7 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_peer',
             'add_peer',
+            'add_peer',
             'add_file',
             'add_file',
         ], [e.event_type for e in events])
@@ -197,7 +202,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('wingcash:1102', record.recipient_uid)
 
         peers = self.dbsession.query(db.Peer).order_by(db.Peer.peer_id).all()
-        self.assertEqual(2, len(peers))
+        self.assertEqual(3, len(peers))
 
         self.assertEqual('11', peers[0].owner_id)
         self.assertEqual('11', peers[0].peer_id)
@@ -315,7 +320,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.OwnerLog)
             .order_by(db.OwnerLog.id).all())
-        self.assertEqual(5, len(events))
+        self.assertEqual(6, len(events))
         event = events[0]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -459,6 +464,7 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_peer',
             'add_peer',
+            'add_peer',
             'add_file',
             'add_file',
         ], [e.event_type for e in events])
@@ -485,7 +491,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('wingcash:11', record.recipient_uid)
 
         peers = self.dbsession.query(db.Peer).order_by(db.Peer.peer_id).all()
-        self.assertEqual(2, len(peers))
+        self.assertEqual(3, len(peers))
 
         self.assertEqual('11', peers[0].owner_id)
         self.assertEqual('11', peers[0].peer_id)
@@ -622,6 +628,7 @@ class TestDownloadView(unittest.TestCase):
             .all())
         self.assertEqual([
             'opn_sync',
+            'add_peer',
             'add_peer',
             'add_peer',
             'add_file',
@@ -801,6 +808,7 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_peer',
             'add_peer',
+            'add_peer',
             'add_file',
             'add_file',
             'add_file',
@@ -949,7 +957,7 @@ class TestDownloadView(unittest.TestCase):
 
         events = (
             self.dbsession.query(db.OwnerLog).order_by(db.OwnerLog.id).all())
-        self.assertEqual(3, len(events))
+        self.assertEqual(4, len(events))
         event = events[0]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -1014,7 +1022,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.OwnerLog)
             .order_by(db.OwnerLog.id).all())
-        self.assertEqual(6, len(events))
+        self.assertEqual(7, len(events))
         event = events[0]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -1101,7 +1109,7 @@ class TestDownloadView(unittest.TestCase):
         events = (
             self.dbsession.query(db.OwnerLog)
             .order_by(db.OwnerLog.id).all())
-        self.assertEqual(7, len(events))
+        self.assertEqual(8, len(events))
         event = events[-1]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -1416,6 +1424,7 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_peer',
             'add_peer',
+            'add_peer',
             'add_file',
             'add_file',
             'opn_sync',
@@ -1572,6 +1581,7 @@ class TestDownloadView(unittest.TestCase):
             'opn_sync',
             'add_peer',
             'add_peer',
+            'add_peer',
             'add_file',
             'add_file',
         ], [e.event_type for e in events])
@@ -1625,6 +1635,7 @@ class TestDownloadView(unittest.TestCase):
             .order_by(db.OwnerLog.id).all())
         self.assertEqual([
             'opn_sync',
+            'add_peer',
             'add_peer',
             'add_peer',
             'add_file',

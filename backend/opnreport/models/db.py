@@ -1,20 +1,20 @@
 
-from sqlalchemy.orm import backref
 from sqlalchemy import BigInteger
 from sqlalchemy import Boolean
 from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import Date
 from sqlalchemy import DateTime
-from sqlalchemy import Numeric
 from sqlalchemy import ForeignKey
 from sqlalchemy import func
-from sqlalchemy import Integer
 from sqlalchemy import Index
+from sqlalchemy import Integer
+from sqlalchemy import Numeric
 from sqlalchemy import String
 from sqlalchemy import Unicode
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from sqlalchemy.schema import MetaData
 
 
@@ -106,8 +106,8 @@ class Loop(Base):
 class File(Base):
     """A time-boxed record of movements in OPN transfers.
 
-    Represents the loop-specific (and hence currency-specific) movements
-    with a specific peer.
+    Holds the reconciliations created for a peer loop during the specified
+    time period.
     """
     __tablename__ = 'file'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -124,7 +124,18 @@ class File(Base):
     has_vault = Column(Boolean, nullable=False, default=False)
     subtitle = Column(Unicode, nullable=True)
 
-    owner = backref(Owner)
+    start_date = Column(Date, nullable=True)
+    start_balance = Column(Numeric, nullable=False, default=0)
+    end_date = Column(Date, nullable=True)
+    end_balance = Column(Numeric, nullable=True)
+
+    # peer_* and loop_* apply only when current = False.
+    peer_title = Column(Unicode, nullable=True)
+    peer_username = Column(String, nullable=True)
+    peer_is_dfi_account = Column(Boolean, nullable=True)
+    loop_title = Column(Unicode, nullable=True)
+
+    owner = relationship(Owner)
 
 
 Index(
@@ -135,27 +146,6 @@ Index(
     File.currency,
     postgresql_where=File.current,
     unique=True)
-
-
-class FileFrozen(Base):
-    """Frozen attributes of a File.
-
-    FileFrozen is created when the user closes a File.
-    """
-    __tablename__ = 'file_frozen'
-
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'), nullable=False, primary_key=True)
-    start_date = Column(Date, nullable=False)
-    start_balance = Column(Numeric, nullable=False, default=0)
-    end_date = Column(Date, nullable=False)
-    end_balance = Column(Numeric, nullable=False)
-    peer_title = Column(Unicode, nullable=True)
-    peer_username = Column(String, nullable=True)
-    peer_is_dfi_account = Column(Boolean, nullable=False, default=False)
-    loop_title = Column(Unicode, nullable=True)
-
-    file = backref(File, backref='frozen')
 
 
 class TransferRecord(Base):
@@ -189,7 +179,7 @@ class TransferRecord(Base):
     recipient_uid = Column(Unicode, nullable=True)    # May change
     recipient_info = Column(JSONB, nullable=True)     # May change
 
-    owner = backref(Owner)
+    owner = relationship(Owner)
 
 
 Index(
@@ -222,8 +212,8 @@ class TransferDownloadRecord(Base):
     transfer_id = Column(String, nullable=False)
     changed = Column(JSONB, nullable=False)
 
-    opn_download = backref(OPNDownload)
-    transfer_record = backref(TransferRecord)
+    opn_download = relationship(OPNDownload)
+    transfer_record = relationship(TransferRecord)
 
 
 class Movement(Base):
@@ -270,7 +260,7 @@ class Movement(Base):
     wallet_delta = Column(Numeric, nullable=False)
     vault_delta = Column(Numeric, nullable=False)
 
-    transfer_record = backref(TransferRecord)
+    transfer_record = relationship(TransferRecord)
 
 
 Index(
@@ -300,7 +290,7 @@ class MovementLog(Base):
     # reco_id
     changes = Column(JSONB, nullable=False)
 
-    movement = backref(Movement)
+    movement = relationship(Movement)
 
 
 class Statement(Base):
@@ -313,8 +303,7 @@ class Statement(Base):
     ts = Column(DateTime, nullable=False, server_default=now_func)
     content = Column(JSONB, nullable=False)
 
-    owner = backref(Owner)
-    file = backref(File)
+    file = relationship(File)
 
 
 class AccountEntry(Base):
@@ -341,8 +330,8 @@ class AccountEntry(Base):
     # desc contains descriptive info provided by the bank.
     desc = Column(JSONB, nullable=False)
 
-    file = backref(File)
-    statement = backref(Statement)
+    file = relationship(File)
+    statement = relationship(Statement)
 
 
 class AccountEntryLog(Base):
@@ -360,7 +349,7 @@ class AccountEntryLog(Base):
     # reco_id, statement_id, statement_ref, entry_date, delta, and desc.
     changes = Column(JSONB, nullable=False)
 
-    account_entry = backref(AccountEntry)
+    account_entry = relationship(AccountEntry)
 
 
 class Reco(Base):
@@ -385,7 +374,7 @@ class Reco(Base):
     # and later edited.
     auto_edited = Column(Boolean, nullable=False, default=False)
 
-    file = backref(File)
+    file = relationship(File)
 
 
 class MovementReco(Base):
@@ -401,8 +390,8 @@ class MovementReco(Base):
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
 
-    movement = backref(Movement)
-    reco = backref(Reco)
+    movement = relationship(Movement)
+    reco = relationship(Reco)
 
 
 class AccountEntryReco(Base):
@@ -418,8 +407,8 @@ class AccountEntryReco(Base):
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
 
-    account_entry = backref(AccountEntry)
-    reco = backref(Reco)
+    account_entry = relationship(AccountEntry)
+    reco = relationship(Reco)
 
 
 class Exchange(Base):

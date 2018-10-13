@@ -9,6 +9,7 @@
 /develop-eggs
 /share
 /pip-selfcheck.json
+pyvenv.cfg
 
 *.egg-info
 __pycache__

@@ -3,7 +3,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { setAccountKey, setFileId } from '../../reducer/report';
+import { setPloopKey, setFileId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -26,7 +26,7 @@ const styles = theme => ({
   controlBox: {
     padding: 16,
   },
-  accountSelect: {
+  ploopSelect: {
     [theme.breakpoints.up('lg')]: {
       minWidth: 400,
     },
@@ -35,17 +35,17 @@ const styles = theme => ({
   },
 });
 
-const accountsURL = fOPNReport.pathToURL('/accounts');
+const ploopsURL = fOPNReport.pathToURL('/ploops');
 
 
 class ReportFilter extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    fileId: PropTypes.string,
-    accountKey: PropTypes.string,
-    accounts: PropTypes.object,
-    accountOrder: PropTypes.array,
+    file: PropTypes.object,
+    ploop: PropTypes.object,
+    ploops: PropTypes.object,
+    ploopOrder: PropTypes.array,
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
@@ -56,39 +56,39 @@ class ReportFilter extends React.Component {
     this.binder = binder(this);
   }
 
-  handleAccountChange(event) {
-    this.props.dispatch(setAccountKey(event.target.value));
+  handlePloopChange(event) {
+    this.props.dispatch(setPloopKey(event.target.value));
   }
 
   handleFileChange(event) {
     this.props.dispatch(setFileId(event.target.value));
   }
 
-  renderAccountSelections() {
+  renderPloopSelections() {
     const {
-      accounts,
-      accountOrder,
+      ploops,
+      ploopOrder,
       loading,
       loadError,
       syncProgress,
     } = this.props;
 
-    if (accountOrder && accountOrder.length) {
-      return accountOrder.map(accountKey => {
-        const account = accounts[accountKey];
-        let targetType;
-        if (account.target_id === 'c') {
-          targetType = 'Circulation';
-        } else if (account.target_is_dfi_account) {
-          targetType = 'DFI Account';
+    if (ploopOrder && ploopOrder.length) {
+      return ploopOrder.map(ploopKey => {
+        const ploop = ploops[ploopKey];
+        let peerType;
+        if (ploop.peer_id === 'c') {
+          peerType = 'Circulation';
+        } else if (ploop.peer_is_dfi_account) {
+          peerType = 'DFI Account';
         } else {
-          targetType = 'Wallet';
+          peerType = 'Wallet';
         }
         return (
-          <MenuItem value={accountKey} key={accountKey}>
-            {account.target_title} ({targetType}) -
-            {' '}{account.currency}
-            {' '}{account.loop_id === '0' ? 'Open Loop' : account.loop_title}
+          <MenuItem value={ploopKey} key={ploopKey}>
+            {ploop.peer_title} ({peerType}) -
+            {' '}{ploop.currency}
+            {' '}{ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title}
           </MenuItem>
         );
       });
@@ -112,29 +112,70 @@ class ReportFilter extends React.Component {
     }
   }
 
+  renderFileSelections() {
+    const {
+      ploop,
+    } = this.props;
+
+    if (ploop && ploop.file_order && ploop.file_order.length) {
+      return ploop.file_order.map(fileId => {
+        const file = ploop.files[fileId];
+        let title;
+        if (file.current) {
+          title = 'Current File';
+        } else {
+          title = file.end_date;
+        }
+        return <MenuItem value={fileId} key={fileId}>{title}</MenuItem>;
+      });
+    } else {
+      return [];
+    }
+  }
+
   render() {
     const {
       classes,
-      accountKey,
-      fileId,
+      ploop,
+      ploopOrder,
+      file,
     } = this.props;
 
-    const accountSelections = this.renderAccountSelections();
+    const ploopSelections = this.renderPloopSelections();
+    const fileSelections = this.renderFileSelections();
+
+    let ploopValue;
+    if (ploop) {
+      ploopValue = ploop.ploop_key;
+    } else if (ploopOrder && ploopOrder.length) {
+      ploopValue = ploopOrder[0];
+    } else {
+      ploopValue = '#error';
+    }
+
+    let fileValue;
+    if (file) {
+      fileValue = file.file_id;
+    } else if (ploop && ploop.file_order && ploop.file_order.length) {
+      fileValue = ploop.file_order[0];
+    } else {
+      fileValue = '';
+    }
 
     return (
       <Paper className={classes.root}>
-        <Require fetcher={fOPNReport} urls={[accountsURL]} />
+        <Require fetcher={fOPNReport} urls={[ploopsURL]} />
         <div className={classes.controlBox}>
           <FormControl>
             <Select
-              className={classes.mirrorSelect}
-              value={accountKey || '#error'}
-              onChange={this.binder(this.handleAccountChange)}
+              className={classes.ploopSelect}
+              value={ploopValue}
+              onChange={this.binder(this.handlePloopChange)}
               inputProps={{
-                id: 'filter-account',
+                id: 'filter-ploop',
               }}
             >
-              {accountSelections}
+              {ploopSelections}
             </Select>
           </FormControl>
         </div>
@@ -142,14 +183,13 @@ class ReportFilter extends React.Component {
           <FormControl>
             <Select
               className={classes.fileSelect}
-              value={fileId || 'current'}
+              value={fileValue}
               onChange={this.binder(this.handleFileChange)}
               inputProps={{
                 id: 'filter-file',
               }}
             >
-              <MenuItem value="current">Current File</MenuItem>
-              {/* TODO: list the files */}
+              {fileSelections}
             </Select>
           </FormControl>
         </div>
@@ -160,13 +200,13 @@ class ReportFilter extends React.Component {
 
 
 function mapStateToProps(state) {
-  const fetched = fetchcache.get(state, accountsURL) || {};
-  const loading = fetchcache.fetching(state, accountsURL);
-  const loadError = !!fetchcache.getError(state, accountsURL);
+  const fetched = fetchcache.get(state, ploopsURL) || {};
+  const loading = fetchcache.fetching(state, ploopsURL);
+  const loadError = !!fetchcache.getError(state, ploopsURL);
   return {
-    accountsURL,
-    accounts: fetched.accounts || {},
-    accountOrder: fetched.account_order || [],
+    ploopsURL,
+    ploops: fetched.ploops || {},
+    ploopOrder: fetched.ploop_order || [],
     loading,
     loadError,
     syncProgress: state.app.syncProgress,

@@ -182,7 +182,7 @@ class SyncView:
         record_map = {record.transfer_id: record for record in record_list}
 
         # peer_ids is the set of all peer IDs referenced by the transfers.
-        peer_ids = set()
+        peer_ids = set(['c'])  # Include the 'c' peer
         for item in transfers_download['results']:
             sender_id = item['sender_id']
             if sender_id:
@@ -200,12 +200,15 @@ class SyncView:
 
         peer_rows = (
             dbsession.query(Peer)
-            .filter(Peer.owner_id == owner_id)
-            .filter(Peer.peer_id.in_(peer_ids))
-            .all())
+            .filter(
+                Peer.owner_id == owner_id,
+                Peer.peer_id.in_(peer_ids),
+            ).all())
 
         for peer in peer_rows:
             self.peers[peer.peer_id] = peer
+
+        self.import_peer('c', None)  # Create or update the 'c' peer
 
         for item in transfers_download['results']:
             self.import_peer(item['sender_id'], item['sender_info'])
@@ -271,6 +274,8 @@ class SyncView:
 
             if item['movements']:
                 self.import_movements(record, item, new_record=new_record)
+
+        dbsession.flush()
 
     @reify
     def account_map(self):
@@ -556,13 +561,11 @@ class SyncView:
 
             # Add to the wallet-specific or account-specific movements.
             peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
-            file = self.prepare_file(peer_id, loop_id, currency)
+            self.prepare_file(peer_id, loop_id, currency)
             amounts = by_peer[peer_key]
             amounts[0] += amount
             if vault_delta:
                 amounts[2] += vault_delta
-                if not file.has_vault:
-                    file.has_vault = True
             if wallet_delta:
                 amounts[1] += wallet_delta
 

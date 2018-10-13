@@ -40,10 +40,8 @@ class Home extends React.Component {
     classes: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
-    account: PropTypes.object,
-    accountKey: PropTypes.string,
+    ploop: PropTypes.object,
     file: PropTypes.object,
-    fileId: PropTypes.string,
     transferId: PropTypes.string,
   };
 
@@ -68,10 +66,8 @@ class Home extends React.Component {
     const {
       classes,
       match,
-      account,
-      accountKey,
+      ploop,
       file,
-      fileId,
       transferId,
     } = this.props;
 
@@ -99,7 +95,7 @@ class Home extends React.Component {
 
     const filterBox = (
       <div className={classes.reportFilterBox}>
-        <ReportFilter accountKey={accountKey} fileId={fileId} />
+        <ReportFilter ploop={ploop} file={file} />
       </div>
     );
 
@@ -121,46 +117,48 @@ class Home extends React.Component {
 
         </div>
 
-        <TabContent tab={tab} account={account} file={file} />
+        <TabContent tab={tab} ploop={ploop} file={file} />
       </div>
     );
   }
 }
 
-const accountsURL = fOPNReport.pathToURL('/accounts');
+const ploopsURL = fOPNReport.pathToURL('/ploops');
 
 
 function mapStateToProps(state) {
-  const {accountKey, fileId} = state.report;
-  const fetched = fetchcache.get(state, accountsURL) || {};
-  const accounts = fetched.accounts || {};
-  const accountOrder = fetched.account_order;
-  let selectedAccountKey = accountKey;
+  const {ploopKey, fileId} = state.report;
+  const fetched = fetchcache.get(state, ploopsURL) || {};
+  const ploops = fetched.ploops || {};
+  const ploopOrder = fetched.ploop_order;
+  let selectedPloopKey = ploopKey;
 
-  if (accountOrder && accountOrder.length) {
-    if (!selectedAccountKey || !accounts[selectedAccountKey]) {
-      selectedAccountKey = fetched.default_account || '';
+  if (ploopOrder && ploopOrder.length) {
+    if (!selectedPloopKey || !ploops[selectedPloopKey]) {
+      selectedPloopKey = fetched.default_ploop || '';
     }
 
-    if (!selectedAccountKey) {
-      selectedAccountKey = accountOrder[0];
+    if (!selectedPloopKey) {
+      selectedPloopKey = ploopOrder[0];
     }
   } else {
-    selectedAccountKey = '';
+    selectedPloopKey = '';
   }
 
-  const account = selectedAccountKey ? accounts[selectedAccountKey] : null;
+  const ploop = selectedPloopKey ? ploops[selectedPloopKey] : null;
 
   let file = null;
-  if (fileId && account && account.files) {
-    file = account.files[fileId];
+  if (ploop && ploop.files) {
+    if (fileId) {
+      file = ploop.files[fileId];
+    } else if (ploop.file_order && ploop.file_order.length) {
+      file = ploop.files[ploop.file_order[0]];
+    }
   }
 
   return {
-    account,
-    accountKey: account ? selectedAccountKey : null,
+    ploop,
     file,
-    fileId: file ? fileId : null,
     transferId: state.app.transferId,
   };
 }

@@ -4,7 +4,6 @@ from opnreport.models.db import AccountEntry
 from opnreport.models.db import AccountEntryReco
 from opnreport.models.db import Exchange
 from opnreport.models.db import File
-from opnreport.models.db import FileFrozen
 from opnreport.models.db import Loop
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
@@ -47,7 +46,7 @@ def ploops_view(request):
             'loop_title',
             'files': {file_id: {
                 'file_id',
-                'is_new',
+                'current',
                 'subtitle',
                 'start_date',
                 'start_balance',
@@ -68,14 +67,13 @@ def ploops_view(request):
     owner_id = owner.id
     dbsession = request.dbsession
 
-    future = datetime.utcnow() + datetime.timedelta(days=366 * 100)
+    future = datetime.datetime.utcnow() + datetime.timedelta(days=366 * 100)
 
     file_rows = (
-        dbsession.query(File, Peer, FileFrozen, Loop)
+        dbsession.query(File, Peer, Loop)
         .join(Peer, and_(
             Peer.owner_id == owner_id,
             Peer.peer_id == File.peer_id))
-        .outerjoin(FileFrozen, FileFrozen.file_id == File.id)
         .outerjoin(Loop, and_(
             Loop.owner_id == owner_id,
             Loop.loop_id == File.loop_id,
@@ -85,17 +83,17 @@ def ploops_view(request):
             or_(
                 and_(File.peer_id == 'c', File.has_vault),
                 Peer.is_dfi_account,
-                FileFrozen.peer_is_dfi_account,
+                File.peer_is_dfi_account,
             ))
         .order_by(
-            func.coalesce(FileFrozen.start_date, future).desc(),
+            func.coalesce(File.start_date, future).desc(),
             File.id)
         .all())
 
     # ploops: {peer_id-loop_id-currency: {files, file_order, ...}}
     ploops = {}
 
-    for file, peer, ffz, loop in file_rows:
+    for file, peer, loop in file_rows:
         ploop_key = '-'.join([file.peer_id, file.loop_id, file.currency])
 
         ploop = ploops.get(ploop_key)
@@ -127,30 +125,30 @@ def ploops_view(request):
     ploop_ordering = []
     default_ordering = []
 
-    for ploop_key, ploop_info in ploops.items():
-        if ploop_info['peer_id'] == 'c':
+    for ploop_key, ploop in ploops.items():
+        if ploop['peer_id'] == 'c':
             # Show circulation first.
-            peer_title = ''
-            peer_id = ''
+            peer_sort_title = ''
+            peer_sort_id = ''
         else:
-            peer_title = ploop['peer_title']
-            peer_id = ploop['peer_id']
+            peer_sort_title = ploop['peer_title']
+            peer_sort_id = ploop['peer_id']
 
         loop_id = ploop['loop_id']
         if loop_id == '0':
             # Show open loop first.
-            loop_title = ''
+            loop_sort_title = ''
         else:
-            loop_title = ploop['loop_title']
+            loop_sort_title = ploop['loop_title']
 
         sort_key = (
             0 if ploop['peer_is_dfi_account'] else 1,
-            peer_title.lower(),
-            peer_title,
-            peer_id,
+            peer_sort_title.lower(),
+            peer_sort_title,
+            peer_sort_id,
             '' if ploop['currency'] == 'USD' else ploop['currency'],
-            loop_title.lower(),
-            loop_title,
+            loop_sort_title.lower(),
+            loop_sort_title,
             loop_id,
         )
         ploop_ordering.append((sort_key, ploop_key))
@@ -186,34 +184,30 @@ def serialize_file(file, peer, loop=None):
         'current': file.current,
         'has_vault': file.has_vault,
         'subtitle': file.subtitle,
+        'start_date': file.start_date,
+        'start_balance': file.start_balance,
+        'end_date': file.end_date,
+        'end_balance': file.end_balance,
     }
 
-    ffz = file.frozen
-    loop_title = (
-        '[Cash Design %s]' % file.loop_id if loop is None
-        else loop.title)
+    if file.current:
+        loop_title = (
+            '[Cash Design %s]' % file.loop_id if loop is None
+            else loop.title)
 
-    if ffz is not None:
         res.update({
-            'peer_title': ffz.peer_title,
-            'peer_username': ffz.peer_username,
-            'peer_is_dfi_account': ffz.peer_is_dfi_account,
-            'loop_title': ffz.loop_title,
-            'start_date': ffz.start_date,
-            'start_balance': ffz.start_balance,
-            'end_date': ffz.end_date,
-            'end_balance': ffz.end_balance,
-        })
-    else:
-        res.update({
-            'start_date': None,
-            'start_balance': '0',
-            'end_date': None,
-            'end_balance': None,
             'peer_title': peer.title,
             'peer_username': peer.username,
             'peer_is_dfi_account': peer.is_dfi_account,
             'loop_title': loop_title,
+        })
+
+    else:
+        res.update({
+            'peer_title': file.peer_title,
+            'peer_username': file.peer_username,
+            'peer_is_dfi_account': file.peer_is_dfi_account,
+            'loop_title': file.loop_title,
         })
 
     return res
@@ -237,7 +231,7 @@ def get_request_file(request):
 
     ploop_key, file_id_str = subpath[:4]
 
-    match = re.match(r'^([0-9]+)-([0-9]+)-([A-Z]{3})$', ploop_key)
+    match = re.match(r'^(c|[0-9]+)-([0-9]+)-([A-Z]{3})$', ploop_key)
     if match is None:
         raise HTTPBadRequest(
             json_body={'error': 'invalid ploop_key provided'})
@@ -248,14 +242,14 @@ def get_request_file(request):
     dbsession = request.dbsession
 
     if file_id_str == 'current':
-        filter_kw = {'current': True}
+        file_id_filter = File.current
     else:
         try:
             file_id = int(file_id_str)
         except ValueError:
             raise HTTPBadRequest(
                 json_body={'error': 'bad file_id provided'})
-        filter_kw = {'id': file_id}
+        file_id_filter = (File.id == file_id)
 
     row = (
         dbsession.query(File, Peer, Loop)
@@ -266,12 +260,12 @@ def get_request_file(request):
             Loop.owner_id == owner_id,
             Loop.loop_id == File.loop_id,
             Loop.loop_id != '0'))
-        .filter_by(
-            owner_id=owner_id,
-            peer_id=peer_id,
-            loop_id=loop_id,
-            currency=currency,
-            **filter_kw)
+        .filter(
+            File.owner_id == owner_id,
+            File.peer_id == peer_id,
+            File.loop_id == loop_id,
+            File.currency == currency,
+            file_id_filter)
         .first())
 
     if row is None:
@@ -440,9 +434,7 @@ def reco_report_view(request):
             workflow_types[str_sign] = d = {}
         d[workflow_type] = str(delta) if delta else '0'
 
-    ffz = file.frozen
-    start_balance = zero if ffz is None else ffz.start_balance
-    reconciled_balance = start_balance + reconciled_delta
+    reconciled_balance = file.start_balance + reconciled_delta
     outstanding_balance = reconciled_balance + sum(
         row.delta for row in outstanding_rows)
 

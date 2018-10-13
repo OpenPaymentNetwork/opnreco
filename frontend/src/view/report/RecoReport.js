@@ -221,8 +221,8 @@ class RecoReport extends React.Component {
 
   render() {
     const {classes, recoReportURL, recoReport, loading, file} = this.props;
-    if (!recoReportURL) {
-      // No account selected.
+    if (!recoReportURL || !file) {
+      // No peer loop or file selected.
       return null;
     }
 
@@ -239,26 +239,21 @@ class RecoReport extends React.Component {
       return <div className={classes.root}>{require}</div>;
     }
 
-    const {mirror} = recoReport;
-    if (!mirror) {
-      return 'No account data found';
-    }
-
-    let file_date;
-    if (file) {
-      file_date = file.end_date;
+    let fileDate;
+    if (file.end_date) {
+      fileDate = file.end_date;
     } else {
-      file_date = (new Date()).toLocaleDateString() + ' (current)';
+      fileDate = (new Date()).toLocaleDateString() + ' (current)';
     }
 
-    const {target_title, currency} = mirror;
+    const {peer_title, currency} = file;
     const cfmt = new getCurrencyFormatter(currency);
 
     const labelCellCN = `${classes.cell} ${classes.labelCell}`;
     const amountCellCN = `${classes.cell} ${classes.amountCell}`;
 
     const bottomLabel = (
-      mirror.target_id === 'c' ?
+      file.peer_id === 'c' ?
         'Amount in Circulation' :
         'Balance With Outstanding Changes');
 
@@ -270,10 +265,10 @@ class RecoReport extends React.Component {
             <thead>
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`} colSpan="2">
-                  {target_title} Reconciliation Report -
+                  {peer_title} Reconciliation Report -
                   {' '}{currency}
-                  {' '}{mirror.loop_id === '0' ? 'Open Loop' : mirror.loop_title}
-                  {' - '}{file_date}
+                  {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
+                  {' - '}{fileDate}
                 </th>
               </tr>
             </thead>
@@ -317,12 +312,11 @@ class RecoReport extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {account, file} = ownProps;
+  const {ploop, file} = ownProps;
   const expanded = state.tree.reco;
-  if (account) {
+  if (ploop) {
     const recoReportURL = fOPNReport.pathToURL(
-      `/reco-report/${account.target_id}/${account.loop_id}/` +
-      `${account.currency}/${file ? file.id : 'current'}`);
+      `/reco-report/${ploop.ploop_key}/${file ? file.file_id : 'current'}`);
     const recoReport = fetchcache.get(state, recoReportURL);
     const loading = fetchcache.fetching(state, recoReportURL);
     const loadError = !!fetchcache.getError(state, recoReportURL);
