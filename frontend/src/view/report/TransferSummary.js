@@ -26,6 +26,7 @@ import { setTransferId } from '../../reducer/app';
 
 
 const solidBorder = '1px solid #bbb';
+const tableWidth = 1200;
 
 const styles = theme => ({
   root: {
@@ -33,7 +34,7 @@ const styles = theme => ({
   },
   searchIconBox: {
     margin: '0 auto',
-    maxWidth: 800,
+    maxWidth: tableWidth,
     textAlign: 'right',
   },
   cancelButton: {
@@ -43,7 +44,7 @@ const styles = theme => ({
   },
   formPaper: {
     margin: '16px auto',
-    maxWidth: 800,
+    maxWidth: tableWidth,
     textAlign: 'center',
     position: 'relative',
   },
@@ -55,7 +56,7 @@ const styles = theme => ({
   },
   tablePaper: {
     margin: '0 auto 16px auto',
-    maxWidth: 800,
+    maxWidth: tableWidth,
   },
   table: {
     width: '100%',

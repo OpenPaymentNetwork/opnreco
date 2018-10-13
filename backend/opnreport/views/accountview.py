@@ -489,6 +489,7 @@ def transfer_record_view(request):
     for m, _reco in movement_rows:
         need_peer_ids.update([m.from_id, m.to_id, m.issuer_id])
         need_loop_ids.add(m.loop_id)
+    need_peer_ids.discard(None)
     need_peer_ids.discard(owner_id)
     need_loop_ids.discard('0')
 
@@ -516,7 +517,7 @@ def transfer_record_view(request):
         'is_dfi_account': False,
     }
 
-    for peer_id in set(peers).difference(need_peer_ids):
+    for peer_id in need_peer_ids.difference(peers):
         peers[peer_id] = {
             'title': '[Missing profile %s]' % peer_id,
             'username': None,
