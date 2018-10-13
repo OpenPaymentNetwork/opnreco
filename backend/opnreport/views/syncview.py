@@ -210,29 +210,36 @@ class SyncView:
 
         self.import_peer('c', None)  # Create or update the 'c' peer
 
-        for item in transfers_download['results']:
-            self.import_peer(item['sender_id'], item['sender_info'])
-            self.import_peer(item['recipient_id'], item['recipient_info'])
+        for tsum in transfers_download['results']:
+            self.import_peer(tsum['sender_id'], tsum['sender_info'])
+
+            if tsum.get('recipient_is_dfi_account'):
+                recipient_info = {}
+                recipient_info.update(tsum['recipient_info'])
+                recipient_info['is_dfi_account'] = True
+            else:
+                recipient_info = tsum['recipient_info']
+            self.import_peer(tsum['recipient_id'], recipient_info)
 
             changed = []
             kw = {
-                'workflow_type': item['workflow_type'],
-                'start': to_datetime(item['start']),
-                'currency': item['currency'],
-                'amount': Decimal(item['amount']),
-                'timestamp': to_datetime(item['timestamp']),
-                'next_activity': item['next_activity'],
-                'completed': item['completed'],
-                'canceled': item['canceled'],
-                'sender_id': item['sender_id'] or None,
-                'sender_uid': item['sender_uid'] or None,
-                'sender_info': item['sender_info'],
-                'recipient_id': item['recipient_id'] or None,
-                'recipient_uid': item['recipient_uid'] or None,
-                'recipient_info': item['recipient_info'],
+                'workflow_type': tsum['workflow_type'],
+                'start': to_datetime(tsum['start']),
+                'currency': tsum['currency'],
+                'amount': Decimal(tsum['amount']),
+                'timestamp': to_datetime(tsum['timestamp']),
+                'next_activity': tsum['next_activity'],
+                'completed': tsum['completed'],
+                'canceled': tsum['canceled'],
+                'sender_id': tsum['sender_id'] or None,
+                'sender_uid': tsum['sender_uid'] or None,
+                'sender_info': tsum['sender_info'],
+                'recipient_id': tsum['recipient_id'] or None,
+                'recipient_uid': tsum['recipient_uid'] or None,
+                'recipient_info': tsum['recipient_info'],
             }
 
-            transfer_id = item['id']
+            transfer_id = tsum['id']
             record = record_map.get(transfer_id)
             if record is None:
                 # Add a TransferRecord.
@@ -272,8 +279,8 @@ class SyncView:
                 transfer_id=transfer_id,
                 changed=changed))
 
-            if item['movements']:
-                self.import_movements(record, item, new_record=new_record)
+            if tsum['movements']:
+                self.import_movements(record, tsum, new_record=new_record)
 
         dbsession.flush()
 

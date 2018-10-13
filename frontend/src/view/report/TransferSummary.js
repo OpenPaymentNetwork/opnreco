@@ -378,7 +378,7 @@ class TransferSummary extends React.Component {
       </tr>
     );
 
-    const labelCells = [<td key="number" className={labelCell}>Number</td>];
+    const labelCells = [<td key="number" className={labelCell}>Num</td>];
 
     peer_order.forEach((peerId, index) => {
       const legendCells = [<td className={legendSpacerCell} key="number"/>];
@@ -397,8 +397,8 @@ class TransferSummary extends React.Component {
     });
 
     labelCells.push(<td key="amount" className={labelCell}>Amount</td>);
-    labelCells.push(<td key="design" className={labelCell}>Type</td>);
-    labelCells.push(<td key="action" className={labelCell}>Action</td>);
+    labelCells.push(<td key="design" className={labelCell}>Note Design</td>);
+    labelCells.push(<td key="action" className={labelCell}>Action Code</td>);
     labelCells.push(<td key="ts" className={labelCell}>Date and Time</td>);
     labelCells.push(<td key="reco" className={labelCell}>Reconciled</td>);
 
