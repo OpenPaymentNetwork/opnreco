@@ -99,9 +99,13 @@ class ProfileSelector extends React.Component {
           onChange={this.binder(this.handleSelect)}
           className={classes.select}
         >
-          {profiles.map(p => (
-            <MenuItem key={p.id} value={p.id}>{p.title}</MenuItem>
-          ))}
+          {profiles.map(p => {
+            let title = p.title;
+            if (p.username) {
+              title = <span>{p.title} (<em>{p.username}</em>)</span>;
+            }
+            return <MenuItem key={p.id} value={p.id}>{title}</MenuItem>;
+          })}
         </Select>
       </div>
     );

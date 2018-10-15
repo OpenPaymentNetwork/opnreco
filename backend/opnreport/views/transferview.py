@@ -21,11 +21,25 @@ import sqlalchemy.dialects.postgresql
 
 
 @view_config(
+    name='transfer-record-complete',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def transfer_record_complete_view(context, request):
+    return transfer_record_view(context, request, complete=True)
+
+
+@view_config(
     name='transfer-record',
     context=API,
     permission='use_app',
     renderer='json')
 def transfer_record_view(context, request, complete=False):
+    """Prepare all the info for displaying a transfer record.
+
+    Does not fetch peer and loop info by default, for speed.
+    Fetches updates when accessed as 'transfer-record-complete'.
+    """
     subpath = request.subpath
     if not subpath:
         raise HTTPBadRequest()
@@ -229,6 +243,9 @@ def transfer_record_view(context, request, complete=False):
     }
 
 
+stale_delta = datetime.timedelta(seconds=60)
+
+
 def fetch_peers(request, input_peers):
     """Fetch updates as necessary for all peers relevant to a request.
 
@@ -247,7 +264,7 @@ def fetch_peers(request, input_peers):
     peer_row_map = {row.peer_id: row for row in peer_rows}
 
     now = dbsession.query(now_func).scalar()
-    stale_time = now - datetime.timedelta(seconds=60)
+    stale_time = now - stale_delta
     res = {}  # {peer_id: peer_info}
 
     for peer_id in sorted(input_peers.keys()):
@@ -326,7 +343,7 @@ def fetch_loops(request, input_loops):
     loop_row_map = {row.loop_id: row for row in loop_rows}
 
     now = dbsession.query(now_func).scalar()
-    stale_time = now - datetime.timedelta(seconds=60)
+    stale_time = now - stale_delta
     res = {}  # {loop_id: loop_info}
 
     for loop_id in sorted(input_loops.items()):

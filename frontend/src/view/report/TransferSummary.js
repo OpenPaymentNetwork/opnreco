@@ -208,6 +208,7 @@ class TransferSummary extends React.Component {
     profileId: PropTypes.string.isRequired,
     recordURL: PropTypes.string,
     record: PropTypes.object,
+    recordCompleteURL: PropTypes.string,
     loading: PropTypes.bool,
     loadError: PropTypes.any,
     transferId: PropTypes.string,
@@ -765,6 +766,7 @@ class TransferSummary extends React.Component {
       classes,
       recordURL,
       record,
+      recordCompleteURL,
       loading,
       loadError,
       transferId,
@@ -779,9 +781,13 @@ class TransferSummary extends React.Component {
       );
     }
 
+    const requireURLs = [recordURL];
+    if (recordCompleteURL) {
+      requireURLs.push(recordCompleteURL);
+    }
     const require = (
       <Require fetcher={fOPNReport}
-        urls={[recordURL]}
+        urls={requireURLs}
         options={{suppressServerError: true}} />);
 
     let content;
@@ -841,14 +847,28 @@ function mapStateToProps(state, ownProps) {
 
   if (transferId) {
     const recordURL = fOPNReport.pathToURL(`/transfer-record/${transferId}`);
-    const record = fetchcache.get(state, recordURL);
+    let record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);
+    let recordCompleteURL = null;
+
+    if (record) {
+      // Now that the initial record is loaded, load the complete record,
+      // which takes longer because it updates all profiles and loops.
+      recordCompleteURL = fOPNReport.pathToURL(
+        `/transfer-record-complete/${transferId}`);
+      const recordComplete = fetchcache.get(state, recordCompleteURL);
+      if (recordComplete) {
+        record = recordComplete;
+      }
+    }
+
     return {
       profileId,
       transferId,
       recordURL,
       record,
+      recordCompleteURL,
       loading,
       loadError,
     };
