@@ -115,18 +115,6 @@ def transfer_record_view(context, request, complete=False):
         # Update all of the peers involved in this transfer.
         peers.update(fetch_peers(request, peers))
 
-    peer_ordering = []
-    for peer_id, peer_info in peers.items():
-        if peer_id == owner_id:
-            sort_key = (0,)
-        else:
-            title = peer_info['title']
-            sort_key = (1, title.lower(), title, peer_id)
-        peer_ordering.append((sort_key, peer_id))
-    peer_ordering.sort()
-    peer_order = [y for x, y in peer_ordering]
-    peer_index = {x: i for (i, x) in enumerate(peer_order)}
-
     loop_rows = (
         dbsession.query(Loop.loop_id, Loop.title)
         .filter(
@@ -218,6 +206,28 @@ def transfer_record_view(context, request, complete=False):
             'vault_delta': str(exchange.vault_delta),
             'reco': reco_to_json(reco),
         })
+
+    peer_ordering = []
+    for peer_id, peer_info in peers.items():
+        # Show the sender and recipient first, followed by the issuers,
+        # everyone else (alphabetically), and finally the owner profile
+        # (if not already shown earlier).
+        if peer_id == record.sender_id:
+            sort_key = (0,)
+        elif peer_id == record.recipient_id:
+            sort_key = (1,)
+        elif peer_info.get('is_issuer'):
+            title = peer_info['title']
+            sort_key = (2, title.lower(), title, peer_id)
+        elif peer_id == owner_id:
+            sort_key = (4,)
+        else:
+            title = peer_info['title']
+            sort_key = (3, title.lower(), title, peer_id)
+        peer_ordering.append((sort_key, peer_id))
+    peer_ordering.sort()
+    peer_order = [y for x, y in peer_ordering]
+    peer_index = {x: i for (i, x) in enumerate(peer_order)}
 
     return {
         'workflow_type': record.workflow_type,
