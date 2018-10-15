@@ -28,13 +28,14 @@ import { setTransferId } from '../../reducer/app';
 
 
 const solidBorder = '1px solid #bbb';
-const tableWidth = 1600;
+const tableWidth = 1200;
 
 const styles = theme => {
   const arrowColor = '#666';
   return {
     root: {
-      fontSize: '1.1rem',
+      fontSize: '1.0rem',
+      padding: '0 16px',
     },
     searchIconBox: {
       margin: '0 auto',
@@ -245,6 +246,13 @@ class TransferSummary extends React.Component {
     };
     /* global process: false */
     this.publicURL = process.env.REACT_APP_OPN_PUBLIC_URL;
+  }
+
+  componentDidMount() {
+    const {transferId} = this.props;
+    if (transferId) {
+      this.props.dispatch(setTransferId(transferId));
+    }
   }
 
   handleShowSearch() {
@@ -510,7 +518,7 @@ class TransferSummary extends React.Component {
       if (peer) {
         if (peer.is_issuer) {
           icon = (
-            <div className={profileTypeIcon} title="Issuer Vault">
+            <div className={profileTypeIcon} title="Issuer">
               <StorageIcon/>
             </div>);
         } else if (peer.is_dfi_account) {

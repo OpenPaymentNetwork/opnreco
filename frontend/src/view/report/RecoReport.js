@@ -19,7 +19,7 @@ import { wfTypeTitles, dashed } from '../../util/transferfmt';
 
 const styles = {
   root: {
-    fontSize: '1.1rem',
+    fontSize: '1.0rem',
   },
   tablePaper: {
     margin: '32px auto',
