@@ -88,7 +88,7 @@ const styles = theme => {
       position: 'relative',
       '& > $profileLink': {
         position: 'absolute',
-        left: 32,
+        left: 40,
         top: 4,
         lineHeight: '24px',
       },
@@ -97,14 +97,14 @@ const styles = theme => {
       position: 'absolute',
       width: '24px',
       height: '24px',
-      left: '4px',
+      left: '8px',
       top: '4px',
       color: '#666',
     },
     legendSpacerCell: {
       borderLeft: solidBorder,
-      width: '32px',
-      maxWidth: '32px',
+      width: '40px',
+      maxWidth: '40px',
     },
     labelCell: {
       border: solidBorder,
@@ -113,8 +113,8 @@ const styles = theme => {
     legendLabelCell: {
       border: solidBorder,
       borderTop: 'none',
-      width: '32px',
-      maxWidth: '32px',
+      width: '40px',
+      maxWidth: '40px',
     },
     profileLink: {
       color: theme.palette.primary.main,
@@ -132,58 +132,45 @@ const styles = theme => {
     },
     iconCell: {
       position: 'relative',
-      width: '32px',
-      maxWidth: '32px',
+      width: '40px',
+      maxWidth: '40px',
       height: '32px',
       overflow: 'hidden',
     },
     iconContent: {
       color: '#666',
       position: 'absolute',
-      left: 4,
+      left: 8,
       top: 4,
     },
     arrowMiddle: {
       position: 'absolute',
       left: -1,
       width: 100,
-      top: 14,
+      top: 15,
       height: 2,
       zIndex: 1,
       backgroundColor: arrowColor,
-      borderTop: '1px solid #fff',
-      borderBottom: '1px solid #fff',
     },
     arrowLeftStart: {
       position: 'absolute',
       left: 0,
       width: 4,
-      top: 14,
+      top: 15,
       height: 2,
       zIndex: 1,
       backgroundColor: arrowColor,
-      border: '1px solid #fff',
-      borderLeft: 'none',
     },
     arrowLeftEnd: {
       position: 'absolute',
-      left: 32 - 10,
-      top: 16 - 5,
-      width: 0,
-      height: 0,
-      border: '5px solid transparent',
-      borderRightColor: '#fff',
-    },
-    arrowLeftEndInner: {
-      position: 'absolute',
-      left: -4,
-      top: -4,
+      left: 40 - 8,
+      top: 16 - 4,
       width: 0,
       height: 0,
       border: '4px solid transparent',
       borderRightColor: arrowColor,
     },
-    arrowLeftEndInner2: {
+    arrowLeftEndInner: {
       position: 'absolute',
       left: 4,
       width: 100,
@@ -193,28 +180,17 @@ const styles = theme => {
     },
     arrowRightStart: {
       position: 'absolute',
-      left: 32 - 5,
+      left: 40 - 4,
       width: 100,
-      top: 14,
+      top: 15,
       height: 2,
       zIndex: 1,
       backgroundColor: arrowColor,
-      border: '1px solid #fff',
-      borderRight: 'none',
     },
     arrowRightEnd: {
       position: 'absolute',
       left: 0,
-      top: 16 - 5,
-      width: 0,
-      height: 0,
-      border: '5px solid transparent',
-      borderLeftColor: '#fff',
-    },
-    arrowRightEndInner: {
-      position: 'absolute',
-      left: -5,
-      top: -4,
+      top: 16 - 4,
       width: 0,
       height: 0,
       border: '4px solid transparent',
@@ -689,10 +665,8 @@ class TransferSummary extends React.Component {
       arrowLeftStart,
       arrowLeftEnd,
       arrowLeftEndInner,
-      arrowLeftEndInner2,
       arrowRightStart,
       arrowRightEnd,
-      arrowRightEndInner,
     } = classes;
 
     const {
@@ -755,15 +729,11 @@ class TransferSummary extends React.Component {
           }
         } else {
           if (from_index < to_index) {
-            arrowPiece = (
-              <div className={arrowRightEnd}>
-                <div className={arrowRightEndInner}/>
-              </div>);
+            arrowPiece = <div className={arrowRightEnd}></div>;
           } else if (from_index > to_index) {
             arrowPiece = (
               <div className={arrowLeftEnd}>
                 <div className={arrowLeftEndInner}/>
-                <div className={arrowLeftEndInner2}/>
               </div>);
           }
         }
