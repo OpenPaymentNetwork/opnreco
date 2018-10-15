@@ -298,6 +298,7 @@ class SyncView:
                 'title': self.owner.title,
                 'screen_name': self.owner.username,
                 'is_dfi_account': False,
+                'is_own_dfi_account': False,
             }
 
         else:
@@ -316,7 +317,10 @@ class SyncView:
                     'title': title,
                     'screen_name': '',
                     'is_dfi_account': True,
+                    'is_own_dfi_account': True,
                 }
+
+        dbsession = self.request.dbsession
 
         peer = self.peers.get(peer_id)
         if peer is None:
@@ -326,9 +330,9 @@ class SyncView:
                 title=info.get('title'),
                 username=info.get('screen_name'),
                 is_dfi_account=info.get('is_dfi_account'),
+                is_own_dfi_account=info.get('is_own_dfi_account'),
                 last_update=now_func,
             )
-            dbsession = self.request.dbsession
             dbsession.add(peer)
             self.peers[peer_id] = peer
 
@@ -347,6 +351,7 @@ class SyncView:
                 ('title', 'title'),
                 ('screen_name', 'username'),
                 ('is_dfi_account', 'is_dfi_account'),
+                ('is_own_dfi_account', 'is_own_dfi_account'),
             )
             for source_attr, dest_attr in attrs:
                 value = info.get(source_attr)
@@ -359,7 +364,7 @@ class SyncView:
                 peer.last_update = now_func
 
                 if changes:
-                    self.request.dbsession.add(OwnerLog(
+                    dbsession.add(OwnerLog(
                         owner_id=self.owner_id,
                         event_type='update_peer',
                         memo={
@@ -623,153 +628,6 @@ class SyncView:
                 }))
 
         return file
-
-    # def get_target_info(self, target_id):
-    #     """Return {title, is_dfi_account, username (optional)}."""
-    #     if target_id == 'c':
-    #         return {
-    #             'title': self.profile.title,
-    #             'username': self.profile.username,
-    #             'is_dfi_account': False,
-    #         }
-
-    #     account = self.account_map.get(target_id)
-    #     if account:
-    #         title = '%s at %s' % (
-    #             account['redacted_account_num'],
-    #             account['rdfi_name'],
-    #         )
-    #         if account['alias']:
-    #             title += ' (%s)' % account['alias']
-
-    #         return {
-    #             'title': title,
-    #             'username': '',
-    #             'is_dfi_account': True,
-    #         }
-
-    #     profile_titles = self.profile_titles
-    #     profile_usernames = self.profile_usernames
-
-    #     title = profile_titles.get(target_id)
-    #     if title:
-    #         res = {'title': title, 'is_dfi_account': False}
-    #         if target_id in profile_usernames:
-    #             res['username'] = profile_usernames[target_id]
-    #         return res
-
-    #     url = '%s/p/%s' % (self.api_url, target_id)
-    #     headers = {'Authorization': 'Bearer %s' % self.request.access_token}
-    #     r = requests.get(url, headers=headers)
-    #     if check_requests_response(r, raise_exc=False):
-    #         r_json = r.json()
-    #         title = r_json['title']
-    #         if title:
-    #             username = r_json['username'] or ''
-    #             profile_titles[target_id] = title
-    #             profile_usernames[target_id] = username
-    #             return {
-    #                 'title': title,
-    #                 'username': username,
-    #                 'is_dfi_account': False,
-    #             }
-
-    #     log.warning("Unable to get the title of holder %s", target_id)
-
-    #     profile_titles[target_id] = ''  # Don't try again.
-    #     return {
-    #         'title': '',
-    #         'is_dfi_account': False,
-    #     }
-
-    # def get_loop_title(self, loop_id):
-    #     """Return the title of a note design."""
-    #     loop_titles = self.loop_titles
-
-    #     title = loop_titles.get(loop_id)
-    #     if title:
-    #         return title, False
-
-    #     url = '%s/design/%s' % (self.api_url, loop_id)
-    #     headers = {'Authorization': 'Bearer %s' % self.request.access_token}
-    #     r = requests.get(url, headers=headers)
-    #     if check_requests_response(r, raise_exc=False):
-    #         title = r.json()['title']
-    #         loop_titles[loop_id] = title
-    #         return title
-
-    #     # The error details were logged by
-    #     # check_requests_response().
-    #     log.warning("Unable to get the title of cash loop %s", loop_id)
-
-    #     return ''
-
-    # def update_mirrors(self):
-    #     """Update the target_* and loop_title of the profile's mirrors."""
-    #     update_check_time = (
-    #         datetime.datetime.utcnow() - datetime.timedelta(seconds=60 * 10))
-    #     dbsession = self.request.dbsession
-    #     seen = []
-
-    #     while True:
-    #         mirrors = (
-    #             dbsession.query(Mirror)
-    #             .filter_by(profile_id=self.profile_id)
-    #             .filter(~Mirror.id.in_(seen))
-    #             .filter(or_(
-    #                 Mirror.last_update == null,
-    #                 Mirror.last_update < update_check_time,
-    #             ))
-    #             .order_by(Mirror.id)
-    #             .limit(100)
-    #             .all())
-
-    #         if not mirrors:
-    #             break
-
-    #         for mirror in mirrors:
-    #             # Get the title and other info about the target.
-    #             target_info = self.get_target_info(mirror.target_id)
-    #             target_title = target_info['title']
-    #             target_is_dfi_account = target_info['is_dfi_account']
-
-    #             changes = {}
-    #             if target_title:
-    #                 if target_title != mirror.target_title:
-    #                     mirror.target_title = target_title
-    #                     changes['target_title'] = target_title
-
-    #                 if target_is_dfi_account != mirror.target_is_dfi_account:
-    #                     mirror.target_is_dfi_account = target_is_dfi_account
-    #                     changes['target_is_dfi_account'] = (
-    #                         target_is_dfi_account)
-
-    #                 if 'username' in target_info:
-    #                     username = target_info['username']
-    #                     if mirror.target_username != username:
-    #                         mirror.target_username = username
-    #                         changes['target_username'] = username
-
-    #             if mirror.loop_id != '0':
-    #                 loop_title = self.get_loop_title(mirror.loop_id)
-    #                 if loop_title and loop_title != mirror.loop_title:
-    #                     mirror.loop_title = loop_title
-    #                     changes['loop_title'] = loop_title
-
-    #             if changes:
-    #                 dbsession.add(ProfileLog(
-    #                     profile_id=self.profile_id,
-    #                     event_type='update_mirror',
-    #                     memo={
-    #                         'mirror_id': mirror.id,
-    #                         'target_id': mirror.target_id,
-    #                         'changes': changes,
-    #                     }))
-
-    #             mirror.last_update = now_func
-
-    #         dbsession.flush()
-    #         seen.extend(m.id for m in mirrors)
 
     def autoreco(self, record, movements, new_record):
         """Auto-reconcile some of the movements in a TransferRecord.

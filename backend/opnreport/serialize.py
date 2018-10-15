@@ -25,6 +25,7 @@ def serialize_file(file, peer, loop=None):
             'peer_title': peer.title,
             'peer_username': peer.username,
             'peer_is_dfi_account': peer.is_dfi_account,
+            'peer_is_own_dfi_account': peer.is_own_dfi_account,
             'loop_title': loop_title,
         })
 
@@ -33,6 +34,7 @@ def serialize_file(file, peer, loop=None):
             'peer_title': file.peer_title,
             'peer_username': file.peer_username,
             'peer_is_dfi_account': file.peer_is_dfi_account,
+            'peer_is_own_dfi_account': file.peer_is_own_dfi_account,
             'loop_title': file.loop_title,
         })
 

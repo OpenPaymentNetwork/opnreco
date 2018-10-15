@@ -1,15 +1,23 @@
 
+from decimal import Decimal
 from opnreport.models.db import Exchange
 from opnreport.models.db import Loop
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
+from opnreport.models.db import now_func
 from opnreport.models.db import Peer
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
+from opnreport.util import check_requests_response
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.httpexceptions import HTTPNotFound
 from pyramid.view import view_config
+import collections
+import datetime
+import os
+import requests
+import sqlalchemy.dialects.postgresql
 
 
 @view_config(
@@ -17,7 +25,7 @@ from pyramid.view import view_config
     context=API,
     permission='use_app',
     renderer='json')
-def transfer_record_view(request):
+def transfer_record_view(context, request, complete=False):
     subpath = request.subpath
     if not subpath:
         raise HTTPBadRequest()
@@ -84,10 +92,14 @@ def transfer_record_view(request):
 
     for peer_id in need_peer_ids.difference(peers):
         peers[peer_id] = {
-            'title': '[Missing profile %s]' % peer_id,
+            'title': '[Profile %s]' % peer_id,
             'username': None,
             'is_dfi_account': False,
         }
+
+    if complete:
+        # Update all of the peers involved in this transfer.
+        peers.update(fetch_peers(request, peers))
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
@@ -109,6 +121,10 @@ def transfer_record_view(request):
         ).all())
 
     loops = {row.loop_id: {'title': row.title} for row in loop_rows}
+
+    if complete:
+        # Update all of the loops involved in this transfer.
+        loops.update(fetch_loops(request, loops))
 
     # Create movement_groups in order to unite the doubled movement
     # rows into a single row.
@@ -142,6 +158,9 @@ def transfer_record_view(request):
         }
 
     movements_json = []
+    vault_delta_totals = collections.defaultdict(Decimal)
+    wallet_delta_totals = collections.defaultdict(Decimal)
+
     for key, group in sorted(movement_groups.items()):
         number, peer_id, loop_id, currency, issuer_id = key
         movement, peer_reco, c_reco = group
@@ -150,17 +169,26 @@ def transfer_record_view(request):
             'peer_id': peer_id,
             'loop_id': loop_id,
             'currency': currency,
-            'amount': str(movement.amount),
+            'amount': str(movement.amount or '0'),
             'issuer_id': movement.issuer_id,
             'from_id': movement.from_id,
             'to_id': movement.to_id,
             'action': movement.action,
             'ts': movement.ts.isoformat() + 'Z',
-            'wallet_delta': str(movement.wallet_delta),
-            'vault_delta': str(movement.vault_delta),
+            'wallet_delta': str(movement.wallet_delta or '0'),
+            'vault_delta': str(movement.vault_delta or '0'),
             'peer_reco': reco_to_json(peer_reco),
             'c_reco': reco_to_json(c_reco),
         })
+
+        if movement.vault_delta:
+            vault_delta_totals[currency] += movement.vault_delta
+        if movement.wallet_delta:
+            wallet_delta_totals[currency] += movement.wallet_delta
+
+        if movement.issuer_id == peer_id:
+            # This peer is an issuer in this transfer.
+            peers[peer_id]['is_issuer'] = True
 
     exchange_rows = (
         dbsession.query(Exchange, Reco)
@@ -196,4 +224,153 @@ def transfer_record_view(request):
         'peer_order': peer_order,
         'peer_index': peer_index,
         'loops': loops,
+        'vault_delta_totals': dict(vault_delta_totals),
+        'wallet_delta_totals': dict(wallet_delta_totals),
     }
+
+
+def fetch_peers(request, input_peers):
+    """Fetch updates as necessary for all peers relevant to a request.
+
+    Return a dict of changes.
+    """
+    api_url = os.environ['opn_api_url']
+    owner_id = request.owner.id
+    dbsession = request.dbsession
+
+    peer_rows = (
+        dbsession.query(Peer)
+        .filter(
+            Peer.owner_id == owner_id,
+            Peer.peer_id.in_(input_peers.keys()),
+        ).all())
+    peer_row_map = {row.peer_id: row for row in peer_rows}
+
+    now = dbsession.query(now_func).scalar()
+    stale_time = now - datetime.timedelta(seconds=60)
+    res = {}  # {peer_id: peer_info}
+
+    for peer_id in sorted(input_peers.keys()):
+        peer_row = peer_row_map.get(peer_id)
+        if peer_row is not None:
+            if peer_row.is_dfi_account:
+                # There isn't a way to fetch account info yet.
+                continue
+            if peer_row.last_update >= stale_time:
+                # No update needed.
+                continue
+
+        url = '%s/p/%s' % (api_url, peer_id)
+        headers = {'Authorization': 'Bearer %s' % request.access_token}
+        r = requests.get(url, headers=headers)
+        if check_requests_response(r, raise_exc=False):
+            fetched = True
+            r_json = r.json()
+            title = r_json['title']
+            username = r_json['username']
+        else:
+            fetched = False
+            title = '[Missing Profile %s]' % peer_id
+            username = None
+
+        res[peer_id] = {
+            'title': title,
+            'username': username,
+            'is_dfi_account': False,
+        }
+
+        if peer_row is None:
+            # Insert the new Peer, ignoring conflicts.
+            values = {
+                'owner_id': owner_id,
+                'peer_id': peer_id,
+                'title': title,
+                'username': username,
+                'is_dfi_account': False,
+                'removed': False,
+                'last_update': now_func,
+            }
+            stmt = (
+                sqlalchemy.dialects.postgresql.insert(
+                    Peer.__table__, bind=dbsession).values(**values)
+                .on_conflict_do_nothing())
+            dbsession.execute(stmt)
+
+        else:
+            # Update the Peer.
+            if fetched:
+                if peer_row.title != title:
+                    peer_row.title = title
+                if peer_row.username != username:
+                    peer_row.username = username
+            peer_row.last_update = now_func
+
+    return res
+
+
+def fetch_loops(request, input_loops):
+    """Fetch updates as necessary for all loops relevant to a request.
+
+    Return a dict of changes.
+    """
+    api_url = os.environ['opn_api_url']
+    owner_id = request.owner.id
+    dbsession = request.dbsession
+
+    loop_rows = (
+        dbsession.query(Loop)
+        .filter(
+            Loop.owner_id == owner_id,
+            Loop.loop_id.in_(input_loops.keys()),
+        ).all())
+    loop_row_map = {row.loop_id: row for row in loop_rows}
+
+    now = dbsession.query(now_func).scalar()
+    stale_time = now - datetime.timedelta(seconds=60)
+    res = {}  # {loop_id: loop_info}
+
+    for loop_id in sorted(input_loops.items()):
+        loop_row = loop_row_map.get(loop_id)
+        if loop_row is not None:
+            if loop_row.last_update >= stale_time:
+                # No update needed.
+                continue
+
+        url = '%s/design/%s' % (api_url, loop_id)
+        headers = {'Authorization': 'Bearer %s' % request.access_token}
+        r = requests.get(url, headers=headers)
+        if check_requests_response(r, raise_exc=False):
+            fetched = True
+            r_json = r.json()
+            title = r_json['title']
+        else:
+            fetched = False
+            title = '[Missing note design %s]' % loop_id
+
+        res[loop_id] = {
+            'title': title,
+        }
+
+        if loop_row is None:
+            # Insert the new Loop, ignoring conflicts.
+            values = {
+                'owner_id': owner_id,
+                'loop_id': loop_id,
+                'title': title,
+                'removed': False,
+                'last_update': now_func,
+            }
+            stmt = (
+                sqlalchemy.dialects.postgresql.insert(
+                    Peer.__table__, bind=dbsession).values(**values)
+                .on_conflict_do_nothing())
+            dbsession.execute(stmt)
+
+        else:
+            # Update the Loop.
+            if fetched:
+                if loop_row.title != title:
+                    loop_row.title = title
+            loop_row.last_update = now_func
+
+    return res

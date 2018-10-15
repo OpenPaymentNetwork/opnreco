@@ -7,6 +7,7 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import { wfTypeTitles } from '../../util/transferfmt';
 import { getCurrencyFormatter } from '../../util/currency';
+import { getCurrencyDeltaFormatter } from '../../util/currency';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
@@ -21,93 +22,197 @@ import SearchIcon from '@material-ui/icons/Search';
 import CancelIcon from '@material-ui/icons/Cancel';
 import AccountBalance from '@material-ui/icons/AccountBalance';
 import AccountBalanceWallet from '@material-ui/icons/AccountBalanceWallet';
-import MonetizationOn from '@material-ui/icons/MonetizationOn';
+import StarIcon from '@material-ui/icons/Star';
+import StorageIcon from '@material-ui/icons/Storage';
 import { setTransferId } from '../../reducer/app';
 
 
 const solidBorder = '1px solid #bbb';
-const tableWidth = 1200;
+const tableWidth = 1600;
 
-const styles = theme => ({
-  root: {
-    fontSize: '1.1rem',
-  },
-  searchIconBox: {
-    margin: '0 auto',
-    maxWidth: tableWidth,
-    textAlign: 'right',
-  },
-  cancelButton: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  formPaper: {
-    margin: '16px auto',
-    maxWidth: tableWidth,
-    textAlign: 'center',
-    position: 'relative',
-  },
-  formButton: {
-    margin: '16px',
-  },
-  transferIdField: {
-    margin: '16px',
-  },
-  tablePaper: {
-    margin: '0 auto 16px auto',
-    maxWidth: tableWidth,
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    color: '#000',
-  },
-  cell: {
-    border: solidBorder,
-  },
-  fieldNameCell: {
-    padding: '2px 8px',
-  },
-  fieldValueCell: {
-    padding: '2px 8px',
-  },
-  detailButton: {
-    margin: '8px',
-  },
-  legendCell: {
-    borderLeft: solidBorder,
-    borderRight: solidBorder,
-    padding: '2px 8px',
-  },
-  legendSpacerCell: {
-    borderLeft: solidBorder,
-    width: '32px',
-  },
-  labelCell: {
-    border: solidBorder,
-    padding: '2px 8px',
-  },
-  legendLabelCell: {
-    border: solidBorder,
-    borderTop: 'none',
-    width: '32px',
-  },
-  profileLink: {
-    color: theme.palette.primary.main,
-    textDecoration: 'none',
-    '&:hover': {
-      textDecoration: 'underline',
+const styles = theme => {
+  const arrowColor = '#666';
+  return {
+    root: {
+      fontSize: '1.1rem',
     },
-  },
-  numberCell: {
-    padding: '2px 8px',
-    textAlign: 'right',
-  },
-  textCell: {
-    padding: '2px 8px',
-  },
-});
+    searchIconBox: {
+      margin: '0 auto',
+      maxWidth: tableWidth,
+      textAlign: 'right',
+    },
+    cancelButton: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+    },
+    formPaper: {
+      margin: '16px auto',
+      maxWidth: tableWidth,
+      textAlign: 'center',
+      position: 'relative',
+    },
+    formButton: {
+      margin: '16px',
+    },
+    transferIdField: {
+      margin: '16px',
+    },
+    tablePaper: {
+      margin: '0 auto 16px auto',
+      maxWidth: tableWidth,
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      color: '#000',
+    },
+    cell: {
+      border: solidBorder,
+    },
+    fieldNameCell: {
+      padding: '2px 8px',
+    },
+    fieldValueCell: {
+      padding: '2px 8px',
+    },
+    detailButton: {
+      margin: '8px',
+    },
+    legendCell: {
+      borderLeft: solidBorder,
+      borderRight: solidBorder,
+      padding: 0,
+      height: '32px',
+      position: 'relative',
+      '& > $profileLink': {
+        position: 'absolute',
+        left: 32,
+        top: 4,
+        lineHeight: '24px',
+      },
+    },
+    profileTypeIcon: {
+      position: 'absolute',
+      width: '24px',
+      height: '24px',
+      left: '4px',
+      top: '4px',
+      color: '#666',
+    },
+    legendSpacerCell: {
+      borderLeft: solidBorder,
+      width: '32px',
+      maxWidth: '32px',
+    },
+    labelCell: {
+      border: solidBorder,
+      padding: '2px 8px',
+    },
+    legendLabelCell: {
+      border: solidBorder,
+      borderTop: 'none',
+      width: '32px',
+      maxWidth: '32px',
+    },
+    profileLink: {
+      color: theme.palette.primary.main,
+      textDecoration: 'none',
+      '&:hover': {
+        textDecoration: 'underline',
+      },
+    },
+    numberCell: {
+      padding: '2px 8px',
+      textAlign: 'right',
+    },
+    textCell: {
+      padding: '2px 8px',
+    },
+    iconCell: {
+      position: 'relative',
+      width: '32px',
+      maxWidth: '32px',
+      height: '32px',
+      overflow: 'hidden',
+    },
+    iconContent: {
+      color: '#666',
+      position: 'absolute',
+      left: 4,
+      top: 4,
+    },
+    arrowMiddle: {
+      position: 'absolute',
+      left: -1,
+      width: 100,
+      top: 14,
+      height: 2,
+      zIndex: 1,
+      backgroundColor: arrowColor,
+      borderTop: '1px solid #fff',
+      borderBottom: '1px solid #fff',
+    },
+    arrowLeftStart: {
+      position: 'absolute',
+      left: 0,
+      width: 5,
+      top: 14,
+      height: 2,
+      zIndex: 1,
+      backgroundColor: arrowColor,
+      border: '1px solid #fff',
+      borderLeft: 'none',
+    },
+    arrowLeftEnd: {
+      position: 'absolute',
+      right: 0,
+      top: 16 - 5,
+      width: 0,
+      height: 0,
+      border: '5px solid transparent',
+      borderRightColor: '#fff',
+    },
+    arrowLeftEndInner: {
+      position: 'absolute',
+      right: -5,
+      top: -4,
+      width: 0,
+      height: 0,
+      border: '4px solid transparent',
+      borderRightColor: arrowColor,
+    },
+    arrowRightStart: {
+      position: 'absolute',
+      left: 32 - 5,
+      width: 100,
+      top: 14,
+      height: 2,
+      zIndex: 1,
+      backgroundColor: arrowColor,
+      border: '1px solid #fff',
+      borderRight: 'none',
+    },
+    arrowRightEnd: {
+      position: 'absolute',
+      left: 0,
+      top: 16 - 5,
+      width: 0,
+      height: 0,
+      border: '5px solid transparent',
+      borderLeftColor: '#fff',
+    },
+    arrowRightEndInner: {
+      position: 'absolute',
+      left: -5,
+      top: -4,
+      width: 0,
+      height: 0,
+      border: '4px solid transparent',
+      borderLeftColor: arrowColor,
+    },
+  };
+};
 
 
 class TransferSummary extends React.Component {
@@ -353,6 +458,7 @@ class TransferSummary extends React.Component {
       cell,
       numberCell,
       textCell,
+      profileTypeIcon,
     } = classes;
 
     const {
@@ -362,7 +468,7 @@ class TransferSummary extends React.Component {
       loops,
     } = record;
 
-    const rightColumns = 5;
+    const rightColumns = 7;
     const columnCount = 1 + peer_order.length + rightColumns;
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
@@ -385,10 +491,33 @@ class TransferSummary extends React.Component {
       for (let j = 0; j < index; j++) {
         legendCells.push(<td className={legendSpacerCell} key={j}/>);
       }
+
+      let icon = (
+        <div className={profileTypeIcon} title="Wallet">
+          <AccountBalanceWallet/>
+        </div>
+      );
+
+      const peer = peers[peerId];
+      if (peer) {
+        if (peer.is_issuer) {
+          icon = (
+            <div className={profileTypeIcon} title="Issuer Vault">
+              <StorageIcon/>
+            </div>);
+        } else if (peer.is_dfi_account) {
+          icon = (
+            <div className={profileTypeIcon} title="DFI Account">
+              <AccountBalance/>
+            </div>);
+        }
+      }
+
       legendCells.push(
         <td key="target" colSpan={peer_order.length - index + rightColumns}
           className={legendCell}
         >
+          {icon}
           {this.renderProfileLink(peerId)}
         </td>
       );
@@ -396,6 +525,8 @@ class TransferSummary extends React.Component {
       labelCells.push(<td key={peerId} className={legendLabelCell}/>);
     });
 
+    labelCells.push(<td key="vault_delta" className={labelCell}>Vault</td>);
+    labelCells.push(<td key="wallet_delta" className={labelCell}>Wallet</td>);
     labelCells.push(<td key="amount" className={labelCell}>Amount</td>);
     labelCells.push(<td key="design" className={labelCell}>Note Design</td>);
     labelCells.push(<td key="action" className={labelCell}>Action Code</td>);
@@ -412,40 +543,44 @@ class TransferSummary extends React.Component {
         loop_id,
         currency,
         amount,
-        from_id,
-        to_id,
-        issuer_id,
+        wallet_delta,
+        vault_delta,
       } = movement;
 
       mvCells.push(
         <td key="number" className={numCell}>{movement.number}</td>);
 
-      const getIcon = peerId => {
-        if (peerId === issuer_id) {
-          return <span title="Issuer Vault"><MonetizationOn/></span>;
-        } else if (peers[peerId] && peers[peerId].is_dfi_account) {
-          return <span title="Account"><AccountBalance/></span>;
-        } else {
-          return <span title="Wallet"><AccountBalanceWallet/></span>;
-        }
-      };
-
-      peer_order.forEach(peerId => {
-        let cell;
-        if (peerId === from_id) {
-          cell = <td key={peerId}>{getIcon(peerId)}</td>;
-        } else if (peerId === to_id) {
-          cell = <td key={peerId}>{getIcon(peerId)}</td>;
-        } else {
-          cell = <td key={peerId}></td>;
-        }
+      const iconCells = this.renderIconCells(movement);
+      iconCells.forEach(cell => {
         mvCells.push(cell);
       });
 
-      mvCells.push(
-        <td key="amount" className={numCell}>
-          {currency} {getCurrencyFormatter(currency)(amount)}
-        </td>);
+      if (vault_delta && vault_delta !== '0') {
+        mvCells.push(
+          <td key="vault_delta" className={numCell}>
+            {currency} {getCurrencyDeltaFormatter(currency)(vault_delta)}
+          </td>);
+      } else {
+        mvCells.push(<td key="vault_delta" className={numCell}></td>);
+      }
+
+      if (wallet_delta && wallet_delta !== '0') {
+        mvCells.push(
+          <td key="wallet_delta" className={numCell}>
+            {currency} {getCurrencyDeltaFormatter(currency)(wallet_delta)}
+          </td>);
+      } else {
+        mvCells.push(<td key="wallet_delta" className={numCell}></td>);
+      }
+
+      if (amount && amount !== '0') {
+        mvCells.push(
+          <td key="amount" className={numCell}>
+            {currency} {getCurrencyFormatter(currency)(amount)}
+          </td>);
+      } else {
+        mvCells.push(<td key="amount" className={numCell}></td>);
+      }
 
       let loopTitle;
       if (loop_id === '0') {
@@ -480,6 +615,29 @@ class TransferSummary extends React.Component {
       );
     });
 
+    const totalCells = [];
+
+    totalCells.push(<td className={labelCell} key="label">Total</td>);
+    totalCells.push(
+      <td className={labelCell} key="icons" colSpan={peer_order.length}></td>);
+    totalCells.push(
+      <td className={numCell} key="vault_delta">
+        <strong>{this.renderTotalCell(record.vault_delta_totals)}</strong>
+      </td>
+    );
+    totalCells.push(
+      <td className={numCell} key="wallet_delta">
+        <strong>{this.renderTotalCell(record.wallet_delta_totals)}</strong>
+      </td>
+    );
+    totalCells.push(
+      <td className={labelCell} key="rest" colSpan={rightColumns - 2}></td>);
+    bodyRows.push(
+      <tr key="total">
+        {totalCells}
+      </tr>
+    );
+
     return (
       <div>
         <table className={classes.table}>
@@ -492,6 +650,124 @@ class TransferSummary extends React.Component {
         </table>
       </div>
     );
+  }
+
+  renderTotalCell(totals) {
+    const currencies = Object.keys(totals);
+    currencies.sort();
+    return currencies.map(currency => <div key={currency}>
+      {currency} {getCurrencyDeltaFormatter(currency)(totals[currency])}
+    </div>);
+  }
+
+  renderIconCells(movement) {
+    const {
+      classes,
+      record,
+    } = this.props;
+
+    const {
+      iconCell,
+      iconContent,
+      arrowMiddle,
+      arrowLeftStart,
+      arrowLeftEnd,
+      arrowLeftEndInner,
+      arrowRightStart,
+      arrowRightEnd,
+      arrowRightEndInner,
+    } = classes;
+
+    const {
+      peers,
+      peer_index,
+      peer_order,
+    } = record;
+
+    const {
+      from_id,
+      to_id,
+      issuer_id,
+    } = movement;
+
+    const iconCells = [];
+
+    let from_index = peer_index[from_id];
+    let to_index = peer_index[to_id];
+    if (from_index === undefined || to_index === undefined) {
+      // Don't display arrows.
+      from_index = -1;
+      to_index = -1;
+    }
+
+    const getIcon = peerId => {
+      if (peerId === issuer_id) {
+        if (!from_id) {
+          return (
+            <div className={iconContent} title="Issued Notes">
+              <StarIcon/>
+            </div>);
+        } else {
+          return (
+            <div className={iconContent} title="Issuer Vault">
+              <StorageIcon/>
+            </div>);
+        }
+      } else if (peers[peerId] && peers[peerId].is_dfi_account) {
+        return (
+          <div className={iconContent} title="DFI Account">
+            <AccountBalance/>
+          </div>);
+      } else {
+        return (
+          <div className={iconContent} title="Wallet">
+            <AccountBalanceWallet/>
+          </div>);
+      }
+    };
+
+    peer_order.forEach((peerId, index) => {
+      let cell;
+      if (peerId === from_id || peerId === to_id) {
+        let arrowPiece = null;
+        if (peerId === from_id) {
+          if (from_index < to_index) {
+            arrowPiece = <div className={arrowRightStart} />;
+          } else  if (from_index > to_index) {
+            arrowPiece = <div className={arrowLeftStart} />;
+          }
+        } else {
+          if (from_index < to_index) {
+            arrowPiece = (
+              <div className={arrowRightEnd}>
+                <div className={arrowRightEndInner}/>
+              </div>);
+          } else if (from_index > to_index) {
+            arrowPiece = (
+              <div className={arrowLeftEnd}>
+                <div className={arrowLeftEndInner}/>
+              </div>);
+          }
+        }
+        cell = (
+          <td key={peerId} className={iconCell}>
+            {getIcon(peerId)}
+            {arrowPiece}
+          </td>
+        );
+      } else {
+        let arrowPiece = null;
+        if (
+          (from_index < to_index && from_index < index && index < to_index) ||
+          (from_index > to_index && from_index > index && index > to_index)) {
+          arrowPiece = <div className={arrowMiddle}/>;
+        }
+        cell = <td key={peerId} className={iconCell}>{arrowPiece}</td>;
+      }
+      iconCells.push(cell);
+    });
+
+    return iconCells;
   }
 
   render() {

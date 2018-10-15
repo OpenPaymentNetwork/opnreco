@@ -1,4 +1,5 @@
 
+import React from 'react';
 
 // Most currencies use 2 subunit digits. These are the exceptions.
 const currencySubunitDigits = {
@@ -45,6 +46,7 @@ const numFmts = {
 
 
 export function getCurrencyFormatter(currency) {
+  // Show parens for negative.
   const digits0 = currencySubunitDigits[currency];
   const digits1 = (digits0 === undefined ? 2 : digits0);
   const numFmt = numFmts[digits1];
@@ -55,5 +57,22 @@ export function getCurrencyFormatter(currency) {
       return `(${numFmt.format(-value)})`;
     }
     return numFmt.format(value);
+  };
+}
+
+
+export function getCurrencyDeltaFormatter(currency) {
+  // Show + or - for every value. Use the 'minus' entity to keep
+  // alignment with plus signs.
+  const digits0 = currencySubunitDigits[currency];
+  const digits1 = (digits0 === undefined ? 2 : digits0);
+  const numFmt = numFmts[digits1];
+  return value => {
+    if (typeof value === 'string' && value.startsWith('-')) {
+      return <span>&minus;{numFmt.format(value.substr(1))}</span>;
+    } else if (value < 0) {
+      return <span>&minus;{numFmt.format(-value)}</span>;
+    }
+    return `+${numFmt.format(value)}`;
   };
 }

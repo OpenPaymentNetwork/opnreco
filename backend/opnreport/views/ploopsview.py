@@ -28,6 +28,7 @@ def ploops_view(request):
             'peer_title',
             'peer_username',
             'peer_is_dfi_account',
+            'peer_is_own_dfi_account',
             'loop_title',
             'files': {file_id: {
                 'file_id',
@@ -40,6 +41,7 @@ def ploops_view(request):
                 'peer_title',
                 'peer_username',
                 'peer_is_dfi_account',
+                'peer_is_own_dfi_account',
                 'loop_title',
             }},
             'file_order': [file_id],
@@ -67,8 +69,8 @@ def ploops_view(request):
             File.owner_id == owner_id,
             or_(
                 and_(File.peer_id == 'c', File.has_vault),
-                Peer.is_dfi_account,
-                File.peer_is_dfi_account,
+                Peer.is_own_dfi_account,
+                File.peer_is_own_dfi_account,
             ))
         .order_by(
             func.coalesce(File.start_date, future).desc(),
@@ -94,6 +96,7 @@ def ploops_view(request):
                 'peer_title': peer.title,
                 'peer_username': peer.username,
                 'peer_is_dfi_account': peer.is_dfi_account,
+                'peer_is_own_dfi_account': peer.is_own_dfi_account,
                 'loop_title': loop_title,
                 'files': {},
                 'file_order': [],

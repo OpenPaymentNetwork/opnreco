@@ -83,6 +83,8 @@ class Peer(Base):
     title = Column(Unicode, nullable=True)
     username = Column(String, nullable=True)
     is_dfi_account = Column(Boolean, nullable=False, default=False)
+    # is_own_dfi_account is true for DFI accounts linked to the owner.
+    is_own_dfi_account = Column(Boolean, nullable=False, default=False)
 
     # Note: don't try to update if removed.
     removed = Column(Boolean, nullable=False, default=False)
@@ -133,6 +135,7 @@ class File(Base):
     peer_title = Column(Unicode, nullable=True)
     peer_username = Column(String, nullable=True)
     peer_is_dfi_account = Column(Boolean, nullable=True)
+    peer_is_own_dfi_account = Column(Boolean, nullable=True)
     loop_title = Column(Unicode, nullable=True)
 
     owner = relationship(Owner)
