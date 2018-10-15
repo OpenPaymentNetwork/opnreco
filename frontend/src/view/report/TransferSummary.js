@@ -156,7 +156,7 @@ const styles = theme => {
     arrowLeftStart: {
       position: 'absolute',
       left: 0,
-      width: 5,
+      width: 4,
       top: 14,
       height: 2,
       zIndex: 1,
@@ -166,7 +166,7 @@ const styles = theme => {
     },
     arrowLeftEnd: {
       position: 'absolute',
-      right: 0,
+      left: 32 - 10,
       top: 16 - 5,
       width: 0,
       height: 0,
@@ -175,12 +175,20 @@ const styles = theme => {
     },
     arrowLeftEndInner: {
       position: 'absolute',
-      right: -5,
+      left: -4,
       top: -4,
       width: 0,
       height: 0,
       border: '4px solid transparent',
       borderRightColor: arrowColor,
+    },
+    arrowLeftEndInner2: {
+      position: 'absolute',
+      left: 4,
+      width: 100,
+      top: -1,
+      height: 2,
+      backgroundColor: arrowColor,
     },
     arrowRightStart: {
       position: 'absolute',
@@ -673,6 +681,7 @@ class TransferSummary extends React.Component {
       arrowLeftStart,
       arrowLeftEnd,
       arrowLeftEndInner,
+      arrowLeftEndInner2,
       arrowRightStart,
       arrowRightEnd,
       arrowRightEndInner,
@@ -746,6 +755,7 @@ class TransferSummary extends React.Component {
             arrowPiece = (
               <div className={arrowLeftEnd}>
                 <div className={arrowLeftEndInner}/>
+                <div className={arrowLeftEndInner2}/>
               </div>);
           }
         }
