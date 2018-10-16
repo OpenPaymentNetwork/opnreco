@@ -73,8 +73,25 @@ def transfer_record_view(context, request, complete=False):
 
     need_peer_ids = set()
     need_loop_ids = set()
+    # peer_appearance: {peer_id: [movement_number]}
+    peer_appearance = collections.defaultdict(list)
+    to_or_from = set()  # set of peer_ids listed in to_id or from_id
     for m, _reco in movement_rows:
-        need_peer_ids.update([m.from_id, m.to_id, m.issuer_id])
+        from_id = m.from_id
+        to_id = m.to_id
+        issuer_id = m.issuer_id
+        ids = []
+        if from_id:
+            ids.append(from_id)
+            to_or_from.add(from_id)
+        if to_id:
+            ids.append(to_id)
+            to_or_from.add(to_id)
+        if issuer_id:
+            ids.append(issuer_id)
+        need_peer_ids.update(ids)
+        for peer_id in ids:
+            peer_appearance[peer_id].append(m.number)
         need_loop_ids.add(m.loop_id)
     need_peer_ids.discard(None)
     need_peer_ids.discard(owner_id)
@@ -209,21 +226,25 @@ def transfer_record_view(context, request, complete=False):
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
-        # Show the sender and recipient first, followed by the issuers,
-        # everyone else (alphabetically), and finally the owner profile
-        # (if not already shown earlier).
+        # Show the sender and recipient first, then order by first
+        # appearance in the movement log and finally alphabetically.
+        # This is intended to create a stable order that looks the
+        # same for all owners.
         if peer_id == record.sender_id:
             sort_key = (0,)
         elif peer_id == record.recipient_id:
             sort_key = (1,)
-        elif peer_info.get('is_issuer'):
-            title = peer_info['title']
-            sort_key = (2, title.lower(), title, peer_id)
-        elif peer_id == owner_id:
-            sort_key = (4,)
         else:
+            if peer_id not in to_or_from:
+                # Don't include this peer in the order.
+                continue
             title = peer_info['title']
-            sort_key = (3, title.lower(), title, peer_id)
+            appearance_list = peer_appearance.get(peer_id)
+            if appearance_list:
+                appearance = min(appearance_list)
+                sort_key = (2, appearance, title.lower(), title, peer_id)
+            else:
+                sort_key = (3, title.lower(), title, peer_id)
         peer_ordering.append((sort_key, peer_id))
     peer_ordering.sort()
     peer_order = [y for x, y in peer_ordering]

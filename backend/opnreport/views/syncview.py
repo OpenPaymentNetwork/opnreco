@@ -292,6 +292,11 @@ class SyncView:
 
     def import_peer(self, peer_id, info):
         """Import a peer from a transfer record or other source."""
+        if not peer_id:
+            # A transfer's sender or recipient is not yet known.
+            # There's nothing to import.
+            return
+
         if peer_id == self.owner_id or peer_id == 'c':
             # Get better info from the owner profile.
             info = {

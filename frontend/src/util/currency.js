@@ -62,14 +62,20 @@ export function getCurrencyFormatter(currency) {
 
 
 export function getCurrencyDeltaFormatter(currency) {
-  // Show + or - for every value. Use the 'minus' entity to keep
+  // Show + or - for every value except 0. Use the 'minus' entity to keep
   // alignment with plus signs.
   const digits0 = currencySubunitDigits[currency];
   const digits1 = (digits0 === undefined ? 2 : digits0);
   const numFmt = numFmts[digits1];
   return value => {
-    if (typeof value === 'string' && value.startsWith('-')) {
-      return <span>&minus;{numFmt.format(value.substr(1))}</span>;
+    if (typeof value === 'string') {
+      if (value.startsWith('-')) {
+        return <span>&minus;{numFmt.format(value.substr(1))}</span>;
+      } else if (/^0+(\.0*)?$/.test(value)) {
+        return '0';
+      }
+    } else if (value === 0) {
+      return '0';
     } else if (value < 0) {
       return <span>&minus;{numFmt.format(-value)}</span>;
     }

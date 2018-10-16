@@ -25,10 +25,11 @@ import AccountBalanceWallet from '@material-ui/icons/AccountBalanceWallet';
 import StarIcon from '@material-ui/icons/Star';
 import StorageIcon from '@material-ui/icons/Storage';
 import { setTransferId } from '../../reducer/app';
+import VaultIcon from './Vault';
 
 
 const solidBorder = '1px solid #bbb';
-const tableWidth = 1200;
+const tableWidth = 1600;
 const graphicCellWidth = 41;
 const graphicCellHeight = 32;
 const arrowHeadSize = 4;
@@ -57,6 +58,11 @@ const styles = theme => ({
   },
   formButton: {
     margin: '16px',
+  },
+  headCell: {
+    padding: '4px 8px',
+    fontWeight: 'normal',
+    backgroundColor: '#ddd',
   },
   transferIdField: {
     margin: '16px',
@@ -275,7 +281,7 @@ class TransferSummary extends React.Component {
       const username = peer.username;
       if (username) {
         text = <span>{peer.title} (<em>{username}</em>)</span>;
-        path = username;
+        // path = username;
       } else {
         text = peer.title;
       }
@@ -355,8 +361,8 @@ class TransferSummary extends React.Component {
                 Amount
               </td>
               <td className={fieldValueCell}>
-                {record.currency} {
-                  getCurrencyFormatter(record.currency)(record.amount)}
+                {getCurrencyFormatter(record.currency)(record.amount)
+                } {record.currency}
               </td>
             </tr>
             <tr>
@@ -403,7 +409,7 @@ class TransferSummary extends React.Component {
       loops,
     } = record;
 
-    const rightColumns = 7;
+    const rightColumns = 8;
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
@@ -439,6 +445,7 @@ class TransferSummary extends React.Component {
         <td key="wallet_delta" className={labelCell}>Wallet</td>
         <td key="amount" className={labelCell}>Amount</td>
         <td key="design" className={labelCell}>Note Design</td>
+        <td key="issuer" className={labelCell}>Issuer</td>
         <td key="action" className={labelCell}>Action Code</td>
         <td key="ts" className={labelCell}>Date and Time</td>
         <td key="reco" className={labelCell}>Reconciled</td>
@@ -455,6 +462,7 @@ class TransferSummary extends React.Component {
         amount,
         wallet_delta,
         vault_delta,
+        issuer_id,
       } = movement;
 
       mvCells.push(
@@ -465,7 +473,7 @@ class TransferSummary extends React.Component {
       if (vault_delta && vault_delta !== '0') {
         mvCells.push(
           <td key="vault_delta" className={numCell}>
-            {currency} {getCurrencyDeltaFormatter(currency)(vault_delta)}
+            {getCurrencyDeltaFormatter(currency)(vault_delta)} {currency}
           </td>);
       } else {
         mvCells.push(<td key="vault_delta" className={numCell}></td>);
@@ -474,7 +482,7 @@ class TransferSummary extends React.Component {
       if (wallet_delta && wallet_delta !== '0') {
         mvCells.push(
           <td key="wallet_delta" className={numCell}>
-            {currency} {getCurrencyDeltaFormatter(currency)(wallet_delta)}
+            {getCurrencyDeltaFormatter(currency)(wallet_delta)} {currency}
           </td>);
       } else {
         mvCells.push(<td key="wallet_delta" className={numCell}></td>);
@@ -483,7 +491,7 @@ class TransferSummary extends React.Component {
       if (amount && amount !== '0') {
         mvCells.push(
           <td key="amount" className={numCell}>
-            {currency} {getCurrencyFormatter(currency)(amount)}
+            {getCurrencyFormatter(currency)(amount)} {currency}
           </td>);
       } else {
         mvCells.push(<td key="amount" className={numCell}></td>);
@@ -500,6 +508,11 @@ class TransferSummary extends React.Component {
       mvCells.push(
         <td key="design" className={txtCell}>
           {loopTitle}
+        </td>);
+
+      mvCells.push(
+        <td key="issuer" className={txtCell}>
+          {this.renderProfileLink(issuer_id)}
         </td>);
 
       mvCells.push(
@@ -562,7 +575,7 @@ class TransferSummary extends React.Component {
     const currencies = Object.keys(totals);
     currencies.sort();
     return currencies.map(currency => <div key={currency}>
-      {currency} {getCurrencyDeltaFormatter(currency)(totals[currency])}
+      {getCurrencyDeltaFormatter(currency)(totals[currency])} {currency}
     </div>);
   }
 
@@ -601,7 +614,7 @@ class TransferSummary extends React.Component {
             <div key={iconKey} className={peerTypeIcon}
               style={iconStyle} title="Issuer"
             >
-              <StorageIcon/>
+              <VaultIcon/>
             </div>);
         } else if (peer.is_dfi_account) {
           icon = (
@@ -701,7 +714,7 @@ class TransferSummary extends React.Component {
             <div key={peerId} className={graphicIcon}
               style={style} title="Issuer Vault"
             >
-              <StorageIcon/>
+              <VaultIcon/>
             </div>);
         }
       } else if (peers[peerId] && peers[peerId].is_dfi_account) {
