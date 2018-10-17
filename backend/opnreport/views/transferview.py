@@ -9,6 +9,7 @@ from opnreport.models.db import Peer
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
+from opnreport.param import get_request_file
 from opnreport.util import check_requests_response
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.httpexceptions import HTTPNotFound
@@ -37,14 +38,22 @@ def transfer_record_complete_view(context, request):
 def transfer_record_view(context, request, complete=False):
     """Prepare all the info for displaying a transfer record.
 
-    Does not fetch peer and loop info by default, for speed.
-    Fetches updates when accessed as 'transfer-record-complete'.
+    Requires a subpath of (peer_key, file_id or 'current', transfer_id).
+    Note that the file specified is used only to identify which
+    reconciliation records to show.
+
+    To optimize for performance, this view should not fetch peer and
+    loop titles by default. It should fetch updates when accessed
+    as 'transfer-record-complete'.
     """
+    file, peer, loop = get_request_file(request)
+
     subpath = request.subpath
-    if not subpath:
+    if len(subpath) < 3:
         raise HTTPBadRequest()
 
-    transfer_id = request.subpath[0].replace('-', '')
+    transfer_id_input = request.subpath[2]
+    transfer_id = transfer_id_input.replace('-', '')
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
@@ -61,22 +70,24 @@ def transfer_record_view(context, request, complete=False):
             'error': 'transfer_not_found',
             'error_description': (
                 'Transfer %s is not found in your OPN Reports database.'
-                % transfer_id),
+                % transfer_id_input),
         })
 
     movement_rows = (
-        dbsession.query(Movement, Reco)
+        dbsession.query(Movement, MovementReco.reco_id)
         .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
-        .outerjoin(Reco, Reco.id == MovementReco.reco_id)
         .filter(Movement.transfer_record_id == record.id)
         .all())
+    # Note: there are effectively two copies of every row in movement_rows
+    # because we store a movement row for both the peer and the 'c'
+    # peer. The code below needs to deal with the doubling.
 
     need_peer_ids = set()
     need_loop_ids = set()
     # peer_appearance: {peer_id: [movement_number]}
     peer_appearance = collections.defaultdict(list)
     to_or_from = set()  # set of peer_ids listed in to_id or from_id
-    for m, _reco in movement_rows:
+    for m, _reco_id in movement_rows:
         from_id = m.from_id
         to_id = m.to_id
         issuer_id = m.issuer_id
@@ -145,44 +156,51 @@ def transfer_record_view(context, request, complete=False):
         # Update all of the loops involved in this transfer.
         loops.update(fetch_loops(request, loops))
 
-    # Create movement_groups in order to unite the doubled movement
-    # rows into a single row.
-    # movement_groups: {
+    # De-duplicate the movement rows. There are two copies of each movement,
+    # one with peer_id == 'c', the other with peer_id == orig_peer_id.
+    # movement_dedup: {
     #    (number, orig_peer_id, loop_id, currency, issuer_id):
-    #    [Movement, peer_reco, c_reco]
+    #    [Movement, peer_reco_id, c_reco_id]
     # }
-    movement_groups = {}
-    for movement, reco in movement_rows:
+    movement_dedup = {}
+    for movement, reco_id in movement_rows:
         key = (
             movement.number,
             movement.orig_peer_id,
             movement.loop_id,
             movement.currency,
             movement.issuer_id)
-        group = movement_groups.get(key)
+        group = movement_dedup.get(key)
         if group is None:
-            movement_groups[key] = group = [movement, None, None]
+            movement_dedup[key] = group = [movement, None, None]
         if movement.peer_id == 'c':
-            group[2] = reco
+            group[2] = reco_id
         else:
-            group[1] = reco
-
-    def reco_to_json(r):
-        if r is None:
-            return {}
-        return {
-            'id': str(r.id),
-            'auto': r.auto,
-            'auto_edited': r.auto_edited,
-        }
+            group[1] = reco_id
 
     movements_json = []
     vault_delta_totals = collections.defaultdict(Decimal)
     wallet_delta_totals = collections.defaultdict(Decimal)
+    file_peer_id = file.peer_id
 
-    for key, group in sorted(movement_groups.items()):
+    for key, group in sorted(movement_dedup.items()):
         number, peer_id, loop_id, currency, issuer_id = key
-        movement, peer_reco, c_reco = group
+        movement, peer_reco_id, c_reco_id = group
+
+        need_reco = movement.wallet_delta or movement.vault_delta
+        if need_reco and file_peer_id != 'c':
+            # When reconciling DFI accounts (instead of circulation),
+            # users don't reconcile with OPN wallets.
+            peer_info = peers.get(peer_id)
+            if peer_info and not peer_info['is_dfi_account']:
+                need_reco = False
+
+        reco_id = None
+        if file_peer_id == 'c':
+            reco_id = c_reco_id
+        else:
+            reco_id = peer_reco_id
+
         movements_json.append({
             'number': number,
             'peer_id': peer_id,
@@ -196,8 +214,8 @@ def transfer_record_view(context, request, complete=False):
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(movement.wallet_delta or '0'),
             'vault_delta': str(movement.vault_delta or '0'),
-            'peer_reco': reco_to_json(peer_reco),
-            'c_reco': reco_to_json(c_reco),
+            'need_reco': not not need_reco,
+            'reco_id': reco_id,
         })
 
         if movement.vault_delta:
@@ -210,18 +228,17 @@ def transfer_record_view(context, request, complete=False):
             peers[peer_id]['is_issuer'] = True
 
     exchange_rows = (
-        dbsession.query(Exchange, Reco)
-        .outerjoin(Reco, Reco.id == Exchange.reco_id)
+        dbsession.query(Exchange)
         .filter(Exchange.transfer_record_id == record.id)
         .order_by(Exchange.id)
         .all())
 
     exchanges_json = []
-    for exchange, reco in exchange_rows:
+    for exchange in exchange_rows:
         exchanges_json.append({
             'wallet_delta': str(exchange.wallet_delta),
             'vault_delta': str(exchange.vault_delta),
-            'reco': reco_to_json(reco),
+            'reco_id': exchange.reco_id,
         })
 
     peer_ordering = []

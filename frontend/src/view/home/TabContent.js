@@ -52,7 +52,7 @@ export default class TabContent extends React.Component {
         <div style={{margin: 16, padding: 16}}>
           <Paper>
             Sorry, something went wrong while rendering this component.
-            See the console for more info.
+            See the developer console for more info.
             <p>
               <Button variant="outlined"
                 onClick={this.binder(this.handleTryAgain)}

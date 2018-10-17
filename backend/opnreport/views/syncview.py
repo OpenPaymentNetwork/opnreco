@@ -585,7 +585,7 @@ class SyncView:
         return by_peer
 
     def prepare_file(self, peer_id, loop_id, currency):
-        """Return the current file for (peer_id, loop_id, currency).
+        """Prepare the current file for (peer_id, loop_id, currency).
         """
         key = (peer_id, loop_id, currency)
         file = self.files.get(key)

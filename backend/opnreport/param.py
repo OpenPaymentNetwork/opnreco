@@ -24,7 +24,7 @@ def get_request_file(request):
         raise HTTPBadRequest(
             json_body={'error': 'at least 2 subpath elements required'})
 
-    ploop_key, file_id_str = subpath[:4]
+    ploop_key, file_id_str = subpath[:2]
 
     match = re.match(r'^(c|[0-9]+)-([0-9]+)-([A-Z]{3})$', ploop_key)
     if match is None:

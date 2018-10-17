@@ -1,30 +1,34 @@
+import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import {
+  getCurrencyDeltaFormatter,
+  getCurrencyFormatter
+} from '../../util/currency';
+import { setTransferId } from '../../reducer/app';
+import { wfTypeTitles } from '../../util/transferfmt';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
-import { wfTypeTitles } from '../../util/transferfmt';
-import { getCurrencyFormatter } from '../../util/currency';
-import { getCurrencyDeltaFormatter } from '../../util/currency';
+import AccountBalance from '@material-ui/icons/AccountBalance';
+import AccountBalanceWallet from '@material-ui/icons/AccountBalanceWallet';
 import Button from '@material-ui/core/Button';
+import CancelIcon from '@material-ui/icons/Cancel';
+import CheckBoxIcon from '@material-ui/icons/CheckBox';
+import CheckBoxOutlineBlankIcon
+  from '@material-ui/icons/CheckBoxOutlineBlank';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
 import IconButton from '@material-ui/core/IconButton';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
+import SearchIcon from '@material-ui/icons/Search';
+import StarIcon from '@material-ui/icons/Star';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
-import SearchIcon from '@material-ui/icons/Search';
-import CancelIcon from '@material-ui/icons/Cancel';
-import AccountBalance from '@material-ui/icons/AccountBalance';
-import AccountBalanceWallet from '@material-ui/icons/AccountBalanceWallet';
-import StarIcon from '@material-ui/icons/Star';
-import StorageIcon from '@material-ui/icons/Storage';
-import { setTransferId } from '../../reducer/app';
 import VaultIcon from './Vault';
 
 
@@ -119,6 +123,10 @@ const styles = theme => ({
   },
   textCell: {
     padding: '2px 8px',
+  },
+  checkCell: {
+    textAlign: 'center',
+    paddingTop: '4px',
   },
   graphicIcon: {
     color: arrowColor,
@@ -294,7 +302,7 @@ class TransferSummary extends React.Component {
     );
   }
 
-  renderTopTable() {
+  renderSummaryTable() {
     const {
       classes,
       record,
@@ -401,6 +409,7 @@ class TransferSummary extends React.Component {
       cell,
       numberCell,
       textCell,
+      checkCell,
     } = classes;
 
     const {
@@ -426,6 +435,7 @@ class TransferSummary extends React.Component {
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
+    const chkCell = `${cell} ${checkCell}`;
 
     headRows.push(
       <tr key="top">
@@ -445,7 +455,7 @@ class TransferSummary extends React.Component {
     headRows.push(
       <tr key="legend">
         <td className={labelCell}></td>
-        {this.renderLegendCell(rightColumns)}
+        {this.renderMovementLegendCell(rightColumns)}
       </tr>
     );
 
@@ -478,6 +488,8 @@ class TransferSummary extends React.Component {
         wallet_delta,
         vault_delta,
         issuer_id,
+        reco_id,
+        need_reco,
       } = movement;
 
       mvCells.push(
@@ -547,6 +559,19 @@ class TransferSummary extends React.Component {
           <FormattedTime value={ts} />
         </td>);
 
+      let recoContent = null;
+      if (need_reco) {
+        if (reco_id !== null) {
+          recoContent = <CheckBoxIcon />;
+        } else {
+          recoContent = <CheckBoxOutlineBlankIcon />;
+        }
+      }
+      mvCells.push(
+        <td key="reco" className={chkCell}>
+          {recoContent}
+        </td>);
+
       bodyRows.push(
         <tr key={index}>
           {mvCells}
@@ -560,12 +585,16 @@ class TransferSummary extends React.Component {
     totalCells.push(<td className={labelCell} key="graphic"></td>);
     totalCells.push(
       <td className={numCell} key="vault_delta">
-        <strong>{this.renderTotalCell(record.vault_delta_totals)}</strong>
+        <strong>
+          {this.renderMovementTotalCell(record.vault_delta_totals)}
+        </strong>
       </td>
     );
     totalCells.push(
       <td className={numCell} key="wallet_delta">
-        <strong>{this.renderTotalCell(record.wallet_delta_totals)}</strong>
+        <strong>
+          {this.renderMovementTotalCell(record.wallet_delta_totals)}
+        </strong>
       </td>
     );
     totalCells.push(
@@ -590,7 +619,7 @@ class TransferSummary extends React.Component {
     );
   }
 
-  renderTotalCell(totals) {
+  renderMovementTotalCell(totals) {
     const currencies = Object.keys(totals);
     currencies.sort();
     return currencies.map(currency => <div key={currency}>
@@ -598,7 +627,7 @@ class TransferSummary extends React.Component {
     </div>);
   }
 
-  renderLegendCell(rightColumns) {
+  renderMovementLegendCell(rightColumns) {
     // The legend is the table cell above the graphic cells.
     const {
       classes,
@@ -720,22 +749,21 @@ class TransferSummary extends React.Component {
     } = movement;
 
     const getIcon = (peerId, style) => {
+      if (!from_id) {
+        return (
+          <div key={peerId} className={graphicIcon}
+            style={style} title="Issued Notes"
+          >
+            <StarIcon/>
+          </div>);
+      }
       if (peerId === issuer_id) {
-        if (!from_id) {
-          return (
-            <div key={peerId} className={graphicIcon}
-              style={style} title="Issued Notes"
-            >
-              <StarIcon/>
-            </div>);
-        } else {
-          return (
-            <div key={peerId} className={graphicIcon}
-              style={style} title="Issuer Vault"
-            >
-              <VaultIcon/>
-            </div>);
-        }
+        return (
+          <div key={peerId} className={graphicIcon}
+            style={style} title="Issuer Vault"
+          >
+            <VaultIcon/>
+          </div>);
       } else if (peers[peerId] && peers[peerId].is_dfi_account) {
         return (
           <div key={peerId} className={graphicIcon}
@@ -798,8 +826,10 @@ class TransferSummary extends React.Component {
         };
         headClass = arrowHeadLeft;
       }
-      elements.push(<div className={arrowLine} style={lineStyle}></div>);
-      elements.push(<div className={headClass} style={headStyle}></div>);
+      elements.push(
+        <div key="arrow_line" className={arrowLine} style={lineStyle}></div>);
+      elements.push(
+        <div key="arrow_head" className={headClass} style={headStyle}></div>);
     }
 
     const graphicStyle = {
@@ -872,7 +902,7 @@ class TransferSummary extends React.Component {
       content = (
         <div>
           <Paper className={classes.tablePaper}>
-            {this.renderTopTable()}
+            {this.renderSummaryTable()}
           </Paper>
           <Paper className={classes.tablePaper}>
             {this.renderMovementsTable()}
@@ -894,12 +924,14 @@ class TransferSummary extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {match} = ownProps;
+  const {ploop, file, match} = ownProps;
   const transferId = match.params.transferId;
   const profileId = state.login.id;
 
-  if (transferId) {
-    const recordURL = fOPNReport.pathToURL(`/transfer-record/${transferId}`);
+  if (ploop && transferId) {
+    const subpath = (
+      `${ploop.ploop_key}/${file ? file.file_id : 'current'}/${transferId}`);
+    const recordURL = fOPNReport.pathToURL(`/transfer-record/${subpath}`);
     let record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);
@@ -907,9 +939,9 @@ function mapStateToProps(state, ownProps) {
 
     if (record) {
       // Now that the initial record is loaded, load the complete record,
-      // which takes longer because it updates all profiles and loops.
+      // which often takes longer because it updates all profiles and loops.
       recordCompleteURL = fOPNReport.pathToURL(
-        `/transfer-record-complete/${transferId}`);
+        `/transfer-record-complete/${subpath}`);
       const recordComplete = fetchcache.get(state, recordCompleteURL);
       if (recordComplete) {
         record = recordComplete;
