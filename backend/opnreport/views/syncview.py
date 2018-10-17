@@ -553,16 +553,12 @@ class SyncView:
                     # Notes were received from an account or other wallet.
                     wallet_delta = amount
 
-            elif issuer_id == owner_id:
-                # The issuer is observing a movement, but the movement
-                # does not involve the issuer's wallet or vault.
+            else:
+                # The owner is observing a movement, but the movement
+                # does not involve the owner's wallet or vault.
                 # Use the issuer as the peer, but don't record any
                 # wallet or vault movement.
                 peer_id = issuer_id
-
-            else:
-                # Ignore movements from the owner to itself.
-                continue
 
             # Add to the 'c' (circulation/common) movements.
             c_peer_key = ('c', peer_id, loop_id, currency, issuer_id)
