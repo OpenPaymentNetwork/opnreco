@@ -409,7 +409,20 @@ class TransferSummary extends React.Component {
       loops,
     } = record;
 
-    const rightColumns = 8;
+    let has_other_amount = false;
+    movements.forEach(movement => {
+      if (movement.vault_delta && movement.vault_delta !== '0') {
+        return;
+      }
+      if (movement.wallet_delta && movement.wallet_delta !== '0') {
+        return;
+      }
+      // This amount is not listed in either vault_delta or wallet_delta,
+      // so the only way to show it is to show the 'Other Amount' column.
+      has_other_amount = true;
+    });
+
+    const rightColumns = has_other_amount ? 8 : 7;
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
@@ -443,7 +456,9 @@ class TransferSummary extends React.Component {
         </td>
         <td key="vault_delta" className={labelCell}>Vault</td>
         <td key="wallet_delta" className={labelCell}>Wallet</td>
-        <td key="amount" className={labelCell}>Amount</td>
+        {has_other_amount ?
+          <td key="other_amount" className={labelCell}>Other Amount</td>
+          : null}
         <td key="design" className={labelCell}>Note Design</td>
         <td key="issuer" className={labelCell}>Issuer</td>
         <td key="action" className={labelCell}>Action Code</td>
@@ -488,13 +503,17 @@ class TransferSummary extends React.Component {
         mvCells.push(<td key="wallet_delta" className={numCell}></td>);
       }
 
-      if (amount && amount !== '0') {
-        mvCells.push(
-          <td key="amount" className={numCell}>
-            {getCurrencyFormatter(currency)(amount)} {currency}
-          </td>);
-      } else {
-        mvCells.push(<td key="amount" className={numCell}></td>);
+      if (has_other_amount) {
+        if (amount && amount !== '0' &&
+              (!wallet_delta || wallet_delta === '0') &&
+              (!vault_delta || vault_delta === '0')) {
+          mvCells.push(
+            <td key="other_amount" className={numCell}>
+              {getCurrencyFormatter(currency)(amount)} {currency}
+            </td>);
+        } else {
+          mvCells.push(<td key="other_amount" className={numCell}></td>);
+        }
       }
 
       let loopTitle;
