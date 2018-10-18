@@ -6,7 +6,6 @@ from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
 from opnreport.models.db import now_func
 from opnreport.models.db import Peer
-from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
@@ -84,7 +83,7 @@ def transfer_record_view(context, request, complete=False):
 
     need_peer_ids = set()
     need_loop_ids = set()
-    # peer_appearance: {peer_id: [movement_number]}
+    # peer_appearance: {peer_id: [(movement_number, amount_index)]}
     peer_appearance = collections.defaultdict(list)
     to_or_from = set()  # set of peer_ids listed in to_id or from_id
     for m, _reco_id in movement_rows:
@@ -102,7 +101,7 @@ def transfer_record_view(context, request, complete=False):
             ids.append(issuer_id)
         need_peer_ids.update(ids)
         for peer_id in ids:
-            peer_appearance[peer_id].append(m.number)
+            peer_appearance[peer_id].append((m.number, m.amount_index))
         need_loop_ids.add(m.loop_id)
     need_peer_ids.discard(None)
     need_peer_ids.discard(owner_id)
@@ -159,13 +158,14 @@ def transfer_record_view(context, request, complete=False):
     # De-duplicate the movement rows. There are two copies of each movement,
     # one with peer_id == 'c', the other with peer_id == orig_peer_id.
     # movement_dedup: {
-    #    (number, orig_peer_id, loop_id, currency, issuer_id):
+    #    (number, amount_index, orig_peer_id, loop_id, currency, issuer_id):
     #    [Movement, peer_reco_id, c_reco_id]
     # }
     movement_dedup = {}
     for movement, reco_id in movement_rows:
         key = (
             movement.number,
+            movement.amount_index,
             movement.orig_peer_id,
             movement.loop_id,
             movement.currency,
@@ -184,7 +184,7 @@ def transfer_record_view(context, request, complete=False):
     file_peer_id = file.peer_id
 
     for key, group in sorted(movement_dedup.items()):
-        number, peer_id, loop_id, currency, issuer_id = key
+        number, amount_index, peer_id, loop_id, currency, issuer_id = key
         movement, peer_reco_id, c_reco_id = group
 
         need_reco = movement.wallet_delta or movement.vault_delta
@@ -203,6 +203,7 @@ def transfer_record_view(context, request, complete=False):
 
         movements_json.append({
             'number': number,
+            'amount_index': amount_index,
             'peer_id': peer_id,
             'loop_id': loop_id,
             'currency': currency,

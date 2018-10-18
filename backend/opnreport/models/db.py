@@ -239,6 +239,11 @@ class Movement(Base):
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
     number = Column(Integer, nullable=False)
+    # An OPN movement can move multiple amounts, but this database
+    # needs to represent each amount as a single movement, so this database
+    # stores multiple movement rows for each OPN movement and disambiguates
+    # them by 'amount_index'.
+    amount_index = Column(Integer, nullable=False)
 
     # peer_id can be 'c' (for 'common' or 'circulation'). The 'c'
     # row is the doubled row.
@@ -270,6 +275,7 @@ Index(
     'ix_movement_unique',
     Movement.transfer_record_id,
     Movement.number,
+    Movement.amount_index,
     Movement.peer_id,
     Movement.orig_peer_id,
     Movement.loop_id,

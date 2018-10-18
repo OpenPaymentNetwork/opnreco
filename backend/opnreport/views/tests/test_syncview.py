@@ -1710,6 +1710,7 @@ class Test_find_internal_movements(unittest.TestCase):
         class DummyMovement:
             wallet_delta = zero
             vault_delta = zero
+            amount_index = 0
 
             def __repr__(self):
                 return (

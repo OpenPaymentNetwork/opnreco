@@ -387,21 +387,24 @@ class SyncView:
             .filter_by(transfer_record_id=record.id)
             .all())
         # movement_rows: {
-        #     (number, peer_id, orig_peer_id, loop_id, currency,
-        #      issuer_id):
+        #     (number, amount_index, peer_id, orig_peer_id,
+        #      loop_id, currency, issuer_id):
         #     Movement
         # }
         movement_dict = {}
         for movement in rows:
-            key6 = (
+            row_key = (
                 movement.number,
+                movement.amount_index,
                 movement.peer_id,
                 movement.orig_peer_id,
                 movement.loop_id,
                 movement.currency,
                 movement.issuer_id,
             )
-            movement_dict[key6] = movement
+            movement_dict[row_key] = movement
+
+        movements_added = []
 
         for movement in item['movements']:
             number = movement.get('number')
@@ -418,82 +421,88 @@ class SyncView:
                 movement, transfer_id=transfer_id)
 
             # Add movement records based on the by_peer dict.
-            for key5, deltas in sorted(by_peer.items()):
-                amount, wallet_delta, vault_delta = deltas
-                key6 = (number,) + key5
-                old_movement = movement_dict.get(key6)
+            for peer_key, delta_list in sorted(by_peer.items()):
+                peer_id, orig_peer_id, loop_id, currency, issuer_id = peer_key
 
-                if old_movement is not None:
-                    # The movement is already recorded.
-                    # Verify it has not changed.
-                    if old_movement.ts != ts:
-                        raise ValueError(
-                            "Movement %s in transfer %s has changed:"
-                            "recorded timestamp is %s, new timestamp is %s" % (
-                                number, transfer_id,
-                                old_movement.ts.isoformat(), ts.isoformat()))
-                    if (old_movement.from_id != from_id or
-                            old_movement.to_id != to_id):
-                        raise ValueError(
-                            "Movement %s in transfer %s has changed:"
-                            "movement was from %s to %s, "
-                            "new movement is from %s to %s" % (
-                                number, transfer_id,
-                                old_movement.from_id,
-                                old_movement.to_id,
-                                from_id,
-                                to_id))
-                    if old_movement.action != action:
-                        raise ValueError(
-                            "Movement %s in transfer %s has changed:"
-                            "recorded action is %s, new action is %s" % (
-                                number, transfer_id,
-                                old_movement.action, action))
-                    if (old_movement.wallet_delta != wallet_delta or
-                            old_movement.vault_delta != vault_delta):
-                        raise ValueError(
-                            "Movement %s in transfer %s has changed:"
-                            "recorded delta is (%s, %s, %s), "
-                            "new delta is (%s, %s, %s)" % (
-                                number, transfer_id,
-                                old_movement.amount,
-                                old_movement.wallet_delta,
-                                old_movement.vault_delta,
-                                amount,
-                                wallet_delta,
-                                vault_delta))
-                    continue
+                for amount_index, deltas in enumerate(delta_list):
+                    amount, wallet_delta, vault_delta = deltas
+                    row_key = (number, amount_index) + peer_key
+                    old_movement = movement_dict.get(row_key)
 
-                # Record the movement.
-                peer_id, orig_peer_id, loop_id, currency, issuer_id = key5
-                movement = Movement(
-                    transfer_record_id=record.id,
-                    number=number,
-                    peer_id=peer_id,
-                    orig_peer_id=orig_peer_id,
-                    loop_id=loop_id,
-                    currency=currency,
-                    issuer_id=issuer_id,
-                    from_id=from_id,
-                    to_id=to_id,
-                    amount=amount,
-                    action=action,
-                    ts=ts,
-                    wallet_delta=wallet_delta,
-                    vault_delta=vault_delta,
-                )
-                dbsession.add(movement)
-                dbsession.flush()  # Assign row.id
+                    if old_movement is not None:
+                        # The movement is already recorded.
+                        # Verify it has not changed.
+                        if old_movement.ts != ts:
+                            raise ValueError(
+                                "Movement %s in transfer %s has changed:"
+                                "recorded timestamp is %s, "
+                                "new timestamp is %s" % (
+                                    number, transfer_id,
+                                    old_movement.ts.isoformat(),
+                                    ts.isoformat()))
+                        if (old_movement.from_id != from_id or
+                                old_movement.to_id != to_id):
+                            raise ValueError(
+                                "Movement %s in transfer %s has changed:"
+                                "movement was from %s to %s, "
+                                "new movement is from %s to %s" % (
+                                    number, transfer_id,
+                                    old_movement.from_id,
+                                    old_movement.to_id,
+                                    from_id,
+                                    to_id))
+                        if old_movement.action != action:
+                            raise ValueError(
+                                "Movement %s in transfer %s has changed:"
+                                "recorded action is %s, new action is %s" % (
+                                    number, transfer_id,
+                                    old_movement.action, action))
+                        if (old_movement.wallet_delta != wallet_delta or
+                                old_movement.vault_delta != vault_delta):
+                            raise ValueError(
+                                "Movement %s in transfer %s has changed:"
+                                "recorded delta is (%s, %s, %s), "
+                                "new delta is (%s, %s, %s)" % (
+                                    number, transfer_id,
+                                    old_movement.amount,
+                                    old_movement.wallet_delta,
+                                    old_movement.vault_delta,
+                                    amount,
+                                    wallet_delta,
+                                    vault_delta))
+                        continue
 
-                movement_dict[key6] = movement
+                    # Record the movement.
+                    movement = Movement(
+                        transfer_record_id=record.id,
+                        number=number,
+                        amount_index=amount_index,
+                        peer_id=peer_id,
+                        orig_peer_id=orig_peer_id,
+                        loop_id=loop_id,
+                        currency=currency,
+                        issuer_id=issuer_id,
+                        from_id=from_id,
+                        to_id=to_id,
+                        amount=amount,
+                        action=action,
+                        ts=ts,
+                        wallet_delta=wallet_delta,
+                        vault_delta=vault_delta,
+                    )
+                    dbsession.add(movement)
+                    movement_dict[row_key] = movement
+                    movements_added.append(movement)
 
-                dbsession.add(MovementLog(
-                    movement_id=movement.id,
-                    event_type='download',
-                    # Only the immutable attributes changed.
-                    # There were no changes to mutable attributes.
-                    changes={},
-                ))
+        dbsession.flush()  # Assign the movement IDs
+        for movement in movements_added:
+            dbsession.add(MovementLog(
+                movement_id=movement.id,
+                event_type='download',
+                # Only the immutable attributes changed.
+                # There were no changes to mutable attributes.
+                changes={},
+            ))
 
         self.autoreco(
             record=record,
@@ -505,7 +514,7 @@ class SyncView:
 
         Return {
             (peer_id, orig_peer_id, loop_id, currency, issuer_id):
-            [amount, wallet_delta, vault_delta],
+            [(amount, wallet_delta, vault_delta)],
         }, where peer_id can be 'c', but orig_peer_id can not.
         """
         number = movement['number']
@@ -518,10 +527,10 @@ class SyncView:
                 % (number, transfer_id))
 
         owner_id = self.owner_id
-        # by_peer:
-        # {(peer_id, loop_id, currency): [amount, wallet_delta, vault_delta]}
-        by_peer = collections.defaultdict(
-            lambda: [zero, zero, zero])
+        # by_peer: {
+        #     (peer_id, orig_peer_id, loop_id, currency, issuer_id): [
+        #         (amount, wallet_delta, vault_delta)]}
+        by_peer = collections.defaultdict(list)
 
         for loop in movement['loops']:
             loop_id = loop['loop_id']
@@ -563,24 +572,14 @@ class SyncView:
             # Add to the 'c' (circulation/common) movements.
             c_peer_key = ('c', peer_id, loop_id, currency, issuer_id)
             c_file = self.prepare_file('c', loop_id, currency)
-            amounts = by_peer[c_peer_key]
-            amounts[0] += amount
-            if vault_delta:
-                amounts[2] += vault_delta
-                if not c_file.has_vault:
-                    c_file.has_vault = True
-            if wallet_delta:
-                amounts[1] += wallet_delta
+            if vault_delta and not c_file.has_vault:
+                c_file.has_vault = True
+            by_peer[c_peer_key].append((amount, wallet_delta, vault_delta))
 
             # Add to the wallet-specific or account-specific movements.
             peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
             self.prepare_file(peer_id, loop_id, currency)
-            amounts = by_peer[peer_key]
-            amounts[0] += amount
-            if vault_delta:
-                amounts[2] += vault_delta
-            if wallet_delta:
-                amounts[1] += wallet_delta
+            by_peer[peer_key].append((amount, wallet_delta, vault_delta))
 
         return by_peer
 
@@ -775,7 +774,8 @@ def find_internal_movements(movements, done_movement_ids):
             continue
 
         # Order the movements in the group.
-        group.sort(key=lambda movement: movement.number)
+        group.sort(
+            key=lambda movement: (movement.number, movement.amount_index))
         refine_movement_order(group)
 
         internal_seqs = find_internal_movements_for_group(
