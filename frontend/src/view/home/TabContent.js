@@ -45,12 +45,16 @@ export default class TabContent extends React.Component {
     }
   }
 
+  handleTryAgain() {
+    this.setState({errorTab: null});
+  }
+
   render() {
     const {errorTab} = this.state;
     if (errorTab && errorTab === this.props.tab) {
       return (
-        <div style={{margin: 16, padding: 16}}>
-          <Paper>
+        <div style={{margin: 16}}>
+          <Paper style={{padding: 16}}>
             Sorry, something went wrong while rendering this component.
             See the developer console for more info.
             <p>
