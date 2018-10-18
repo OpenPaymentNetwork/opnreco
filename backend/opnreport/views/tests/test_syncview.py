@@ -1734,6 +1734,7 @@ class Test_find_internal_movements(unittest.TestCase):
             m.action = 'testaction'
 
             if isinstance(item, dict):
+                delta = item.pop('delta')
                 vars(m).update(item)
             else:
                 delta = item
@@ -1863,4 +1864,71 @@ class Test_find_internal_movements(unittest.TestCase):
         self.assertEqual([
             [Decimal('0.25'), Decimal('-0.25')],
             [Decimal('0.25'), Decimal('-0.25')],
+        ], iseqs)
+
+    def test_reorder_migrated_movements_when_needed(self):
+        movements = self._make_movements([
+            {'action': '', 'ts': '2017-12-29T15:55:26.05', 'delta': '0'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '99.75'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '-100.00'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.60', 'delta': '0.25'},
+        ])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('-100.00'), Decimal('99.75'), Decimal('0.25')],
+        ], iseqs)
+
+    def test_reorder_migrated_movements_when_not_needed(self):
+        movements = self._make_movements([
+            {'action': '', 'ts': '2017-12-29T15:55:26.05', 'delta': '0'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '-100.00'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '99.75'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.60', 'delta': '0.25'},
+        ])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('-100.00'), Decimal('99.75'), Decimal('0.25')],
+        ], iseqs)
+
+    def test_reorder_not_possible_because_no_movement_after(self):
+        movements = self._make_movements([
+            {'action': '', 'ts': '2017-12-29T15:55:26.05', 'delta': '0'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '-100.00'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '99.75'},
+        ])
+        iseqs = self._call(movements, {})
+        self.assertEqual([], iseqs)
+
+    def test_reorder_restores_hill(self):
+        movements = self._make_movements([
+            {'action': '', 'ts': '2017-12-29T15:55:26.05', 'delta': '0'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '-99.75'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '100.00'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.60', 'delta': '-0.25'},
+        ])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('100.00'), Decimal('-99.75'), Decimal('-0.25')],
+        ], iseqs)
+
+    def test_reorder_as_hill_based_on_movement_before(self):
+        movements = self._make_movements([
+            {'action': '', 'ts': '2017-12-29T15:55:26.05', 'delta': '0.25'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '-100.00'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '99.75'},
+        ])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('0.25'), Decimal('99.75'), Decimal('-100.00')],
+        ], iseqs)
+
+    def test_reorder_as_valley_based_on_movement_before(self):
+        movements = self._make_movements([
+            {'action': '', 'ts': '2017-12-29T15:55:26.05', 'delta': '-0.25'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '100.00'},
+            {'action': '', 'ts': '2017-12-29T15:55:26.54', 'delta': '-99.75'},
+        ])
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('-0.25'), Decimal('-99.75'), Decimal('100.00')],
         ], iseqs)

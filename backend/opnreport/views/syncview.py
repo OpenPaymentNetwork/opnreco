@@ -776,6 +776,7 @@ def find_internal_movements(movements, done_movement_ids):
 
         # Order the movements in the group.
         group.sort(key=lambda movement: movement.number)
+        refine_movement_order(group)
 
         internal_seqs = find_internal_movements_for_group(
             group=group,
@@ -784,6 +785,84 @@ def find_internal_movements(movements, done_movement_ids):
             all_internal_seqs.extend(internal_seqs)
 
     return all_internal_seqs
+
+
+def refine_movement_order(group):
+    """Refine the order of migrated movements in a group.
+
+    This works around an issue in migrated movements. Movements
+    created by migration (which had a blank action) sometimes had
+    an identical timestamp and were added in the wrong order.
+    Reorder the movements temporarily for the purpose of
+    auto-reconciliation, but don't change the movements.
+
+    The reordering tries to restore the hills or valleys that existed
+    in the original sequence.
+    """
+    by_ts = collections.defaultdict(list)
+
+    for index, movement in enumerate(group):
+        if movement.action:
+            # This is the end of the migrated movements for this transfer.
+            break
+        by_ts[movement.ts].append((index, movement))
+
+    if not by_ts:
+        # Nothing to reorder.
+        return
+
+    for subgroup in by_ts.values():
+        if len(subgroup) < 2:
+            # Nothing to reorder.
+            continue
+
+        # This subgroup is eligible for reordering because all the movements
+        # happened at the same time (in the same transaction). Look at the
+        # next movement (in the group) after or before to determine whether
+        # to form the concurrent movements into a hill or a valley.
+        first_index = subgroup[0][0]
+        last_index = subgroup[-1][0]
+        make_valley = None
+
+        if last_index + 1 < len(group):
+            # Detect based on the next movement after the subgroup.
+            movement = group[last_index + 1]
+            delta = movement.wallet_delta + movement.vault_delta
+            if delta < zero:
+                make_valley = False
+            elif delta > zero:
+                make_valley = True
+
+        if make_valley is None and first_index > 0:
+            # Detect based on the previous movement before the subgroup.
+            movement = group[first_index - 1]
+            delta = movement.wallet_delta + movement.vault_delta
+            if delta < zero:
+                make_valley = True
+            elif delta > zero:
+                make_valley = False
+
+        if make_valley is not None:
+            # Reorder.
+            # make_valley specifies whether to form a valley or a hill.
+
+            def sort_key(item):
+                index, movement = item
+                delta = movement.wallet_delta + movement.vault_delta
+                if make_valley:
+                    forced_order = 0 if delta < zero else 1
+                else:
+                    forced_order = 0 if delta > zero else 1
+                return (forced_order, index)
+
+            new_order = list(subgroup)
+            new_order.sort(key=sort_key)
+
+            # Put the movements in the refined order.
+            for old_item, new_item in zip(subgroup, new_order):
+                index = old_item[0]
+                movement = new_item[1]
+                group[index] = movement
 
 
 non_internal_actions = frozenset(('move',))
