@@ -4,7 +4,8 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { getCurrencyFormatter } from '../../util/currency';
+import { getCurrencyFormatter, getCurrencyDeltaFormatter }
+  from '../../util/currency';
 import { setTransferId } from '../../reducer/app';
 import { wfTypeTitles } from '../../util/transferfmt';
 import { withRouter } from 'react-router';
@@ -22,6 +23,9 @@ import Require from '../../util/Require';
 import SearchIcon from '@material-ui/icons/Search';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
+import CheckBoxIcon from '@material-ui/icons/CheckBox';
+import CheckBoxOutlineBlankIcon
+  from '@material-ui/icons/CheckBoxOutlineBlank';
 
 
 const solidBorder = '1px solid #bbb';
@@ -80,12 +84,20 @@ const styles = {
   detailButton: {
     margin: '8px',
   },
+  labelCell: {
+    border: solidBorder,
+    padding: '2px 8px',
+  },
   numberCell: {
     padding: '2px 8px',
     textAlign: 'right',
   },
   textCell: {
     padding: '2px 8px',
+  },
+  checkCell: {
+    textAlign: 'center',
+    paddingTop: '4px',
   },
 };
 
@@ -309,21 +321,92 @@ class TransferSummary extends React.Component {
     } = this.props;
 
     const {
-      legendLowerCell,
-      labelCell,
       cell,
+      labelCell,
       numberCell,
       textCell,
       checkCell,
     } = classes;
 
     const {
-      movements,
-      peer_order,
       loops,
     } = record;
 
-    return null;
+    const numCell = `${cell} ${numberCell}`;
+    const txtCell = `${cell} ${textCell}`;
+    const chkCell = `${cell} ${checkCell}`;
+
+    let rows = record.exchanges.forEach((exchange, exchangeIndex) => {
+      const {
+        loop_id,
+        reco_id,
+      } = exchange;
+      let loopTitle;
+      if (loop_id === '0') {
+        loopTitle = 'Open Loop';
+      } else {
+        loopTitle = (
+          <em>{loops[loop_id] ? loops[loop_id].title
+            : `Closed Loop ${loop_id}`}</em>);
+      }
+
+      let recoContent;
+      if (reco_id !== null) {
+        recoContent = <CheckBoxIcon />;
+      } else {
+        recoContent = <CheckBoxOutlineBlankIcon />;
+      }
+
+      return (
+        <tr key={exchangeIndex}>
+          <td className={numCell}>
+            {getCurrencyDeltaFormatter(exchange.currency)(exchange.vault_amount)
+            } {exchange.currency}
+          </td>
+          <td className={numCell}>
+            {getCurrencyDeltaFormatter(exchange.currency)(exchange.wallet_amount)
+            } {exchange.currency}
+          </td>
+          <td className={txtCell}>
+            {loopTitle}
+          </td>
+          <td className={chkCell}>
+            {recoContent}
+          </td>
+        </tr>);
+    });
+
+    if (!rows || !rows.length) {
+      rows = [
+        <tr key="empty">
+          <td colSpan="4" className={labelCell}>
+            <em>No vault/wallet exchanges detected in this transfer.</em>
+          </td>
+        </tr>
+      ];
+    }
+
+    return (
+      <table className={classes.table}>
+        <thead>
+          <tr>
+            <th className={`${classes.cell} ${classes.headCell}`}
+              colSpan="4"
+            >
+              Exchanges
+            </th>
+          </tr>
+          <tr>
+            <td className={labelCell}>Vault</td>
+            <td className={labelCell}>Wallet</td>
+            <td className={labelCell}>Note Design</td>
+            <td className={labelCell}>Reconciled</td>
+          </tr>
+        </thead>
+        <tbody>
+          {rows}
+        </tbody>
+      </table>);
   }
 
   render() {
