@@ -336,6 +336,87 @@ class MovementTable extends React.Component {
       </td>);
   }
 
+  renderExchangeRows(options) {
+    const {
+      rightColumns,
+      hasOtherAmount,
+    } = options;
+
+    const {
+      classes,
+      record,
+    } = this.props;
+
+    const {
+      cell,
+      numberCell,
+      textCell,
+      checkCell,
+    } = classes;
+
+    const {
+      exchanges,
+      loops,
+    } = record;
+
+    const numCell = `${cell} ${numberCell}`;
+    const txtCell = `${cell} ${textCell}`;
+    const chkCell = `${cell} ${checkCell}`;
+
+    const rows = [
+      <th key="settlements" className={`${classes.cell} ${classes.headCell}`}
+        colSpan={2 + rightColumns}
+      >
+        Wallet Settlements
+      </th>
+    ];
+
+    exchanges.forEach((exchange, exchangeIndex) => {
+      const {
+        loop_id,
+        reco_id,
+      } = exchange;
+      let loopTitle;
+      if (loop_id === '0') {
+        loopTitle = 'Open Loop';
+      } else {
+        loopTitle = (
+          <em>{loops[loop_id] ? loops[loop_id].title
+            : `Closed Loop ${loop_id}`}</em>);
+      }
+
+      let recoContent;
+      if (reco_id !== null) {
+        recoContent = <CheckBoxIcon />;
+      } else {
+        recoContent = <CheckBoxOutlineBlankIcon />;
+      }
+
+      rows.push(
+        <tr key={`exchange-${exchangeIndex}`}>
+          <td className={txtCell} colSpan="2"></td>
+          <td className={numCell}>
+            {getCurrencyDeltaFormatter(exchange.currency)(exchange.vault_delta)
+            } {exchange.currency}
+          </td>
+          <td className={numCell}>
+            {getCurrencyDeltaFormatter(exchange.currency)(exchange.wallet_delta)
+            } {exchange.currency}
+          </td>
+          {hasOtherAmount ? <td className={numCell}></td> : null}
+          <td className={txtCell}>
+            {loopTitle}
+          </td>
+          <td colSpan="3" className={txtCell}></td>
+          <td className={chkCell}>
+            {recoContent}
+          </td>
+        </tr>);
+    });
+
+    return rows;
+  }
+
   render() {
     const {
       classes,
@@ -357,7 +438,7 @@ class MovementTable extends React.Component {
       loops,
     } = record;
 
-    let has_other_amount = false;
+    let hasOtherAmount = false;
     movements.forEach(movement => {
       if (movement.vault_delta && movement.vault_delta !== '0') {
         return;
@@ -367,10 +448,10 @@ class MovementTable extends React.Component {
       }
       // This amount is not listed in either vault_delta or wallet_delta,
       // so the only way to show it is to show the 'Other Amount' column.
-      has_other_amount = true;
+      hasOtherAmount = true;
     });
 
-    const rightColumns = has_other_amount ? 8 : 7;
+    const rightColumns = hasOtherAmount ? 8 : 7;
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
@@ -405,7 +486,7 @@ class MovementTable extends React.Component {
         </td>
         <td key="vault_delta" className={labelCell}>Vault</td>
         <td key="wallet_delta" className={labelCell}>Wallet</td>
-        {has_other_amount ?
+        {hasOtherAmount ?
           <td key="other_amount" className={labelCell}>Other Amount</td>
           : null}
         <td key="design" className={labelCell}>Note Design</td>
@@ -454,7 +535,7 @@ class MovementTable extends React.Component {
         mvCells.push(<td key="wallet_delta" className={numCell}></td>);
       }
 
-      if (has_other_amount) {
+      if (hasOtherAmount) {
         if (amount && amount !== '0' &&
               (!wallet_delta || wallet_delta === '0') &&
               (!vault_delta || vault_delta === '0')) {
@@ -517,6 +598,12 @@ class MovementTable extends React.Component {
         </tr>
       );
     });
+
+    if (record.exchanges && record.exchanges.length) {
+      this.renderExchangeRows({rightColumns, hasOtherAmount}).forEach(row => {
+        bodyRows.push(row);
+      });
+    }
 
     const totalCells = [];
 

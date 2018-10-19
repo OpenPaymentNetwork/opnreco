@@ -314,101 +314,6 @@ class TransferSummary extends React.Component {
     );
   }
 
-  renderExchangesTable() {
-    const {
-      classes,
-      record,
-    } = this.props;
-
-    const {
-      cell,
-      labelCell,
-      numberCell,
-      textCell,
-      checkCell,
-    } = classes;
-
-    const {
-      loops,
-    } = record;
-
-    const numCell = `${cell} ${numberCell}`;
-    const txtCell = `${cell} ${textCell}`;
-    const chkCell = `${cell} ${checkCell}`;
-
-    let rows = record.exchanges.forEach((exchange, exchangeIndex) => {
-      const {
-        loop_id,
-        reco_id,
-      } = exchange;
-      let loopTitle;
-      if (loop_id === '0') {
-        loopTitle = 'Open Loop';
-      } else {
-        loopTitle = (
-          <em>{loops[loop_id] ? loops[loop_id].title
-            : `Closed Loop ${loop_id}`}</em>);
-      }
-
-      let recoContent;
-      if (reco_id !== null) {
-        recoContent = <CheckBoxIcon />;
-      } else {
-        recoContent = <CheckBoxOutlineBlankIcon />;
-      }
-
-      return (
-        <tr key={exchangeIndex}>
-          <td className={numCell}>
-            {getCurrencyDeltaFormatter(exchange.currency)(exchange.vault_amount)
-            } {exchange.currency}
-          </td>
-          <td className={numCell}>
-            {getCurrencyDeltaFormatter(exchange.currency)(exchange.wallet_amount)
-            } {exchange.currency}
-          </td>
-          <td className={txtCell}>
-            {loopTitle}
-          </td>
-          <td className={chkCell}>
-            {recoContent}
-          </td>
-        </tr>);
-    });
-
-    if (!rows || !rows.length) {
-      rows = [
-        <tr key="empty">
-          <td colSpan="4" className={labelCell}>
-            <em>No vault/wallet exchanges detected in this transfer.</em>
-          </td>
-        </tr>
-      ];
-    }
-
-    return (
-      <table className={classes.table}>
-        <thead>
-          <tr>
-            <th className={`${classes.cell} ${classes.headCell}`}
-              colSpan="4"
-            >
-              Exchanges
-            </th>
-          </tr>
-          <tr>
-            <td className={labelCell}>Vault</td>
-            <td className={labelCell}>Wallet</td>
-            <td className={labelCell}>Note Design</td>
-            <td className={labelCell}>Reconciled</td>
-          </tr>
-        </thead>
-        <tbody>
-          {rows}
-        </tbody>
-      </table>);
-  }
-
   render() {
     const form = this.renderForm();
 
@@ -473,9 +378,6 @@ class TransferSummary extends React.Component {
           </Paper>
           <Paper className={classes.tablePaper}>
             <MovementTable record={record} />
-          </Paper>
-          <Paper className={classes.tablePaper}>
-            {this.renderExchangesTable()}
           </Paper>
         </div>
       );

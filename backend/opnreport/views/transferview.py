@@ -228,19 +228,31 @@ def transfer_record_view(context, request, complete=False):
             # This peer is an issuer in this transfer.
             peers[peer_id]['is_issuer'] = True
 
+    if file_peer_id == 'c':
+        exchange_filter = (Exchange.peer_id == 'c')
+    else:
+        exchange_filter = (Exchange.peer_id != 'c')
+
     exchange_rows = (
         dbsession.query(Exchange)
-        .filter(Exchange.transfer_record_id == record.id)
+        .filter(Exchange.transfer_record_id == record.id, exchange_filter)
         .order_by(Exchange.id)
         .all())
 
     exchanges_json = []
     for exchange in exchange_rows:
+        currency = exchange.currency
+        wallet_delta = exchange.wallet_delta
+        vault_delta = exchange.vault_delta
         exchanges_json.append({
-            'wallet_delta': str(exchange.wallet_delta),
-            'vault_delta': str(exchange.vault_delta),
+            'wallet_delta': str(wallet_delta),
+            'vault_delta': str(vault_delta),
             'reco_id': exchange.reco_id,
+            'currency': exchange.currency,
+            'loop_id': exchange.loop_id,
         })
+        vault_delta_totals[currency] += vault_delta
+        wallet_delta_totals[currency] += wallet_delta
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
