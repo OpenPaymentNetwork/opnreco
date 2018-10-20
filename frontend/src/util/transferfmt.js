@@ -1,11 +1,11 @@
 
 export const wfTypeTitles = {
+  _redeem_plan: '[Acquired Note Redemptions]',  // Internal to OPN Reports
   bill: 'Brand Cash Purchase',
   closed_profile_to_profile: 'Closed Profile to Profile',  // BBB
   cobrand_notes: 'Co-brand Pages',
   combine: 'Combine',
   customize_notes: 'Customize Pages',  // BBB
-  _exchange: '[Exchange]',  // Internal to the OPN Report tool
   expire: 'Expire Cash',
   fund: 'Fund',
   fxdeposit: 'Deposit Foreign Currency',

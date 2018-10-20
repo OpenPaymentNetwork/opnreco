@@ -52,7 +52,10 @@ const styles = {
     position: 'absolute',
     width: '24px',
     height: '24px',
-    color: '#666',
+    color: arrowColor,
+    '&.self': {
+      color: '#000',
+    },
   },
   labelCell: {
     border: solidBorder,
@@ -72,6 +75,9 @@ const styles = {
   graphicIcon: {
     color: arrowColor,
     position: 'absolute',
+    '&.self': {
+      color: '#000',
+    },
   },
   graphicCell: {
     position: 'relative',
@@ -121,7 +127,7 @@ class MovementTable extends React.Component {
     </div>);
   }
 
-  renderMovementLegendCell(rightColumns) {
+  renderMovementLegendCell(columnsAfterGraphic) {
     // The legend is the table cell above the graphic cells.
     const {
       classes,
@@ -134,6 +140,7 @@ class MovementTable extends React.Component {
     } = classes;
 
     const {
+      owner_id,
       peers,
       peer_order,
     } = record;
@@ -146,6 +153,7 @@ class MovementTable extends React.Component {
         top: index * graphicCellHeight + 4,
       };
       const iconKey = `icon-${index}`;
+      const iconClass = peerTypeIcon + (peerId === owner_id ? ' self': '');
 
       let icon = null;
 
@@ -153,14 +161,14 @@ class MovementTable extends React.Component {
       if (peer) {
         if (peer.is_issuer) {
           icon = (
-            <div key={iconKey} className={peerTypeIcon}
+            <div key={iconKey} className={iconClass}
               style={iconStyle} title="Issuer"
             >
               <VaultIcon/>
             </div>);
         } else if (peer.is_dfi_account) {
           icon = (
-            <div key={iconKey} className={peerTypeIcon}
+            <div key={iconKey} className={iconClass}
               style={iconStyle} title="DFI Account"
             >
               <AccountBalance/>
@@ -170,7 +178,7 @@ class MovementTable extends React.Component {
 
       if (!icon) {
         icon = (
-          <div key={iconKey} className={peerTypeIcon}
+          <div key={iconKey} className={iconClass}
             style={iconStyle} title="Wallet"
           >
             <AccountBalanceWallet/>
@@ -208,7 +216,7 @@ class MovementTable extends React.Component {
 
     return (
       <td className={legendCell} style={legendStyle}
-        colSpan={1 + rightColumns}
+        colSpan={1 + columnsAfterGraphic}
       >
         {elements}
       </td>);
@@ -231,6 +239,7 @@ class MovementTable extends React.Component {
     } = classes;
 
     const {
+      owner_id,
       peers,
       peer_order,
       peer_index,
@@ -243,9 +252,10 @@ class MovementTable extends React.Component {
     } = movement;
 
     const getIcon = (peerId, style) => {
+      const iconClass = graphicIcon + (peerId === owner_id ? ' self': '');
       if (!from_id) {
         return (
-          <div key={peerId} className={graphicIcon}
+          <div key={peerId} className={iconClass}
             style={style} title="Issued Notes"
           >
             <StarIcon/>
@@ -253,21 +263,21 @@ class MovementTable extends React.Component {
       }
       if (peerId === issuer_id) {
         return (
-          <div key={peerId} className={graphicIcon}
+          <div key={peerId} className={iconClass}
             style={style} title="Issuer Vault"
           >
             <VaultIcon/>
           </div>);
       } else if (peers[peerId] && peers[peerId].is_dfi_account) {
         return (
-          <div key={peerId} className={graphicIcon}
+          <div key={peerId} className={iconClass}
             style={style} title="DFI Account"
           >
             <AccountBalance/>
           </div>);
       } else {
         return (
-          <div key={peerId} className={graphicIcon}
+          <div key={peerId} className={iconClass}
             style={style} title="Wallet"
           >
             <AccountBalanceWallet/>
@@ -336,9 +346,9 @@ class MovementTable extends React.Component {
       </td>);
   }
 
-  renderExchangeRows(options) {
+  renderRedeemPlans(options) {
     const {
-      rightColumns,
+      columnsAfterGraphic,
       showOtherAmount,
     } = options;
 
@@ -355,7 +365,7 @@ class MovementTable extends React.Component {
     } = classes;
 
     const {
-      exchanges,
+      redeem_plans,
       loops,
     } = record;
 
@@ -365,17 +375,17 @@ class MovementTable extends React.Component {
 
     const rows = [
       <th key="settlements" className={`${classes.cell} ${classes.headCell}`}
-        colSpan={2 + rightColumns}
+        colSpan={2 + columnsAfterGraphic}
       >
-        Wallet Settlements
+        Acquired Note Redemptions
       </th>
     ];
 
-    exchanges.forEach((exchange, exchangeIndex) => {
+    redeem_plans.forEach((plan, planIndex) => {
       const {
         loop_id,
         reco_id,
-      } = exchange;
+      } = plan;
       let loopTitle;
       if (loop_id === '0') {
         loopTitle = 'Open Loop';
@@ -393,21 +403,25 @@ class MovementTable extends React.Component {
       }
 
       rows.push(
-        <tr key={`exchange-${exchangeIndex}`}>
+        <tr key={`redeem_plan-${planIndex}`}>
           <td className={txtCell} colSpan="2"></td>
           <td className={numCell}>
-            {getCurrencyDeltaFormatter(exchange.currency)(exchange.vault_delta)
-            } {exchange.currency}
+            {getCurrencyDeltaFormatter(plan.currency)(plan.circ_delta)
+            } {plan.currency}
           </td>
+          <td className={numCell}></td>
           <td className={numCell}>
-            {getCurrencyDeltaFormatter(exchange.currency)(exchange.wallet_delta)
-            } {exchange.currency}
+            {getCurrencyDeltaFormatter(plan.currency)(plan.wallet_delta)
+            } {plan.currency}
           </td>
           {showOtherAmount ? <td className={numCell}></td> : null}
           <td className={txtCell}>
             {loopTitle}
           </td>
-          <td colSpan="3" className={txtCell}></td>
+          <td className={txtCell}>
+            <ProfileLink id={plan.issuer_id} profiles={record.peers} />
+          </td>
+          <td colSpan="2" className={txtCell}></td>
           <td className={chkCell}>
             {recoContent}
           </td>
@@ -453,7 +467,8 @@ class MovementTable extends React.Component {
       showOtherAmount = true;
     });
 
-    const rightColumns = showOtherAmount ? 8 : 7;
+    const columnsAfterGraphic = (
+      (showVault ? 2 : 0) + 1 + (showOtherAmount ? 1 : 0) + 5);
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
@@ -462,7 +477,7 @@ class MovementTable extends React.Component {
     headRows.push(
       <tr key="top">
         <th className={`${classes.cell} ${classes.headCell}`}
-          colSpan={2 + rightColumns}
+          colSpan={2 + columnsAfterGraphic}
         >
           Movements
         </th>
@@ -477,7 +492,7 @@ class MovementTable extends React.Component {
     headRows.push(
       <tr key="legend">
         <td className={labelCell}></td>
-        {this.renderMovementLegendCell(rightColumns)}
+        {this.renderMovementLegendCell(columnsAfterGraphic)}
       </tr>
     );
 
@@ -615,8 +630,12 @@ class MovementTable extends React.Component {
       );
     });
 
-    if (record.exchanges && record.exchanges.length) {
-      this.renderExchangeRows({rightColumns, showOtherAmount}).forEach(row => {
+    if (record.redeem_plans && record.redeem_plans.length) {
+      this.renderRedeemPlans({
+        columnsAfterGraphic,
+        showVault,
+        showOtherAmount,
+      }).forEach(row => {
         bodyRows.push(row);
       });
     }
@@ -651,7 +670,7 @@ class MovementTable extends React.Component {
       </td>
     );
     totalCells.push(
-      <td className={labelCell} key="rest" colSpan={rightColumns - 2}></td>);
+      <td className={labelCell} key="rest" colSpan={columnsAfterGraphic - 2}></td>);
     bodyRows.push(
       <tr key="total">
         {totalCells}

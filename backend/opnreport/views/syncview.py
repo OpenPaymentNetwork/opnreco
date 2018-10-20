@@ -1,6 +1,5 @@
 
 from decimal import Decimal
-from opnreport.models.db import Exchange
 from opnreport.models.db import File
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementLog
@@ -10,6 +9,7 @@ from opnreport.models.db import OPNDownload
 from opnreport.models.db import OwnerLog
 from opnreport.models.db import Peer
 from opnreport.models.db import Reco
+from opnreport.models.db import RedeemPlan
 from opnreport.models.db import TransferDownloadRecord
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
@@ -668,12 +668,17 @@ class SyncView:
             conflict = False
             wallet_total = zero
             vault_total = zero
+            # wallet_nets: {issuer_id: wallet_net}
+            wallet_nets = collections.defaultdict(Decimal)
             for movement in mvlist:
                 if movement.id in done_movement_ids:
+                    # This auto-reco would conflict with an existent reco.
+                    # Don't create this auto-reco.
                     conflict = True
                     break
                 wallet_total += movement.wallet_delta
                 vault_total += movement.vault_delta
+                wallet_nets[movement.issuer_id] += movement.wallet_delta
 
             if conflict:
                 continue
@@ -710,18 +715,30 @@ class SyncView:
                     changes={'reco_id': reco_id},
                 ))
 
-            if wallet_total:
-                # Add an Exchange record to balance the wallet and vault
-                # totals.
-                dbsession.add(Exchange(
-                    transfer_record_id=record.id,
-                    peer_id=peer_id,
-                    loop_id=loop_id,
-                    currency=currency,
-                    origin_reco_id=reco_id,
-                    wallet_delta=-wallet_total,
-                    vault_delta=-vault_total,
-                ))
+            if peer_id == 'c':
+                # TODO: set this up to reconcile or remove redemption
+                # plans when the transfer completes the redemption.
+                for issuer_id, wallet_net in sorted(wallet_nets.items()):
+                    # If wallet_net is positive, that means wallet_net
+                    # in value, issued by issuer_id, was
+                    # added to the owner's wallet by this transfer.
+                    # Plan to redeem that value.
+                    # If wallet_net is negative (meaning the value
+                    # was returned to the issuer), celebrate! The owner
+                    # has the value it wants and doesn't want to change
+                    # anything.
+                    if not wallet_net or wallet_net < zero:
+                        # Don't plan a redemption for this issuer.
+                        continue
+                    # Plan a redemption of the notes acquired from this issuer.
+                    dbsession.add(RedeemPlan(
+                        transfer_record_id=record.id,
+                        issuer_id=issuer_id,
+                        loop_id=loop_id,
+                        currency=currency,
+                        origin_reco_id=reco_id,
+                        delta=wallet_net,
+                    ))
 
         if added:
             dbsession.flush()

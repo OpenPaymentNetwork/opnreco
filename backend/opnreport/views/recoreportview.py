@@ -2,10 +2,10 @@
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import AccountEntryReco
-from opnreport.models.db import Exchange
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
 from opnreport.models.db import Reco
+from opnreport.models.db import RedeemPlan
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
@@ -30,10 +30,8 @@ def reco_report_view(request):
 
     if file.peer_id == 'c':
         movement_delta_c = Movement.vault_delta
-        exchange_delta_c = Exchange.vault_delta
     else:
         movement_delta_c = Movement.wallet_delta
-        exchange_delta_c = Exchange.wallet_delta
 
     file_id = file.id
     dbsession = request.dbsession
@@ -109,29 +107,26 @@ def reco_report_view(request):
                 MovementReco.reco_id == null)
             .all())
 
-        # exchange_rows lists the exchanges not yet reconciled.
-        # Don't negate the amounts.
-        exchange_rows = (
+        # redeem_rows lists the redemption plans not yet reconciled.
+        redeem_rows = (
             dbsession.query(
-                func.sign(exchange_delta_c).label('sign'),
+                TransferRecord.workflow_type,
                 TransferRecord.transfer_id,
-                exchange_delta_c.label('delta'),
+                RedeemPlan.delta,
                 TransferRecord.start,
-                Exchange.id,
+                RedeemPlan.id,
             )
             .filter(
                 TransferRecord.owner_id == owner_id,
-                Exchange.transfer_record_id == TransferRecord.id,
-                Exchange.peer_id == file.peer_id,
-                Exchange.loop_id == file.loop_id,
-                Exchange.currency == file.currency,
-                exchange_delta_c != 0,
-                Exchange.reco_id == null)
+                RedeemPlan.transfer_record_id == TransferRecord.id,
+                RedeemPlan.loop_id == file.loop_id,
+                RedeemPlan.currency == file.currency,
+                RedeemPlan.reco_id == null)
             .all())
 
     else:
         outstanding_rows = ()
-        exchange_rows = ()
+        redeem_rows = ()
 
     # Create outstanding_map:
     # {str(sign): {workflow_type: [{transfer_id, delta, ts, id}]}}.
@@ -146,22 +141,21 @@ def reco_report_view(request):
             'transfer_id': r.transfer_id,
             'delta': str(r.delta),
             'ts': r.start.isoformat() + 'Z',
-            'id': str(r.id),
+            'movement_id': str(r.id),
         })
         # Add the total of outstanding movements to workflow_types_pre.
         workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
-    # Add the exchanges to outstanding_map and workflow_types_pre.
-    for r in exchange_rows:
-        str_sign = str(r.sign)
-        workflow_type = '_exchange'
+    # Add the redemption plans to outstanding_map and workflow_types_pre.
+    for r in redeem_rows:
+        workflow_type = '_redeem_plan'
+        str_sign = '1'
         outstanding_map[str_sign][workflow_type].append({
             'transfer_id': r.transfer_id,
             'delta': str(r.delta),
             'ts': r.start.isoformat() + 'Z',
-            'id': str(r.id),
+            'redeem_plan_id': str(r.id),
         })
-        # Add the total of outstanding movements to workflow_types_pre.
         workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
     # Convert outstanding_map from defaultdicts to dicts for JSON encoding.
@@ -182,7 +176,8 @@ def reco_report_view(request):
 
     reconciled_balance = file.start_balance + reconciled_delta
     outstanding_balance = reconciled_balance + sum(
-        row.delta for row in outstanding_rows)
+        row.delta for row in outstanding_rows) + sum(
+        row.delta for row in redeem_rows)
 
     return {
         'file': serialize_file(file, peer, loop),

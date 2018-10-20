@@ -703,7 +703,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('download', event.event_type)
 
     @responses.activate
-    def test_p2p_with_exchange_from_issuer_perspective(self):
+    def test_p2p_with_note_acquisition_from_issuer_perspective(self):
         from opnreport.models import db
 
         responses.add(
@@ -732,7 +732,7 @@ class TestDownloadView(unittest.TestCase):
                     },
                     'movements': [
                         {
-                            # Replaced $0.30 from multiple issuers
+                            # Replaced $0.30 from 2 issuers
                             'number': 1,
                             'timestamp': '2018-08-02T05:06:07Z',
                             'action': 'split',
@@ -886,23 +886,14 @@ class TestDownloadView(unittest.TestCase):
             .all())
         self.assertEqual(3, len(reco_ids))
 
-        exchanges = (
-            self.dbsession.query(db.Exchange)
-            .filter_by(peer_id='c')
-            .all())
-        self.assertEqual(1, len(exchanges))
-        exchange = exchanges[0]
-        self.assertEqual('c', exchange.peer_id)
-        self.assertEqual('0', exchange.loop_id)
-        self.assertEqual('USD', exchange.currency)
-        self.assertEqual(Decimal('-0.10'), exchange.wallet_delta)
-        self.assertEqual(Decimal('0.10'), exchange.vault_delta)
-        self.assertEqual(reco_ids[movements[1].id], exchange.origin_reco_id)
-
-        self.assertEqual(
-            zero, sum(row.wallet_delta for row in movements + exchanges))
-        self.assertEqual(
-            zero, sum(row.vault_delta for row in movements + exchanges))
+        rps = self.dbsession.query(db.RedeemPlan).all()
+        self.assertEqual(1, len(rps))
+        rp = rps[0]
+        self.assertEqual('21', rp.issuer_id)
+        self.assertEqual('0', rp.loop_id)
+        self.assertEqual('USD', rp.currency)
+        self.assertEqual(Decimal('0.10'), rp.delta)
+        self.assertEqual(reco_ids[movements[1].id], rp.origin_reco_id)
 
         events = (
             self.dbsession.query(db.MovementLog)
