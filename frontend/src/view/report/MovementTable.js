@@ -339,7 +339,7 @@ class MovementTable extends React.Component {
   renderExchangeRows(options) {
     const {
       rightColumns,
-      hasOtherAmount,
+      showOtherAmount,
     } = options;
 
     const {
@@ -403,7 +403,7 @@ class MovementTable extends React.Component {
             {getCurrencyDeltaFormatter(exchange.currency)(exchange.wallet_delta)
             } {exchange.currency}
           </td>
-          {hasOtherAmount ? <td className={numCell}></td> : null}
+          {showOtherAmount ? <td className={numCell}></td> : null}
           <td className={txtCell}>
             {loopTitle}
           </td>
@@ -438,9 +438,11 @@ class MovementTable extends React.Component {
       loops,
     } = record;
 
-    let hasOtherAmount = false;
+    let showVault = false;
+    let showOtherAmount = false;
     movements.forEach(movement => {
       if (movement.vault_delta && movement.vault_delta !== '0') {
+        showVault = true;
         return;
       }
       if (movement.wallet_delta && movement.wallet_delta !== '0') {
@@ -448,10 +450,10 @@ class MovementTable extends React.Component {
       }
       // This amount is not listed in either vault_delta or wallet_delta,
       // so the only way to show it is to show the 'Other Amount' column.
-      hasOtherAmount = true;
+      showOtherAmount = true;
     });
 
-    const rightColumns = hasOtherAmount ? 8 : 7;
+    const rightColumns = showOtherAmount ? 8 : 7;
     const headRows = [];
     const numCell = `${cell} ${numberCell}`;
     const txtCell = `${cell} ${textCell}`;
@@ -484,9 +486,14 @@ class MovementTable extends React.Component {
         <td key="number" className={labelCell}>Number</td>
         <td key="legend" className={legendLowerCell} style={legendWidthStyle}>
         </td>
-        <td key="vault_delta" className={labelCell}>Vault</td>
+        {showVault ?
+          <td key="circ_delta" className={labelCell}>Circulation</td>
+          : null}
+        {showVault ?
+          <td key="vault_delta" className={labelCell}>Vault</td>
+          : null}
         <td key="wallet_delta" className={labelCell}>Wallet</td>
-        {hasOtherAmount ?
+        {showOtherAmount ?
           <td key="other_amount" className={labelCell}>Other Amount</td>
           : null}
         <td key="design" className={labelCell}>Note Design</td>
@@ -507,6 +514,7 @@ class MovementTable extends React.Component {
         amount,
         wallet_delta,
         vault_delta,
+        circ_delta,
         issuer_id,
         reco_id,
         need_reco,
@@ -517,13 +525,21 @@ class MovementTable extends React.Component {
 
       mvCells.push(this.renderGraphicCell(movement));
 
-      if (vault_delta && vault_delta !== '0') {
-        mvCells.push(
-          <td key="vault_delta" className={numCell}>
-            {getCurrencyDeltaFormatter(currency)(vault_delta)} {currency}
-          </td>);
-      } else {
-        mvCells.push(<td key="vault_delta" className={numCell}></td>);
+      if (showVault) {
+        if (vault_delta && vault_delta !== '0') {
+          mvCells.push(
+            <td key="circ_delta" className={numCell}>
+              {getCurrencyDeltaFormatter(currency)(
+                circ_delta)} {currency}
+            </td>);
+          mvCells.push(
+            <td key="vault_delta" className={numCell}>
+              {getCurrencyDeltaFormatter(currency)(vault_delta)} {currency}
+            </td>);
+        } else {
+          mvCells.push(<td key="circ_delta" className={numCell}></td>);
+          mvCells.push(<td key="vault_delta" className={numCell}></td>);
+        }
       }
 
       if (wallet_delta && wallet_delta !== '0') {
@@ -535,7 +551,7 @@ class MovementTable extends React.Component {
         mvCells.push(<td key="wallet_delta" className={numCell}></td>);
       }
 
-      if (hasOtherAmount) {
+      if (showOtherAmount) {
         if (amount && amount !== '0' &&
               (!wallet_delta || wallet_delta === '0') &&
               (!vault_delta || vault_delta === '0')) {
@@ -600,7 +616,7 @@ class MovementTable extends React.Component {
     });
 
     if (record.exchanges && record.exchanges.length) {
-      this.renderExchangeRows({rightColumns, hasOtherAmount}).forEach(row => {
+      this.renderExchangeRows({rightColumns, showOtherAmount}).forEach(row => {
         bodyRows.push(row);
       });
     }
@@ -609,13 +625,24 @@ class MovementTable extends React.Component {
 
     totalCells.push(<td className={labelCell} key="label">Total</td>);
     totalCells.push(<td className={labelCell} key="graphic"></td>);
-    totalCells.push(
-      <td className={numCell} key="vault_delta">
-        <strong>
-          {this.renderMovementTotalCell(record.vault_delta_totals)}
-        </strong>
-      </td>
-    );
+
+    if (showVault) {
+      totalCells.push(
+        <td className={numCell} key="circ_delta">
+          <strong>
+            {this.renderMovementTotalCell(record.circ_delta_totals)}
+          </strong>
+        </td>
+      );
+      totalCells.push(
+        <td className={numCell} key="vault_delta">
+          <strong>
+            {this.renderMovementTotalCell(record.vault_delta_totals)}
+          </strong>
+        </td>
+      );
+    }
+
     totalCells.push(
       <td className={numCell} key="wallet_delta">
         <strong>

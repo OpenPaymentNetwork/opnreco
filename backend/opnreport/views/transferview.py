@@ -179,6 +179,7 @@ def transfer_record_view(context, request, complete=False):
             group[1] = reco_id
 
     movements_json = []
+    circ_delta_totals = collections.defaultdict(Decimal)
     vault_delta_totals = collections.defaultdict(Decimal)
     wallet_delta_totals = collections.defaultdict(Decimal)
     file_peer_id = file.peer_id
@@ -215,11 +216,13 @@ def transfer_record_view(context, request, complete=False):
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(movement.wallet_delta or '0'),
             'vault_delta': str(movement.vault_delta or '0'),
+            'circ_delta': str(-movement.vault_delta or '0'),
             'need_reco': not not need_reco,
             'reco_id': reco_id,
         })
 
         if movement.vault_delta:
+            circ_delta_totals[currency] -= movement.vault_delta
             vault_delta_totals[currency] += movement.vault_delta
         if movement.wallet_delta:
             wallet_delta_totals[currency] += movement.wallet_delta
@@ -299,6 +302,7 @@ def transfer_record_view(context, request, complete=False):
         'peer_order': peer_order,
         'peer_index': peer_index,
         'loops': loops,
+        'circ_delta_totals': dict(circ_delta_totals),
         'vault_delta_totals': dict(vault_delta_totals),
         'wallet_delta_totals': dict(wallet_delta_totals),
     }
