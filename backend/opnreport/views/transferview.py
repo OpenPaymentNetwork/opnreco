@@ -223,28 +223,18 @@ def transfer_record_view(context, request, complete=False):
     for movement, reco_id, c_reco_id in movement_rows:
         number = movement.number
         amount_index = movement.amount_index
-        peer_id = movement.peer_id
+        orig_peer_id = movement.orig_peer_id
         loop_id = movement.loop_id
         currency = movement.currency
         issuer_id = movement.issuer_id
+        vault_delta = movement.vault_delta
+        wallet_delta = movement.wallet_delta
 
-        if file_peer_id == 'c' or movement.peer_id == file_peer_id:
-            vault_delta = movement.vault_delta
-            wallet_delta = movement.wallet_delta
+        if file_peer_id == 'c' or orig_peer_id == file_peer_id:
             reco_applicable = not not (wallet_delta or vault_delta)
         else:
-            # This movement is not applicable to this file.
-            vault_delta = zero
-            wallet_delta = zero
+            # This file does not reconcile this movement.
             reco_applicable = False
-
-        if reco_applicable:
-            if file_peer_id != 'c':
-                # When reconciling DFI accounts (instead of circulation),
-                # users don't reconcile with OPN wallets.
-                peer_info = peers.get(peer_id)
-                if peer_info and not peer_info['is_dfi_account']:
-                    reco_applicable = False
 
         if is_circ_replenishment:
             # When replenishing circulation, treat movements from the
@@ -269,7 +259,7 @@ def transfer_record_view(context, request, complete=False):
         movements_json.append({
             'number': number,
             'amount_index': amount_index,
-            'peer_id': peer_id,
+            'peer_id': orig_peer_id,
             'loop_id': loop_id,
             'currency': currency,
             'amount': str(movement.amount or '0'),
@@ -291,10 +281,10 @@ def transfer_record_view(context, request, complete=False):
         if wallet_delta:
             delta_totals[(currency, loop_id)]['wallet'] += wallet_delta
 
-        if issuer_id == peer_id:
+        if issuer_id == orig_peer_id:
             # This peer is an issuer in this transfer.
             # (Show an issuer icon.)
-            peers[peer_id]['is_issuer'] = True
+            peers[orig_peer_id]['is_issuer'] = True
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
