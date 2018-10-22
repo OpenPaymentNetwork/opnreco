@@ -53,8 +53,8 @@ const styles = {
   },
   headCell: {
     padding: '4px 8px',
-    fontWeight: 'normal',
     backgroundColor: '#ddd',
+    textAlign: 'left',
   },
   transferIdField: {
     margin: '16px',

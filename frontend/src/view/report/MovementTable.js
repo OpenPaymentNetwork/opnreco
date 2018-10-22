@@ -29,8 +29,8 @@ const arrowColor = '#666';
 const styles = {
   headCell: {
     padding: '4px 8px',
-    fontWeight: 'normal',
     backgroundColor: '#ddd',
+    textAlign: 'left',
   },
   table: {
     width: '100%',
@@ -365,11 +365,13 @@ class MovementTable extends React.Component {
     const chkCell = `${cell} ${checkCell}`;
 
     const rows = [
-      <th key="circ_replenishments" className={`${classes.cell} ${classes.headCell}`}
-        colSpan={2 + columnsAfterGraphic}
-      >
-        Circulation Replenishments
-      </th>
+      <tr key="circ_replenishments">
+        <th className={`${classes.cell} ${classes.headCell}`}
+          colSpan={2 + columnsAfterGraphic}
+        >
+          Circulation Replenishments
+        </th>
+      </tr>
     ];
 
     circ_replenishments.forEach((ci, ciIndex) => {
@@ -621,7 +623,7 @@ class MovementTable extends React.Component {
         </td>);
 
       bodyRows.push(
-        <tr key={index}>
+        <tr key={`movement-${index}`}>
           {mvCells}
         </tr>
       );
@@ -637,7 +639,19 @@ class MovementTable extends React.Component {
       });
     }
 
-    record.delta_totals.forEach(row => {
+    const footRows = [];
+
+    footRows.push(
+      <tr key="total-heading">
+        <th className={`${classes.cell} ${classes.headCell}`}
+          colSpan={2 + columnsAfterGraphic}
+        >
+          Total
+        </th>
+      </tr>
+    );
+
+    record.delta_totals.forEach((row, totalIndex) => {
       const {
         currency,
         loop_id,
@@ -648,7 +662,7 @@ class MovementTable extends React.Component {
       const totalCells = [];
       const fmt = getCurrencyDeltaFormatter(currency);
 
-      totalCells.push(<td className={labelCell} key="label">Total</td>);
+      totalCells.push(<td className={labelCell} key="label"></td>);
       totalCells.push(<td className={labelCell} key="graphic"></td>);
 
       if (showVault) {
@@ -700,8 +714,8 @@ class MovementTable extends React.Component {
 
       totalCells.push(<td className={labelCell} key="rest" colSpan="4"></td>);
 
-      bodyRows.push(
-        <tr key="total">
+      footRows.push(
+        <tr key={`total-${totalIndex}`}>
           {totalCells}
         </tr>
       );
@@ -716,6 +730,9 @@ class MovementTable extends React.Component {
           <tbody>
             {bodyRows}
           </tbody>
+          <tfoot>
+            {footRows}
+          </tfoot>
         </table>
       </div>
     );

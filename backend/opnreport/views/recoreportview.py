@@ -2,8 +2,10 @@
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import AccountEntryReco
+from opnreport.models.db import CircReplReco
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
+from opnreport.models.db import Peer
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
@@ -26,8 +28,9 @@ zero = Decimal()
     renderer='json')
 def reco_report_view(request):
     file, peer, loop = get_request_file(request)
+    file_peer_id = file.peer_id
 
-    if file.peer_id == 'c':
+    if file_peer_id == 'c':
         movement_delta_c = Movement.vault_delta
     else:
         movement_delta_c = Movement.wallet_delta
@@ -106,22 +109,55 @@ def reco_report_view(request):
                 MovementReco.reco_id == null)
             .all())
 
-        # # redeem_rows lists the redemption plans not yet reconciled.
-        # redeem_rows = (
-        #     dbsession.query(
-        #         TransferRecord.workflow_type,
-        #         TransferRecord.transfer_id,
-        #         RedeemPlan.delta,
-        #         TransferRecord.start,
-        #         RedeemPlan.id,
-        #     )
-        #     .filter(
-        #         TransferRecord.owner_id == owner_id,
-        #         RedeemPlan.transfer_record_id == TransferRecord.id,
-        #         RedeemPlan.loop_id == file.loop_id,
-        #         RedeemPlan.currency == file.currency,
-        #         RedeemPlan.reco_id == null)
-        #     .all())
+        if file_peer_id == 'c':
+            # Include any unreconciled circulation replenishments
+            # in the report.
+
+            # List the circulation peers.
+            # (Note that the number of circ peers is always expected to be
+            # zero, one, or a small number.)
+            circ_peer_id_rows = (
+                dbsession.query(Peer.peer_id)
+                .filter(
+                    Peer.owner_id == owner_id,
+                    Peer.is_circ)
+                .all())
+
+            circ_peer_ids = [x for (x,) in circ_peer_id_rows]
+            if circ_peer_ids:
+
+                # Add the unreconciled circulation replenishments.
+                # Detect them by looking for movements that send
+                # from the circulating issuer's wallet to a
+                # circulation peer.
+                circ_filter = and_(
+                    TransferRecord.owner_id == owner_id,
+                    Movement.transfer_record_id == TransferRecord.id,
+                    Movement.peer_id == 'c',
+                    Movement.orig_peer_id.in_(circ_peer_ids),
+                    Movement.loop_id == file.loop_id,
+                    Movement.currency == file.currency,
+                    Movement.wallet_delta < zero,
+                )
+
+                circ_rows = (
+                    dbsession.query(
+                        func.sign(-Movement.wallet_delta).label('sign'),
+                        TransferRecord.workflow_type,
+                        TransferRecord.transfer_id,
+                        (-Movement.wallet_delta).label('delta'),
+                        TransferRecord.start,
+                        Movement.id,
+                    )
+                    .outerjoin(
+                        CircReplReco, CircReplReco.movement_id == Movement.id)
+                    .filter(
+                        circ_filter,
+                        CircReplReco.reco_id == null)
+                    .all())
+
+                if circ_rows:
+                    outstanding_rows.extend(circ_rows)
 
     else:
         outstanding_rows = ()
