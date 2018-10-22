@@ -4,8 +4,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { getCurrencyFormatter, getCurrencyDeltaFormatter }
-  from '../../util/currency';
+import { getCurrencyFormatter } from '../../util/currency';
 import { setTransferId } from '../../reducer/app';
 import { wfTypeTitles } from '../../util/transferfmt';
 import { withRouter } from 'react-router';
@@ -23,9 +22,6 @@ import Require from '../../util/Require';
 import SearchIcon from '@material-ui/icons/Search';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
-import CheckBoxOutlineBlankIcon
-  from '@material-ui/icons/CheckBoxOutlineBlank';
 
 
 const solidBorder = '1px solid #bbb';

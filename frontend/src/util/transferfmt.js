@@ -1,6 +1,5 @@
 
 export const wfTypeTitles = {
-  _redeem_plan: '[Acquired Note Redemptions]',  // Internal to OPN Reports
   bill: 'Brand Cash Purchase',
   closed_profile_to_profile: 'Closed Profile to Profile',  // BBB
   cobrand_notes: 'Co-brand Pages',

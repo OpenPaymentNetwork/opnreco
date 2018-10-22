@@ -5,7 +5,6 @@ from opnreport.models.db import AccountEntryReco
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
 from opnreport.models.db import Reco
-from opnreport.models.db import RedeemPlan
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
@@ -107,26 +106,25 @@ def reco_report_view(request):
                 MovementReco.reco_id == null)
             .all())
 
-        # redeem_rows lists the redemption plans not yet reconciled.
-        redeem_rows = (
-            dbsession.query(
-                TransferRecord.workflow_type,
-                TransferRecord.transfer_id,
-                RedeemPlan.delta,
-                TransferRecord.start,
-                RedeemPlan.id,
-            )
-            .filter(
-                TransferRecord.owner_id == owner_id,
-                RedeemPlan.transfer_record_id == TransferRecord.id,
-                RedeemPlan.loop_id == file.loop_id,
-                RedeemPlan.currency == file.currency,
-                RedeemPlan.reco_id == null)
-            .all())
+        # # redeem_rows lists the redemption plans not yet reconciled.
+        # redeem_rows = (
+        #     dbsession.query(
+        #         TransferRecord.workflow_type,
+        #         TransferRecord.transfer_id,
+        #         RedeemPlan.delta,
+        #         TransferRecord.start,
+        #         RedeemPlan.id,
+        #     )
+        #     .filter(
+        #         TransferRecord.owner_id == owner_id,
+        #         RedeemPlan.transfer_record_id == TransferRecord.id,
+        #         RedeemPlan.loop_id == file.loop_id,
+        #         RedeemPlan.currency == file.currency,
+        #         RedeemPlan.reco_id == null)
+        #     .all())
 
     else:
         outstanding_rows = ()
-        redeem_rows = ()
 
     # Create outstanding_map:
     # {str(sign): {workflow_type: [{transfer_id, delta, ts, id}]}}.
@@ -146,17 +144,17 @@ def reco_report_view(request):
         # Add the total of outstanding movements to workflow_types_pre.
         workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
-    # Add the redemption plans to outstanding_map and workflow_types_pre.
-    for r in redeem_rows:
-        workflow_type = '_redeem_plan'
-        str_sign = '1'
-        outstanding_map[str_sign][workflow_type].append({
-            'transfer_id': r.transfer_id,
-            'delta': str(r.delta),
-            'ts': r.start.isoformat() + 'Z',
-            'redeem_plan_id': str(r.id),
-        })
-        workflow_types_pre[(str_sign, workflow_type)] += r.delta
+    # # Add the redemption plans to outstanding_map and workflow_types_pre.
+    # for r in redeem_rows:
+    #     workflow_type = '_redeem_plan'
+    #     str_sign = '1'
+    #     outstanding_map[str_sign][workflow_type].append({
+    #         'transfer_id': r.transfer_id,
+    #         'delta': str(r.delta),
+    #         'ts': r.start.isoformat() + 'Z',
+    #         'redeem_plan_id': str(r.id),
+    #     })
+    #     workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
     # Convert outstanding_map from defaultdicts to dicts for JSON encoding.
     for sign, m in list(outstanding_map.items()):
@@ -176,8 +174,7 @@ def reco_report_view(request):
 
     reconciled_balance = file.start_balance + reconciled_delta
     outstanding_balance = reconciled_balance + sum(
-        row.delta for row in outstanding_rows) + sum(
-        row.delta for row in redeem_rows)
+        row.delta for row in outstanding_rows)
 
     return {
         'file': serialize_file(file, peer, loop),

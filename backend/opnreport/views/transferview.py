@@ -5,7 +5,6 @@ from opnreport.models.db import Movement
 from opnreport.models.db import MovementReco
 from opnreport.models.db import now_func
 from opnreport.models.db import Peer
-from opnreport.models.db import RedeemPlan
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
@@ -231,30 +230,30 @@ def transfer_record_view(context, request, complete=False):
             # This peer is an issuer in this transfer.
             peers[peer_id]['is_issuer'] = True
 
-    if file.peer_id == 'c':
-        redeem_rows = (
-            dbsession.query(RedeemPlan)
-            .filter(RedeemPlan.transfer_record_id == record.id)
-            .order_by(RedeemPlan.id)
-            .all())
+    # if file.peer_id == 'c':
+    #     redeem_rows = (
+    #         dbsession.query(RedeemPlan)
+    #         .filter(RedeemPlan.transfer_record_id == record.id)
+    #         .order_by(RedeemPlan.id)
+    #         .all())
 
-        redeem_plans_json = []
-        for rp in redeem_rows:
-            currency = rp.currency
-            delta = rp.delta
-            redeem_plans_json.append({
-                'issuer_id': rp.issuer_id,
-                'currency': rp.currency,
-                'loop_id': rp.loop_id,
-                'reco_id': rp.reco_id,
-                'wallet_delta': str(-delta),
-                'circ_delta': str(delta),
-            })
-            circ_delta_totals[currency] += delta
-            wallet_delta_totals[currency] -= delta
+    #     redeem_plans_json = []
+    #     for rp in redeem_rows:
+    #         currency = rp.currency
+    #         delta = rp.delta
+    #         redeem_plans_json.append({
+    #             'issuer_id': rp.issuer_id,
+    #             'currency': rp.currency,
+    #             'loop_id': rp.loop_id,
+    #             'reco_id': rp.reco_id,
+    #             'wallet_delta': str(-delta),
+    #             'circ_delta': str(delta),
+    #         })
+    #         circ_delta_totals[currency] += delta
+    #         wallet_delta_totals[currency] -= delta
 
-    else:
-        redeem_plans_json = ()
+    # else:
+    #     redeem_plans_json = ()
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
@@ -297,7 +296,6 @@ def transfer_record_view(context, request, complete=False):
         'recipient_id': record.recipient_id,
         'recipient_uid': record.recipient_uid,
         'movements': movements_json,
-        'redeem_plans': redeem_plans_json,
         'peers': peers,
         'peer_order': peer_order,
         'peer_index': peer_index,

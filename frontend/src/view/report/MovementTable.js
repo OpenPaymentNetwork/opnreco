@@ -346,90 +346,90 @@ class MovementTable extends React.Component {
       </td>);
   }
 
-  renderRedeemPlans(options) {
-    const {
-      columnsAfterGraphic,
-      showOtherAmount,
-    } = options;
+  // renderRedeemPlans(options) {
+  //   const {
+  //     columnsAfterGraphic,
+  //     showOtherAmount,
+  //   } = options;
 
-    const {
-      classes,
-      record,
-    } = this.props;
+  //   const {
+  //     classes,
+  //     record,
+  //   } = this.props;
 
-    const {
-      cell,
-      numberCell,
-      textCell,
-      checkCell,
-    } = classes;
+  //   const {
+  //     cell,
+  //     numberCell,
+  //     textCell,
+  //     checkCell,
+  //   } = classes;
 
-    const {
-      redeem_plans,
-      loops,
-    } = record;
+  //   const {
+  //     redeem_plans,
+  //     loops,
+  //   } = record;
 
-    const numCell = `${cell} ${numberCell}`;
-    const txtCell = `${cell} ${textCell}`;
-    const chkCell = `${cell} ${checkCell}`;
+  //   const numCell = `${cell} ${numberCell}`;
+  //   const txtCell = `${cell} ${textCell}`;
+  //   const chkCell = `${cell} ${checkCell}`;
 
-    const rows = [
-      <th key="settlements" className={`${classes.cell} ${classes.headCell}`}
-        colSpan={2 + columnsAfterGraphic}
-      >
-        Acquired Note Redemptions
-      </th>
-    ];
+  //   const rows = [
+  //     <th key="settlements" className={`${classes.cell} ${classes.headCell}`}
+  //       colSpan={2 + columnsAfterGraphic}
+  //     >
+  //       Acquired Note Redemptions
+  //     </th>
+  //   ];
 
-    redeem_plans.forEach((plan, planIndex) => {
-      const {
-        loop_id,
-        reco_id,
-      } = plan;
-      let loopTitle;
-      if (loop_id === '0') {
-        loopTitle = 'Open Loop';
-      } else {
-        loopTitle = (
-          <em>{loops[loop_id] ? loops[loop_id].title
-            : `Closed Loop ${loop_id}`}</em>);
-      }
+  //   redeem_plans.forEach((plan, planIndex) => {
+  //     const {
+  //       loop_id,
+  //       reco_id,
+  //     } = plan;
+  //     let loopTitle;
+  //     if (loop_id === '0') {
+  //       loopTitle = 'Open Loop';
+  //     } else {
+  //       loopTitle = (
+  //         <em>{loops[loop_id] ? loops[loop_id].title
+  //           : `Closed Loop ${loop_id}`}</em>);
+  //     }
 
-      let recoContent;
-      if (reco_id !== null) {
-        recoContent = <CheckBoxIcon />;
-      } else {
-        recoContent = <CheckBoxOutlineBlankIcon />;
-      }
+  //     let recoContent;
+  //     if (reco_id !== null) {
+  //       recoContent = <CheckBoxIcon />;
+  //     } else {
+  //       recoContent = <CheckBoxOutlineBlankIcon />;
+  //     }
 
-      rows.push(
-        <tr key={`redeem_plan-${planIndex}`}>
-          <td className={txtCell} colSpan="2"></td>
-          <td className={numCell}>
-            {getCurrencyDeltaFormatter(plan.currency)(plan.circ_delta)
-            } {plan.currency}
-          </td>
-          <td className={numCell}></td>
-          <td className={numCell}>
-            {getCurrencyDeltaFormatter(plan.currency)(plan.wallet_delta)
-            } {plan.currency}
-          </td>
-          {showOtherAmount ? <td className={numCell}></td> : null}
-          <td className={txtCell}>
-            {loopTitle}
-          </td>
-          <td className={txtCell}>
-            <ProfileLink id={plan.issuer_id} profiles={record.peers} />
-          </td>
-          <td colSpan="2" className={txtCell}></td>
-          <td className={chkCell}>
-            {recoContent}
-          </td>
-        </tr>);
-    });
+  //     rows.push(
+  //       <tr key={`redeem_plan-${planIndex}`}>
+  //         <td className={txtCell} colSpan="2"></td>
+  //         <td className={numCell}>
+  //           {getCurrencyDeltaFormatter(plan.currency)(plan.circ_delta)
+  //           } {plan.currency}
+  //         </td>
+  //         <td className={numCell}></td>
+  //         <td className={numCell}>
+  //           {getCurrencyDeltaFormatter(plan.currency)(plan.wallet_delta)
+  //           } {plan.currency}
+  //         </td>
+  //         {showOtherAmount ? <td className={numCell}></td> : null}
+  //         <td className={txtCell}>
+  //           {loopTitle}
+  //         </td>
+  //         <td className={txtCell}>
+  //           <ProfileLink id={plan.issuer_id} profiles={record.peers} />
+  //         </td>
+  //         <td colSpan="2" className={txtCell}></td>
+  //         <td className={chkCell}>
+  //           {recoContent}
+  //         </td>
+  //       </tr>);
+  //   });
 
-    return rows;
-  }
+  //   return rows;
+  // }
 
   render() {
     const {
@@ -630,15 +630,15 @@ class MovementTable extends React.Component {
       );
     });
 
-    if (record.redeem_plans && record.redeem_plans.length) {
-      this.renderRedeemPlans({
-        columnsAfterGraphic,
-        showVault,
-        showOtherAmount,
-      }).forEach(row => {
-        bodyRows.push(row);
-      });
-    }
+    // if (record.redeem_plans && record.redeem_plans.length) {
+    //   this.renderRedeemPlans({
+    //     columnsAfterGraphic,
+    //     showVault,
+    //     showOtherAmount,
+    //   }).forEach(row => {
+    //     bodyRows.push(row);
+    //   });
+    // }
 
     const totalCells = [];
 
