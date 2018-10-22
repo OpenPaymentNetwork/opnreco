@@ -178,32 +178,6 @@ def transfer_record_view(context, request, complete=False):
         # Update all of the loops involved in this transfer.
         loops.update(fetch_loops(request, loops))
 
-    # # De-duplicate the movement rows. There are two copies of each movement,
-    # # one with peer_id == 'c', the other with peer_id == orig_peer_id.
-    # # movement_dedup: {
-    # #    (number, amount_index, orig_peer_id, loop_id, currency, issuer_id):
-    # #    [Movement, peer_reco_id, c_reco_id, circ_reco_id]
-    # # }
-    # movement_dedup = {}
-    # for movement, reco_id, circ_reco_id in movement_rows:
-    #     key = (
-    #         movement.number,
-    #         movement.amount_index,
-    #         movement.orig_peer_id,
-    #         movement.loop_id,
-    #         movement.currency,
-    #         movement.issuer_id)
-    #     group = movement_dedup.get(key)
-    #     if group is None:
-    #         movement_dedup[key] = group = [movement, None, None, None]
-    #     if movement.peer_id == 'c':
-    #         group[2] = reco_id
-    #         if circ_reco_id:
-    #             group[3] = circ_reco_id
-    #             is_circ_replenishment = True
-    #     else:
-    #         group[1] = reco_id
-
     movements_json = []
     # delta_totals: {(currency, loop_id): {'circ', 'vault', 'wallet'}}
     zero = Decimal()
@@ -213,11 +187,11 @@ def transfer_record_view(context, request, complete=False):
         'wallet': zero,
     })
 
-    if file_peer_id == 'c':
+    if file_peer_id == 'c' and not is_circ_replenishment:
         recipient_peer = peers.get(record.recipient_id)
         if recipient_peer is not None and recipient_peer.get('is_circ'):
-            # This transfer sent acquired notes to the circulation account,
-            # replenishing the circulation value.
+            # This transfer seems to have sent acquired notes
+            # to a circulation account, replenishing the circulation value.
             is_circ_replenishment = True
 
     for movement, reco_id, c_reco_id in movement_rows:

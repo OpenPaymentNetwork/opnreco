@@ -385,9 +385,12 @@ class MovementTable extends React.Component {
         recoContent = <CheckBoxOutlineBlankIcon />;
       }
 
+      const ts = new Date(ci.ts);
+
       rows.push(
         <tr key={`circ_increase-${ciIndex}`}>
-          <td className={txtCell} colSpan="2"></td>
+          <td className={txtCell}></td>
+          <td className={txtCell}></td>
           <td className={numCell}>
             {getCurrencyDeltaFormatter(ci.currency)(ci.amount)
             } {ci.currency}
@@ -401,7 +404,12 @@ class MovementTable extends React.Component {
           <td className={txtCell}>
             <ProfileLink id={ci.issuer_id} profiles={record.peers} />
           </td>
-          <td colSpan="2" className={txtCell}></td>
+          <td className={txtCell}></td>
+          <td className={txtCell}>
+            <FormattedDate value={ts} />
+            {' '}
+            <FormattedTime value={ts} />
+          </td>
           <td className={chkCell}>
             {recoContent}
           </td>
@@ -690,8 +698,7 @@ class MovementTable extends React.Component {
           {this.renderLoopTitle(loop_id)}
         </td>);
 
-      totalCells.push(
-        <td className={labelCell} key="rest" colSpan="4"></td>);
+      totalCells.push(<td className={labelCell} key="rest" colSpan="4"></td>);
 
       bodyRows.push(
         <tr key="total">
