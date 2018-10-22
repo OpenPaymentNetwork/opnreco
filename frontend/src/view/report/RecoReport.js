@@ -199,7 +199,7 @@ class RecoReport extends React.Component {
             const date = new Date(movement.ts).toLocaleDateString();
             const tid = dashed(movement.transfer_id);
             res.push(
-              <tr className={transferRowCN} key={movement.id}>
+              <tr className={transferRowCN} key={movement.movement_id}>
                 <td className={movementCellCN}>
                   <a href={`/t/${tid}`}
                     onClick={this.binder1(this.handleClickTransfer, tid)}
