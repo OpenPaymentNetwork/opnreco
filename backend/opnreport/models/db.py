@@ -423,31 +423,19 @@ class AccountEntryReco(Base):
     reco = relationship(Reco)
 
 
-# class RedeemPlan(Base):
-#     """A redemption plan for notes acquired by an issuer during an exchange.
+class CircReplReco(Base):
+    """Reconciliation of a circulation replenishment.
+    """
+    __tablename__ = 'circ_repl_reco'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'),
+        nullable=False, primary_key=True)
+    reco_id = Column(
+        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
 
-#     The redemption removes the notes from the issuer and replaces them
-#     with circulation value.
-#     """
-#     __tablename__ = 'redeem_plan'
-#     id = Column(BigInteger, nullable=False, primary_key=True)
-#     transfer_record_id = Column(
-#         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
-#     issuer_id = Column(String, nullable=False)
-#     loop_id = Column(String, nullable=False)
-#     currency = Column(String(3), nullable=False)
-
-#     # origin_reco_id identifies the auto-generated reco that originated the
-#     # redemption.
-#     origin_reco_id = Column(
-#         BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
-
-#     # reco_id identifies the reco that settles the redemption.
-#     reco_id = Column(
-#         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
-
-#     delta = Column(Numeric, CheckConstraint(
-#         'delta > 0', name='delta_positive'), nullable=False)
+    movement = relationship(Movement)
+    reco = relationship(Reco)
 
 
 # all_metadata_defined must be at the end of the file. It signals that

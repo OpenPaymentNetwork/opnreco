@@ -714,31 +714,6 @@ class SyncView:
                     changes={'reco_id': reco_id},
                 ))
 
-            # if peer_id == 'c':
-            #     # TODO: set this up to reconcile or remove redemption
-            #     # plans when the transfer completes the redemption.
-            #     for issuer_id, wallet_net in sorted(wallet_nets.items()):
-            #         # If wallet_net is positive, that means wallet_net
-            #         # in value, issued by issuer_id, was
-            #         # added to the owner's wallet by this transfer.
-            #         # Plan to redeem that value.
-            #         # If wallet_net is negative (meaning the value
-            #         # was returned to the issuer), celebrate! The owner
-            #         # has the value it wants and doesn't want to change
-            #         # anything.
-            #         if not wallet_net or wallet_net < zero:
-            #             # Don't plan a redemption for this issuer.
-            #             continue
-            #         # Plan a redemption of the notes acquired from this issuer.
-            #         dbsession.add(RedeemPlan(
-            #             transfer_record_id=record.id,
-            #             issuer_id=issuer_id,
-            #             loop_id=loop_id,
-            #             currency=currency,
-            #             origin_reco_id=reco_id,
-            #             delta=wallet_net,
-            #         ))
-
         if added:
             dbsession.flush()
 
