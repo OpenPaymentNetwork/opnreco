@@ -85,6 +85,9 @@ class Peer(Base):
     is_dfi_account = Column(Boolean, nullable=False, default=False)
     # is_own_dfi_account is true for DFI accounts linked to the owner.
     is_own_dfi_account = Column(Boolean, nullable=False, default=False)
+    # is_circ is true for the circulation account(s) linked to the
+    # owner, where the owner is the issuer.
+    is_circ = Column(Boolean, nullable=False, default=False)
 
     # Note: don't try to update if removed.
     removed = Column(Boolean, nullable=False, default=False)

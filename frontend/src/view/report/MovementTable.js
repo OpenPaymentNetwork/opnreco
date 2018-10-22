@@ -119,14 +119,6 @@ class MovementTable extends React.Component {
     this.binder = binder(this);
   }
 
-  renderMovementTotalCell(totals) {
-    const currencies = Object.keys(totals);
-    currencies.sort();
-    return currencies.map(currency => <div key={currency}>
-      {getCurrencyDeltaFormatter(currency)(totals[currency])} {currency}
-    </div>);
-  }
-
   renderMovementLegendCell(columnsAfterGraphic) {
     // The legend is the table cell above the graphic cells.
     const {
@@ -140,7 +132,7 @@ class MovementTable extends React.Component {
     } = classes;
 
     const {
-      owner_id,
+      self_id,
       peers,
       peer_order,
     } = record;
@@ -153,7 +145,7 @@ class MovementTable extends React.Component {
         top: index * graphicCellHeight + 4,
       };
       const iconKey = `icon-${index}`;
-      const iconClass = peerTypeIcon + (peerId === owner_id ? ' self': '');
+      const iconClass = peerTypeIcon + (peerId === self_id ? ' self': '');
 
       let icon = null;
 
@@ -239,7 +231,7 @@ class MovementTable extends React.Component {
     } = classes;
 
     const {
-      owner_id,
+      self_id,
       peers,
       peer_order,
       peer_index,
@@ -252,7 +244,7 @@ class MovementTable extends React.Component {
     } = movement;
 
     const getIcon = (peerId, style) => {
-      const iconClass = graphicIcon + (peerId === owner_id ? ' self': '');
+      const iconClass = graphicIcon + (peerId === self_id ? ' self': '');
       if (!from_id) {
         return (
           <div key={peerId} className={iconClass}
@@ -346,90 +338,89 @@ class MovementTable extends React.Component {
       </td>);
   }
 
-  // renderRedeemPlans(options) {
-  //   const {
-  //     columnsAfterGraphic,
-  //     showOtherAmount,
-  //   } = options;
+  renderCircReplenishments(options) {
+    const {
+      columnsAfterGraphic,
+      showOtherAmount,
+    } = options;
 
-  //   const {
-  //     classes,
-  //     record,
-  //   } = this.props;
+    const {
+      classes,
+      record,
+    } = this.props;
 
-  //   const {
-  //     cell,
-  //     numberCell,
-  //     textCell,
-  //     checkCell,
-  //   } = classes;
+    const {
+      cell,
+      numberCell,
+      textCell,
+      checkCell,
+    } = classes;
 
-  //   const {
-  //     redeem_plans,
-  //     loops,
-  //   } = record;
+    const {
+      circ_replenishments,
+    } = record;
 
-  //   const numCell = `${cell} ${numberCell}`;
-  //   const txtCell = `${cell} ${textCell}`;
-  //   const chkCell = `${cell} ${checkCell}`;
+    const numCell = `${cell} ${numberCell}`;
+    const txtCell = `${cell} ${textCell}`;
+    const chkCell = `${cell} ${checkCell}`;
 
-  //   const rows = [
-  //     <th key="settlements" className={`${classes.cell} ${classes.headCell}`}
-  //       colSpan={2 + columnsAfterGraphic}
-  //     >
-  //       Acquired Note Redemptions
-  //     </th>
-  //   ];
+    const rows = [
+      <th key="circ_replenishments" className={`${classes.cell} ${classes.headCell}`}
+        colSpan={2 + columnsAfterGraphic}
+      >
+        Circulation Replenishments
+      </th>
+    ];
 
-  //   redeem_plans.forEach((plan, planIndex) => {
-  //     const {
-  //       loop_id,
-  //       reco_id,
-  //     } = plan;
-  //     let loopTitle;
-  //     if (loop_id === '0') {
-  //       loopTitle = 'Open Loop';
-  //     } else {
-  //       loopTitle = (
-  //         <em>{loops[loop_id] ? loops[loop_id].title
-  //           : `Closed Loop ${loop_id}`}</em>);
-  //     }
+    circ_replenishments.forEach((ci, ciIndex) => {
+      const {
+        loop_id,
+        reco_id,
+      } = ci;
 
-  //     let recoContent;
-  //     if (reco_id !== null) {
-  //       recoContent = <CheckBoxIcon />;
-  //     } else {
-  //       recoContent = <CheckBoxOutlineBlankIcon />;
-  //     }
+      let recoContent;
+      if (reco_id !== null) {
+        recoContent = <CheckBoxIcon />;
+      } else {
+        recoContent = <CheckBoxOutlineBlankIcon />;
+      }
 
-  //     rows.push(
-  //       <tr key={`redeem_plan-${planIndex}`}>
-  //         <td className={txtCell} colSpan="2"></td>
-  //         <td className={numCell}>
-  //           {getCurrencyDeltaFormatter(plan.currency)(plan.circ_delta)
-  //           } {plan.currency}
-  //         </td>
-  //         <td className={numCell}></td>
-  //         <td className={numCell}>
-  //           {getCurrencyDeltaFormatter(plan.currency)(plan.wallet_delta)
-  //           } {plan.currency}
-  //         </td>
-  //         {showOtherAmount ? <td className={numCell}></td> : null}
-  //         <td className={txtCell}>
-  //           {loopTitle}
-  //         </td>
-  //         <td className={txtCell}>
-  //           <ProfileLink id={plan.issuer_id} profiles={record.peers} />
-  //         </td>
-  //         <td colSpan="2" className={txtCell}></td>
-  //         <td className={chkCell}>
-  //           {recoContent}
-  //         </td>
-  //       </tr>);
-  //   });
+      rows.push(
+        <tr key={`circ_increase-${ciIndex}`}>
+          <td className={txtCell} colSpan="2"></td>
+          <td className={numCell}>
+            {getCurrencyDeltaFormatter(ci.currency)(ci.amount)
+            } {ci.currency}
+          </td>
+          <td className={numCell}></td>
+          <td className={numCell}></td>
+          {showOtherAmount ? <td className={numCell}></td> : null}
+          <td className={txtCell}>
+            {this.renderLoopTitle(loop_id)}
+          </td>
+          <td className={txtCell}>
+            <ProfileLink id={ci.issuer_id} profiles={record.peers} />
+          </td>
+          <td colSpan="2" className={txtCell}></td>
+          <td className={chkCell}>
+            {recoContent}
+          </td>
+        </tr>);
+    });
 
-  //   return rows;
-  // }
+    return rows;
+  }
+
+  renderLoopTitle(loopId) {
+    if (loopId === '0') {
+      return 'Open Loop';
+    } else {
+      const {record: {loops}} = this.props;
+      return (
+        <em>{loops[loopId] ? loops[loopId].title
+          : `Closed Loop ${loopId}`}</em>);
+    }
+  }
 
   render() {
     const {
@@ -449,10 +440,12 @@ class MovementTable extends React.Component {
     const {
       movements,
       peer_order,
-      loops,
     } = record;
 
     let showVault = false;
+    if (record.circ_replenishments && record.circ_replenishments.length) {
+      showVault = true;
+    }
     let showOtherAmount = false;
     movements.forEach(movement => {
       if (movement.vault_delta && movement.vault_delta !== '0') {
@@ -502,12 +495,12 @@ class MovementTable extends React.Component {
         <td key="legend" className={legendLowerCell} style={legendWidthStyle}>
         </td>
         {showVault ?
-          <td key="circ_delta" className={labelCell}>Circulation</td>
+          <td key="circ" className={labelCell}>Circulation</td>
           : null}
         {showVault ?
-          <td key="vault_delta" className={labelCell}>Vault</td>
+          <td key="vault" className={labelCell}>Vault</td>
           : null}
-        <td key="wallet_delta" className={labelCell}>Wallet</td>
+        <td key="wallet" className={labelCell}>Wallet</td>
         {showOtherAmount ?
           <td key="other_amount" className={labelCell}>Other Amount</td>
           : null}
@@ -532,7 +525,7 @@ class MovementTable extends React.Component {
         circ_delta,
         issuer_id,
         reco_id,
-        need_reco,
+        reco_applicable,
       } = movement;
 
       mvCells.push(
@@ -541,29 +534,33 @@ class MovementTable extends React.Component {
       mvCells.push(this.renderGraphicCell(movement));
 
       if (showVault) {
-        if (vault_delta && vault_delta !== '0') {
+        if (circ_delta && circ_delta !== '0') {
           mvCells.push(
-            <td key="circ_delta" className={numCell}>
+            <td key="circ" className={numCell}>
               {getCurrencyDeltaFormatter(currency)(
                 circ_delta)} {currency}
             </td>);
+        } else {
+          mvCells.push(<td key="circ" className={numCell}></td>);
+        }
+
+        if (vault_delta && vault_delta !== '0') {
           mvCells.push(
-            <td key="vault_delta" className={numCell}>
+            <td key="vault" className={numCell}>
               {getCurrencyDeltaFormatter(currency)(vault_delta)} {currency}
             </td>);
         } else {
-          mvCells.push(<td key="circ_delta" className={numCell}></td>);
-          mvCells.push(<td key="vault_delta" className={numCell}></td>);
+          mvCells.push(<td key="vault" className={numCell}></td>);
         }
       }
 
       if (wallet_delta && wallet_delta !== '0') {
         mvCells.push(
-          <td key="wallet_delta" className={numCell}>
+          <td key="wallet" className={numCell}>
             {getCurrencyDeltaFormatter(currency)(wallet_delta)} {currency}
           </td>);
       } else {
-        mvCells.push(<td key="wallet_delta" className={numCell}></td>);
+        mvCells.push(<td key="wallet" className={numCell}></td>);
       }
 
       if (showOtherAmount) {
@@ -579,17 +576,9 @@ class MovementTable extends React.Component {
         }
       }
 
-      let loopTitle;
-      if (loop_id === '0') {
-        loopTitle = 'Open Loop';
-      } else {
-        loopTitle = (
-          <em>{loops[loop_id] ? loops[loop_id].title
-            : `Closed Loop ${loop_id}`}</em>);
-      }
       mvCells.push(
         <td key="design" className={txtCell}>
-          {loopTitle}
+          {this.renderLoopTitle(loop_id)}
         </td>);
 
       mvCells.push(
@@ -611,7 +600,7 @@ class MovementTable extends React.Component {
         </td>);
 
       let recoContent = null;
-      if (need_reco) {
+      if (reco_applicable) {
         if (reco_id !== null) {
           recoContent = <CheckBoxIcon />;
         } else {
@@ -630,52 +619,86 @@ class MovementTable extends React.Component {
       );
     });
 
-    // if (record.redeem_plans && record.redeem_plans.length) {
-    //   this.renderRedeemPlans({
-    //     columnsAfterGraphic,
-    //     showVault,
-    //     showOtherAmount,
-    //   }).forEach(row => {
-    //     bodyRows.push(row);
-    //   });
-    // }
-
-    const totalCells = [];
-
-    totalCells.push(<td className={labelCell} key="label">Total</td>);
-    totalCells.push(<td className={labelCell} key="graphic"></td>);
-
-    if (showVault) {
-      totalCells.push(
-        <td className={numCell} key="circ_delta">
-          <strong>
-            {this.renderMovementTotalCell(record.circ_delta_totals)}
-          </strong>
-        </td>
-      );
-      totalCells.push(
-        <td className={numCell} key="vault_delta">
-          <strong>
-            {this.renderMovementTotalCell(record.vault_delta_totals)}
-          </strong>
-        </td>
-      );
+    if (record.circ_replenishments && record.circ_replenishments.length) {
+      this.renderCircReplenishments({
+        columnsAfterGraphic,
+        showVault,
+        showOtherAmount,
+      }).forEach(row => {
+        bodyRows.push(row);
+      });
     }
 
-    totalCells.push(
-      <td className={numCell} key="wallet_delta">
-        <strong>
-          {this.renderMovementTotalCell(record.wallet_delta_totals)}
-        </strong>
-      </td>
-    );
-    totalCells.push(
-      <td className={labelCell} key="rest" colSpan={columnsAfterGraphic - 2}></td>);
-    bodyRows.push(
-      <tr key="total">
-        {totalCells}
-      </tr>
-    );
+    record.delta_totals.forEach(row => {
+      const {
+        currency,
+        loop_id,
+        circ,
+        vault,
+        wallet,
+      } = row;
+      const totalCells = [];
+      const fmt = getCurrencyDeltaFormatter(currency);
+
+      totalCells.push(<td className={labelCell} key="label">Total</td>);
+      totalCells.push(<td className={labelCell} key="graphic"></td>);
+
+      if (showVault) {
+        if (circ && circ !== '0') {
+          totalCells.push(
+            <td className={numCell} key="circ">
+              <strong>
+                {fmt(circ)} {currency}
+              </strong>
+            </td>
+          );
+        } else {
+          totalCells.push(<td className={numCell} key="circ"></td>);
+        }
+
+        if (vault && vault !== '0') {
+          totalCells.push(
+            <td className={numCell} key="vault">
+              <strong>
+                {fmt(vault)} {currency}
+              </strong>
+            </td>
+          );
+        } else {
+          totalCells.push(<td className={numCell} key="vault"></td>);
+        }
+      }
+
+      if (wallet && wallet !== '0') {
+        totalCells.push(
+          <td className={numCell} key="wallet">
+            <strong>
+              {fmt(wallet)} {currency}
+            </strong>
+          </td>
+        );
+      } else {
+        totalCells.push(<td className={numCell} key="wallet"></td>);
+      }
+
+      if (showOtherAmount) {
+        totalCells.push(<td className={labelCell} key="other_amount"></td>);
+      }
+
+      totalCells.push(
+        <td className={labelCell} key="design">
+          {this.renderLoopTitle(loop_id)}
+        </td>);
+
+      totalCells.push(
+        <td className={labelCell} key="rest" colSpan="4"></td>);
+
+      bodyRows.push(
+        <tr key="total">
+          {totalCells}
+        </tr>
+      );
+    });
 
     return (
       <div>
