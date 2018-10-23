@@ -338,11 +338,11 @@ class MovementTable extends React.Component {
       </td>);
   }
 
-  renderCircReplenishments(options) {
+  renderCircReplenishments(layout) {
     const {
       columnsAfterGraphic,
       showOtherAmount,
-    } = options;
+    } = layout;
 
     const {
       classes,
@@ -432,25 +432,9 @@ class MovementTable extends React.Component {
     }
   }
 
-  render() {
-    const {
-      classes,
-      record,
-    } = this.props;
-
-    const {
-      legendLowerCell,
-      labelCell,
-      cell,
-      numberCell,
-      textCell,
-      checkCell,
-    } = classes;
-
-    const {
-      movements,
-      peer_order,
-    } = record;
+  getLayout() {
+    const {record} = this.props;
+    const {movements} = record;
 
     let showVault = false;
     if (record.circ_replenishments && record.circ_replenishments.length) {
@@ -472,15 +456,35 @@ class MovementTable extends React.Component {
 
     const columnsAfterGraphic = (
       (showVault ? 2 : 0) + 1 + (showOtherAmount ? 1 : 0) + 5);
+
+    return {
+      showOtherAmount,
+      showVault,
+      columnsAfterGraphic,
+    };
+  }
+
+  renderHead(layout) {
+    const {
+      classes,
+      record,
+    } = this.props;
+
+    const {
+      legendLowerCell,
+      labelCell,
+    } = classes;
+
+    const {
+      peer_order,
+    } = record;
+
     const headRows = [];
-    const numCell = `${cell} ${numberCell}`;
-    const txtCell = `${cell} ${textCell}`;
-    const chkCell = `${cell} ${checkCell}`;
 
     headRows.push(
       <tr key="top">
         <th className={`${classes.cell} ${classes.headCell}`}
-          colSpan={2 + columnsAfterGraphic}
+          colSpan={2 + layout.columnsAfterGraphic}
         >
           Movements
         </th>
@@ -495,7 +499,7 @@ class MovementTable extends React.Component {
     headRows.push(
       <tr key="legend">
         <td className={labelCell}></td>
-        {this.renderMovementLegendCell(columnsAfterGraphic)}
+        {this.renderMovementLegendCell(layout.columnsAfterGraphic)}
       </tr>
     );
 
@@ -504,14 +508,14 @@ class MovementTable extends React.Component {
         <td key="number" className={labelCell}>Number</td>
         <td key="legend" className={legendLowerCell} style={legendWidthStyle}>
         </td>
-        {showVault ?
+        {layout.showVault ?
           <td key="circ" className={labelCell}>Circulation</td>
           : null}
-        {showVault ?
+        {layout.showVault ?
           <td key="vault" className={labelCell}>Vault</td>
           : null}
         <td key="wallet" className={labelCell}>Wallet</td>
-        {showOtherAmount ?
+        {layout.showOtherAmount ?
           <td key="other_amount" className={labelCell}>Other Amount</td>
           : null}
         <td key="design" className={labelCell}>Note Design</td>
@@ -521,6 +525,34 @@ class MovementTable extends React.Component {
         <td key="reco" className={labelCell}>Reconciled</td>
       </tr>
     );
+
+    return <thead>{headRows}</thead>;
+  }
+
+  renderBody(layout) {
+    const {
+      classes,
+      record,
+    } = this.props;
+
+    const {
+      cell,
+      numberCell,
+      textCell,
+      checkCell,
+    } = classes;
+
+    const {
+      movements,
+    } = record;
+
+    const numCell = `${cell} ${numberCell}`;
+    const txtCell = `${cell} ${textCell}`;
+    const chkCell = `${cell} ${checkCell}`;
+    const {
+      showVault,
+      showOtherAmount,
+    } = layout;
 
     const bodyRows = [];
 
@@ -630,21 +662,34 @@ class MovementTable extends React.Component {
     });
 
     if (record.circ_replenishments && record.circ_replenishments.length) {
-      this.renderCircReplenishments({
-        columnsAfterGraphic,
-        showVault,
-        showOtherAmount,
-      }).forEach(row => {
+      this.renderCircReplenishments(layout).forEach(row => {
         bodyRows.push(row);
       });
     }
+
+    return <tbody>{bodyRows}</tbody>;
+  }
+
+  renderFoot(layout) {
+    const {
+      classes,
+      record,
+    } = this.props;
+
+    const {
+      labelCell,
+      cell,
+      numberCell,
+    } = classes;
+
+    const numCell = `${cell} ${numberCell}`;
 
     const footRows = [];
 
     footRows.push(
       <tr key="total-heading">
         <th className={`${classes.cell} ${classes.headCell}`}
-          colSpan={2 + columnsAfterGraphic}
+          colSpan={2 + layout.columnsAfterGraphic}
         >
           Total
         </th>
@@ -665,7 +710,7 @@ class MovementTable extends React.Component {
       totalCells.push(<td className={labelCell} key="label"></td>);
       totalCells.push(<td className={labelCell} key="graphic"></td>);
 
-      if (showVault) {
+      if (layout.showVault) {
         if (circ && circ !== '0') {
           totalCells.push(
             <td className={numCell} key="circ">
@@ -703,7 +748,7 @@ class MovementTable extends React.Component {
         totalCells.push(<td className={numCell} key="wallet"></td>);
       }
 
-      if (showOtherAmount) {
+      if (layout.showOtherAmount) {
         totalCells.push(<td className={labelCell} key="other_amount"></td>);
       }
 
@@ -721,18 +766,19 @@ class MovementTable extends React.Component {
       );
     });
 
+    return <tfoot>{footRows}</tfoot>;
+  }
+
+  render() {
+    const {classes} = this.props;
+
+    const layout = this.getLayout();
     return (
       <div>
         <table className={classes.table}>
-          <thead>
-            {headRows}
-          </thead>
-          <tbody>
-            {bodyRows}
-          </tbody>
-          <tfoot>
-            {footRows}
-          </tfoot>
+          {this.renderHead(layout)}
+          {this.renderBody(layout)}
+          {this.renderFoot(layout)}
         </table>
       </div>
     );
