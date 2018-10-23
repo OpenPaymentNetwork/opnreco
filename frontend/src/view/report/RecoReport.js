@@ -234,7 +234,12 @@ class RecoReport extends React.Component {
         return (
           <div className={classes.root}>
             {require}
-            <CircularProgress />
+            <Paper className={classes.tablePaper}
+              style={{textAlign: 'center', }}
+            >
+              <CircularProgress style={{padding: '16px'}} />
+            </Paper>
+            <div style={{height: 1}}></div>
           </div>);
       }
       return <div className={classes.root}>{require}</div>;

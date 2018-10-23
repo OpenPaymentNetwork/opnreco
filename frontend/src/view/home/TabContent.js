@@ -4,10 +4,7 @@ import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import RecoReport from '../report/RecoReport';
-import Table from '@material-ui/core/Table';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
+import TransactionReport from '../report/TransactionReport';
 import TransferSummary from '../report/TransferSummary';
 
 
@@ -74,7 +71,7 @@ export default class TabContent extends React.Component {
     case 'reco':
       return <RecoReport ploop={ploop} file={file} />;
     case 'transactions':
-      return this.renderTransactionsTab();
+      return <TransactionReport ploop={ploop} file={file} />;
     case 'liabilities':
       return this.renderLiabilitiesTab();
     case 't':
@@ -82,50 +79,6 @@ export default class TabContent extends React.Component {
     default:
       return null;
     }
-  }
-
-  renderTransactionsTab() {
-    return (
-      <div>
-        <Paper style={{overflow: 'hidden', padding: '0 8', margin: 16, minWidth: 290}}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell colSpan="7" style={{textAlign: 'center'}}>
-                  <div>BCB FBO Transaction Report</div>
-                  <div>1 June 2018 through 30 June 2018</div>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableHead>
-              <TableRow>
-                <TableCell colSpan="7" style={{textAlign: 'center'}}>
-                  Deposits (increase account balance)
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell colSpan="2" style={{textAlign: 'center'}}>
-                  Account Activity
-                </TableCell>
-                <TableCell colSpan="4" style={{textAlign: 'center'}}>
-                  Wallet Activity
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Transfer</TableCell>
-                <TableCell>Reconciled</TableCell>
-              </TableRow>
-            </TableHead>
-          </Table>
-        </Paper>
-      </div>
-    );
   }
 
   renderLiabilitiesTab() {

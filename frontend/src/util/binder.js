@@ -1,5 +1,6 @@
 
-/* Return a function that binds object methods.
+/**
+ * Return a function that binds object methods.
  * It keeps a record of previously bound attributes so they have the same
  * identity on every access.
  */
@@ -16,7 +17,9 @@ export function binder(obj) {
   };
 }
 
-/* Return a function that binds object methods along with a single argument.
+/**
+ * Return a function that binds object methods along with a single argument.
+ * The argument must be usable as a Map key.
  */
 export function binder1(obj) {
   const map0 = {};  // {name: Map of {arg0 -> bound method}}

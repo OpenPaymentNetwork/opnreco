@@ -247,7 +247,7 @@ export class FetchCache {
         ...fetchOptions,
         isCurrent,
       };
-      promise = dispatch(fetcher.fetchURL(url, fetcherOptions));
+      promise = dispatch(fetcher.fetch(url, fetcherOptions));
     } else {
       // Fetch without the features of a fetcher (such as access token
       // refresh, error display, status code checking, etc.)

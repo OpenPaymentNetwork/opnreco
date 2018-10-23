@@ -48,7 +48,7 @@ export class OPNFetcher {
     this.config = config;
   }
 
-  fetchURL = (url, options = {}) => (dispatch, getState) => {
+  fetch = (url, options = {}) => (dispatch, getState) => {
     /* Extract fetcher-specific options from the fetch options. */
     const {
       customAuth,
@@ -157,7 +157,7 @@ export class OPNFetcher {
   }
 
   fetchPath(path, options = {}) {
-    return this.fetchURL(this.pathToURL(path), options);
+    return this.fetch(this.pathToURL(path), options);
   }
 }
 
