@@ -39,6 +39,9 @@ const styles = {
   rowsPerPage: {
     marginLeft: '8px',
   },
+  rowsPerPageSelect: {
+    paddingRight: '24px',
+  },
 };
 
 
@@ -181,6 +184,7 @@ class TransactionReportForm extends React.Component {
           control={
             <Select value={String(rowsPerPage)} disableUnderline
               className={classes.rowsPerPage}
+              classes={{select: classes.rowsPerPageSelect}}
               onChange={this.binder(this.handleChangeRowsPerPage)}
             >
               <MenuItem value="10">10</MenuItem>
