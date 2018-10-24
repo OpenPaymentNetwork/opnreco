@@ -88,48 +88,32 @@ class TransactionReport extends React.Component {
       return null;
     }
 
-    const require = <Require fetcher={fOPNReport} urls={[reportURL]} />;
+    let content;
 
-    if (!report) {
-      if (loading) {
-        return (
-          <div className={classes.root}>
-            {require}
-            <Paper className={classes.tablePaper}
-              style={{textAlign: 'center', }}
-            >
-              <CircularProgress style={{padding: '16px'}} />
-            </Paper>
-            <div style={{height: 1}}></div>
-          </div>);
+    if (report) {
+      let fileDate;
+      if (file.end_date) {
+        fileDate = file.end_date;
+      } else {
+        fileDate = (new Date()).toLocaleDateString() + ' (current)';
       }
-      return <div className={classes.root}>{require}</div>;
-    }
 
-    let fileDate;
-    if (file.end_date) {
-      fileDate = file.end_date;
-    } else {
-      fileDate = (new Date()).toLocaleDateString() + ' (current)';
-    }
+      const {peer_title, currency} = file;
 
-    const {peer_title, currency} = file;
-
-    return (
-      <Typography className={classes.root} component="div">
-        {require}
-        <Paper className={classes.formPaper}>
-          <TransactionReportForm />
-        </Paper>
+      content = (
         <Paper className={classes.tablePaper}>
           <table className={classes.table}>
             <thead>
               <tr>
-                <th className={`${classes.cell} ${classes.headCell}`} colSpan="2">
-                  {peer_title} Transaction Report -
-                  {' '}{currency}
-                  {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
-                  {' - '}{fileDate}
+                <th className={`${classes.cell} ${classes.headCell}`}
+                  colSpan="2"
+                >
+                  {peer_title} Transaction Report
+                  <div>
+                    {currency}
+                    {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
+                    {' - '}{fileDate}
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -137,6 +121,27 @@ class TransactionReport extends React.Component {
             </tbody>
           </table>
         </Paper>
+      );
+
+    } else {
+      if (loading) {
+        content = (
+          <Paper className={classes.tablePaper} style={{textAlign: 'center'}}>
+            <CircularProgress style={{padding: '16px'}} />
+          </Paper>
+        );
+      } else {
+        content = null;
+      }
+    }
+
+    return (
+      <Typography className={classes.root} component="div">
+        <Require fetcher={fOPNReport} urls={[reportURL]} />
+        <Paper className={classes.formPaper}>
+          <TransactionReportForm />
+        </Paper>
+        {content}
         <div style={{height: 1}}></div>
       </Typography>
     );
@@ -154,10 +159,20 @@ function mapStateToProps(state, ownProps) {
       pageIndex,
     } = state.report;
 
+    const recoTypesList = [];
+    Object.keys(shownRecoTypes).forEach((key) => {
+      if (shownRecoTypes[key]) {
+        recoTypesList.push(key);
+      }
+    });
+    recoTypesList.sort();
+    const recoTypesStr = recoTypesList.join(' ');
+
     const reportURL = fOPNReport.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
-      `&page_index=${encodeURIComponent(pageIndex)}`);
+      `&page_index=${encodeURIComponent(pageIndex)}` +
+      `&reco_types=${encodeURIComponent(recoTypesStr)}`);
     const report = fetchcache.get(state, reportURL);
     const loading = fetchcache.fetching(state, reportURL);
     const loadError = !!fetchcache.getError(state, reportURL);

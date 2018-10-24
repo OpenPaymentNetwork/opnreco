@@ -273,10 +273,12 @@ class RecoReport extends React.Component {
             <thead>
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`} colSpan="2">
-                  {peer_title} Reconciliation Report -
-                  {' '}{currency}
-                  {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
-                  {' - '}{fileDate}
+                  {peer_title} Reconciliation Report
+                  <div>
+                    {currency}
+                    {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
+                    {' - '}{fileDate}
+                  </div>
                 </th>
               </tr>
             </thead>

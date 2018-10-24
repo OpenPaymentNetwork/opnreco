@@ -11,11 +11,14 @@ from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
 from opnreport.serialize import serialize_file
+from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy import or_
 import collections
+import re
+
 
 null = None
 zero = Decimal()
@@ -34,5 +37,9 @@ def transactions_view(request):
         movement_delta_c = Movement.vault_delta
     else:
         movement_delta_c = Movement.wallet_delta
+
+    page_index_str = request.params.get('page_index', '')
+    if re.match(r'^[0-9]+$`', page_index_str):
+        raise HTTPBadRequest(json_body={'error': 'page_index required'})
 
     return {}
