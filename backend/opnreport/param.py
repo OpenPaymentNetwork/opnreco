@@ -16,15 +16,12 @@ def get_request_file(request):
     The subpath must contain a ploop_key (peer_id-loop_id-currency)
     and file_id, where file_id may be 'current'.
     """
-    subpath = request.subpath
-    if not subpath:
+    params = request.params
+    ploop_key = params.get('ploop_key')
+    file_id_str = params.get('file_id', 'current')
+    if not ploop_key:
         raise HTTPBadRequest(
-            json_body={'error': 'subpath required'})
-    if len(subpath) < 2:
-        raise HTTPBadRequest(
-            json_body={'error': 'at least 2 subpath elements required'})
-
-    ploop_key, file_id_str = subpath[:2]
+            json_body={'error': 'ploop_key required'})
 
     match = re.match(r'^(c|[0-9]+)-([0-9]+)-([A-Z]{3})$', ploop_key)
     if match is None:

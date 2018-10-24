@@ -47,11 +47,10 @@ def transfer_record_view(context, request, complete=False):
     """
     file, peer, loop = get_request_file(request)
 
-    subpath = request.subpath
-    if len(subpath) < 3:
-        raise HTTPBadRequest()
+    transfer_id_input = request.params.get('transfer_id')
+    if not transfer_id_input:
+        raise HTTPBadRequest(json_body={'error': 'transfer_id required'})
 
-    transfer_id_input = request.subpath[2]
     transfer_id = transfer_id_input.replace('-', '')
     dbsession = request.dbsession
     owner = request.owner
@@ -68,7 +67,7 @@ def transfer_record_view(context, request, complete=False):
         .first())
 
     if record is None:
-        raise HTTPNotFound(json_body={
+        raise HTTPBadRequest(json_body={
             'error': 'transfer_not_found',
             'error_description': (
                 'Transfer %s is not found in your OPN Reports database.'

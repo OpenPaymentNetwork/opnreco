@@ -148,16 +148,19 @@ function mapStateToProps(state, ownProps) {
   const {ploop, file} = ownProps;
 
   if (ploop) {
-    const reportURL = fOPNReport.pathToURL(
-      `/transactions/${ploop.ploop_key}/` +
-      (file ? file.file_id : 'current'));
-    const report = fetchcache.get(state, reportURL);
-    const loading = fetchcache.fetching(state, reportURL);
-    const loadError = !!fetchcache.getError(state, reportURL);
     const {
       shownRecoTypes,
       rowsPerPage,
+      pageIndex,
     } = state.report;
+
+    const reportURL = fOPNReport.pathToURL(
+      `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
+      `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
+      `&page_index=${encodeURIComponent(pageIndex)}`);
+    const report = fetchcache.get(state, reportURL);
+    const loading = fetchcache.fetching(state, reportURL);
+    const loadError = !!fetchcache.getError(state, reportURL);
 
     return {
       reportURL,
@@ -166,6 +169,7 @@ function mapStateToProps(state, ownProps) {
       loadError,
       shownRecoTypes,
       rowsPerPage,
+      pageIndex,
     };
   } else {
     return {};

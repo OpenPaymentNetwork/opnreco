@@ -397,9 +397,11 @@ function mapStateToProps(state, ownProps) {
   const profileId = state.login.id;
 
   if (ploop && transferId) {
-    const subpath = (
-      `${ploop.ploop_key}/${file ? file.file_id : 'current'}/${transferId}`);
-    const recordURL = fOPNReport.pathToURL(`/transfer-record/${subpath}`);
+    const query = (
+      `ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
+      `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
+      `&transfer_id=${encodeURIComponent(transferId)}`);
+    const recordURL = fOPNReport.pathToURL(`/transfer-record?${query}`);
     let record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);
@@ -409,7 +411,7 @@ function mapStateToProps(state, ownProps) {
       // Now that the initial record is loaded, load the complete record,
       // which often takes longer because it updates all profiles and loops.
       recordCompleteURL = fOPNReport.pathToURL(
-        `/transfer-record-complete/${subpath}`);
+        `/transfer-record-complete?${query}`);
       const recordComplete = fetchcache.get(state, recordCompleteURL);
       if (recordComplete) {
         record = recordComplete;

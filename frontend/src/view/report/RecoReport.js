@@ -324,7 +324,8 @@ function mapStateToProps(state, ownProps) {
   const expanded = state.tree.reco;
   if (ploop) {
     const recoReportURL = fOPNReport.pathToURL(
-      `/reco-report/${ploop.ploop_key}/${file ? file.file_id : 'current'}`);
+      `/reco-report?ploop_key=${encodeURIComponent(ploop.ploop_key)}&` +
+      `file_id=${encodeURIComponent(file ? file.file_id : 'current')}`);
     const recoReport = fetchcache.get(state, recoReportURL);
     const loading = fetchcache.fetching(state, recoReportURL);
     const loadError = !!fetchcache.getError(state, recoReportURL);
