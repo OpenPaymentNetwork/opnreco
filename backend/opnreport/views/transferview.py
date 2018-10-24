@@ -1,9 +1,7 @@
 
 from decimal import Decimal
-from opnreport.models.db import CircReplReco
 from opnreport.models.db import Loop
 from opnreport.models.db import Movement
-from opnreport.models.db import MovementReco
 from opnreport.models.db import now_func
 from opnreport.models.db import Peer
 from opnreport.models.db import TransferRecord
@@ -11,7 +9,6 @@ from opnreport.models.site import API
 from opnreport.param import get_request_file
 from opnreport.util import check_requests_response
 from pyramid.httpexceptions import HTTPBadRequest
-from pyramid.httpexceptions import HTTPNotFound
 from pyramid.view import view_config
 import collections
 import datetime
@@ -83,10 +80,8 @@ def transfer_record_view(context, request, complete=False):
         movement_filter = (Movement.peer_id != 'c')
 
     movement_rows = (
-        dbsession.query(Movement, MovementReco.reco_id, CircReplReco)
+        dbsession.query(Movement)
         .filter(movement_filter)
-        .outerjoin(MovementReco, MovementReco.movement_id == Movement.id)
-        .outerjoin(CircReplReco, CircReplReco.movement_id == Movement.id)
         .filter(Movement.transfer_record_id == record.id)
         .order_by(
             Movement.number,
@@ -102,7 +97,7 @@ def transfer_record_view(context, request, complete=False):
     # peer_appearance: {peer_id: [(movement_number, amount_index)]}
     peer_appearance = collections.defaultdict(list)
     to_or_from = set()  # set of peer_ids listed in to_id or from_id
-    for m, _, circ_reco_id in movement_rows:
+    for m in movement_rows:
         from_id = m.from_id
         to_id = m.to_id
         issuer_id = m.issuer_id
@@ -120,7 +115,7 @@ def transfer_record_view(context, request, complete=False):
             peer_appearance[peer_id].append((m.number, m.amount_index))
         need_loop_ids.add(m.loop_id)
 
-        if circ_reco_id:
+        if m.circ_reco_id:
             is_circ_replenishment = True
 
     need_peer_ids.discard(None)
@@ -193,7 +188,7 @@ def transfer_record_view(context, request, complete=False):
             # to a circulation account, replenishing the circulation value.
             is_circ_replenishment = True
 
-    for movement, reco_id, c_reco_id in movement_rows:
+    for movement in movement_rows:
         number = movement.number
         amount_index = movement.amount_index
         orig_peer_id = movement.orig_peer_id
@@ -222,7 +217,7 @@ def transfer_record_view(context, request, complete=False):
                     'amount': str(movement.amount or '0'),
                     'issuer_id': issuer_id,
                     'ts': movement.ts.isoformat() + 'Z',
-                    'reco_id': circ_reco_id,
+                    'reco_id': movement.circ_reco_id,
                 })
                 delta_totals[(currency, loop_id)]['circ'] += movement.amount
                 # The movement from the wallet does not apply to
@@ -245,7 +240,7 @@ def transfer_record_view(context, request, complete=False):
             'vault_delta': str(vault_delta or '0'),
             'circ_delta': str(-vault_delta or '0'),
             'reco_applicable': not not reco_applicable,
-            'reco_id': reco_id,
+            'reco_id': movement.reco_id,
         })
 
         if vault_delta:

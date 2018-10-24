@@ -3,7 +3,6 @@ from decimal import Decimal
 from opnreport.models.db import File
 from opnreport.models.db import Movement
 from opnreport.models.db import MovementLog
-from opnreport.models.db import MovementReco
 from opnreport.models.db import now_func
 from opnreport.models.db import OPNDownload
 from opnreport.models.db import OwnerLog
@@ -403,7 +402,7 @@ class SyncView:
             )
             movement_dict[row_key] = movement
 
-        movements_added = []
+        movements_added = []  # [Movement]
 
         for movement in item['movements']:
             number = movement.get('number')
@@ -423,55 +422,29 @@ class SyncView:
             for peer_key, delta_list in sorted(by_peer.items()):
                 peer_id, orig_peer_id, loop_id, currency, issuer_id = peer_key
 
-                for amount_index, deltas in enumerate(delta_list):
-                    amount, wallet_delta, vault_delta = deltas
+                for amount_index, effect in enumerate(delta_list):
+                    amount, wallet_delta, vault_delta, file_id = effect
                     row_key = (number, amount_index) + peer_key
                     old_movement = movement_dict.get(row_key)
 
                     if old_movement is not None:
                         # The movement is already recorded.
-                        # Verify it has not changed.
-                        if old_movement.ts != ts:
-                            raise ValueError(
-                                "Movement %s in transfer %s has changed:"
-                                "recorded timestamp is %s, "
-                                "new timestamp is %s" % (
-                                    number, transfer_id,
-                                    old_movement.ts.isoformat(),
-                                    ts.isoformat()))
-                        if (old_movement.from_id != from_id or
-                                old_movement.to_id != to_id):
-                            raise ValueError(
-                                "Movement %s in transfer %s has changed:"
-                                "movement was from %s to %s, "
-                                "new movement is from %s to %s" % (
-                                    number, transfer_id,
-                                    old_movement.from_id,
-                                    old_movement.to_id,
-                                    from_id,
-                                    to_id))
-                        if old_movement.action != action:
-                            raise ValueError(
-                                "Movement %s in transfer %s has changed:"
-                                "recorded action is %s, new action is %s" % (
-                                    number, transfer_id,
-                                    old_movement.action, action))
-                        if (old_movement.wallet_delta != wallet_delta or
-                                old_movement.vault_delta != vault_delta):
-                            raise ValueError(
-                                "Movement %s in transfer %s has changed:"
-                                "recorded delta is (%s, %s, %s), "
-                                "new delta is (%s, %s, %s)" % (
-                                    number, transfer_id,
-                                    old_movement.amount,
-                                    old_movement.wallet_delta,
-                                    old_movement.vault_delta,
-                                    amount,
-                                    wallet_delta,
-                                    vault_delta))
+                        # Verify it has not changed, then continue.
+                        self.verify_old_movement(
+                            transfer_id=transfer_id,
+                            number=number,
+                            old_movement=old_movement,
+                            ts=ts,
+                            from_id=from_id,
+                            to_id=to_id,
+                            action=action,
+                            wallet_delta=wallet_delta,
+                            vault_delta=vault_delta,
+                            amount=amount,
+                        )
                         continue
 
-                    # Record the movement.
+                    # Record the new movement.
                     movement = Movement(
                         transfer_record_id=record.id,
                         number=number,
@@ -488,6 +461,7 @@ class SyncView:
                         ts=ts,
                         wallet_delta=wallet_delta,
                         vault_delta=vault_delta,
+                        file_id=file_id,
                     )
                     dbsession.add(movement)
                     movement_dict[row_key] = movement
@@ -513,7 +487,7 @@ class SyncView:
 
         Return {
             (peer_id, orig_peer_id, loop_id, currency, issuer_id):
-            [(amount, wallet_delta, vault_delta)],
+            [(amount, wallet_delta, vault_delta, file_id)],
         }, where peer_id can be 'c', but orig_peer_id can not.
         """
         number = movement['number']
@@ -528,7 +502,7 @@ class SyncView:
         owner_id = self.owner_id
         # by_peer: {
         #     (peer_id, orig_peer_id, loop_id, currency, issuer_id): [
-        #         (amount, wallet_delta, vault_delta)]}
+        #         (amount, wallet_delta, vault_delta, file_id)]}
         by_peer = collections.defaultdict(list)
 
         for loop in movement['loops']:
@@ -568,19 +542,65 @@ class SyncView:
                 # wallet or vault movement.
                 peer_id = issuer_id
 
-            # Add to the 'c' (circulation/common) movements.
-            c_peer_key = ('c', peer_id, loop_id, currency, issuer_id)
+            # Add to the 'c' (circulation) movements.
+            c_key = ('c', peer_id, loop_id, currency, issuer_id)
             c_file = self.prepare_file('c', loop_id, currency)
             if vault_delta and not c_file.has_vault:
                 c_file.has_vault = True
-            by_peer[c_peer_key].append((amount, wallet_delta, vault_delta))
+            by_peer[c_key].append(
+                (amount, wallet_delta, vault_delta, c_file.id))
 
             # Add to the wallet-specific or account-specific movements.
             peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
-            self.prepare_file(peer_id, loop_id, currency)
-            by_peer[peer_key].append((amount, wallet_delta, vault_delta))
+            peer_file = self.prepare_file(peer_id, loop_id, currency)
+            by_peer[peer_key].append(
+                (amount, wallet_delta, vault_delta, peer_file.id))
 
         return by_peer
+
+    def verify_old_movement(
+            self, old_movement, transfer_id, number,
+            ts, from_id, to_id, action,
+            wallet_delta, vault_delta, amount):
+        if old_movement.ts != ts:
+            raise ValueError(
+                "Movement %s in transfer %s has changed:"
+                "recorded timestamp is %s, "
+                "new timestamp is %s" % (
+                    number, transfer_id,
+                    old_movement.ts.isoformat(),
+                    ts.isoformat()))
+        if (old_movement.from_id != from_id or
+                old_movement.to_id != to_id):
+            raise ValueError(
+                "Movement %s in transfer %s has changed:"
+                "movement was from %s to %s, "
+                "new movement is from %s to %s" % (
+                    number, transfer_id,
+                    old_movement.from_id,
+                    old_movement.to_id,
+                    from_id,
+                    to_id))
+        if old_movement.action != action:
+            raise ValueError(
+                "Movement %s in transfer %s has changed:"
+                "recorded action is %s, new action is %s" % (
+                    number, transfer_id,
+                    old_movement.action, action))
+        if (old_movement.wallet_delta != wallet_delta or
+                old_movement.vault_delta != vault_delta or
+                old_movement.amount != amount):
+            raise ValueError(
+                "Movement %s in transfer %s has changed:"
+                "recorded delta is (%s, %s, %s), "
+                "new delta is (%s, %s, %s)" % (
+                    number, transfer_id,
+                    old_movement.amount,
+                    old_movement.wallet_delta,
+                    old_movement.vault_delta,
+                    amount,
+                    wallet_delta,
+                    vault_delta))
 
     def prepare_file(self, peer_id, loop_id, currency):
         """Prepare the current file for (peer_id, loop_id, currency).
@@ -612,7 +632,8 @@ class SyncView:
                 loop_id=loop_id,
                 currency=currency,
                 current=True)
-            dbsession.add(file)  # Assign file.id
+            dbsession.add(file)
+            dbsession.flush()  # Assign file.id
 
             self.files[key] = file
 
@@ -638,19 +659,12 @@ class SyncView:
             reco_rows = ()
             done_movement_ids = set()
         else:
-            # List the existing recos for this TransferRecord.
+            # List the existing reconciled movements in this TransferRecord.
             reco_rows = (
-                dbsession.query(Movement.id, Reco.id)
-                .join(
-                    TransferRecord,
-                    TransferRecord.id == Movement.transfer_record_id)
-                .join(
-                    MovementReco,
-                    MovementReco.movement_id == Movement.id)
-                .join(
-                    Reco,
-                    Reco.id == MovementReco.reco_id)
-                .filter(TransferRecord.id == record.id)
+                dbsession.query(Movement.id)
+                .filter(
+                    Movement.transfer_record_id == record.id,
+                    Movement.reco_id != null)
                 .all())
             done_movement_ids = set(row[0] for row in reco_rows)
 
@@ -705,9 +719,7 @@ class SyncView:
             added = True
 
             for movement in mvlist:
-                dbsession.add(MovementReco(
-                    movement_id=movement.id,
-                    reco_id=reco_id))
+                movement.reco_id = reco_id
                 dbsession.add(MovementLog(
                     movement_id=movement.id,
                     event_type='autoreco',

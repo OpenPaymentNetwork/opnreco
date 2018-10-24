@@ -235,7 +235,8 @@ class Movement(Base):
     should not be shown; as another example, if the peer is a wallet rather
     than a DFI account, the peer reconciliation should not be shown.
 
-    Note: movement rows are meant to be immutable.
+    Note: most fields of Movement are immutable. Only file_id,
+    reco_id, and circ_reco_id are mutable.
     """
     __tablename__ = 'movement'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -270,6 +271,16 @@ class Movement(Base):
     # or negative for movements out of the wallet or vault.
     wallet_delta = Column(Numeric, nullable=False)
     vault_delta = Column(Numeric, nullable=False)
+
+    # Mutable fields: file_id, reco_id, and circ_reco_id.
+
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, index=True)
+    reco_id = Column(
+        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
+    # circ_reco_id is for reconciliation of a circulation replenishment.
+    circ_reco_id = Column(
+        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
 
     transfer_record = relationship(TransferRecord)
 
@@ -342,6 +353,9 @@ class AccountEntry(Base):
     # desc contains descriptive info provided by the bank.
     desc = Column(JSONB, nullable=False)
 
+    reco_id = Column(
+        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
+
     file = relationship(File)
     statement = relationship(Statement)
 
@@ -366,12 +380,6 @@ class AccountEntryLog(Base):
 
 class Reco(Base):
     """A reconciliation row matches movement(s) and account entries.
-
-    The linked movements, exchanges, and account entries must be connected
-    to the same File. The total deltas must be equal if the
-    movements are sent from or received into the
-    wallet; the total deltas must be negatives of each other if the
-    movements are sent from or received into the vault.
     """
     __tablename__ = 'reco'
     id = Column(BigInteger, nullable=False, primary_key=True)
@@ -387,55 +395,6 @@ class Reco(Base):
     auto_edited = Column(Boolean, nullable=False, default=False)
 
     file = relationship(File)
-
-
-class MovementReco(Base):
-    """Association of a movement to a Reco.
-
-    A movement can be connected to only one Reco, but a Reco
-    can be connected to multiple movements.
-    """
-    __tablename__ = 'movement_reco'
-    movement_id = Column(
-        BigInteger, ForeignKey('movement.id'),
-        nullable=False, primary_key=True)
-    reco_id = Column(
-        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
-
-    movement = relationship(Movement)
-    reco = relationship(Reco)
-
-
-class AccountEntryReco(Base):
-    """Association of an AccountEntry to a Reco.
-
-    An AccountEntry can be connected to only one Reco, but a Reco
-    can be connected to multiple AccountEntry rows.
-    """
-    __tablename__ = 'account_entry_reco'
-    account_entry_id = Column(
-        BigInteger, ForeignKey('account_entry.id'),
-        nullable=False, primary_key=True)
-    reco_id = Column(
-        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
-
-    account_entry = relationship(AccountEntry)
-    reco = relationship(Reco)
-
-
-class CircReplReco(Base):
-    """Reconciliation of a circulation replenishment.
-    """
-    __tablename__ = 'circ_repl_reco'
-    id = Column(BigInteger, nullable=False, primary_key=True)
-    movement_id = Column(
-        BigInteger, ForeignKey('movement.id'),
-        nullable=False, primary_key=True)
-    reco_id = Column(
-        BigInteger, ForeignKey('reco.id'), nullable=False, index=True)
-
-    movement = relationship(Movement)
-    reco = relationship(Reco)
 
 
 # all_metadata_defined must be at the end of the file. It signals that

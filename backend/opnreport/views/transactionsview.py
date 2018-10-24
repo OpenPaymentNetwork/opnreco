@@ -1,10 +1,7 @@
 
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
-from opnreport.models.db import AccountEntryReco
-from opnreport.models.db import CircReplReco
 from opnreport.models.db import Movement
-from opnreport.models.db import MovementReco
 from opnreport.models.db import Peer
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
