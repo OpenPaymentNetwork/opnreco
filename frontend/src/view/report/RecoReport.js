@@ -116,9 +116,11 @@ class RecoReport extends React.Component {
   }
 
   handleClickTransfer(tid, event) {
-    event.preventDefault();
-    this.props.dispatch(setTransferId(tid));
-    this.props.history.push(`/t/${tid}`);
+    if (event.button === 0) {
+      event.preventDefault();
+      this.props.dispatch(setTransferId(tid));
+      this.props.history.push(`/t/${tid}`);
+    }
   }
 
   renderOutstanding(sign, cfmt) {

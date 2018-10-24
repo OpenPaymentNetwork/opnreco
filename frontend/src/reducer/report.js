@@ -28,7 +28,7 @@ export const showRecoType = (recoType, enabled) => ({
 export const setRowsPerPage = (rows) => ({
   type: SET_ROWS_PER_PAGE, payload: {rows}});
 
-export const setPage = (pageIndex) => ({
+export const setPageIndex = (pageIndex) => ({
   type: SET_PAGE_INDEX, payload: {pageIndex}});
 
 const actionHandlers = {
@@ -51,6 +51,7 @@ const actionHandlers = {
   [SET_ROWS_PER_PAGE]: (state, {payload: {rows}}) => ({
     ...state,
     rowsPerPage: rows,
+    pageIndex: 0,
   }),
 
   [SET_PAGE_INDEX]: (state, {payload: {pageIndex}}) => ({

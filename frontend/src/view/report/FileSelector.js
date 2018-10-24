@@ -38,7 +38,7 @@ const styles = theme => ({
 const ploopsURL = fOPNReport.pathToURL('/ploops');
 
 
-class ReportFilter extends React.Component {
+class FileSelector extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -217,4 +217,4 @@ function mapStateToProps(state) {
 export default compose(
   withStyles(styles, {withTheme: true}),
   connect(mapStateToProps),
-)(ReportFilter);
+)(FileSelector);

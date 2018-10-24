@@ -5,23 +5,16 @@ import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
 import { setTransferId } from '../../reducer/app';
-import { showRecoType } from '../../reducer/report';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import IconButton from '@material-ui/core/IconButton';
-import Checkbox from '@material-ui/core/Checkbox';
-import Menu from '@material-ui/core/Menu';
-import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
-import Select from '@material-ui/core/Select';
+import TransactionReportForm from './TransactionReportForm';
 import Typography from '@material-ui/core/Typography';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
-import FilterList from '@material-ui/icons/FilterList';
 
 
 const tableWidth = 800;
@@ -32,20 +25,10 @@ const styles = {
     fontSize: '1.0rem',
     padding: '0 16px',
   },
-  filterPaper: {
+  formPaper: {
     margin: '16px auto',
     maxWidth: tableWidth - 16,
     padding: '8px',
-  },
-  filterBox: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-  },
-  filterControl: {
-    margin: '0 8px',
-  },
-  rowsPerPage: {
-    marginLeft: '8px',
   },
   tablePaper: {
     margin: '16px auto',
@@ -88,94 +71,14 @@ class TransactionReport extends React.Component {
     super(props);
     this.binder = binder(this);
     this.binder1 = binder1(this);
-    this.state = {
-      filterAnchor: null,
-    };
   }
 
   handleClickTransfer(tid, event) {
-    event.preventDefault();
-    this.props.dispatch(setTransferId(tid));
-    this.props.history.push(`/t/${tid}`);
-  }
-
-  handleFilterClick(event) {
-    this.setState({filterAnchor: event.currentTarget});
-  }
-
-  handleFilterClose() {
-    this.setState({filterAnchor: null});
-  }
-
-  handleFilterChange(recoType, event) {
-    this.props.dispatch(showRecoType(recoType, event.target.checked));
-  }
-
-  renderFilterBox() {
-    const {
-      classes,
-      shownRecoTypes,
-      rowsPerPage,
-    } = this.props;
-
-    const {
-      filterControl,
-    } = classes;
-
-    const {filterAnchor} = this.state;
-
-    return (
-      <div className={classes.filterBox}>
-
-        <IconButton
-          aria-owns={filterAnchor ? 'filter-menu' : null}
-          aria-haspopup="true"
-          onClick={this.binder(this.handleFilterClick)}
-          className={filterControl}
-        ><FilterList /></IconButton>
-        <Menu
-          id="filter-menu"
-          anchorEl={filterAnchor}
-          open={!!filterAnchor}
-          onClose={this.binder(this.handleFilterClose)}
-        >
-          <MenuItem>
-            <FormControlLabel
-              control={
-                <Checkbox checked={!!shownRecoTypes.manual}
-                  onChange={this.binder1(this.handleFilterChange, 'manual')} />
-              }
-              label="Show manually reconciled entries"
-            />
-          </MenuItem>
-          <MenuItem>
-            <FormControlLabel
-              control={
-                <Checkbox checked={!!shownRecoTypes.auto}
-                  onChange={this.binder1(this.handleFilterChange, 'auto')} />
-              }
-              label="Show automatically reconciled entries"
-            />
-          </MenuItem>
-        </Menu>
-
-        <FormControlLabel
-          labelPlacement="start"
-          className={filterControl}
-          control={
-            <Select value={String(rowsPerPage)} disableUnderline
-              className={classes.rowsPerPage}
-            >
-              <MenuItem value="10">10</MenuItem>
-              <MenuItem value="20">20</MenuItem>
-              <MenuItem value="50">50</MenuItem>
-              <MenuItem value="100">100</MenuItem>
-              <MenuItem value="1000">1000</MenuItem>
-            </Select>
-          }
-          label="Rows per page:"
-        />
-      </div>);
+    if (event.button === 0) {
+      event.preventDefault();
+      this.props.dispatch(setTransferId(tid));
+      this.props.history.push(`/t/${tid}`);
+    }
   }
 
   render() {
@@ -215,8 +118,8 @@ class TransactionReport extends React.Component {
     return (
       <Typography className={classes.root} component="div">
         {require}
-        <Paper className={classes.filterPaper}>
-          {this.renderFilterBox()}
+        <Paper className={classes.formPaper}>
+          <TransactionReportForm />
         </Paper>
         <Paper className={classes.tablePaper}>
           <table className={classes.table}>

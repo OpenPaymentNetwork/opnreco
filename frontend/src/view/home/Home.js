@@ -9,7 +9,7 @@ import Hidden from '@material-ui/core/Hidden';
 import LayoutConfig from '../app/LayoutConfig';
 import PropTypes from 'prop-types';
 import React from 'react';
-import ReportFilter from '../report/ReportFilter';
+import FileSelector from '../report/FileSelector';
 import Tab from '@material-ui/core/Tab';
 import TabContent from './TabContent';
 import Tabs from '@material-ui/core/Tabs';
@@ -26,7 +26,7 @@ const styles = theme => ({
     backgroundColor: theme.palette.primary.light,
     color: '#fff',
   },
-  reportFilterBox: {
+  fileSelectorBox: {
     padding: 16,
   },
   tabs: {
@@ -59,7 +59,9 @@ class Home extends React.Component {
   }
 
   handleTabClick(event) {
-    event.preventDefault();
+    if (event.button === 0) {
+      event.preventDefault();
+    }
   }
 
   render() {
@@ -94,8 +96,8 @@ class Home extends React.Component {
     );
 
     const filterBox = (
-      <div className={classes.reportFilterBox}>
-        <ReportFilter ploop={ploop} file={file} />
+      <div className={classes.fileSelectorBox}>
+        <FileSelector ploop={ploop} file={file} />
       </div>
     );
 

@@ -80,7 +80,7 @@ class TokenRefreshDialog extends React.Component {
     this.setState(state => ({showPassword: !state.showPassword}));
   }
 
-  handleMouseDownPassword(event) {
+  handleMouseDownShowPassword(event) {
     event.preventDefault();
   }
 
@@ -130,7 +130,7 @@ class TokenRefreshDialog extends React.Component {
                   <IconButton
                     aria-label="Toggle password visibility"
                     onClick={this.binder(this.handleClickShowPassword)}
-                    onMouseDown={this.binder(this.handleMouseDownPassword)}
+                    onMouseDown={this.binder(this.handleMouseDownShowPassword)}
                   >
                     {this.state.showPassword ? <Visibility /> : <VisibilityOff />}
                   </IconButton>
