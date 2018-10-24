@@ -32,14 +32,23 @@ zero = Decimal()
 def transactions_view(request):
     file, peer, loop = get_request_file(request)
     file_peer_id = file.peer_id
+    params = request.params
+
+    offset_str = params.get('offset', '')
+    if not re.match(r'^[0-9]+$', offset_str):
+        raise HTTPBadRequest(json_body={'error': 'offset required'})
+    offset = max(int(offset_str), 0)
+
+    limit_str = params.get('limit', '')
+    if not re.match(r'^[0-9]+$', limit_str):
+        raise HTTPBadRequest(json_body={'error': 'limit required'})
+    limit = min(max(int(limit_str), 1), 1000)
 
     if file_peer_id == 'c':
         movement_delta_c = Movement.vault_delta
     else:
         movement_delta_c = Movement.wallet_delta
 
-    page_index_str = request.params.get('page_index', '')
-    if re.match(r'^[0-9]+$`', page_index_str):
-        raise HTTPBadRequest(json_body={'error': 'page_index required'})
+
 
     return {}

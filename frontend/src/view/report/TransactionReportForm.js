@@ -29,7 +29,12 @@ const styles = {
     justifyContent: 'flex-end',
   },
   formControl: {
-    margin: '0 8px',
+    fontSize: '1rem',
+    margin: '0 16px',
+    cursor: 'default',
+  },
+  formLabel: {
+    fontSize: '1rem',
   },
   rowsPerPage: {
     marginLeft: '8px',
@@ -148,20 +153,21 @@ class TransactionReportForm extends React.Component {
 
     const {
       formControl,
+      formLabel,
     } = classes;
 
     let rowsInfo;
 
     if (rows && rows > 0) {
       rowsInfo = (
-        <span className={formControl}>
+        <span className={formLabel}>
           {Math.min(rows, (rowsPerPage * pageIndex) + 1)}-
           {Math.min(rows, rowsPerPage * (pageIndex + 1))} of {rows}
         </span>
       );
 
     } else {
-      rowsInfo = <span className={formControl}>0-0 of 0</span>;
+      rowsInfo = <span className={formLabel}>0-0 of 0</span>;
     }
 
     const navPrev = rows && (pageIndex > 0);
@@ -184,12 +190,13 @@ class TransactionReportForm extends React.Component {
               <MenuItem value="1000">1000</MenuItem>
             </Select>
           }
-          label="Rows per page:"
+          label={<span className={formLabel}>Rows per page:</span>}
           labelPlacement="start"
         />
 
         <FormControlLabel
-          control={<div className={formControl} />}
+          className={formControl}
+          control={<input type="hidden" />}
           label={rowsInfo} />
 
         <IconButton title="First Page"

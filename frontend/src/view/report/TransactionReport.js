@@ -171,7 +171,8 @@ function mapStateToProps(state, ownProps) {
     const reportURL = fOPNReport.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
-      `&page_index=${encodeURIComponent(pageIndex)}` +
+      `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
+      `&limit=${encodeURIComponent(rowsPerPage)}` +
       `&reco_types=${encodeURIComponent(recoTypesStr)}`);
     const report = fetchcache.get(state, reportURL);
     const loading = fetchcache.fetching(state, reportURL);

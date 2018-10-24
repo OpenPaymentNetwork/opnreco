@@ -37,7 +37,7 @@ def transfer_record_complete_view(context, request):
 def transfer_record_view(context, request, complete=False):
     """Prepare all the info for displaying a transfer record.
 
-    Requires a subpath of (peer_key, file_id or 'current', transfer_id).
+    Requires peer_key, file_id, and transfer_id in the query string.
     Note that the file specified is used only to identify which
     reconciliation records to show.
 
