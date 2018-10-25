@@ -138,7 +138,7 @@ class SyncView:
             event_type='opn_sync',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
-            memo={
+            content={
                 'sync_ts': sync_ts_iso,
                 'progress_percent': progress_percent,
                 'transfers': {
@@ -342,7 +342,7 @@ class SyncView:
             dbsession.add(OwnerLog(
                 owner_id=self.owner_id,
                 event_type='add_peer',
-                memo={
+                content={
                     'peer_id': peer_id,
                     'info': info,
                 }))
@@ -370,7 +370,7 @@ class SyncView:
                     dbsession.add(OwnerLog(
                         owner_id=self.owner_id,
                         event_type='update_peer',
-                        memo={
+                        content={
                             'peer_id': peer_id,
                             'changes': changes,
                         }))
@@ -640,7 +640,7 @@ class SyncView:
             dbsession.add(OwnerLog(
                 owner_id=self.owner_id,
                 event_type='add_file',
-                memo={
+                content={
                     'file_id': file.id,
                     'peer_id': peer_id,
                     'loop_id': loop_id,
@@ -702,17 +702,7 @@ class SyncView:
                     "movement list for transfer %s: %s != %s" % (
                         record.transfer_id, wallet_total, -vault_total))
 
-            sample_movement = mvlist[-1]  # Use the date of the last movement
-            peer_id = sample_movement.peer_id
-            loop_id = sample_movement.loop_id
-            currency = sample_movement.currency
-
-            file = self.prepare_file(peer_id, loop_id, currency)
-            reco = Reco(
-                file_id=file.id,
-                entry_date=sample_movement.ts.date(),
-                auto=True,
-            )
+            reco = Reco(auto=True)
             dbsession.add(reco)
             dbsession.flush()
             reco_id = reco.id

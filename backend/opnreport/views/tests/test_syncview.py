@@ -184,7 +184,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -326,7 +326,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -473,7 +473,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -639,7 +639,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('19', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -755,7 +755,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -820,7 +820,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -907,7 +907,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
         self.assertEqual(1, len(records))
@@ -1226,7 +1226,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual({
             'changes': {'username': 'somefella'},
             'peer_id': '11',
-        }, events[-1].memo)
+        }, events[-1].content)
 
     def test_sync_error(self):
         from opnreport.views.syncview import SyncError
@@ -1382,7 +1382,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         file = (
             self.dbsession.query(db.File).filter_by(
@@ -1438,7 +1438,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', event.owner_id)
         self.assertEqual(
             {'sync_ts', 'progress_percent', 'transfers'},
-            set(event.memo.keys()))
+            set(event.content.keys()))
 
         records = (
             self.dbsession.query(db.TransferRecord)

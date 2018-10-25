@@ -94,7 +94,7 @@ def owner(request):
             event_type='created',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
-            memo={'title': owner.title},
+            content={'title': owner.title},
         ))
 
     else:

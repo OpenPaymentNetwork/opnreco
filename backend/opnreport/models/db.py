@@ -66,7 +66,7 @@ class OwnerLog(Base):
     event_type = Column(String, nullable=False)
     remote_addr = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
-    memo = Column(JSONB, nullable=False)
+    content = Column(JSONB, nullable=False)
 
 
 class Peer(Base):
@@ -121,7 +121,7 @@ class File(Base):
     # the letter 'c' for circulating.
     peer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
-    currency = Column(String(3), nullable=False)
+    currency = Column(String, nullable=False)
     # New recos are added to the 'current' file.
     current = Column(Boolean, nullable=False, default=True)
     # has_vault becomes true if money ever moves in or out of the
@@ -258,7 +258,7 @@ class Movement(Base):
             "orig_peer_id != 'c'", name='orig_peer_id_not_c'),
         nullable=False)
     loop_id = Column(String, nullable=False)
-    currency = Column(String(3), nullable=False)
+    currency = Column(String, nullable=False)
     issuer_id = Column(String, nullable=False)
 
     from_id = Column(String, nullable=True)  # Null for issuance
@@ -299,7 +299,7 @@ Index(
 
 
 class MovementLog(Base):
-    """Log of changes to a movement"""
+    """Log of changes to a movement, including a comment."""
     __tablename__ = 'movement_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
@@ -309,8 +309,7 @@ class MovementLog(Base):
     event_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # changes is a dict. The possible changes are:
-    # reco_id
+    # changes is a dict.
     changes = Column(JSONB, nullable=False)
 
     movement = relationship(Movement)
@@ -320,13 +319,15 @@ class Statement(Base):
     """A statement of movements to/from an account connected with a File."""
     __tablename__ = 'statement'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'),
-        nullable=False, index=True)
-    ts = Column(DateTime, nullable=False, server_default=now_func)
+    owner_id = Column(String, ForeignKey('owner.id'), nullable=False)
+    # peer_id is either an OPN holder ID or
+    # the letter 'c' for circulating.
+    peer_id = Column(String, nullable=False)
+    loop_id = Column(String, nullable=False)
+    currency = Column(String, nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     content = Column(JSONB, nullable=False)
-
-    file = relationship(File)
 
 
 class AccountEntry(Base):
@@ -337,10 +338,7 @@ class AccountEntry(Base):
         BigInteger, ForeignKey('file.id'),
         nullable=False, index=True)
 
-    statement_id = Column(
-        BigInteger, ForeignKey('statement.id'),
-        nullable=True, index=True)
-    statement_ref = Column(JSONB, nullable=True)
+    statement_refs = Column(JSONB, nullable=True)
     entry_date = Column(Date, nullable=False)
 
     # The delta is negative for account decreases.
@@ -357,11 +355,10 @@ class AccountEntry(Base):
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
 
     file = relationship(File)
-    statement = relationship(Statement)
 
 
 class AccountEntryLog(Base):
-    """Log of changes to an account entry"""
+    """Log of changes to an account entry, including a comment."""
     __tablename__ = 'account_entry_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
@@ -371,30 +368,19 @@ class AccountEntryLog(Base):
     event_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # changes is a dict. The possible changes are:
-    # reco_id, statement_id, statement_ref, entry_date, delta, and desc.
+    # changes is a dict.
     changes = Column(JSONB, nullable=False)
 
     account_entry = relationship(AccountEntry)
 
 
 class Reco(Base):
-    """A reconciliation row matches movement(s) and account entries.
-    """
+    """A reconciliation row matches movement(s) and account entries."""
     __tablename__ = 'reco'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'),
-        nullable=False, index=True)
-    # entry_date is copied from an account statement or movement.
-    entry_date = Column(Date, nullable=False)
+
     # auto is true if the reconciliation was generated automatically.
     auto = Column(Boolean, nullable=False)
-    # auto_edited is true if the reconciliation was generated automatically
-    # and later edited.
-    auto_edited = Column(Boolean, nullable=False, default=False)
-
-    file = relationship(File)
 
 
 # all_metadata_defined must be at the end of the file. It signals that

@@ -77,7 +77,7 @@ class OPNTokenAuthenticationPolicy(object):
                 event_type='access',
                 remote_addr=request.remote_addr,
                 user_agent=request.user_agent,
-                memo={'title': profile_info['title']},
+                content={'title': profile_info['title']},
             ))
 
             return profile_id

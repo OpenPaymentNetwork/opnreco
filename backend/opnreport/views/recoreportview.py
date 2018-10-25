@@ -39,6 +39,7 @@ def reco_report_view(request):
     movement_filter = and_(
         TransferRecord.owner_id == owner_id,
         Movement.transfer_record_id == TransferRecord.id,
+        Movement.file_id == file_id,
         Movement.peer_id == file.peer_id,
         Movement.loop_id == file.loop_id,
         Movement.currency == file.currency,
@@ -53,17 +54,11 @@ def reco_report_view(request):
             AccountEntry.reco_id != null)
         .scalar()) or 0
 
-    include_unreconciled = file.current
-
     # workflow_type_rows lists the workflow types of movements
-    # involved in this file. Include manually
-    # reconciled movements, but not the effects of automatically
-    # reconciled movements. Include unreconciled movements if
-    # looking at a 'current' file.
-    if include_unreconciled:
-        reco_filter = or_(Reco.file_id == null, Reco.file_id == file_id)
-    else:
-        reco_filter = (Reco.file_id == file_id)
+    # involved in this file. Derive the list from the unreconciled
+    # movements and manually reconciled movements, but not from the
+    # automatically reconciled movements.
+
     workflow_type_rows = (
         dbsession.query(
             func.sign(-movement_delta_c).label('sign'),
@@ -72,8 +67,10 @@ def reco_report_view(request):
         .outerjoin(Reco, Reco.id == Movement.reco_id)
         .filter(
             movement_filter,
-            reco_filter,
-            or_(Reco.auto == null, ~Reco.auto))
+            or_(
+                Movement.reco_id == null,
+                ~Reco.auto,
+            ))
         .group_by(
             func.sign(-movement_delta_c),
             TransferRecord.workflow_type)
@@ -86,70 +83,66 @@ def reco_report_view(request):
         workflow_type = r.workflow_type
         workflow_types_pre[(str(r.sign), r.workflow_type)] = zero
 
-    if include_unreconciled:
-        # outstanding_rows lists the movements not yet reconciled.
-        # Negate the amounts because we're showing compensating amounts.
-        outstanding_rows = (
-            dbsession.query(
-                func.sign(-movement_delta_c).label('sign'),
-                TransferRecord.workflow_type,
-                TransferRecord.transfer_id,
-                (-movement_delta_c).label('delta'),
-                TransferRecord.start,
-                Movement.id,
-            )
+    # outstanding_rows lists the unreconciled movements.
+    # Negate the amounts because we're showing compensating amounts.
+    outstanding_rows = (
+        dbsession.query(
+            func.sign(-movement_delta_c).label('sign'),
+            TransferRecord.workflow_type,
+            TransferRecord.transfer_id,
+            (-movement_delta_c).label('delta'),
+            Movement.ts,
+            Movement.id,
+        )
+        .filter(
+            movement_filter,
+            Movement.reco_id == null)
+        .all())
+
+    if file_peer_id == 'c':
+        # Add any unreconciled circulation replenishments to outstanding_rows.
+
+        # List the circulation peers.
+        # (Note that the number of circ peers is always expected to be
+        # zero, one, or a small number.)
+        circ_peer_id_rows = (
+            dbsession.query(Peer.peer_id)
             .filter(
-                movement_filter,
-                Movement.reco_id == null)
+                Peer.owner_id == owner_id,
+                Peer.is_circ)
             .all())
 
-        if file_peer_id == 'c':
-            # Include any unreconciled circulation replenishments
-            # in the report.
+        circ_peer_ids = [x for (x,) in circ_peer_id_rows]
+        if circ_peer_ids:
 
-            # List the circulation peers.
-            # (Note that the number of circ peers is always expected to be
-            # zero, one, or a small number.)
-            circ_peer_id_rows = (
-                dbsession.query(Peer.peer_id)
+            # Add the unreconciled circulation replenishments.
+            # Detect them by looking for movements that send
+            # from the circulating issuer's wallet to a
+            # circulation peer.
+            circ_rows = (
+                dbsession.query(
+                    func.sign(-Movement.wallet_delta).label('sign'),
+                    TransferRecord.workflow_type,
+                    TransferRecord.transfer_id,
+                    (-Movement.wallet_delta).label('delta'),
+                    Movement.ts,
+                    Movement.id,
+                )
                 .filter(
-                    Peer.owner_id == owner_id,
-                    Peer.is_circ)
+                    TransferRecord.owner_id == owner_id,
+                    Movement.transfer_record_id == TransferRecord.id,
+                    Movement.file_id == file_id,
+                    Movement.peer_id == 'c',
+                    Movement.orig_peer_id.in_(circ_peer_ids),
+                    Movement.loop_id == file.loop_id,
+                    Movement.currency == file.currency,
+                    Movement.wallet_delta < zero,
+                    Movement.circ_reco_id == null,
+                )
                 .all())
 
-            circ_peer_ids = [x for (x,) in circ_peer_id_rows]
-            if circ_peer_ids:
-
-                # Add the unreconciled circulation replenishments.
-                # Detect them by looking for movements that send
-                # from the circulating issuer's wallet to a
-                # circulation peer.
-                circ_rows = (
-                    dbsession.query(
-                        func.sign(-Movement.wallet_delta).label('sign'),
-                        TransferRecord.workflow_type,
-                        TransferRecord.transfer_id,
-                        (-Movement.wallet_delta).label('delta'),
-                        TransferRecord.start,
-                        Movement.id,
-                    )
-                    .filter(
-                        TransferRecord.owner_id == owner_id,
-                        Movement.transfer_record_id == TransferRecord.id,
-                        Movement.peer_id == 'c',
-                        Movement.orig_peer_id.in_(circ_peer_ids),
-                        Movement.loop_id == file.loop_id,
-                        Movement.currency == file.currency,
-                        Movement.wallet_delta < zero,
-                        Movement.circ_reco_id == null,
-                    )
-                    .all())
-
-                if circ_rows:
-                    outstanding_rows.extend(circ_rows)
-
-    else:
-        outstanding_rows = ()
+            if circ_rows:
+                outstanding_rows.extend(circ_rows)
 
     # Create outstanding_map:
     # {str(sign): {workflow_type: [{transfer_id, delta, ts, id}]}}.
@@ -163,23 +156,11 @@ def reco_report_view(request):
         outstanding_map[str_sign][workflow_type].append({
             'transfer_id': r.transfer_id,
             'delta': str(r.delta),
-            'ts': r.start.isoformat() + 'Z',
+            'ts': r.ts.isoformat() + 'Z',
             'movement_id': str(r.id),
         })
         # Add the total of outstanding movements to workflow_types_pre.
         workflow_types_pre[(str_sign, workflow_type)] += r.delta
-
-    # # Add the redemption plans to outstanding_map and workflow_types_pre.
-    # for r in redeem_rows:
-    #     workflow_type = '_redeem_plan'
-    #     str_sign = '1'
-    #     outstanding_map[str_sign][workflow_type].append({
-    #         'transfer_id': r.transfer_id,
-    #         'delta': str(r.delta),
-    #         'ts': r.start.isoformat() + 'Z',
-    #         'redeem_plan_id': str(r.id),
-    #     })
-    #     workflow_types_pre[(str_sign, workflow_type)] += r.delta
 
     # Convert outstanding_map from defaultdicts to dicts for JSON encoding.
     for sign, m in list(outstanding_map.items()):
