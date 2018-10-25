@@ -52,7 +52,7 @@ class TransactionReportForm extends React.Component {
     shownRecoTypes: PropTypes.object,
     pageIndex: PropTypes.number,
     rowsPerPage: PropTypes.number,
-    rows: PropTypes.number,
+    rowcount: PropTypes.number,
   };
 
   constructor(props) {
@@ -81,8 +81,8 @@ class TransactionReportForm extends React.Component {
   }
 
   handleNavLast() {
-    const {dispatch, rows, rowsPerPage} = this.props;
-    dispatch(setPageIndex(Math.floor((rows - 1) / rowsPerPage)));
+    const {dispatch, rowcount, rowsPerPage} = this.props;
+    dispatch(setPageIndex(Math.floor((rowcount - 1) / rowsPerPage)));
   }
 
   handleFilterClick(event) {
@@ -151,7 +151,7 @@ class TransactionReportForm extends React.Component {
       classes,
       pageIndex,
       rowsPerPage,
-      rows,
+      rowcount,
     } = this.props;
 
     const {
@@ -161,11 +161,11 @@ class TransactionReportForm extends React.Component {
 
     let rowsInfo;
 
-    if (rows && rows > 0) {
+    if (rowcount && rowcount > 0) {
       rowsInfo = (
         <span className={formLabel}>
-          {Math.min(rows, (rowsPerPage * pageIndex) + 1)}-
-          {Math.min(rows, rowsPerPage * (pageIndex + 1))} of {rows}
+          {Math.min(rowcount, (rowsPerPage * pageIndex) + 1)}-
+          {Math.min(rowcount, rowsPerPage * (pageIndex + 1))} of {rowcount}
         </span>
       );
 
@@ -173,8 +173,8 @@ class TransactionReportForm extends React.Component {
       rowsInfo = <span className={formLabel}>0-0 of 0</span>;
     }
 
-    const navPrev = rows && (pageIndex > 0);
-    const navNext = rows && ((pageIndex + 1) * rowsPerPage < rows);
+    const navPrev = rowcount && (pageIndex > 0);
+    const navNext = rowcount && ((pageIndex + 1) * rowsPerPage < rowcount);
 
     return (
       <div className={classes.root}>

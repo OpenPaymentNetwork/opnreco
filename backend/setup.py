@@ -3,30 +3,15 @@ from setuptools import setup, find_packages
 
 
 requires = [
-    # 'achdir',
-    # 'Babel',
     'colander',
-    # 'colanderplus',
-    # 'logentries',
-    # 'lingua',
-    # 'lxml',
-    # 'Mako',
-    # 'passlib',
-    # 'phonenumbers',
-    # 'Pillow',
     'psycopg2',
     'python-dotenv',
     'pyramid',
     'pyramid_retry',
     'pyramid_tm',
-    # 'reportlab',
     'requests',
-    # 'sendgrid',
     'SQLAlchemy',
     'transaction',
-    # 'twilio',
-    # 'ua-parser',
-    # 'waitress',
     'zope.sqlalchemy',
 ]
 

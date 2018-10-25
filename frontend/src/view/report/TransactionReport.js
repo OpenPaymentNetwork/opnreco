@@ -88,7 +88,7 @@ class TransactionReport extends React.Component {
       return null;
     }
 
-    let content;
+    let content, rowcount;
 
     if (report) {
       let fileDate;
@@ -100,6 +100,7 @@ class TransactionReport extends React.Component {
 
       const {peer_title, currency} = file;
 
+      rowcount = report.rowcount;
       content = (
         <Paper className={classes.tablePaper}>
           <table className={classes.table}>
@@ -124,6 +125,7 @@ class TransactionReport extends React.Component {
       );
 
     } else {
+      rowcount = 0;
       if (loading) {
         content = (
           <Paper className={classes.tablePaper} style={{textAlign: 'center'}}>
@@ -139,7 +141,7 @@ class TransactionReport extends React.Component {
       <Typography className={classes.root} component="div">
         <Require fetcher={fOPNReport} urls={[reportURL]} />
         <Paper className={classes.formPaper}>
-          <TransactionReportForm />
+          <TransactionReportForm rowcount={rowcount} />
         </Paper>
         {content}
         <div style={{height: 1}}></div>
