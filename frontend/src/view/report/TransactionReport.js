@@ -7,6 +7,9 @@ import { getCurrencyFormatter } from '../../util/currency';
 import { setTransferId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import CheckBoxIcon from '@material-ui/icons/CheckBox';
+import CheckBoxOutlineBlankIcon
+  from '@material-ui/icons/CheckBoxOutlineBlank';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -14,6 +17,7 @@ import React from 'react';
 import Require from '../../util/Require';
 import TransactionReportForm from './TransactionReportForm';
 import Typography from '@material-ui/core/Typography';
+import { FormattedDate } from 'react-intl';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
 
 
@@ -22,7 +26,7 @@ const tableWidth = 800;
 
 const styles = {
   root: {
-    fontSize: '1.0rem',
+    fontSize: '0.9rem',
     padding: '0 16px',
   },
   formPaper: {
@@ -46,10 +50,37 @@ const styles = {
     padding: '4px 8px',
     fontWeight: 'normal',
     backgroundColor: '#ddd',
+    textAlign: 'center',
   },
-  amountCell: {
-    textAlign: 'right',
+  subtitleCell: {
     padding: '4px 8px',
+    fontWeight: 'normal',
+    backgroundColor: '#eee',
+    textAlign: 'center',
+  },
+  activityHeadCell: {
+    fontWeight: 'normal',
+    textAlign: 'center',
+  },
+  groupEndCell: {
+    borderRight: '4px solid #bbb',
+  },
+  textCell: {
+    padding: '2px 8px',
+    fontWeight: 'normal',
+    textAlign: 'left',
+  },
+  numberCell: {
+    padding: '2px 8px',
+    textAlign: 'right',
+  },
+  totalCell: {
+    padding: '2px 8px',
+    fontWeight: 'bold',
+  },
+  checkCell: {
+    textAlign: 'center',
+    paddingTop: '4px',
   },
 };
 
@@ -63,6 +94,7 @@ class TransactionReport extends React.Component {
     report: PropTypes.object,
     loading: PropTypes.bool,
     file: PropTypes.object,
+    ploop: PropTypes.object,
     shownRecoTypes: PropTypes.object,
     rowsPerPage: PropTypes.number,
   };
@@ -79,6 +111,190 @@ class TransactionReport extends React.Component {
       this.props.dispatch(setTransferId(tid));
       this.props.history.push(`/t/${tid}`);
     }
+  }
+
+  renderBody(records, totals, subtitle) {
+    const {
+      classes,
+      ploop,
+    } = this.props;
+
+    const {
+      cell,
+      groupEndCell,
+      totalCell,
+    } = classes;
+
+    const txtCell = `${cell} ${classes.textCell}`;
+    const numCell = `${cell} ${classes.numberCell}`;
+    const chkCell = `${cell} ${classes.checkCell}`;
+    const txtGroupEndCell = `${txtCell} ${groupEndCell}`;
+    const numGroupEndCell = `${numCell} ${groupEndCell}`;
+    const activityHeadCell = `${cell} ${classes.activityHeadCell}`;
+
+    const rows = [];
+    if (!records || !records.length) {
+      rows.push(
+        <tr key="empty1">
+          <td className={txtCell} colSpan="7">
+            <em>No entries.</em>
+          </td>
+        </tr>
+      );
+      rows.push(
+        <tr key="empty2">
+          <td className={txtCell} colSpan="7">
+            &nbsp;
+          </td>
+        </tr>
+      );
+
+    } else {
+
+      const fmt = getCurrencyFormatter(ploop.currency);
+
+      rows.push(
+        <tr key="activityHead1">
+          <th className={`${activityHeadCell} ${groupEndCell}`} colSpan="2">
+            Account Activity
+          </th>
+          <th className={`${activityHeadCell} ${groupEndCell}`} colSpan="4">
+            Note Activity
+          </th>
+          <th className={activityHeadCell}>
+          </th>
+        </tr>
+      );
+      rows.push(
+        <tr key="activityHead2">
+          <th className={txtCell}>
+            Date
+          </th>
+          <th className={`${txtCell} ${groupEndCell}`}>
+            Amount
+          </th>
+          <th className={txtCell}>
+            Date
+          </th>
+          <th className={txtCell}>
+            Amount
+          </th>
+          <th className={txtCell}>
+            Type
+          </th>
+          <th className={`${txtCell} ${groupEndCell}`}>
+            Transfer
+          </th>
+          <th className={txtCell}>
+            Reconciled
+          </th>
+        </tr>
+      );
+
+      records.forEach((record, index) => {
+
+        const tid = record.transfer_id ? dashed(record.transfer_id) : null;
+        let transferLink = null;
+        if (tid) {
+          transferLink = (
+            <a href={`/t/${record.transfer_id}`}
+              onClick={this.binder1(this.handleClickTransfer, tid)}
+            >{tid}</a>
+          );
+        }
+
+        let recoContent;
+        if (record.reco_id !== null) {
+          recoContent = <CheckBoxIcon />;
+        } else {
+          recoContent = <CheckBoxOutlineBlankIcon />;
+        }
+
+        rows.push(
+          <tr key={index}>
+            <td className={txtCell}>
+              {record.entry_date ? <FormattedDate value={record.entry_date} />
+                : null}
+            </td>
+            <td className={numGroupEndCell}>
+              {record.account_delta ? fmt(record.account_delta) : null}
+            </td>
+            <td className={txtCell}>
+              {record.ts ? <FormattedDate value={record.ts} />
+                : null}
+            </td>
+            <td className={numCell}>
+              {record.delta ? fmt(record.delta) : null}
+            </td>
+            <td className={txtCell}>
+              {record.workflow_type ?
+                (wfTypeTitles[record.workflow_type] || record.workflow_type)
+                : null}
+            </td>
+            <td className={txtGroupEndCell}>
+              {transferLink}
+            </td>
+            <td className={chkCell}>
+              {recoContent}
+            </td>
+          </tr>
+        );
+      });
+
+      rows.push(
+        <tr key="total">
+          <td className={`${cell} ${totalCell}`}>
+            Total
+          </td>
+          <td className={`${numCell} ${totalCell} ${groupEndCell}`}>
+            {fmt(totals.account_delta)}
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={`${numCell} ${totalCell}`}>
+            {fmt(totals.delta)}
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={`${txtCell} ${groupEndCell}`}>
+          </td>
+          <td className={txtCell}>
+          </td>
+        </tr>
+      );
+
+      rows.push(
+        <tr key="spacer">
+          <td className={txtCell}>
+            &nbsp;
+          </td>
+          <td className={`${txtCell} ${groupEndCell}`}>
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={`${txtCell} ${groupEndCell}`}>
+          </td>
+          <td className={txtCell}>
+          </td>
+        </tr>
+      );
+
+    }
+
+    return (
+      <tbody>
+        <tr>
+          <th colSpan="7"
+            className={`${cell} ${classes.subtitleCell}`}
+          >{subtitle}</th>
+        </tr>
+        {rows}
+      </tbody>
+    );
   }
 
   render() {
@@ -107,7 +323,7 @@ class TransactionReport extends React.Component {
             <thead>
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`}
-                  colSpan="2"
+                  colSpan="7"
                 >
                   {peer_title} Transaction Report
                   <div>
@@ -118,8 +334,14 @@ class TransactionReport extends React.Component {
                 </th>
               </tr>
             </thead>
-            <tbody>
-            </tbody>
+            {this.renderBody(
+              report.inc_records,
+              report.inc_totals,
+              'Deposits (increase account balance)')}
+            {this.renderBody(
+              report.dec_records,
+              report.dec_totals,
+              'Withdrawals (decrease account balance)')}
           </table>
         </Paper>
       );

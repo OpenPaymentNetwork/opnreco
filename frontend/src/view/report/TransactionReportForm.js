@@ -29,17 +29,18 @@ const styles = {
     justifyContent: 'flex-end',
   },
   formControl: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     margin: '0 16px',
     cursor: 'default',
   },
   formLabel: {
-    fontSize: '1rem',
+    fontSize: '0.9rem',
   },
   rowsPerPage: {
     marginLeft: '8px',
   },
   rowsPerPageSelect: {
+    fontSize: '0.9rem',
     paddingRight: '24px',
   },
 };

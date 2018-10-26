@@ -29,7 +29,7 @@ const tableWidth = 1600;
 
 const styles = {
   root: {
-    fontSize: '1.0rem',
+    fontSize: '0.9rem',
     padding: '0 16px',
   },
   searchIconBox: {
@@ -79,21 +79,6 @@ const styles = {
   },
   detailButton: {
     margin: '8px',
-  },
-  labelCell: {
-    border: solidBorder,
-    padding: '2px 8px',
-  },
-  numberCell: {
-    padding: '2px 8px',
-    textAlign: 'right',
-  },
-  textCell: {
-    padding: '2px 8px',
-  },
-  checkCell: {
-    textAlign: 'center',
-    paddingTop: '4px',
   },
 };
 

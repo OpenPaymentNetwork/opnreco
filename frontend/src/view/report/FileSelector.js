@@ -33,6 +33,9 @@ const styles = theme => ({
   },
   fileSelect: {
   },
+  selectRoot: {
+    fontSize: '0.9rem',
+  },
 });
 
 const ploopsURL = fOPNReport.pathToURL('/ploops');
@@ -169,6 +172,7 @@ class FileSelector extends React.Component {
           <FormControl>
             <Select
               className={classes.ploopSelect}
+              classes={{root: classes.selectRoot}}
               value={ploopValue}
               onChange={this.binder(this.handlePloopChange)}
               inputProps={{
@@ -183,6 +187,7 @@ class FileSelector extends React.Component {
           <FormControl>
             <Select
               className={classes.fileSelect}
+              classes={{root: classes.selectRoot}}
               value={fileValue}
               onChange={this.binder(this.handleFileChange)}
               inputProps={{

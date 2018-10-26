@@ -65,7 +65,7 @@ def transactions_view(request):
             movement_cte.c.id.label('movement_id'),
             movement_cte.c.ts,
             movement_cte.c.reco_id,
-            movement_cte.c.delta,
+            (-movement_cte.c.delta).label('delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
@@ -91,7 +91,7 @@ def transactions_view(request):
             movement_cte.c.id.label('movement_id'),
             movement_cte.c.ts,
             movement_cte.c.reco_id,
-            movement_cte.c.delta,
+            (-movement_cte.c.delta).label('delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
@@ -125,4 +125,55 @@ def transactions_view(request):
         .limit(limit)
         .all())
 
-    return {'rowcount': rowcount}
+    inc_records = []
+    inc_totals = {'account_delta': zero, 'delta': zero}
+    dec_records = []
+    dec_totals = {'account_delta': zero, 'delta': zero}
+
+    for row in rows:
+        account_delta = row.account_delta
+        delta = row.delta
+        inc = None
+        if account_delta is not None:
+            if account_delta > zero:
+                inc = True
+            elif account_delta < zero:
+                inc = False
+        elif delta is not None:
+            if delta > zero:
+                inc = True
+            elif delta < zero:
+                inc = False
+
+        if inc is not None:
+            record = {
+                'account_entry_id': row.account_entry_id,
+                'entry_date': row.entry_date,
+                'account_delta': account_delta,
+                'movement_id': row.movement_id,
+                'ts': row.ts,
+                'reco_id': row.reco_id,
+                'delta': delta,
+                'workflow_type': row.workflow_type,
+                'transfer_id': row.transfer_id,
+            }
+            if inc:
+                inc_records.append(record)
+                if account_delta is not None:
+                    inc_totals['account_delta'] += account_delta
+                if delta is not None:
+                    inc_totals['delta'] += delta
+            else:
+                dec_records.append(record)
+                if account_delta is not None:
+                    dec_totals['account_delta'] += account_delta
+                if delta is not None:
+                    dec_totals['delta'] += delta
+
+    return {
+        'rowcount': rowcount,
+        'inc_records': inc_records,
+        'inc_totals': inc_totals,
+        'dec_records': dec_records,
+        'dec_totals': dec_totals,
+    }
