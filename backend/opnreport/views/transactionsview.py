@@ -10,6 +10,7 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import func
 from sqlalchemy import or_
+from sqlalchemy import case
 from sqlalchemy import cast
 from sqlalchemy import DateTime
 import re
@@ -114,10 +115,25 @@ def transactions_view(request):
         func.timezone('UTC', movement_cte.c.ts),
     ))
 
-    rowcount = (
-        dbsession.query(func.count(1))
-        .select_from(query.subquery())
-        .scalar())
+    q_cte = query.cte('q_cte')
+    inc_row = func.coalesce(q_cte.c.account_delta, q_cte.c.delta) > 0
+    dec_row = func.coalesce(q_cte.c.account_delta, q_cte.c.delta) < 0
+    totals_row = (
+        dbsession.query(
+            func.count(1).label('rowcount'),
+            func.sum(case([
+                (inc_row, q_cte.c.account_delta),
+            ], else_=0)).label('inc_account_delta'),
+            func.sum(case([
+                (dec_row, q_cte.c.account_delta),
+            ], else_=0)).label('dec_account_delta'),
+            func.sum(case([
+                (inc_row, q_cte.c.delta),
+            ], else_=0)).label('inc_delta'),
+            func.sum(case([
+                (dec_row, q_cte.c.delta),
+            ], else_=0)).label('dec_delta'),
+        ).one())
 
     rows = (
         query.order_by(time_expr)
@@ -133,17 +149,11 @@ def transactions_view(request):
     for row in rows:
         account_delta = row.account_delta
         delta = row.delta
-        inc = None
-        if account_delta is not None:
-            if account_delta > zero:
-                inc = True
-            elif account_delta < zero:
-                inc = False
-        elif delta is not None:
-            if delta > zero:
-                inc = True
-            elif delta < zero:
-                inc = False
+        d = (
+            account_delta if account_delta is not None
+            else delta if delta is not None
+            else zero)
+        inc = True if d > zero else False if d < zero else None
 
         if inc is not None:
             record = {
@@ -171,7 +181,7 @@ def transactions_view(request):
                     dec_totals['delta'] += delta
 
     return {
-        'rowcount': rowcount,
+        'rowcount': totals_row.rowcount,
         'inc_records': inc_records,
         'inc_totals': inc_totals,
         'dec_records': dec_records,
