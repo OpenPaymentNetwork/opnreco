@@ -379,8 +379,9 @@ class Reco(Base):
     __tablename__ = 'reco'
     id = Column(BigInteger, nullable=False, primary_key=True)
 
-    # auto is true if the reconciliation was generated automatically.
-    auto = Column(Boolean, nullable=False)
+    # internal is true if the reconciliation is a sequence of movements
+    # that don't require an account entry to balance.
+    internal = Column(Boolean, nullable=False)
 
 
 # all_metadata_defined must be at the end of the file. It signals that

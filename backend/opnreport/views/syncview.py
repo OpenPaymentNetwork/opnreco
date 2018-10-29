@@ -702,7 +702,7 @@ class SyncView:
                     "movement list for transfer %s: %s != %s" % (
                         record.transfer_id, wallet_total, -vault_total))
 
-            reco = Reco(auto=True)
+            reco = Reco(internal=True)
             dbsession.add(reco)
             dbsession.flush()
             reco_id = reco.id

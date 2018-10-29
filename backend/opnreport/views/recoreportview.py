@@ -48,8 +48,8 @@ def reco_report_view(request):
 
     # workflow_type_rows lists the workflow types of movements
     # involved in this file. Derive the list from the unreconciled
-    # movements and manually reconciled movements, but not from the
-    # automatically reconciled movements.
+    # movements and reconciled movements that require an account entry,
+    # but not from the internally reconciled movements.
     workflow_type_rows = (
         dbsession.query(
             func.sign(-movement_cte.c.delta).label('sign'),
@@ -60,7 +60,7 @@ def reco_report_view(request):
             movement_filter,
             or_(
                 movement_cte.c.reco_id == null,
-                ~Reco.auto,
+                ~Reco.internal,
             ))
         .group_by(
             func.sign(-movement_cte.c.delta),

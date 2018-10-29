@@ -95,7 +95,6 @@ class TransactionReport extends React.Component {
     loading: PropTypes.bool,
     file: PropTypes.object,
     ploop: PropTypes.object,
-    shownRecoTypes: PropTypes.object,
     rowsPerPage: PropTypes.number,
   };
 
@@ -378,26 +377,15 @@ function mapStateToProps(state, ownProps) {
 
   if (ploop) {
     const {
-      shownRecoTypes,
       rowsPerPage,
       pageIndex,
     } = state.report;
-
-    const recoTypesList = [];
-    Object.keys(shownRecoTypes).forEach((key) => {
-      if (shownRecoTypes[key]) {
-        recoTypesList.push(key);
-      }
-    });
-    recoTypesList.sort();
-    const recoTypesStr = recoTypesList.join(' ');
 
     const reportURL = fOPNReport.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
       `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
-      `&limit=${encodeURIComponent(rowsPerPage)}` +
-      `&reco_types=${encodeURIComponent(recoTypesStr)}`);
+      `&limit=${encodeURIComponent(rowsPerPage)}`);
     const report = fetchcache.get(state, reportURL);
     const loading = fetchcache.fetching(state, reportURL);
     const loadError = !!fetchcache.getError(state, reportURL);
@@ -407,7 +395,6 @@ function mapStateToProps(state, ownProps) {
       report,
       loading,
       loadError,
-      shownRecoTypes,
       rowsPerPage,
       pageIndex,
     };

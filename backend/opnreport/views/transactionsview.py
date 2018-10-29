@@ -39,16 +39,6 @@ def transactions_view(request):
         raise HTTPBadRequest(json_body={'error': 'limit required'})
     limit = min(max(int(limit_str), 1), 1000)
 
-    # reco_types is the list of reconciled movement types to include.
-    # Allows 'auto' and 'manual'.
-    reco_types = set(params.get('reco_types', 'manual').split())
-
-    reco_type_exprs = []
-    if 'manual' in reco_types:
-        reco_type_exprs.append(~Reco.auto)
-    if 'auto' in reco_types:
-        reco_type_exprs.append(Reco.auto)
-
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
@@ -78,7 +68,7 @@ def transactions_view(request):
         .filter(
             AccountEntry.file_id == file.id,
             AccountEntry.delta != 0,
-            or_(Reco.id == null, *reco_type_exprs),
+            or_(Reco.id == null, ~Reco.internal),
         )
     )
 
@@ -105,7 +95,7 @@ def transactions_view(request):
         .filter(
             AccountEntry.id == null,
             movement_cte.c.delta != 0,
-            or_(Reco.id == null, *reco_type_exprs),
+            or_(Reco.id == null, ~Reco.internal),
         )
     )
 
