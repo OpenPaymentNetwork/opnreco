@@ -3,6 +3,7 @@ from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
+from opnreport.models.db import now_func
 from opnreport.models.site import API
 from opnreport.param import get_request_file
 from opnreport.viewcommon import make_movement_cte
@@ -115,6 +116,7 @@ def transactions_view(request):
         total_cte.c.account_delta, total_cte.c.movement_delta) < 0
     totals_row = (
         dbsession.query(
+            now_func.label('now'),
             func.count(1).label('rowcount'),
             func.sum(case([
                 (inc_row, total_cte.c.account_delta),
@@ -194,6 +196,7 @@ def transactions_view(request):
             })
 
     return {
+        'now': totals_row.now,
         'rowcount': totals_row.rowcount,
         'all_shown': all_shown,
         'inc_records': inc_records,

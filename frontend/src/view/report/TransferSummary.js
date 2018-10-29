@@ -243,10 +243,12 @@ class TransferSummary extends React.Component {
               <td className={fieldNameCell}>
                 Start
               </td>
-              <td className={fieldValueCell}>
-                <FormattedDate value={record.start} />
+              <td className={fieldValueCell} title={record.start}>
+                <FormattedDate value={record.start}
+                  day="numeric" month="short" year="numeric" />
                 {' '}
-                <FormattedTime value={record.start} />
+                <FormattedTime value={record.start}
+                  hour="numeric" minute="2-digit" second="2-digit" />
                 {' '}
                 (<FormattedRelative value={record.start} />)
               </td>

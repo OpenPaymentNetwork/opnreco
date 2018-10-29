@@ -130,6 +130,7 @@ class TransactionReportForm extends React.Component {
               classes={{select: classes.rowsPerPageSelect}}
               onChange={this.binder(this.handleChangeRowsPerPage)}
             >
+              <MenuItem value="10">10</MenuItem>
               <MenuItem value="100">100</MenuItem>
               <MenuItem value="1000">1,000</MenuItem>
               <MenuItem value="10000">10,000</MenuItem>

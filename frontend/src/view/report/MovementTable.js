@@ -387,7 +387,7 @@ class MovementTable extends React.Component {
         recoContent = <CheckBoxOutlineBlankIcon />;
       }
 
-      const ts = new Date(ci.ts);
+      const ts = ci.ts;
 
       rows.push(
         <tr key={`circ_increase-${ciIndex}`}>
@@ -407,10 +407,12 @@ class MovementTable extends React.Component {
             <ProfileLink id={ci.issuer_id} profiles={record.peers} />
           </td>
           <td className={txtCell}></td>
-          <td className={txtCell}>
-            <FormattedDate value={ts} />
+          <td className={txtCell} title={ts}>
+            <FormattedDate value={ts}
+              day="numeric" month="short" year="numeric" />
             {' '}
-            <FormattedTime value={ts} />
+            <FormattedTime value={ts}
+              hour="numeric" minute="2-digit" second="2-digit" />
           </td>
           <td className={chkCell}>
             {recoContent}
@@ -633,12 +635,14 @@ class MovementTable extends React.Component {
           {movement.action}
         </td>);
 
-      const ts = new Date(movement.ts);
+      const ts = movement.ts;
       mvCells.push(
         <td key="ts" className={txtCell} title={movement.ts}>
-          <FormattedDate value={ts} />
+          <FormattedDate value={ts}
+            day="numeric" month="short" year="numeric" />
           {' '}
-          <FormattedTime value={ts} />
+          <FormattedTime value={ts}
+            hour="numeric" minute="2-digit" second="2-digit" />
         </td>);
 
       let recoContent = null;

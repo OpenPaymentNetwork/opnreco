@@ -1,6 +1,7 @@
 
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
+from opnreport.models.db import now_func
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
@@ -45,6 +46,8 @@ def reco_report_view(request):
             AccountEntry.file_id == file_id,
             AccountEntry.reco_id != null)
         .scalar()) or 0
+
+    now = dbsession.query(now_func).scalar()
 
     # workflow_type_rows lists the workflow types of movements
     # involved in this file. Derive the list from the unreconciled
@@ -129,6 +132,7 @@ def reco_report_view(request):
         row.delta for row in outstanding_rows)
 
     return {
+        'now': now,
         'file': serialize_file(file, peer, loop),
         'reconciled_balance': str(reconciled_balance),
         'outstanding_balance': str(outstanding_balance),

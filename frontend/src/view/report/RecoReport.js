@@ -15,6 +15,7 @@ import React from 'react';
 import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { FormattedDate } from 'react-intl';
 
 
 const styles = {
@@ -198,7 +199,6 @@ class RecoReport extends React.Component {
         const outstandingList = outstanding_map[sign][item.wfType];
         if (outstandingList) {
           outstandingList.forEach(movement => {
-            const date = new Date(movement.ts).toLocaleDateString();
             const tid = dashed(movement.transfer_id);
             res.push(
               <tr className={transferRowCN} key={movement.movement_id}>
@@ -206,7 +206,12 @@ class RecoReport extends React.Component {
                   <a href={`/t/${tid}`}
                     onClick={this.binder1(this.handleClickTransfer, tid)}
                   >
-                    Transfer {tid} ({date})
+                    Transfer {tid} (
+                    <span title={movement.ts}>
+                      <FormattedDate
+                        value={movement.ts}
+                        day="numeric" month="short" year="numeric" />)
+                    </span>
                   </a>
                 </td>
                 <td className={miniAmountCellCN}>
@@ -249,9 +254,15 @@ class RecoReport extends React.Component {
 
     let fileDate;
     if (file.end_date) {
-      fileDate = file.end_date;
+      fileDate = (
+        <FormattedDate value={file.end_date}
+          day="numeric" month="short" year="numeric" />);
     } else {
-      fileDate = (new Date()).toLocaleDateString() + ' (current)';
+      fileDate = (
+        <span title={recoReport.now}>
+          <FormattedDate value={recoReport.now}
+            day="numeric" month="short" year="numeric" /> (in progress)
+        </span>);
     }
 
     const {peer_title, currency} = file;

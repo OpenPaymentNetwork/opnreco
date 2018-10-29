@@ -209,14 +209,18 @@ class TransactionReport extends React.Component {
         rows.push(
           <tr key={index}>
             <td className={txtCell}>
-              {record.entry_date ? <FormattedDate value={record.entry_date} />
+              {record.entry_date ?
+                <FormattedDate value={record.entry_date}
+                  day="numeric" month="short" year="numeric" />
                 : null}
             </td>
             <td className={numGroupEndCell}>
               {record.account_delta ? fmt(record.account_delta) : null}
             </td>
-            <td className={txtCell}>
-              {record.ts ? <FormattedDate value={record.ts} />
+            <td className={txtCell} title={record.ts}>
+              {record.ts ?
+                <FormattedDate value={record.ts}
+                  day="numeric" month="short" year="numeric" />
                 : null}
             </td>
             <td className={numCell}>
@@ -330,9 +334,15 @@ class TransactionReport extends React.Component {
     if (report) {
       let fileDate;
       if (file.end_date) {
-        fileDate = file.end_date;
+        fileDate = (
+          <FormattedDate value={file.end_date}
+            day="numeric" month="short" year="numeric" />);
       } else {
-        fileDate = (new Date()).toLocaleDateString() + ' (current)';
+        fileDate = (
+          <span title={report.now}>
+            <FormattedDate value={report.now}
+              day="numeric" month="short" year="numeric" /> (in progress)
+          </span>);
       }
 
       const {peer_title, currency} = file;
