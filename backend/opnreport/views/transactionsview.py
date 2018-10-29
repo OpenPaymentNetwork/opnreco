@@ -46,7 +46,7 @@ def transactions_view(request):
     movement_cte = make_movement_cte(
         dbsession=dbsession, file=file, owner_id=owner_id)
 
-    # List all unreconciled account entries and some of the
+    # List all unreconciled account entries and the non-internal
     # reconciled account entries.
     query = (
         dbsession.query(
@@ -56,7 +56,7 @@ def transactions_view(request):
             movement_cte.c.id.label('movement_id'),
             movement_cte.c.ts,
             movement_cte.c.reco_id,
-            (-movement_cte.c.delta).label('delta'),
+            (-movement_cte.c.delta).label('movement_delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
@@ -73,7 +73,7 @@ def transactions_view(request):
     )
 
     # List all movements in the file not reconciled with account entries.
-    # Include some reconciled entries.
+    # Include non-internal reconciled entries.
     query = query.union(
         dbsession.query(
             AccountEntry.id.label('account_entry_id'),
@@ -82,7 +82,7 @@ def transactions_view(request):
             movement_cte.c.id.label('movement_id'),
             movement_cte.c.ts,
             movement_cte.c.reco_id,
-            (-movement_cte.c.delta).label('delta'),
+            (-movement_cte.c.delta).label('movement_delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
@@ -105,25 +105,35 @@ def transactions_view(request):
         func.timezone('UTC', movement_cte.c.ts),
     ))
 
-    q_cte = query.cte('q_cte')
-    inc_row = func.coalesce(q_cte.c.account_delta, q_cte.c.delta) > 0
-    dec_row = func.coalesce(q_cte.c.account_delta, q_cte.c.delta) < 0
+    total_cte = query.cte('total_cte')
+    inc_row = func.coalesce(
+        total_cte.c.account_delta, total_cte.c.movement_delta) > 0
+    dec_row = func.coalesce(
+        total_cte.c.account_delta, total_cte.c.movement_delta) < 0
     totals_row = (
         dbsession.query(
             func.count(1).label('rowcount'),
             func.sum(case([
-                (inc_row, q_cte.c.account_delta),
+                (inc_row, total_cte.c.account_delta),
             ], else_=0)).label('inc_account_delta'),
             func.sum(case([
-                (dec_row, q_cte.c.account_delta),
+                (dec_row, total_cte.c.account_delta),
             ], else_=0)).label('dec_account_delta'),
             func.sum(case([
-                (inc_row, q_cte.c.delta),
-            ], else_=0)).label('inc_delta'),
+                (inc_row, total_cte.c.movement_delta),
+            ], else_=0)).label('inc_movement_delta'),
             func.sum(case([
-                (dec_row, q_cte.c.delta),
-            ], else_=0)).label('dec_delta'),
+                (dec_row, total_cte.c.movement_delta),
+            ], else_=0)).label('dec_movement_delta'),
         ).one())
+    all_incs = {
+        'account_delta': totals_row.inc_account_delta or zero,
+        'movement_delta': totals_row.inc_movement_delta or zero,
+    }
+    all_decs = {
+        'account_delta': totals_row.dec_account_delta or zero,
+        'movement_delta': totals_row.dec_movement_delta or zero,
+    }
 
     rows = (
         query.order_by(time_expr)
@@ -132,16 +142,16 @@ def transactions_view(request):
         .all())
 
     inc_records = []
-    inc_totals = {'account_delta': zero, 'delta': zero}
+    page_incs = {'account_delta': zero, 'movement_delta': zero}
     dec_records = []
-    dec_totals = {'account_delta': zero, 'delta': zero}
+    page_decs = {'account_delta': zero, 'movement_delta': zero}
 
     for row in rows:
         account_delta = row.account_delta
-        delta = row.delta
+        movement_delta = row.movement_delta
         d = (
             account_delta if account_delta is not None
-            else delta if delta is not None
+            else movement_delta if movement_delta is not None
             else zero)
         inc = True if d > zero else False if d < zero else None
 
@@ -153,27 +163,45 @@ def transactions_view(request):
                 'movement_id': row.movement_id,
                 'ts': row.ts,
                 'reco_id': row.reco_id,
-                'delta': delta,
+                'movement_delta': movement_delta,
                 'workflow_type': row.workflow_type,
                 'transfer_id': row.transfer_id,
             }
             if inc:
                 inc_records.append(record)
                 if account_delta is not None:
-                    inc_totals['account_delta'] += account_delta
-                if delta is not None:
-                    inc_totals['delta'] += delta
+                    page_incs['account_delta'] += account_delta
+                if movement_delta is not None:
+                    page_incs['movement_delta'] += movement_delta
             else:
                 dec_records.append(record)
                 if account_delta is not None:
-                    dec_totals['account_delta'] += account_delta
-                if delta is not None:
-                    dec_totals['delta'] += delta
+                    page_decs['account_delta'] += account_delta
+                if movement_delta is not None:
+                    page_decs['movement_delta'] += movement_delta
+
+    all_shown = totals_row.rowcount == len(rows)
+    if all_shown:
+        # Double check the total calculations.
+        if page_incs != all_incs or page_decs != all_decs:
+            raise AssertionError("All rows shown but total mismatch. %s" % {
+                'page_incs': page_incs,
+                'all_incs': all_incs,
+                'page_decs': page_decs,
+                'all_decs': all_decs,
+            })
 
     return {
         'rowcount': totals_row.rowcount,
+        'all_shown': all_shown,
         'inc_records': inc_records,
-        'inc_totals': inc_totals,
+        'inc_totals': {
+            'page': page_incs,
+            'all': all_incs,
+        },
         'dec_records': dec_records,
-        'dec_totals': dec_totals,
+        'dec_totals': {
+            'page': page_decs,
+            'all': all_decs,
+        },
     }

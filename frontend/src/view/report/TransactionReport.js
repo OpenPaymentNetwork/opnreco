@@ -74,6 +74,10 @@ const styles = {
     padding: '2px 8px',
     textAlign: 'right',
   },
+  pageTotalCell: {
+    padding: '2px 8px',
+    color: '#777',
+  },
   totalCell: {
     padding: '2px 8px',
     fontWeight: 'bold',
@@ -116,11 +120,13 @@ class TransactionReport extends React.Component {
     const {
       classes,
       ploop,
+      report: {all_shown},
     } = this.props;
 
     const {
       cell,
       groupEndCell,
+      pageTotalCell,
       totalCell,
     } = classes;
 
@@ -130,6 +136,7 @@ class TransactionReport extends React.Component {
     const txtGroupEndCell = `${txtCell} ${groupEndCell}`;
     const numGroupEndCell = `${numCell} ${groupEndCell}`;
     const activityHeadCell = `${cell} ${classes.activityHeadCell}`;
+    const fmt = getCurrencyFormatter(ploop.currency);
 
     const rows = [];
     if (!records || !records.length) {
@@ -140,17 +147,7 @@ class TransactionReport extends React.Component {
           </td>
         </tr>
       );
-      rows.push(
-        <tr key="empty2">
-          <td className={txtCell} colSpan="7">
-            &nbsp;
-          </td>
-        </tr>
-      );
-
     } else {
-
-      const fmt = getCurrencyFormatter(ploop.currency);
 
       rows.push(
         <tr key="activityHead1">
@@ -223,7 +220,7 @@ class TransactionReport extends React.Component {
                 : null}
             </td>
             <td className={numCell}>
-              {record.delta ? fmt(record.delta) : null}
+              {record.movement_delta ? fmt(record.movement_delta) : null}
             </td>
             <td className={txtCell}>
               {record.workflow_type ?
@@ -240,49 +237,74 @@ class TransactionReport extends React.Component {
         );
       });
 
-      rows.push(
-        <tr key="total">
-          <td className={`${cell} ${totalCell}`}>
-            Total
-          </td>
-          <td className={`${numCell} ${totalCell} ${groupEndCell}`}>
-            {fmt(totals.account_delta)}
-          </td>
-          <td className={txtCell}>
-          </td>
-          <td className={`${numCell} ${totalCell}`}>
-            {fmt(totals.delta)}
-          </td>
-          <td className={txtCell}>
-          </td>
-          <td className={`${txtCell} ${groupEndCell}`}>
-          </td>
-          <td className={txtCell}>
-          </td>
-        </tr>
-      );
-
-      rows.push(
-        <tr key="spacer">
-          <td className={txtCell}>
-            &nbsp;
-          </td>
-          <td className={`${txtCell} ${groupEndCell}`}>
-          </td>
-          <td className={txtCell}>
-          </td>
-          <td className={txtCell}>
-          </td>
-          <td className={txtCell}>
-          </td>
-          <td className={`${txtCell} ${groupEndCell}`}>
-          </td>
-          <td className={txtCell}>
-          </td>
-        </tr>
-      );
-
     }
+
+    if (!all_shown) {
+      rows.push(
+        <tr key="pagetotal">
+          <td className={`${cell} ${pageTotalCell}`}>
+            Page Total
+          </td>
+          <td className={`${numCell} ${pageTotalCell} ${groupEndCell}`}>
+            {fmt(totals.page.account_delta)}
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={`${numCell} ${pageTotalCell}`}>
+            {fmt(totals.page.movement_delta)}
+          </td>
+          <td className={txtCell}>
+          </td>
+          <td className={`${txtCell} ${groupEndCell}`}>
+          </td>
+          <td className={txtCell}>
+          </td>
+        </tr>
+      );
+    }
+
+    rows.push(
+      <tr key="alltotal">
+        <td className={`${cell} ${totalCell}`}>
+          Total
+        </td>
+        <td className={`${numCell} ${totalCell} ${groupEndCell}`}>
+          {fmt(totals.all.account_delta)}
+        </td>
+        <td className={txtCell}>
+        </td>
+        <td className={`${numCell} ${totalCell}`}>
+          {fmt(totals.all.movement_delta)}
+        </td>
+        <td className={txtCell}>
+        </td>
+        <td className={`${txtCell} ${groupEndCell}`}>
+        </td>
+        <td className={txtCell}>
+        </td>
+      </tr>
+    );
+
+    rows.push(
+      <tr key="spacer">
+        <td className={txtCell}>
+          &nbsp;
+        </td>
+        <td className={`${txtCell} ${groupEndCell}`}>
+        </td>
+        <td className={txtCell}>
+        </td>
+        <td className={txtCell}>
+        </td>
+        <td className={txtCell}>
+        </td>
+        <td className={`${txtCell} ${groupEndCell}`}>
+        </td>
+        <td className={txtCell}>
+        </td>
+      </tr>
+    );
+
 
     return (
       <tbody>
