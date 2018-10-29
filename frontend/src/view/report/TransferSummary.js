@@ -13,6 +13,7 @@ import Button from '@material-ui/core/Button';
 import CancelIcon from '@material-ui/icons/Cancel';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import IconButton from '@material-ui/core/IconButton';
+import LayoutConfig from '../app/LayoutConfig';
 import MovementTable from './MovementTable';
 import Paper from '@material-ui/core/Paper';
 import ProfileLink from './ProfileLink';
@@ -314,6 +315,7 @@ class TransferSummary extends React.Component {
       // No transfer ID selected.
       return (
         <div className={classes.root}>
+          <LayoutConfig title="Transfer Summary" />
           {form}
         </div>
       );
@@ -368,6 +370,7 @@ class TransferSummary extends React.Component {
 
     return (
       <Typography className={classes.root} component="div">
+        <LayoutConfig title={`Transfer ${transferId} Summary`} />
         {require}
         {form}
         {content}

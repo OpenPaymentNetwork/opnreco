@@ -1,10 +1,11 @@
 
-import About from '../about';
+import Settings from './Settings';
 import Home from '../home/Home';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
 import LoginView from '../login/LoginView';
 import LogoutDialog from './LogoutDialog';
+import NotFound from './NotFound';
 import OAuth2CallbackView from '../login/OAuth2CallbackView';
 import OPNDrawer from './OPNDrawer';
 import PropTypes from 'prop-types';
@@ -19,7 +20,7 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 
 
-/* From https://material.io/tools/color/#!/
+/* Theme based on https://material.io/tools/color/#!/
    ?view.left=0&view.right=0&primary.color=1B5E20&secondary.color=FDD835
 */
 const customTheme = createMuiTheme({
@@ -51,8 +52,6 @@ const styles = theme => ({
   belowAppBar: {
     flexGrow: 1,
     backgroundColor: theme.palette.background.default,
-  },
-  main: {
   },
 });
 
@@ -87,9 +86,10 @@ class App extends React.Component {
             <OPNDrawer />
             <main className={classes.main}>
               <Switch>
-                <Route path="/about-us" component={About} />
+                <Route path="/settings" component={Settings} />
                 <Route path="/:tab(t)/:transferId" component={Home} />
                 <Route path="/:tab(|reco|transactions|liabilities|t)" component={Home} />
+                <Route component={NotFound} />
               </Switch>
             </main>
           </div>

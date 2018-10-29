@@ -1,5 +1,5 @@
 
-// Fetcher for OPN and OPN Reports services.
+// Fetcher for OPN and OPNReport services.
 
 /* global process: false */
 

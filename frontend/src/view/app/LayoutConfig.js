@@ -15,6 +15,9 @@ class LayoutConfig extends React.Component {
   componentDidMount() {
     const { dispatch, ...layout } = this.props;
     dispatch(setLayout(layout));
+    if (layout.title) {
+      document.title = layout.title;
+    }
   }
 
   render() {

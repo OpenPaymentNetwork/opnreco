@@ -8,7 +8,6 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Hidden from '@material-ui/core/Hidden';
 import IconButton from '@material-ui/core/IconButton';
-import LayoutConfig from '../app/LayoutConfig';
 import MenuIcon from '@material-ui/icons/Menu';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -118,7 +117,6 @@ class Home extends React.Component {
 
     return (
       <div className={classes.root}>
-        <LayoutConfig title="OPN Reports" />
 
         <div className={classes.topLine}>
 

@@ -5,10 +5,12 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut } from '../../reducer/app';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
+import Folder from '@material-ui/icons/Folder';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
@@ -16,14 +18,16 @@ import ListItemText from '@material-ui/core/ListItemText';
 import ProfileSelector from './ProfileSelector';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Settings from '@material-ui/icons/Settings';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
+import TableChart from '@material-ui/icons/TableChart';
 
 
 /* global process: false */
 
 
-const drawerWidth = 240;
+const drawerWidth = 300;
 
 const styles = theme => ({
   drawerPaper: {
@@ -50,6 +54,7 @@ class OPNDrawer extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     drawerOpen: PropTypes.bool,
+    history: PropTypes.object.isRequired,
     syncedAt: PropTypes.any,
     syncProgress: PropTypes.any,
   };
@@ -170,6 +175,21 @@ class OPNDrawer extends React.Component {
     this.props.dispatch(closeDrawer());
   }
 
+  handleReports() {
+    this.props.dispatch(closeDrawer());
+    this.props.history.push('/');
+  }
+
+  handleFiles() {
+    this.props.dispatch(closeDrawer());
+    this.props.history.push('/files');
+  }
+
+  handleSettings() {
+    this.props.dispatch(closeDrawer());
+    this.props.history.push('/settings');
+  }
+
   renderContent() {
     const {classes} = this.props;
     const syncUI = this.getSyncUI();
@@ -184,6 +204,31 @@ class OPNDrawer extends React.Component {
       </div>
       <Divider style={{marginTop: -1}} />
       <List component="nav">
+
+        <ListItem
+          button
+          onClick={this.binder(this.handleReports)}
+        >
+          <ListItemIcon><TableChart/></ListItemIcon>
+          <ListItemText primary="Reports" />
+        </ListItem>
+
+        <ListItem
+          button
+          onClick={this.binder(this.handleFiles)}
+        >
+          <ListItemIcon><Folder/></ListItemIcon>
+          <ListItemText primary="Files" />
+        </ListItem>
+
+        <ListItem
+          button
+          onClick={this.binder(this.handleSettings)}
+        >
+          <ListItemIcon><Settings/></ListItemIcon>
+          <ListItemText primary="Settings" />
+        </ListItem>
+
         <ListItem
           button
           onClick={this.binder(this.handleSync)}
@@ -248,5 +293,6 @@ function mapStateToProps(state) {
 
 export default compose(
   withStyles(styles, {withTheme: true}),
+  withRouter,
   connect(mapStateToProps),
 )(OPNDrawer);

@@ -9,6 +9,7 @@ import { setTransferId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import LayoutConfig from '../app/LayoutConfig';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -234,7 +235,11 @@ class RecoReport extends React.Component {
       return null;
     }
 
-    const require = <Require fetcher={fOPNReport} urls={[recoReportURL]} />;
+    const require = (
+      <div>
+        <LayoutConfig title="Reconciliation Report" />
+        <Require fetcher={fOPNReport} urls={[recoReportURL]} />
+      </div>);
 
     if (!recoReport) {
       if (loading) {

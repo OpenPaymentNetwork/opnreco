@@ -11,6 +11,7 @@ import CheckBoxIcon from '@material-ui/icons/CheckBox';
 import CheckBoxOutlineBlankIcon
   from '@material-ui/icons/CheckBoxOutlineBlank';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import LayoutConfig from '../app/LayoutConfig';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -392,6 +393,7 @@ class TransactionReport extends React.Component {
 
     return (
       <Typography className={classes.root} component="div">
+        <LayoutConfig title="Transactions Report" />
         <Require fetcher={fOPNReport} urls={[reportURL]} />
         <Paper className={classes.formPaper}>
           <TransactionReportForm rowcount={rowcount} />
