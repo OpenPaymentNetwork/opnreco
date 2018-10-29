@@ -58,7 +58,9 @@ class TransactionReportForm extends React.Component {
   }
 
   handleChangeRowsPerPage(event) {
-    this.props.dispatch(setRowsPerPage(parseInt(event.target.value, 10)));
+    const value = event.target.value;
+    const rowsPerPage = (value === 'none' ? null : parseInt(value, 10));
+    this.props.dispatch(setRowsPerPage(rowsPerPage));
   }
 
   handleNavFirst() {
@@ -94,19 +96,27 @@ class TransactionReportForm extends React.Component {
     let rowsInfo;
 
     if (rowcount && rowcount > 0) {
-      rowsInfo = (
-        <span className={formLabel}>
-          {Math.min(rowcount, (rowsPerPage * pageIndex) + 1)}-
-          {Math.min(rowcount, rowsPerPage * (pageIndex + 1))} of {rowcount}
-        </span>
-      );
-
+      if (!rowsPerPage) {
+        rowsInfo = (
+          <span className={formLabel}>
+            1-{rowcount} of {rowcount}
+          </span>
+        );
+      } else {
+        rowsInfo = (
+          <span className={formLabel}>
+            {Math.min(rowcount, (rowsPerPage * pageIndex) + 1)}-
+            {Math.min(rowcount, rowsPerPage * (pageIndex + 1))} of {rowcount}
+          </span>
+        );
+      }
     } else {
       rowsInfo = <span className={formLabel}>0-0 of 0</span>;
     }
 
-    const navPrev = rowcount && (pageIndex > 0);
-    const navNext = rowcount && ((pageIndex + 1) * rowsPerPage < rowcount);
+    const navPrev = rowsPerPage && rowcount && (pageIndex > 0);
+    const navNext = (
+      rowsPerPage && rowcount && ((pageIndex + 1) * rowsPerPage < rowcount));
 
     return (
       <div className={classes.root}>
@@ -114,15 +124,16 @@ class TransactionReportForm extends React.Component {
         <FormControlLabel
           className={formControl}
           control={
-            <Select value={String(rowsPerPage)} disableUnderline
+            <Select value={rowsPerPage ? String(rowsPerPage) : 'none'}
+              disableUnderline
               className={classes.rowsPerPage}
               classes={{select: classes.rowsPerPageSelect}}
               onChange={this.binder(this.handleChangeRowsPerPage)}
             >
-              <MenuItem value="2">2</MenuItem>
-              <MenuItem value="10">10</MenuItem>
               <MenuItem value="100">100</MenuItem>
-              <MenuItem value="1000">1000</MenuItem>
+              <MenuItem value="1000">1,000</MenuItem>
+              <MenuItem value="10000">10,000</MenuItem>
+              <MenuItem value="none">All</MenuItem>
             </Select>
           }
           label={<span className={formLabel}>Rows per page:</span>}

@@ -35,9 +35,12 @@ def transactions_view(request):
     offset = max(int(offset_str), 0)
 
     limit_str = params.get('limit', '')
-    if not re.match(r'^[0-9]+$', limit_str):
-        raise HTTPBadRequest(json_body={'error': 'limit required'})
-    limit = min(max(int(limit_str), 1), 1000)
+    if limit_str == 'none':
+        limit = None
+    else:
+        if not re.match(r'^[0-9]+$', limit_str):
+            raise HTTPBadRequest(json_body={'error': 'limit required'})
+        limit = max(int(limit_str), 0)
 
     dbsession = request.dbsession
     owner = request.owner
@@ -135,11 +138,10 @@ def transactions_view(request):
         'movement_delta': totals_row.dec_movement_delta or zero,
     }
 
-    rows = (
-        query.order_by(time_expr)
-        .offset(offset)
-        .limit(limit)
-        .all())
+    rows_query = query.order_by(time_expr).offset(offset)
+    if limit is not None:
+        rows_query = rows_query.limit(limit)
+    rows = rows_query.all()
 
     inc_records = []
     page_incs = {'account_delta': zero, 'movement_delta': zero}

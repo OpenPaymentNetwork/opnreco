@@ -10,7 +10,7 @@ const initialState = {
   ploopKey: null,
   fileId: null,
   // rowsPerPage and pageIndex are for the Transactions report.
-  rowsPerPage: 100,
+  rowsPerPage: 100,  // May be null
   pageIndex: 0,
 };
 
