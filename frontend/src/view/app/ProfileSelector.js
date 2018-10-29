@@ -17,12 +17,22 @@ import Select from '@material-ui/core/Select';
 
 const styles = {
   root: {
-    width: '100%',
     display: 'flex',
+    padding: '0 8px',
   },
   select: {
+    color: '#fff',
     flexGrow: '1',
     width: '100%',
+  },
+  selectInSelect: {
+    // Work around https://github.com/mui-org/material-ui/issues/13262
+    '&:-moz-focusring': {
+      color: '#fff',
+    },
+  },
+  iconInSelect: {
+    color: '#fff',
   },
   spinner: {
     paddingRight: '16px',
@@ -83,7 +93,7 @@ class ProfileSelector extends React.Component {
     if (selectingId) {
       spinner = (
         <div className={classes.spinner}>
-          <CircularProgress size={24} />
+          <CircularProgress size={24} color="secondary" />
         </div>
       );
     } else {
@@ -98,6 +108,12 @@ class ProfileSelector extends React.Component {
           value={selectingId || profileId}
           onChange={this.binder(this.handleSelect)}
           className={classes.select}
+          classes={{
+            select: classes.selectInSelect,
+            icon: classes.iconInSelect,
+          }}
+          inputProps={{classes: {root: classes.selectInput}}}
+          disableUnderline
         >
           {profiles.map(p => {
             let title = p.title;

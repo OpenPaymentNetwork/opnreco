@@ -3,10 +3,13 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Hidden from '@material-ui/core/Hidden';
+import IconButton from '@material-ui/core/IconButton';
 import LayoutConfig from '../app/LayoutConfig';
+import MenuIcon from '@material-ui/icons/Menu';
 import PropTypes from 'prop-types';
 import React from 'react';
 import FileSelector from '../report/FileSelector';
@@ -19,12 +22,15 @@ const styles = theme => ({
   root: {
   },
   topLine: {
-    [theme.breakpoints.up('lg')]: {
+    [theme.breakpoints.up('md')]: {
       display: 'flex',
       alignItems: 'flex-end',
     },
-    backgroundColor: theme.palette.primary.light,
+    backgroundColor: theme.palette.primary.main,
     color: '#fff',
+    paddingLeft: 32,
+    minHeight: '94px',
+    position: 'relative',
   },
   fileSelectorBox: {
     padding: 16,
@@ -32,12 +38,19 @@ const styles = theme => ({
   tabs: {
     flexGrow: '1',
   },
+  menuButton: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    color: '#fff',
+  },
 });
 
 
 class Home extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
     ploop: PropTypes.object,
@@ -48,6 +61,10 @@ class Home extends React.Component {
   constructor(props) {
     super(props);
     this.binder = binder(this);
+  }
+
+  handleToggleDrawer() {
+    this.props.dispatch(toggleDrawer());
   }
 
   handleTabChange(event, value) {
@@ -88,8 +105,6 @@ class Home extends React.Component {
           onClick={this.binder(this.handleTabClick)} />
         <Tab value="transactions" label="Transactions" href="/transactions"
           onClick={this.binder(this.handleTabClick)} />
-        <Tab value="liabilities" label="Liabilities" href="/liabilities"
-          onClick={this.binder(this.handleTabClick)} />
         <Tab value="t" label="Transfer Summary" href={transferPath}
           onClick={this.binder(this.handleTabClick)} />
       </Tabs>
@@ -107,12 +122,21 @@ class Home extends React.Component {
 
         <div className={classes.topLine}>
 
-          <Hidden lgUp>
+          <IconButton
+            className={classes.menuButton}
+            color="inherit"
+            aria-label="Menu"
+            onClick={this.binder(this.handleToggleDrawer)}
+          >
+            <MenuIcon />
+          </IconButton>
+
+          <Hidden mdUp>
             {filterBox}
             {tabs}
           </Hidden>
 
-          <Hidden mdDown>
+          <Hidden smDown>
             {tabs}
             {filterBox}
           </Hidden>

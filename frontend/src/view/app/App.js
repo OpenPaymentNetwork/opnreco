@@ -6,7 +6,6 @@ import LoginRedirect from '../login/LoginRedirect';
 import LoginView from '../login/LoginView';
 import LogoutDialog from './LogoutDialog';
 import OAuth2CallbackView from '../login/OAuth2CallbackView';
-import OPNAppBar from './OPNAppBar';
 import OPNDrawer from './OPNDrawer';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -37,6 +36,9 @@ const customTheme = createMuiTheme({
       dark: '#c6a700',
       contrastText: '#000',
     },
+  },
+  typography: {
+    useNextVariants: true,
   },
 });
 
@@ -81,7 +83,6 @@ class App extends React.Component {
     return (
       <MuiThemeProvider theme={customTheme}>
         <div className={classes.root}>
-          <OPNAppBar />
           <div className={classes.belowAppBar}>
             <OPNDrawer />
             <main className={classes.main}>

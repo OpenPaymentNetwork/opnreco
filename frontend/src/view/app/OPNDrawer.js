@@ -18,7 +18,6 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
-import Toolbar from '@material-ui/core/Toolbar';
 
 
 /* global process: false */
@@ -26,11 +25,21 @@ import Toolbar from '@material-ui/core/Toolbar';
 
 const drawerWidth = 240;
 
-const styles = {
+const styles = theme => ({
   drawerPaper: {
     width: drawerWidth,
   },
-};
+  top: {
+    backgroundColor: theme.palette.primary.main,
+    color: '#fff',
+    height: '94px',
+  },
+  appTitle: {
+    fontWeight: 'bold',
+    padding: '16px',
+    textAlign: 'center',
+  },
+});
 
 
 const iOS = process.browser && /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -162,11 +171,17 @@ class OPNDrawer extends React.Component {
   }
 
   renderContent() {
+    const {classes} = this.props;
     const syncUI = this.getSyncUI();
     return (<div>
-      <Toolbar>
-        <ProfileSelector />
-      </Toolbar>
+      <div className={classes.top}>
+        <div className={classes.appTitle}>
+          OPN Reconciliation
+        </div>
+        <div className={classes.profileSelector}>
+          <ProfileSelector />
+        </div>
+      </div>
       <Divider style={{marginTop: -1}} />
       <List component="nav">
         <ListItem
@@ -232,6 +247,6 @@ function mapStateToProps(state) {
 }
 
 export default compose(
-  withStyles(styles),
+  withStyles(styles, {withTheme: true}),
   connect(mapStateToProps),
 )(OPNDrawer);

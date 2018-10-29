@@ -16,7 +16,7 @@ import Select from '@material-ui/core/Select';
 
 const styles = theme => ({
   root: {
-    [theme.breakpoints.up('lg')]: {
+    [theme.breakpoints.up('md')]: {
       display: 'flex',
       justifyContent: 'flex-end',
       alignItems: 'flex-start',
@@ -27,8 +27,11 @@ const styles = theme => ({
     padding: 16,
   },
   ploopSelect: {
+    [theme.breakpoints.up('md')]: {
+      width: 250,
+    },
     [theme.breakpoints.up('lg')]: {
-      minWidth: 400,
+      width: 400,
     },
   },
   fileSelect: {
