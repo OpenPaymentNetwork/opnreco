@@ -1,5 +1,5 @@
 
-import Settings from './Settings';
+import Settings from '../settings/Settings';
 import Home from '../home/Home';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';

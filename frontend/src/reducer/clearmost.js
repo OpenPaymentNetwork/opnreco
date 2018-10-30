@@ -10,3 +10,9 @@ export function clearMost() {
   const keep = (url) => (url === selectableURL);
   return fetchcache.invalidate(keep);
 }
+
+/** Keep everything but re-fetch it all when required.
+ */
+export function refetchAll() {
+  return fetchcache.invalidate(() => true);
+}
