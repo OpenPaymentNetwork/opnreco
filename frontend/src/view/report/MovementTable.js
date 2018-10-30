@@ -7,11 +7,9 @@ import {
 } from '../../util/currency';
 import AccountBalance from '@material-ui/icons/AccountBalance';
 import AccountBalanceWallet from '@material-ui/icons/AccountBalanceWallet';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
-import CheckBoxOutlineBlankIcon
-  from '@material-ui/icons/CheckBoxOutlineBlank';
 import ProfileLink from './ProfileLink';
 import PropTypes from 'prop-types';
+import RecoCheckBox from './RecoCheckBox';
 import React from 'react';
 import StarIcon from '@material-ui/icons/Star';
 import VaultIcon from './Vault';
@@ -347,6 +345,7 @@ class MovementTable extends React.Component {
     const {
       classes,
       record,
+      dispatch,
     } = this.props;
 
     const {
@@ -376,16 +375,10 @@ class MovementTable extends React.Component {
 
     circ_replenishments.forEach((ci, ciIndex) => {
       const {
+        movement_id,
         loop_id,
         reco_id,
       } = ci;
-
-      let recoContent;
-      if (reco_id !== null) {
-        recoContent = <CheckBoxIcon />;
-      } else {
-        recoContent = <CheckBoxOutlineBlankIcon />;
-      }
 
       const ts = ci.ts;
 
@@ -415,7 +408,10 @@ class MovementTable extends React.Component {
               hour="numeric" minute="2-digit" second="2-digit" />
           </td>
           <td className={chkCell}>
-            {recoContent}
+            <RecoCheckBox
+              movementId={movement_id}
+              recoId={reco_id}
+              dispatch={dispatch} />
           </td>
         </tr>);
     });
@@ -535,6 +531,7 @@ class MovementTable extends React.Component {
     const {
       classes,
       record,
+      dispatch,
     } = this.props;
 
     const {
@@ -561,6 +558,7 @@ class MovementTable extends React.Component {
     movements.forEach((movement, index) => {
       const mvCells = [];
       const {
+        movement_id,
         loop_id,
         currency,
         amount,
@@ -647,11 +645,11 @@ class MovementTable extends React.Component {
 
       let recoContent = null;
       if (reco_applicable) {
-        if (reco_id !== null) {
-          recoContent = <CheckBoxIcon />;
-        } else {
-          recoContent = <CheckBoxOutlineBlankIcon />;
-        }
+        recoContent = (
+          <RecoCheckBox
+            movementId={movement_id}
+            recoId={reco_id}
+            dispatch={dispatch} />);
       }
       mvCells.push(
         <td key="reco" className={chkCell}>

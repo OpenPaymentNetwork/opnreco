@@ -77,7 +77,12 @@ class App extends React.Component {
       );
     }
 
-    const { classes, tokenRefresh, loggingOut, serverErrorOpen } = this.props;
+    const {
+      classes,
+      tokenRefresh,
+      loggingOut,
+      serverErrorOpen,
+    } = this.props;
 
     return (
       <MuiThemeProvider theme={customTheme}>
@@ -93,13 +98,13 @@ class App extends React.Component {
               </Switch>
             </main>
           </div>
-          <Linger enabled={!!tokenRefresh}>
+          <Linger enabled={tokenRefresh}>
             <TokenRefreshDialog />
           </Linger>
-          <Linger enabled={!!loggingOut}>
+          <Linger enabled={loggingOut}>
             <LogoutDialog />
           </Linger>
-          <Linger enabled={!!serverErrorOpen}>
+          <Linger enabled={serverErrorOpen}>
             <ServerErrorDialog />
           </Linger>
         </div>
@@ -110,15 +115,20 @@ class App extends React.Component {
 
 
 const mapStateToProps = (state) => {
-  const {loggingOut, serverError, serverErrorOpen, tokenRefresh} = state.app;
+  const {
+    loggingOut,
+    serverError,
+    serverErrorOpen,
+    tokenRefresh,
+  } = state.app;
   const {personalProfile, token} = state.login;
   return {
-    loggingOut: loggingOut,
+    loggingOut: !!loggingOut,
     personalTitle: personalProfile ? personalProfile.title : null,
     serverError: serverError,
-    serverErrorOpen: serverErrorOpen,
+    serverErrorOpen: !!serverErrorOpen,
     token: token,
-    tokenRefresh: tokenRefresh,
+    tokenRefresh: !!tokenRefresh,
   };
 };
 

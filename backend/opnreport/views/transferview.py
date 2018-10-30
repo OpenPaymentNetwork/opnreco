@@ -94,6 +94,8 @@ def transfer_record_view(context, request, complete=False):
 
     need_peer_ids = set()
     need_loop_ids = set()
+    # peer_appearance is used for sorting the peers by order of
+    # appearance in the transfer.
     # peer_appearance: {peer_id: [(movement_number, amount_index)]}
     peer_appearance = collections.defaultdict(list)
     to_or_from = set()  # set of peer_ids listed in to_id or from_id
@@ -189,6 +191,7 @@ def transfer_record_view(context, request, complete=False):
             is_circ_replenishment = True
 
     for movement in movement_rows:
+        movement_id = movement.id
         number = movement.number
         amount_index = movement.amount_index
         orig_peer_id = movement.orig_peer_id
@@ -211,20 +214,25 @@ def transfer_record_view(context, request, complete=False):
             if (movement.from_id == owner_id and
                     movement.to_id == record.recipient_id and
                     issuer_id != owner_id):
+                circ_reco_id = movement.circ_reco_id
                 circ_replenishments.append({
+                    'movement_id': str(movement_id),
                     'loop_id': loop_id,
                     'currency': currency,
                     'amount': str(movement.amount or '0'),
                     'issuer_id': issuer_id,
                     'ts': movement.ts.isoformat() + 'Z',
-                    'reco_id': movement.circ_reco_id,
+                    'reco_id': (
+                        None if circ_reco_id is None else str(circ_reco_id)),
                 })
                 delta_totals[(currency, loop_id)]['circ'] += movement.amount
                 # The movement from the wallet does not apply to
                 # circulation account statements.
                 reco_applicable = False
 
+        reco_id = movement.reco_id
         movements_json.append({
+            'movement_id': str(movement_id),
             'number': number,
             'amount_index': amount_index,
             'peer_id': orig_peer_id,
@@ -240,7 +248,7 @@ def transfer_record_view(context, request, complete=False):
             'vault_delta': str(vault_delta or '0'),
             'circ_delta': str(-vault_delta or '0'),
             'reco_applicable': not not reco_applicable,
-            'reco_id': movement.reco_id,
+            'reco_id': None if reco_id is None else str(reco_id),
         })
 
         if vault_delta:

@@ -23,7 +23,7 @@ const styles = {
 };
 
 
-class CircAccountSettings extends React.Component {
+class CircAccountsCard extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -117,7 +117,7 @@ class CircAccountSettings extends React.Component {
     }
 
     return (
-      <Card key="circAccounts" className={classes.card}>
+      <Card className={classes.card}>
         <CardContent className={classes.cardContent}>
           <Typography variant="h6">
             Circulation DFI Accounts (Omnibus Accounts)
@@ -151,4 +151,4 @@ class CircAccountSettings extends React.Component {
 export default compose(
   withStyles(styles),
   connect(),
-)(CircAccountSettings);
+)(CircAccountsCard);

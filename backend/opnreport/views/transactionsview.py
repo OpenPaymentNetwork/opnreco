@@ -103,7 +103,7 @@ def transactions_view(request):
         )
     )
 
-    # TODO: expect a query parameter to provide the TZ offset.
+    # TODO: allow a query parameter that provides the TZ offset.
     time_expr = func.timezone('US/Eastern', func.coalesce(
         cast(AccountEntry.entry_date, DateTime),
         func.timezone('UTC', movement_cte.c.ts),
@@ -160,13 +160,17 @@ def transactions_view(request):
         inc = True if d > zero else False if d < zero else None
 
         if inc is not None:
+            account_entry_id = row.account_entry_id
+            reco_id = row.reco_id
             record = {
-                'account_entry_id': row.account_entry_id,
+                'account_entry_id': (
+                    None if account_entry_id is None
+                    else str(account_entry_id)),
                 'entry_date': row.entry_date,
                 'account_delta': account_delta,
-                'movement_id': row.movement_id,
+                'movement_id': str(row.movement_id),
                 'ts': row.ts,
-                'reco_id': row.reco_id,
+                'reco_id': None if reco_id is None else str(reco_id),
                 'movement_delta': movement_delta,
                 'workflow_type': row.workflow_type,
                 'transfer_id': row.transfer_id,

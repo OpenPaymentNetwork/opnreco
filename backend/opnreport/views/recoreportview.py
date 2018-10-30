@@ -99,10 +99,11 @@ def reco_report_view(request):
         '-1': collections.defaultdict(list),
         '1': collections.defaultdict(list),
     }
+    sign_conversion = {-1: '-1', 1: '1'}
     for r in outstanding_rows:
-        str_sign = str(r.sign)
+        sign_converted = sign_conversion[r.sign]
         workflow_type = r.workflow_type
-        outstanding_map[str_sign][workflow_type].append({
+        outstanding_map[sign_converted][workflow_type].append({
             'transfer_id': r.transfer_id,
             'delta': str(r.delta),
             'ts': r.ts.isoformat() + 'Z',

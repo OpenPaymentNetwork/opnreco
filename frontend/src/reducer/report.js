@@ -5,6 +5,7 @@ const SET_PLOOP_KEY = 'report/SET_PLOOP_KEY';
 const SET_FILE_ID = 'report/SET_FILE_ID';
 const SET_ROWS_PER_PAGE = 'report/SET_ROWS_PER_PAGE';
 const SET_PAGE_INDEX = 'report/SET_PAGE_INDEX';
+const SHOW_RECO_POPUP = 'report/SHOW_RECO_POPUP';
 
 const initialState = {
   ploopKey: null,
@@ -12,6 +13,7 @@ const initialState = {
   // rowsPerPage and pageIndex are for the Transactions report.
   rowsPerPage: 100,  // May be null
   pageIndex: 0,
+  recoPopup: {},
 };
 
 export const setPloopKey = (ploopKey) => ({
@@ -25,6 +27,9 @@ export const setRowsPerPage = (rows) => ({
 
 export const setPageIndex = (pageIndex) => ({
   type: SET_PAGE_INDEX, payload: {pageIndex}});
+
+export const showRecoPopup = (payload) => ({
+  type: SHOW_RECO_POPUP, payload});
 
 const actionHandlers = {
   [SET_PLOOP_KEY]: (state, {payload: {ploopKey}}) => ({
@@ -44,6 +49,16 @@ const actionHandlers = {
   [SET_PAGE_INDEX]: (state, {payload: {pageIndex}}) => ({
     ...state,
     pageIndex,
+  }),
+
+  [SHOW_RECO_POPUP]: (state, {payload: {movementId, recoId, anchorEl}}) => ({
+    ...state,
+    recoPopup: {
+      open: true,
+      movementId,
+      recoId,
+      anchorEl,
+    },
   }),
 };
 

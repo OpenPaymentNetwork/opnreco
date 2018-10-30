@@ -25,7 +25,7 @@ def list_circ_peer_ids(dbsession, owner_id):
 
 
 def make_movement_cte(dbsession, file, owner_id):
-    """Create a common table expr (CTE) that lists movements in a file.
+    """Create a common table expression (CTE) that lists movements in a file.
 
     Makes circulation replenishment movements look like normal movements.
     """

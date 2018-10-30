@@ -7,14 +7,12 @@ import { getCurrencyFormatter } from '../../util/currency';
 import { setTransferId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
-import CheckBoxOutlineBlankIcon
-  from '@material-ui/icons/CheckBoxOutlineBlank';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import LayoutConfig from '../app/LayoutConfig';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
+import RecoCheckBox from './RecoCheckBox';
 import Require from '../../util/Require';
 import TransactionReportForm from './TransactionReportForm';
 import Typography from '@material-ui/core/Typography';
@@ -122,6 +120,7 @@ class TransactionReport extends React.Component {
       classes,
       ploop,
       report: {all_shown},
+      dispatch,
     } = this.props;
 
     const {
@@ -200,13 +199,6 @@ class TransactionReport extends React.Component {
           );
         }
 
-        let recoContent;
-        if (record.reco_id !== null) {
-          recoContent = <CheckBoxIcon />;
-        } else {
-          recoContent = <CheckBoxOutlineBlankIcon />;
-        }
-
         rows.push(
           <tr key={index}>
             <td className={txtCell}>
@@ -236,7 +228,10 @@ class TransactionReport extends React.Component {
               {transferLink}
             </td>
             <td className={chkCell}>
-              {recoContent}
+              <RecoCheckBox
+                movementId={record.movement_id}
+                recoId={record.reco_id}
+                dispatch={dispatch} />
             </td>
           </tr>
         );

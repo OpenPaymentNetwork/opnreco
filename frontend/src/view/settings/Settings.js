@@ -63,7 +63,7 @@ class Settings extends React.Component {
     } else if (settings) {
       if (settings.is_issuer) {
         cards.push(
-          <CircAccountsCard settings={settings} />);
+          <CircAccountsCard key="circAccounts" settings={settings} />);
       }
     }
 
