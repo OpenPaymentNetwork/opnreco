@@ -9,10 +9,15 @@ import React from 'react';
 
 
 const styles = {
-  root: {
-    cursor: 'pointer',
+  button: {
     width: '32px',
     height: '32px',
+  },
+  hiddenText: {
+    // The hidden text is revealed when copying and pasting to Google Sheets.
+    position: 'absolute',
+    top: 0,
+    left: '-10000px',
   },
 };
 
@@ -43,21 +48,27 @@ class RecoCheckBox extends React.Component {
 
   render() {
     const {classes, recoId} = this.props;
-    let Icon;
+    let Icon, hiddenText;
 
     if (recoId !== null) {
       Icon = CheckBox;
+      hiddenText = 'YES';
     } else {
       Icon = CheckBoxOutlineBlank;
+      hiddenText = '___';
     }
     return (
-      <ButtonBase
-        centerRipple
-        onClick={this.handleClickBound}
-        className={classes.root}
-      >
-        <Icon />
-      </ButtonBase>);
+      <React.Fragment>
+        <span className={classes.hiddenText}>{hiddenText}</span>
+        <ButtonBase
+          centerRipple
+          onClick={this.handleClickBound}
+          className={classes.button}
+        >
+          <Icon />
+        </ButtonBase>
+      </React.Fragment>
+    );
   }
 }
 

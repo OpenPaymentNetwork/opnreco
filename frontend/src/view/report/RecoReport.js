@@ -300,10 +300,10 @@ class RecoReport extends React.Component {
             </thead>
             <tbody>
               <tr>
-                <td className={labelCellCN}>
+                <td className={labelCellCN} width="80%">
                   Reconciled Balance
                 </td>
-                <td className={amountCellCN}>
+                <td className={amountCellCN} width="20%">
                   {cfmt(recoReport.reconciled_balance)}
                 </td>
               </tr>
