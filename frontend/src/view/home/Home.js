@@ -12,7 +12,7 @@ import Linger from '../../util/Linger';
 import MenuIcon from '@material-ui/icons/Menu';
 import PropTypes from 'prop-types';
 import React from 'react';
-import RecoPopup from '../report/RecoPopup';
+import RecoPopover from '../report/RecoPopover';
 import FileSelector from '../report/FileSelector';
 import Tab from '@material-ui/core/Tab';
 import TabContent from './TabContent';
@@ -56,7 +56,7 @@ class Home extends React.Component {
     match: PropTypes.object.isRequired,
     ploop: PropTypes.object,
     file: PropTypes.object,
-    recoPopupOpen: PropTypes.bool,
+    recoPopoverOpen: PropTypes.bool,
     transferId: PropTypes.string,
   };
 
@@ -89,7 +89,7 @@ class Home extends React.Component {
       file,
       match,
       ploop,
-      recoPopupOpen,
+      recoPopoverOpen,
       transferId,
     } = this.props;
 
@@ -147,8 +147,8 @@ class Home extends React.Component {
 
         <TabContent tab={tab} ploop={ploop} file={file} />
 
-        <Linger enabled={recoPopupOpen}>
-          <RecoPopup />
+        <Linger enabled={recoPopoverOpen}>
+          <RecoPopover />
         </Linger>
 
       </div>
@@ -160,7 +160,7 @@ const ploopsURL = fOPNReport.pathToURL('/ploops');
 
 
 function mapStateToProps(state) {
-  const {ploopKey, fileId, recoPopup} = state.report;
+  const {ploopKey, fileId, recoPopover} = state.report;
   const fetched = fetchcache.get(state, ploopsURL) || {};
   const ploops = fetched.ploops || {};
   const ploopOrder = fetched.ploop_order;
@@ -190,7 +190,7 @@ function mapStateToProps(state) {
   }
 
   return {
-    recoPopupOpen: recoPopup.open,
+    recoPopoverOpen: recoPopover.open,
     ploop,
     file,
     transferId: state.app.transferId,

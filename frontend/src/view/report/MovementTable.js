@@ -68,7 +68,7 @@ const styles = {
   },
   checkCell: {
     textAlign: 'center',
-    paddingTop: '4px',
+    padding: '0',
   },
   graphicIcon: {
     color: arrowColor,
@@ -378,6 +378,7 @@ class MovementTable extends React.Component {
         movement_id,
         loop_id,
         reco_id,
+        reco_internal,
       } = ci;
 
       const ts = ci.ts;
@@ -411,6 +412,7 @@ class MovementTable extends React.Component {
             <RecoCheckBox
               movementId={movement_id}
               recoId={reco_id}
+              recoInternal={reco_internal}
               dispatch={dispatch} />
           </td>
         </tr>);
@@ -568,6 +570,7 @@ class MovementTable extends React.Component {
         issuer_id,
         reco_id,
         reco_applicable,
+        reco_internal,
       } = movement;
 
       mvCells.push(
@@ -649,6 +652,7 @@ class MovementTable extends React.Component {
           <RecoCheckBox
             movementId={movement_id}
             recoId={reco_id}
+            recoInternal={reco_internal}
             dispatch={dispatch} />);
       }
       mvCells.push(

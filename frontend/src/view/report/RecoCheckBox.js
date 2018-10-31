@@ -1,6 +1,7 @@
 
-import { showRecoPopup } from '../../reducer/report';
+import { showRecoPopover } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
+import ButtonBase from '@material-ui/core/ButtonBase';
 import CheckBox from '@material-ui/icons/CheckBox';
 import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
 import PropTypes from 'prop-types';
@@ -10,6 +11,8 @@ import React from 'react';
 const styles = {
   root: {
     cursor: 'pointer',
+    width: '32px',
+    height: '32px',
   },
 };
 
@@ -20,6 +23,7 @@ class RecoCheckBox extends React.Component {
     dispatch: PropTypes.func.isRequired,
     movementId: PropTypes.string.isRequired,
     recoId: PropTypes.string,
+    recoInternal: PropTypes.bool,
   };
 
   constructor(props) {
@@ -28,10 +32,11 @@ class RecoCheckBox extends React.Component {
   }
 
   handleClick(event) {
-    const {movementId, recoId} = this.props;
-    this.props.dispatch(showRecoPopup({
+    const {movementId, recoId, recoInternal} = this.props;
+    this.props.dispatch(showRecoPopover({
       movementId,
       recoId,
+      recoInternal,
       anchorEl: event.target,
     }));
   }
@@ -46,11 +51,13 @@ class RecoCheckBox extends React.Component {
       Icon = CheckBoxOutlineBlank;
     }
     return (
-      <React.Fragment>
-        <Icon
-          className={classes.root}
-          onClick={this.handleClickBound} />
-      </React.Fragment>);
+      <ButtonBase
+        centerRipple
+        onClick={this.handleClickBound}
+        className={classes.root}
+      >
+        <Icon />
+      </ButtonBase>);
   }
 }
 

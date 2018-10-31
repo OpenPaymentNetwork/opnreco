@@ -171,6 +171,8 @@ def transactions_view(request):
                 'movement_id': str(row.movement_id),
                 'ts': row.ts,
                 'reco_id': None if reco_id is None else str(reco_id),
+                # This report never shows internal recos.
+                'reco_internal': False,
                 'movement_delta': movement_delta,
                 'workflow_type': row.workflow_type,
                 'transfer_id': row.transfer_id,
