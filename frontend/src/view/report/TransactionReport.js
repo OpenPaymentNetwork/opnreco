@@ -4,7 +4,6 @@ import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
-import { setTransferId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -110,7 +109,6 @@ class TransactionReport extends React.Component {
   handleClickTransfer(tid, event) {
     if (event.button === 0) {
       event.preventDefault();
-      this.props.dispatch(setTransferId(tid));
       this.props.history.push(`/t/${tid}`);
     }
   }

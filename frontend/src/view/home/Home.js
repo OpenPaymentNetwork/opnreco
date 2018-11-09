@@ -1,8 +1,7 @@
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
-import { fetchcache } from '../../reducer/fetchcache';
+import { getPloopAndFile } from '../../util/ploopfile';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -156,38 +155,9 @@ class Home extends React.Component {
   }
 }
 
-const ploopsURL = fOPNReport.pathToURL('/ploops');
-
-
 function mapStateToProps(state) {
-  const {ploopKey, fileId, recoPopover} = state.report;
-  const fetched = fetchcache.get(state, ploopsURL) || {};
-  const ploops = fetched.ploops || {};
-  const ploopOrder = fetched.ploop_order;
-  let selectedPloopKey = ploopKey;
-
-  if (ploopOrder && ploopOrder.length) {
-    if (!selectedPloopKey || !ploops[selectedPloopKey]) {
-      selectedPloopKey = fetched.default_ploop || '';
-    }
-
-    if (!selectedPloopKey) {
-      selectedPloopKey = ploopOrder[0];
-    }
-  } else {
-    selectedPloopKey = '';
-  }
-
-  const ploop = selectedPloopKey ? ploops[selectedPloopKey] : null;
-
-  let file = null;
-  if (ploop && ploop.files) {
-    if (fileId) {
-      file = ploop.files[fileId];
-    } else if (ploop.file_order && ploop.file_order.length) {
-      file = ploop.files[ploop.file_order[0]];
-    }
-  }
+  const {recoPopover} = state.report;
+  const {ploop, file} = getPloopAndFile(state);
 
   return {
     recoPopoverOpen: recoPopover.open,
