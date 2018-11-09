@@ -2,8 +2,8 @@
 from opnreport.models.db import Movement
 from opnreport.models.db import Peer
 from sqlalchemy import and_
-from sqlalchemy import or_
 from sqlalchemy import case
+from sqlalchemy import or_
 
 null = None
 
@@ -66,6 +66,7 @@ def make_movement_cte(dbsession, file, owner_id):
             Movement.transfer_record_id,
         )
         .filter(
+            Movement.owner_id == owner_id,
             Movement.file_id == file.id,
             # The peer_id, loop_id, and currency conditions are redudandant,
             # but they might help avoid accidents.

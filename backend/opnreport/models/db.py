@@ -240,6 +240,8 @@ class Movement(Base):
     """
     __tablename__ = 'movement'
     id = Column(BigInteger, nullable=False, primary_key=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
     number = Column(Integer, nullable=False)
@@ -319,7 +321,8 @@ class Statement(Base):
     """A statement of movements to/from an account connected with a File."""
     __tablename__ = 'statement'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    owner_id = Column(String, ForeignKey('owner.id'), nullable=False)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
     # peer_id is either an OPN holder ID or
     # the letter 'c' for circulating.
     peer_id = Column(String, nullable=False)
@@ -334,6 +337,8 @@ class AccountEntry(Base):
     """An entry in an account statement."""
     __tablename__ = 'account_entry'
     id = Column(BigInteger, nullable=False, primary_key=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
     file_id = Column(
         BigInteger, ForeignKey('file.id'),
         nullable=False, index=True)
@@ -378,6 +383,8 @@ class Reco(Base):
     """A reconciliation row matches movement(s) and account entries."""
     __tablename__ = 'reco'
     id = Column(BigInteger, nullable=False, primary_key=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
 
     # internal is true if the reconciliation is a sequence of movements
     # that don't require an account entry to balance.

@@ -55,13 +55,13 @@ const actionHandlers = {
   }),
 
   [SHOW_RECO_POPOVER]:
-  (state, {payload: {movementId, recoId, recoInternal, anchorEl}}) => ({
+  (state, {payload: {recoId, movementId, accountEntryId, anchorEl}}) => ({
     ...state,
     recoPopover: {
       open: true,
-      movementId,
       recoId,
-      recoInternal,
+      movementId,
+      accountEntryId,
       anchorEl,
     },
   }),

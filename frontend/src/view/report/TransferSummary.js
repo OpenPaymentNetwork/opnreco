@@ -74,9 +74,11 @@ const styles = {
   },
   fieldNameCell: {
     padding: '2px 8px',
+    width: '0%',
   },
   fieldValueCell: {
     padding: '2px 8px',
+    width: '100%',
   },
   detailButton: {
     margin: '8px',

@@ -4,14 +4,12 @@ from opnreport.models.db import Loop
 from opnreport.models.db import Movement
 from opnreport.models.db import now_func
 from opnreport.models.db import Peer
-from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
 from opnreport.util import check_requests_response
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
-from sqlalchemy.orm import aliased
 import collections
 import datetime
 import os
@@ -81,14 +79,8 @@ def transfer_record_view(context, request, complete=False):
     else:
         movement_filter = (Movement.peer_id != 'c')
 
-    reco_alias = aliased(Reco)
     movement_rows = (
-        dbsession.query(
-            Movement,
-            Reco.internal.label('reco_internal'),
-            reco_alias.internal.label('circ_reco_internal'))
-        .outerjoin(Reco, Reco.id == Movement.reco_id)
-        .outerjoin(reco_alias, reco_alias.id == Movement.circ_reco_id)
+        dbsession.query(Movement)
         .filter(movement_filter)
         .filter(Movement.transfer_record_id == record.id)
         .order_by(
@@ -107,7 +99,7 @@ def transfer_record_view(context, request, complete=False):
     # peer_appearance: {peer_id: [(movement_number, amount_index)]}
     peer_appearance = collections.defaultdict(list)
     to_or_from = set()  # set of peer_ids listed in to_id or from_id
-    for m, _, _ in movement_rows:
+    for m in movement_rows:
         from_id = m.from_id
         to_id = m.to_id
         issuer_id = m.issuer_id
@@ -198,7 +190,7 @@ def transfer_record_view(context, request, complete=False):
             # to a circulation account, replenishing the circulation value.
             is_circ_replenishment = True
 
-    for movement, reco_internal, circ_reco_internal in movement_rows:
+    for movement in movement_rows:
         movement_id = movement.id
         number = movement.number
         amount_index = movement.amount_index
@@ -232,7 +224,6 @@ def transfer_record_view(context, request, complete=False):
                     'ts': movement.ts.isoformat() + 'Z',
                     'reco_id': (
                         None if circ_reco_id is None else str(circ_reco_id)),
-                    'reco_internal': circ_reco_internal,
                 })
                 delta_totals[(currency, loop_id)]['circ'] += movement.amount
                 # The movement from the wallet does not apply to
@@ -258,7 +249,6 @@ def transfer_record_view(context, request, complete=False):
             'circ_delta': str(-vault_delta or '0'),
             'reco_applicable': not not reco_applicable,
             'reco_id': None if reco_id is None else str(reco_id),
-            'reco_internal': reco_internal,
         })
 
         if vault_delta:

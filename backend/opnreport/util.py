@@ -70,3 +70,15 @@ def to_datetime(input_str, allow_none=False):
         offset = hours * 3600 + sign * minutes * 60
         res -= datetime.timedelta(seconds=offset)
     return res
+
+
+def dashed(n):
+    """Return an identifier with dashes embedded for readability."""
+    s = str(n)
+    pos = 0
+    res = []
+    s_len = len(s)
+    while pos < s_len:
+        res.append(s[pos:pos + 4])
+        pos += 4
+    return '-'.join(res)

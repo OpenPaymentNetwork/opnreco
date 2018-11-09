@@ -28,7 +28,6 @@ class RecoCheckBox extends React.Component {
     dispatch: PropTypes.func.isRequired,
     movementId: PropTypes.string.isRequired,
     recoId: PropTypes.string,
-    recoInternal: PropTypes.bool,
   };
 
   constructor(props) {
@@ -37,11 +36,10 @@ class RecoCheckBox extends React.Component {
   }
 
   handleClick(event) {
-    const {movementId, recoId, recoInternal} = this.props;
+    const {movementId, recoId} = this.props;
     this.props.dispatch(showRecoPopover({
       movementId,
       recoId,
-      recoInternal,
       anchorEl: event.target,
     }));
   }

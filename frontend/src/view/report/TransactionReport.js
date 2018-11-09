@@ -231,7 +231,6 @@ class TransactionReport extends React.Component {
               <RecoCheckBox
                 movementId={record.movement_id}
                 recoId={record.reco_id}
-                recoInternal={record.reco_internal}
                 dispatch={dispatch} />
             </td>
           </tr>

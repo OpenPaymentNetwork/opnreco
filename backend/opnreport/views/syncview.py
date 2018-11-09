@@ -447,6 +447,7 @@ class SyncView:
                     # Record the new movement.
                     movement = Movement(
                         transfer_record_id=record.id,
+                        owner_id=self.owner_id,
                         number=number,
                         amount_index=amount_index,
                         peer_id=peer_id,
@@ -702,7 +703,7 @@ class SyncView:
                     "movement list for transfer %s: %s != %s" % (
                         record.transfer_id, wallet_total, -vault_total))
 
-            reco = Reco(internal=True)
+            reco = Reco(owner_id=self.owner_id, internal=True)
             dbsession.add(reco)
             dbsession.flush()
             reco_id = reco.id

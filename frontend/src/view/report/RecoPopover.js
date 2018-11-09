@@ -3,13 +3,19 @@ import { binder } from '../../util/binder';
 import { closeRecoPopover } from '../../reducer/report';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { fetchcache } from '../../reducer/fetchcache';
+import { fOPNReport } from '../../util/fetcher';
 import { withStyles } from '@material-ui/core/styles';
+import Button from '@material-ui/core/Button';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import Close from '@material-ui/icons/Close';
+import Fade from '@material-ui/core/Fade';
+import IconButton from '@material-ui/core/IconButton';
+import Popover from '@material-ui/core/Popover';
 import PropTypes from 'prop-types';
 import React from 'react';
-import Checkbox from '@material-ui/core/Checkbox';
+import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
-import Popover from '@material-ui/core/Popover';
-import Fade from '@material-ui/core/Fade';
 
 
 const styles = theme => ({
@@ -19,13 +25,22 @@ const styles = theme => ({
   titleBar: {
     backgroundColor: theme.palette.primary.main,
     color: '#fff',
-    height: '32px',
-    lineHeight: '32px',
-    padding: '0 16px',
+    paddingLeft: '16px',
     fontSize: '1.0rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  closeButton: {
+    color: '#fff',
   },
   content: {
     padding: '16px',
+  },
+  actionBox: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    padding: '0 16px 16px 16px',
   },
   table: {
     borderCollapse: 'collapse',
@@ -46,12 +61,12 @@ const styles = theme => ({
   cell: {
     border: '1px solid #bbb',
   },
-  addCell: {
-    border: '1px solid #bbb',
-  },
   checkCell: {
     border: '1px solid #bbb',
     textAlign: 'center',
+  },
+  searchCell: {
+    border: '1px solid #bbb',
   },
 });
 
@@ -62,6 +77,9 @@ class RecoPopover extends React.Component {
     dispatch: PropTypes.func.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
+    recoId: PropTypes.string,
+    recoURL: PropTypes.string.isRequired,
+    reco: PropTypes.object,
   };
 
   constructor(props) {
@@ -93,7 +111,7 @@ class RecoPopover extends React.Component {
             <th width="30%" className={classes.head2Cell}>Transfer</th>
           </tr>
           <tr>
-            <td colSpan="4" className={classes.addCell}></td>
+            <td colSpan="4" className={classes.searchCell}></td>
           </tr>
           <tr>
             <td colSpan="4" className={classes.spaceRow}></td>
@@ -110,7 +128,7 @@ class RecoPopover extends React.Component {
             <th width="30%" className={classes.head2Cell}>Description</th>
           </tr>
           <tr>
-            <td colSpan="4" className={classes.addCell}></td>
+            <td colSpan="4" className={classes.searchCell}></td>
           </tr>
         </tbody>
       </table>
@@ -122,6 +140,9 @@ class RecoPopover extends React.Component {
       classes,
       open,
       anchorEl,
+      recoId,
+      recoURL,
+      reco,
     } = this.props;
 
     return (
@@ -140,13 +161,26 @@ class RecoPopover extends React.Component {
         }}
         TransitionComponent={Fade}
       >
+        <Require urls={[recoURL]} fetcher={fOPNReport} />
         <div className={classes.popoverContent}>
           <Typography variant="h6" className={classes.titleBar}>
-            Reconciliation
+            <span className={classes.popoverTitle}>Reconciliation {recoId}</span>
+            <IconButton
+              className={classes.closeButton}
+              onClick={this.binder(this.handleClose)}
+            >
+              <Close />
+            </IconButton>
           </Typography>
           <Typography className={classes.content} component="div">
-            {this.renderTable()}
+            {reco ? this.renderTable() : <CircularProgress />}
           </Typography>
+          <div className={classes.actionBox}>
+            {recoId ?
+              <Button>Remove</Button>
+              : null}
+            <Button color="primary">Save</Button>
+          </div>
         </div>
       </Popover>
     );
@@ -155,7 +189,19 @@ class RecoPopover extends React.Component {
 
 
 function mapStateToProps(state) {
-  return state.report.recoPopover;
+  const {recoPopover} = state.report;
+  const {recoId, movementId, accountEntryId} = recoPopover;
+  const query = (
+    `movement_id=${encodeURIComponent(movementId || '')}&` +
+    `reco_id=${encodeURIComponent(recoId || '')}&` +
+    `account_entry_id=${encodeURIComponent(accountEntryId || '')}`);
+  const recoURL = fOPNReport.pathToURL(`/reco?${query}`);
+  const reco = fetchcache.get(state, recoURL);
+  return {
+    ...recoPopover,
+    recoURL,
+    reco,
+  };
 }
 
 
