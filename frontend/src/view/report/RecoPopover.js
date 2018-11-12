@@ -16,16 +16,18 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import Close from '@material-ui/icons/Close';
 import Fade from '@material-ui/core/Fade';
 import IconButton from '@material-ui/core/IconButton';
+import Input from '@material-ui/core/Input';
 import Popover from '@material-ui/core/Popover';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
+import Search from '@material-ui/icons/Search';
 import Typography from '@material-ui/core/Typography';
 
 
 const styles = theme => ({
   popoverContent: {
-    minWidth: '600px',
+    minWidth: '700px',
   },
   titleBar: {
     backgroundColor: theme.palette.primary.main,
@@ -52,11 +54,12 @@ const styles = theme => ({
     width: '100%',
   },
   headCell: {
-    border: '1px solid #bbb',
     backgroundColor: '#ddd',
+    border: '1px solid #bbb',
     fontWeight: 'normal',
   },
   head2Cell: {
+    backgroundColor: '#ddd',
     border: '1px solid #bbb',
     fontWeight: 'normal',
   },
@@ -68,6 +71,13 @@ const styles = theme => ({
   },
   checkCell: {
     border: '1px solid #bbb',
+    paddingTop: '2px',
+    textAlign: 'center',
+  },
+  checkHeadCell: {
+    backgroundColor: '#ddd',
+    border: '1px solid #bbb',
+    paddingTop: '2px',
     textAlign: 'center',
   },
   textCell: {
@@ -81,6 +91,15 @@ const styles = theme => ({
   },
   searchCell: {
     border: '1px solid #bbb',
+    padding: '0 8px',
+  },
+  searchHeadCell: {
+    paddingTop: '2px',
+    textAlign: 'center',
+    color: '#777',
+  },
+  searchInput: {
+    padding: 0,
   },
 });
 
@@ -102,6 +121,17 @@ class RecoPopover extends React.Component {
     super(props);
     this.binder = binder(this);
     this.binder1 = binder1(this);
+    this.state = {
+      checkedMovements: {},  // movement IDs
+      reco: null,
+    };
+  }
+
+  componentDidUpdate() {
+    if (!this.state.reco && this.props.reco) {
+      // Initialize the reco state.
+      this.setState({reco: this.props.reco});
+    }
   }
 
   handleClose() {
@@ -111,26 +141,61 @@ class RecoPopover extends React.Component {
   handleClickTransfer(tid, event) {
     if (event.button === 0) {
       event.preventDefault();
+      this.props.dispatch(closeRecoPopover());
       this.props.history.push(`/t/${tid}`);
+    }
+  }
+
+  handleCheckMovement(movementId, event) {
+    this.setState({checkedMovements: {
+      ...this.state.checkedMovements,
+      [movementId]: event.target.checked,
+    }});
+  }
+
+  handleCheckAllMovements(event) {
+    if (event.target.checked) {
+      const mvMap = {};
+      this.state.reco.movements.forEach(movement => {
+        mvMap[movement.id] = true;
+      });
+      this.setState({checkedMovements: mvMap});
+    } else {
+      this.setState({checkedMovements: {}});
     }
   }
 
   renderTable() {
     const {
       classes,
-      reco,
     } = this.props;
+
+    const {
+      checkedMovements,
+      reco,
+    } = this.state;
 
     if (!reco) {
       return <CircularProgress />;
     }
 
+    let allMovementsChecked = true;
+
     const movementRows = reco.movements.map(movement => {
       const tid = dashed(movement.transfer_id);
+      const mid = movement.id;
+      const checked = checkedMovements[mid];
+      if (!checked && allMovementsChecked) {
+        allMovementsChecked = false;
+      }
+
       return (
-        <tr key={`mv-${movement.id}`}>
+        <tr key={`mv-${mid}`}>
           <td className={classes.checkCell}>
-            <input type="checkbox" />
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={this.binder1(this.handleCheckMovement, mid)} />
           </td>
           <td className={classes.numberCell}>
             {getCurrencyDeltaFormatter(movement.currency)(movement.delta)
@@ -162,16 +227,32 @@ class RecoPopover extends React.Component {
             <th colSpan="4" className={classes.headCell}>Movements</th>
           </tr>
           <tr>
-            <th width="10%" className={classes.checkCell}>
-              <input type="checkbox" />
+            <th width="10%" className={classes.checkHeadCell}>
+              <input
+                type="checkbox"
+                checked={allMovementsChecked}
+                onChange={this.binder(this.handleCheckAllMovements)} />
             </th>
-            <th width="25%" className={classes.head2Cell}>Amount</th>
+            <th width="25%" className={classes.head2Cell}>
+              {reco.is_circ ? 'Vault' : 'Wallet'}
+            </th>
             <th width="25%" className={classes.head2Cell}>Date and Time</th>
             <th width="30%" className={classes.head2Cell}>Transfer (Movement #)</th>
           </tr>
           {movementRows}
           <tr>
-            <td colSpan="4" className={classes.searchCell}></td>
+            <td className={classes.searchHeadCell}>
+              <Search/>
+            </td>
+            <td className={classes.searchCell}>
+              <Input classes={{input: classes.searchInput}} disableUnderline />
+            </td>
+            <td className={classes.searchCell}>
+              <Input classes={{input: classes.searchInput}} disableUnderline />
+            </td>
+            <td className={classes.searchCell}>
+              <Input classes={{input: classes.searchInput}} disableUnderline />
+            </td>
           </tr>
           <tr>
             <td colSpan="4" className={classes.spaceRow}></td>
@@ -180,7 +261,7 @@ class RecoPopover extends React.Component {
             <th colSpan="4"className={classes.headCell}>Account Entries</th>
           </tr>
           <tr>
-            <th width="10%" className={classes.checkCell}>
+            <th width="10%" className={classes.checkHeadCell}>
               <input type="checkbox" />
             </th>
             <th width="25%" className={classes.head2Cell}>Amount</th>

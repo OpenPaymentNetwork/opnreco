@@ -112,7 +112,8 @@ def reco_view(context, request, complete=False):
     else:
         movement_rows = account_entry_rows = ()
 
-    if file.peer_id == 'c':
+    is_circ = file.peer_id == 'c'
+    if is_circ:
         # Include circulation replenishments.
         circ_peer_ids = set(list_circ_peer_ids(
             dbsession=dbsession, owner_id=owner_id))
@@ -124,7 +125,7 @@ def reco_view(context, request, complete=False):
 
         need_loop_ids.add(movement.loop_id)
 
-        if file.peer_id == 'c':
+        if is_circ:
             if (
                 (reco_id is not None and movement.circ_reco_id == reco_id)
                 or (
@@ -155,4 +156,5 @@ def reco_view(context, request, complete=False):
     return {
         'movements': movements_json,
         'loops': loops,
+        'is_circ': is_circ,
     }
