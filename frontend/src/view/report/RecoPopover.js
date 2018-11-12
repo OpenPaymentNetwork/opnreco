@@ -47,8 +47,11 @@ const styles = theme => ({
   },
   actionBox: {
     display: 'flex',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     padding: '0 16px 16px 16px',
+  },
+  actionLeftButtons: {
+    flexGrow: 2,
   },
   table: {
     borderCollapse: 'collapse',
@@ -72,7 +75,6 @@ const styles = theme => ({
   },
   actionCell: {
     border: '1px solid #bbb',
-    paddingTop: '4px',
     textAlign: 'center',
   },
   actionHeadCell: {
@@ -83,6 +85,8 @@ const styles = theme => ({
   removeIcon: {
     cursor: 'pointer',
     color: '#777',
+    display: 'block',
+    margin: '0 auto',
   },
   removableRow: {
     transition: 'opacity 200ms ease',
@@ -106,7 +110,11 @@ const styles = theme => ({
   searchHeadCell: {
     paddingTop: '2px',
     textAlign: 'center',
+  },
+  searchIcon: {
     color: '#777',
+    display: 'block',
+    margin: '0 auto',
   },
   searchInput: {
     padding: 0,
@@ -135,28 +143,32 @@ class RecoPopover extends React.Component {
       popoverActions: null,
       reco: null,
       removingMovements: {},
+      undoHistory: [],  // List of reco states
     };
   }
 
   componentDidUpdate(prevProps) {
     let recoState = this.state.reco;
-    let changed = false;
+    let initializing = false;
 
     if (this.props.open && !prevProps.open) {
       // Clear the old state.
       recoState = null;
-      changed = true;
+      initializing = true;
     }
 
     if (!recoState && this.props.reco) {
       // Initialize the reco state.
       recoState = this.props.reco;
-      changed = true;
+      initializing = true;
       this.updatePopoverPosition();
     }
 
-    if (changed) {
-      this.setState({reco: recoState});
+    if (initializing) {
+      this.setState({
+        reco: recoState,
+        undoHistory: [],
+      });
     }
   }
 
@@ -186,8 +198,12 @@ class RecoPopover extends React.Component {
     }});
 
     window.setTimeout(() => {
+      const {
+        reco,
+      } = this.state;
+
       const movements = [];
-      this.state.reco.movements.forEach(movement => {
+      reco.movements.forEach(movement => {
         if (movement.id !== movementId) {
           movements.push(movement);
         }
@@ -195,13 +211,17 @@ class RecoPopover extends React.Component {
 
       this.setState({
         reco: {
-          ...this.state.reco,
+          ...reco,
           movements
         },
         removingMovements: {
           ...this.state.removingMovements,
           [movementId]: undefined,
         },
+        undoHistory: [
+          ...this.state.undoHistory,
+          reco,
+        ],
       });
 
       this.updatePopoverPosition();
@@ -210,6 +230,24 @@ class RecoPopover extends React.Component {
 
   handleActionCallback(popoverActions) {
     this.setState({popoverActions});
+  }
+
+  handleUndo() {
+    const {
+      undoHistory,
+    } = this.state;
+
+    if (!undoHistory || !undoHistory.length) {
+      return;
+    }
+
+    const len1 = undoHistory.length - 1;
+    this.setState({
+      reco: undoHistory[len1],
+      undoHistory: undoHistory.slice(0, len1),
+    });
+
+    this.updatePopoverPosition();
   }
 
   renderTable() {
@@ -297,7 +335,7 @@ class RecoPopover extends React.Component {
           {movementRows}
           <tr>
             <td className={classes.searchHeadCell}>
-              <Search/>
+              <Search className={classes.searchIcon} />
             </td>
             <td className={classes.searchCell}>
               <Input classes={{input: classes.searchInput}} disableUnderline />
@@ -324,6 +362,10 @@ class RecoPopover extends React.Component {
       recoURL,
       recoCompleteURL,
     } = this.props;
+
+    const {
+      undoHistory,
+    } = this.state;
 
     let require = null;
     if (recoURL) {
@@ -366,6 +408,11 @@ class RecoPopover extends React.Component {
             {this.renderTable()}
           </Typography>
           <div className={classes.actionBox}>
+            <div className={classes.actionLeftButtons}>
+              <Button
+                disabled={!undoHistory || !undoHistory.length}
+                onClick={this.binder(this.handleUndo)}>Undo</Button>
+            </div>
             {recoId ?
               <Button>Remove</Button>
               : null}
