@@ -12,6 +12,7 @@ import { getPloopAndFile } from '../../util/ploopfile';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
+import RemoveCircle from '@material-ui/icons/RemoveCircle';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Close from '@material-ui/icons/Close';
 import Fade from '@material-ui/core/Fade';
@@ -69,16 +70,25 @@ const styles = theme => ({
   cell: {
     border: '1px solid #bbb',
   },
-  checkCell: {
+  actionCell: {
     border: '1px solid #bbb',
-    paddingTop: '2px',
+    paddingTop: '4px',
     textAlign: 'center',
   },
-  checkHeadCell: {
+  actionHeadCell: {
     backgroundColor: '#ddd',
     border: '1px solid #bbb',
-    paddingTop: '2px',
     textAlign: 'center',
+  },
+  removeIcon: {
+    cursor: 'pointer',
+    color: '#777',
+  },
+  removableRow: {
+    transition: 'opacity 200ms ease',
+  },
+  removingRow: {
+    opacity: 0,
   },
   textCell: {
     border: '1px solid #bbb',
@@ -122,15 +132,38 @@ class RecoPopover extends React.Component {
     this.binder = binder(this);
     this.binder1 = binder1(this);
     this.state = {
-      checkedMovements: {},  // movement IDs
+      popoverActions: null,
       reco: null,
+      removingMovements: {},
     };
   }
 
-  componentDidUpdate() {
-    if (!this.state.reco && this.props.reco) {
+  componentDidUpdate(prevProps) {
+    let recoState = this.state.reco;
+    let changed = false;
+
+    if (this.props.open && !prevProps.open) {
+      // Clear the old state.
+      recoState = null;
+      changed = true;
+    }
+
+    if (!recoState && this.props.reco) {
       // Initialize the reco state.
-      this.setState({reco: this.props.reco});
+      recoState = this.props.reco;
+      changed = true;
+      this.updatePopoverPosition();
+    }
+
+    if (changed) {
+      this.setState({reco: recoState});
+    }
+  }
+
+  updatePopoverPosition() {
+    const {popoverActions} = this.state;
+    if (popoverActions) {
+      popoverActions.updatePosition();
     }
   }
 
@@ -146,23 +179,37 @@ class RecoPopover extends React.Component {
     }
   }
 
-  handleCheckMovement(movementId, event) {
-    this.setState({checkedMovements: {
-      ...this.state.checkedMovements,
-      [movementId]: event.target.checked,
+  handleRemoveMovement(movementId) {
+    this.setState({removingMovements: {
+      ...this.state.removingMovements,
+      [movementId]: true,
     }});
+
+    window.setTimeout(() => {
+      const movements = [];
+      this.state.reco.movements.forEach(movement => {
+        if (movement.id !== movementId) {
+          movements.push(movement);
+        }
+      });
+
+      this.setState({
+        reco: {
+          ...this.state.reco,
+          movements
+        },
+        removingMovements: {
+          ...this.state.removingMovements,
+          [movementId]: undefined,
+        },
+      });
+
+      this.updatePopoverPosition();
+    }, 200);
   }
 
-  handleCheckAllMovements(event) {
-    if (event.target.checked) {
-      const mvMap = {};
-      this.state.reco.movements.forEach(movement => {
-        mvMap[movement.id] = true;
-      });
-      this.setState({checkedMovements: mvMap});
-    } else {
-      this.setState({checkedMovements: {}});
-    }
+  handleActionCallback(popoverActions) {
+    this.setState({popoverActions});
   }
 
   renderTable() {
@@ -171,31 +218,26 @@ class RecoPopover extends React.Component {
     } = this.props;
 
     const {
-      checkedMovements,
       reco,
+      removingMovements,
     } = this.state;
 
     if (!reco) {
       return <CircularProgress />;
     }
 
-    let allMovementsChecked = true;
-
     const movementRows = reco.movements.map(movement => {
       const tid = dashed(movement.transfer_id);
       const mid = movement.id;
-      const checked = checkedMovements[mid];
-      if (!checked && allMovementsChecked) {
-        allMovementsChecked = false;
-      }
+      const rowClass = `${classes.removableRow} ` + (
+        removingMovements[mid] ? classes.removingRow : '');
 
       return (
-        <tr key={`mv-${mid}`}>
-          <td className={classes.checkCell}>
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={this.binder1(this.handleCheckMovement, mid)} />
+        <tr key={`mv-${mid}`} className={rowClass}>
+          <td className={classes.actionCell}>
+            <RemoveCircle
+              className={classes.removeIcon}
+              onClick={this.binder1(this.handleRemoveMovement, mid)} />
           </td>
           <td className={classes.numberCell}>
             {getCurrencyDeltaFormatter(movement.currency)(movement.delta)
@@ -224,15 +266,28 @@ class RecoPopover extends React.Component {
       <table className={classes.table}>
         <tbody>
           <tr>
+            <th colSpan="4"className={classes.headCell}>Account Entries</th>
+          </tr>
+          <tr>
+            <th width="10%" className={classes.actionHeadCell}></th>
+            <th width="25%" className={classes.head2Cell}>Amount</th>
+            <th width="25%" className={classes.head2Cell}>Date</th>
+            <th width="30%" className={classes.head2Cell}>Description</th>
+          </tr>
+          {accountEntryRows}
+          <tr>
+            <td colSpan="4" className={classes.searchCell}></td>
+          </tr>
+
+          <tr>
+            <td colSpan="4" className={classes.spaceRow}></td>
+          </tr>
+
+          <tr>
             <th colSpan="4" className={classes.headCell}>Movements</th>
           </tr>
           <tr>
-            <th width="10%" className={classes.checkHeadCell}>
-              <input
-                type="checkbox"
-                checked={allMovementsChecked}
-                onChange={this.binder(this.handleCheckAllMovements)} />
-            </th>
+            <th width="10%" className={classes.head2Cell}></th>
             <th width="25%" className={classes.head2Cell}>
               {reco.is_circ ? 'Vault' : 'Wallet'}
             </th>
@@ -254,24 +309,7 @@ class RecoPopover extends React.Component {
               <Input classes={{input: classes.searchInput}} disableUnderline />
             </td>
           </tr>
-          <tr>
-            <td colSpan="4" className={classes.spaceRow}></td>
-          </tr>
-          <tr>
-            <th colSpan="4"className={classes.headCell}>Account Entries</th>
-          </tr>
-          <tr>
-            <th width="10%" className={classes.checkHeadCell}>
-              <input type="checkbox" />
-            </th>
-            <th width="25%" className={classes.head2Cell}>Amount</th>
-            <th width="25%" className={classes.head2Cell}>Date</th>
-            <th width="30%" className={classes.head2Cell}>Description</th>
-          </tr>
-          {accountEntryRows}
-          <tr>
-            <td colSpan="4" className={classes.searchCell}></td>
-          </tr>
+
         </tbody>
       </table>
     );
@@ -311,6 +349,7 @@ class RecoPopover extends React.Component {
           horizontal: 'right',
         }}
         TransitionComponent={Fade}
+        action={this.binder(this.handleActionCallback)}
       >
         {require}
         <div className={classes.popoverContent}>
