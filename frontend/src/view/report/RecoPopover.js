@@ -84,9 +84,8 @@ const styles = theme => ({
     border: '1px solid #bbb',
     textAlign: 'center',
   },
-  removeIcon: {
+  addRemoveIcon: {
     cursor: 'pointer',
-    color: '#777',
     display: 'block',
     margin: '0 auto',
   },
@@ -254,6 +253,48 @@ class RecoPopover extends React.Component {
   }
 
   handleAddMovement(movementId) {
+    const {reco, searchMovement} = this.state;
+    let movement = null;
+
+    const newSearchResults = [];
+    if (searchMovement.results) {
+      searchMovement.results.forEach(m => {
+        if (m.id === movementId) {
+          movement = m;
+        } else {
+          newSearchResults.push(m);
+        }
+      });
+    }
+
+    const newMovements = [];
+    if (reco.movements) {
+      reco.movements.forEach(m => {
+        if (m.id !== movementId) {
+          newMovements.push(m);
+        }
+      });
+    }
+    if (movement) {
+      newMovements.push(movement);
+    }
+
+    this.setState({
+      reco: {
+        ...reco,
+        movements: newMovements,
+      },
+      searchMovement: {
+        ...searchMovement,
+        results: newSearchResults,
+      },
+      undoHistory: [
+        ...this.state.undoHistory,
+        reco,
+      ],
+    });
+
+    this.updatePopoverPosition();
   }
 
   handleUndo() {
@@ -362,12 +403,12 @@ class RecoPopover extends React.Component {
     if (addCandidate) {
       icon = (
         <AddCircle
-          className={classes.addIcon}
+          className={classes.addRemoveIcon}
           onClick={this.binder1(this.handleAddMovement, mid)} />);
     } else {
       icon = (
         <RemoveCircle
-          className={classes.removeIcon}
+          className={classes.addRemoveIcon}
           onClick={this.binder1(this.handleRemoveMovement, mid)} />);
     }
 
