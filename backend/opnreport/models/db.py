@@ -309,7 +309,6 @@ class MovementLog(Base):
         BigInteger, ForeignKey('movement.id'),
         nullable=False, index=True)
     event_type = Column(String, nullable=False)
-    comment = Column(Unicode, nullable=True)
 
     # changes is a dict.
     changes = Column(JSONB, nullable=False)
@@ -371,7 +370,6 @@ class AccountEntryLog(Base):
         BigInteger, ForeignKey('account_entry.id'),
         nullable=False, index=True)
     event_type = Column(String, nullable=False)
-    comment = Column(Unicode, nullable=True)
 
     # changes is a dict.
     changes = Column(JSONB, nullable=False)
@@ -385,6 +383,7 @@ class Reco(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    comment = Column(Unicode, nullable=True)
 
     # internal is true if the reconciliation is a sequence of movements
     # that don't require an account entry to balance.

@@ -2,6 +2,7 @@
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import Movement
+from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
@@ -19,6 +20,42 @@ import re
 
 zero = Decimal()
 null = None
+
+
+def start_movement_query(dbsession, owner_id, helper):
+    return (
+        dbsession.query(
+            Movement.id,
+            Movement.number,
+            Movement.ts,
+            Movement.loop_id,
+            Movement.currency,
+            helper.delta,
+            helper.reco_id,
+            TransferRecord.transfer_id)
+        .join(
+            TransferRecord,
+            TransferRecord.id == Movement.transfer_record_id)
+        .filter(
+            Movement.owner_id == owner_id,
+            # Note: movements of zero are not eligible for reconciliation.
+            helper.delta != zero,
+        ))
+
+
+def render_movement_rows(movement_rows):
+    res = []
+    for row in movement_rows:
+        res.append({
+            'id': row.id,
+            'ts': row.ts,
+            'loop_id': row.loop_id,
+            'currency': row.currency,
+            'delta': row.delta,
+            'transfer_id': row.transfer_id,
+            'number': row.number,
+        })
+    return res
 
 
 @view_config(
@@ -56,6 +93,7 @@ def reco_view(context, request, complete=False):
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
+    comment = ''
     helper = MovementQueryHelper(
         dbsession=dbsession,
         file=file,
@@ -91,6 +129,16 @@ def reco_view(context, request, complete=False):
                 AccountEntry.id,
             )
             .all())
+
+        reco = (
+            dbsession.query(Reco)
+            .filter(
+                Reco.owner_id == owner_id,
+                Reco.id == reco_id)
+            .first())
+
+        if reco is not None:
+            comment = reco.comment or ''
 
     elif movement_id is not None:
         account_entry_rows = ()
@@ -130,43 +178,8 @@ def reco_view(context, request, complete=False):
         'movements': movements_json,
         'loops': loops,
         'is_circ': helper.is_circ,
+        'comment': comment,
     }
-
-
-def start_movement_query(dbsession, owner_id, helper):
-    return (
-        dbsession.query(
-            Movement.id,
-            Movement.number,
-            Movement.ts,
-            Movement.loop_id,
-            Movement.currency,
-            helper.delta,
-            helper.reco_id,
-            TransferRecord.transfer_id)
-        .join(
-            TransferRecord,
-            TransferRecord.id == Movement.transfer_record_id)
-        .filter(
-            Movement.owner_id == owner_id,
-            # Note: movements of zero are not eligible for reconciliation.
-            helper.delta != zero,
-        ))
-
-
-def render_movement_rows(movement_rows):
-    res = []
-    for row in movement_rows:
-        res.append({
-            'id': row.id,
-            'ts': row.ts,
-            'loop_id': row.loop_id,
-            'currency': row.currency,
-            'delta': row.delta,
-            'transfer_id': row.transfer_id,
-            'number': row.number,
-        })
-    return res
 
 
 @view_config(

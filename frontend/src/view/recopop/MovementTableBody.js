@@ -30,7 +30,12 @@ const styles = {
     border: '1px solid #bbb',
     fontWeight: 'normal',
   },
-  actionCell: {
+  removeCell: {
+    border: '1px solid #bbb',
+    textAlign: 'center',
+  },
+  addCell: {
+    backgroundColor: '#ffc',
     border: '1px solid #bbb',
     textAlign: 'center',
   },
@@ -84,6 +89,12 @@ const styles = {
     textAlign: 'center',
     padding: '4px 8px',
     fontStyle: 'italic',
+  },
+  candidateCell: {
+    backgroundColor: '#ffc',
+    border: '1px solid #bbb',
+    padding: '2px 8px',
+    textAlign: 'right',
   },
 };
 
@@ -202,6 +213,11 @@ class MovementTableBody extends React.Component {
 
     this.props.changeMovements(newMovements);
     this.setState({searchResults: newSearchResults});
+
+    if (!newSearchResults.length) {
+      this.closeSearch();
+    }
+
     this.props.updatePopoverPosition();
   }
 
@@ -295,23 +311,26 @@ class MovementTableBody extends React.Component {
           onClick={this.binder1(this.handleRemove, mid)} />);
     }
 
+    const cellClass = (
+      addCandidate ? classes.candidateCell : classes.numberCell);
+
     return (
       <tr key={`mv-${mid}`} className={rowClass}>
-        <td className={classes.actionCell}>
+        <td className={addCandidate ? classes.addCell : classes.removeCell}>
           {icon}
         </td>
-        <td className={classes.numberCell}>
+        <td className={cellClass}>
           {getCurrencyDeltaFormatter(movement.currency)(movement.delta)
           } {movement.currency}
         </td>
-        <td className={classes.numberCell}>
+        <td className={cellClass}>
           <FormattedDate value={movement.ts}
             day="numeric" month="short" year="numeric" />
           {' '}
           <FormattedTime value={movement.ts}
             hour="numeric" minute="2-digit" second="2-digit" />
         </td>
-        <td className={classes.numberCell}>
+        <td className={cellClass}>
           <a href={`/t/${tid}`}
               onClick={this.binder1(this.handleClickTransfer, tid)}>
             {tid} ({movement.number})
@@ -341,11 +360,11 @@ class MovementTableBody extends React.Component {
       </tr>),
       (<tr key="head2">
         <th width="10%" className={classes.head2Cell}></th>
-        <th width="25%" className={classes.head2Cell}>
+        <th width="28%" className={classes.head2Cell}>
           {isCirc ? 'Vault' : 'Wallet'}
         </th>
-        <th width="25%" className={classes.head2Cell}>Date and Time</th>
-        <th width="30%" className={classes.head2Cell}>Transfer (Movement #)</th>
+        <th width="28%" className={classes.head2Cell}>Date and Time</th>
+        <th width="34%" className={classes.head2Cell}>Transfer (Movement #)</th>
       </tr>)];
 
     if (movements) {

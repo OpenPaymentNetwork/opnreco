@@ -6,6 +6,7 @@ import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReport } from '../../util/fetcher';
 import { getPloopAndFile } from '../../util/ploopfile';
+import { throttler } from '../../util/throttler';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -18,6 +19,7 @@ import Popover from '@material-ui/core/Popover';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
+import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 
 
@@ -43,7 +45,6 @@ const styles = theme => ({
   actionBox: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '0 16px 16px 16px',
   },
   actionLeftButtons: {
     flexGrow: 2,
@@ -69,6 +70,13 @@ const styles = theme => ({
     backgroundColor: '#ddd',
     border: '1px solid #bbb',
     textAlign: 'center',
+  },
+  commentBox: {
+    textAlign: 'center',
+  },
+  commentField: {
+    marginTop: '16px',
+    minWidth: '400px',
   },
 });
 
@@ -96,6 +104,7 @@ class RecoPopover extends React.Component {
       undo: [],               // List of reco states
       popoverActions: null,
       resetCount: 0,
+      typingComment: null,
     };
   }
 
@@ -169,6 +178,34 @@ class RecoPopover extends React.Component {
     });
   }
 
+  handleComment(event) {
+    this.setState({typingComment: event.target.value});
+    this.getCommentThrottler()();
+  }
+
+  getCommentThrottler() {
+    let t = this.commentThrottler;
+    if (!t) {
+      t = throttler(this.commitComment.bind(this), 400);
+      this.commentThrottler = t;
+    }
+    return t;
+  }
+
+  commitComment() {
+    const {typingComment} = this.state;
+    if (typingComment !== null && typingComment !== undefined) {
+      // Commit the comment to the reco and record in the undo log.
+      const {reco, undo} = this.state;
+      this.setState({
+        reco: {...reco, comment: typingComment},
+        typingComment: null,
+        undo: [...undo, reco],
+      });
+      this.updatePopoverPosition();
+    }
+  }
+
   renderTable() {
     const {
       classes,
@@ -195,9 +232,9 @@ class RecoPopover extends React.Component {
           </tr>
           <tr>
             <th width="10%" className={classes.actionHeadCell}></th>
-            <th width="25%" className={classes.head2Cell}>Amount</th>
-            <th width="25%" className={classes.head2Cell}>Date</th>
-            <th width="30%" className={classes.head2Cell}>Description</th>
+            <th width="28%" className={classes.head2Cell}>Amount</th>
+            <th width="28%" className={classes.head2Cell}>Date</th>
+            <th width="34%" className={classes.head2Cell}>Description</th>
           </tr>
           {accountEntryRows}
           <tr>
@@ -236,6 +273,8 @@ class RecoPopover extends React.Component {
     } = this.props;
 
     const {
+      reco,
+      typingComment,
       undo,
     } = this.state;
 
@@ -246,6 +285,13 @@ class RecoPopover extends React.Component {
         requireURLs.push(recoCompleteURL);
       }
       require = <Require urls={requireURLs} fetcher={fOPNReport} />;
+    }
+
+    let comment = '';
+    if (typingComment !== null && typingComment !== undefined) {
+      comment = typingComment;
+    } else {
+      comment = (reco ? reco.comment || '' : '');
     }
 
     return (
@@ -278,18 +324,24 @@ class RecoPopover extends React.Component {
           </Typography>
           <Typography className={classes.content} component="div">
             {this.renderTable()}
-          </Typography>
-          <div className={classes.actionBox}>
-            <div className={classes.actionLeftButtons}>
-              <Button
-                disabled={!undo || !undo.length}
-                onClick={this.binder(this.handleUndo)}>Undo</Button>
+            <div className={classes.commentBox}>
+              <TextField
+                label="Comment"
+                className={classes.commentField}
+                value={comment}
+                onChange={this.binder(this.handleComment)}
+                multiline
+              />
             </div>
-            {recoId ?
-              <Button>Remove</Button>
-              : null}
-            <Button color="primary">Save</Button>
-          </div>
+            <div className={classes.actionBox}>
+              <div className={classes.actionLeftButtons}>
+                <Button
+                  disabled={!undo || !undo.length}
+                  onClick={this.binder(this.handleUndo)}>Undo</Button>
+              </div>
+              <Button color="primary">Save</Button>
+            </div>
+          </Typography>
         </div>
       </Popover>
     );
