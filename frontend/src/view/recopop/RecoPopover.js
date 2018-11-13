@@ -1,5 +1,6 @@
 
 import { binder } from '../../util/binder';
+import { clearMost } from '../../reducer/clearmost';
 import { closeRecoPopover } from '../../reducer/report';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -18,9 +19,11 @@ import MovementTableBody from './MovementTableBody';
 import Popover from '@material-ui/core/Popover';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Redo from '@material-ui/icons/Redo';
 import Require from '../../util/Require';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
+import Undo from '@material-ui/icons/Undo';
 
 
 const styles = theme => ({
@@ -101,10 +104,12 @@ class RecoPopover extends React.Component {
     this.binder = binder(this);
     this.state = {
       reco: null,             // reco state initially copied from the props
-      undo: [],               // List of reco states
+      undoLog: [],            // List of reco states
+      redoLog: [],            // List of reco states
       popoverActions: null,
       resetCount: 0,
       typingComment: null,
+      saving: false,
     };
   }
 
@@ -127,7 +132,8 @@ class RecoPopover extends React.Component {
     if (initializing) {
       this.setState({
         reco,
-        undo: [],
+        undoLog: [],
+        redoLog: [],
       });
       this.updatePopoverPosition();
     }
@@ -148,20 +154,77 @@ class RecoPopover extends React.Component {
     this.props.dispatch(closeRecoPopover());
   }
 
+  /**
+   * Commit all changes to state.reco and return the updated reco.
+   * (Note: this does not save the changes.)
+   */
+  commit() {
+    const {typingComment, reco, undoLog} = this.state;
+    let newReco = reco;
+    if (typingComment !== null && typingComment !== undefined &&
+        typingComment !== reco.comment) {
+      // Commit the comment and record in the undo log.
+      newReco = {...reco, comment: typingComment};
+      this.setState({
+        reco: newReco,
+        typingComment: null,
+        undoLog: [...undoLog, reco],
+        redoLog: [],
+      });
+      this.updatePopoverPosition();
+    }
+    return newReco;
+  }
+
   handleUndo() {
     const {
       resetCount,
-      undo,
+      undoLog,
+      redoLog,
     } = this.state;
 
-    if (!undo || !undo.length) {
+    if (!undoLog.length) {
       return;
     }
 
-    const len1 = undo.length - 1;
+    const reco = this.commit();
+
+    const newRedoLog = redoLog.slice();
+    newRedoLog.push(reco);
+
+    const len1 = undoLog.length - 1;
     this.setState({
-      reco: undo[len1],
-      undo: undo.slice(0, len1),
+      reco: undoLog[len1],
+      undoLog: undoLog.slice(0, len1),
+      redoLog: newRedoLog,
+      // Search results can contain the same items as restored rows,
+      // so close any active searches by incrementing resetCount.
+      resetCount: resetCount + 1,
+    });
+
+    this.updatePopoverPosition();
+  }
+
+  handleRedo() {
+    const {
+      reco,
+      resetCount,
+      undoLog,
+      redoLog,
+    } = this.state;
+
+    if (!redoLog.length) {
+      return;
+    }
+
+    const newUndoLog = undoLog.slice();
+    newUndoLog.push(reco);
+
+    const len1 = redoLog.length - 1;
+    this.setState({
+      reco: redoLog[len1],
+      redoLog: redoLog.slice(0, len1),
+      undoLog: newUndoLog,
       // Search results can contain the same items as restored rows,
       // so close any active searches by incrementing resetCount.
       resetCount: resetCount + 1,
@@ -171,39 +234,60 @@ class RecoPopover extends React.Component {
   }
 
   changeMovements(movements) {
-    const {reco, undo} = this.state;
+    const {reco, undoLog} = this.state;
     this.setState({
       reco: {...reco, movements},
-      undo: [...undo, reco],
+      undoLog: [...undoLog, reco],
+      redoLog: [],
     });
   }
 
   handleComment(event) {
-    this.setState({typingComment: event.target.value});
-    this.getCommentThrottler()();
+    this.setState({
+      typingComment: event.target.value,
+      redoLog: [],
+    });
+    this.getCommitThrottler()();
   }
 
-  getCommentThrottler() {
-    let t = this.commentThrottler;
+  getCommitThrottler() {
+    let t = this.commitThrottler;
     if (!t) {
-      t = throttler(this.commitComment.bind(this), 400);
-      this.commentThrottler = t;
+      t = throttler(this.commit.bind(this), 400);
+      this.commitThrottler = t;
     }
     return t;
   }
 
-  commitComment() {
-    const {typingComment} = this.state;
-    if (typingComment !== null && typingComment !== undefined) {
-      // Commit the comment to the reco and record in the undo log.
-      const {reco, undo} = this.state;
-      this.setState({
-        reco: {...reco, comment: typingComment},
-        typingComment: null,
-        undo: [...undo, reco],
-      });
-      this.updatePopoverPosition();
-    }
+  /**
+   * Commit and save the changes.
+   */
+  handleSave() {
+    const {
+      ploopKey,
+      fileId,
+      recoId,
+      dispatch,
+    } = this.props;
+
+    const reco = this.commit();
+
+    const url = fOPNReport.pathToURL('/reco-save' +
+      `?ploop_key=${encodeURIComponent(ploopKey)}` +
+      `&file_id=${encodeURIComponent(fileId)}`);
+    const data = {
+      reco,
+      reco_id: recoId,
+    };
+
+    const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
+    this.setState({saving: true});
+    promise.then(() => {
+      dispatch(clearMost());
+      dispatch(closeRecoPopover());
+    }).finally(() => {
+      this.setState({saving: false});
+    });
   }
 
   renderTable() {
@@ -275,7 +359,9 @@ class RecoPopover extends React.Component {
     const {
       reco,
       typingComment,
-      undo,
+      undoLog,
+      redoLog,
+      saving,
     } = this.state;
 
     let require = null;
@@ -335,11 +421,23 @@ class RecoPopover extends React.Component {
             </div>
             <div className={classes.actionBox}>
               <div className={classes.actionLeftButtons}>
-                <Button
-                  disabled={!undo || !undo.length}
-                  onClick={this.binder(this.handleUndo)}>Undo</Button>
+                <IconButton
+                  disabled={!undoLog.length}
+                  onClick={this.binder(this.handleUndo)}
+                >
+                  <Undo/>
+                </IconButton>
+                <IconButton
+                  disabled={!redoLog.length}
+                  onClick={this.binder(this.handleRedo)}
+                >
+                  <Redo/>
+                </IconButton>
               </div>
-              <Button color="primary">Save</Button>
+              <Button
+                color="primary"
+                disabled={saving}
+                onClick={this.binder(this.handleSave)}>Save</Button>
             </div>
           </Typography>
         </div>
