@@ -1,6 +1,6 @@
 
 import { binder } from '../../util/binder';
-import { clearMost } from '../../reducer/clearmost';
+import { clearOnSaveReco } from '../../reducer/clearmost';
 import { closeRecoPopover } from '../../reducer/report';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -283,7 +283,7 @@ class RecoPopover extends React.Component {
     const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
     this.setState({saving: true});
     promise.then(() => {
-      dispatch(clearMost());
+      dispatch(clearOnSaveReco());
       dispatch(closeRecoPopover());
     }).finally(() => {
       this.setState({saving: false});
@@ -295,12 +295,18 @@ class RecoPopover extends React.Component {
       classes,
       fileId,
       ploopKey,
+      recoURL,
     } = this.props;
 
     const {
       reco,
       resetCount,
     } = this.state;
+
+    if (!recoURL) {
+      // No reco specified and nothing is currently loading. Show nothing.
+      return null;
+    }
 
     if (!reco) {
       return <CircularProgress />;
@@ -449,7 +455,7 @@ class RecoPopover extends React.Component {
 
 function mapStateToProps(state) {
   const {ploop, file} = getPloopAndFile(state);
-  const ploopKey = ploop.ploop_key;
+  const ploopKey = ploop ? ploop.ploop_key : '';
   const fileId = file ? file.file_id : 'current';
   const {recoPopover} = state.report;
   const {recoId, movementId, accountEntryId} = recoPopover;

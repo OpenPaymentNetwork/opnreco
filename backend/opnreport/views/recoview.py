@@ -1,4 +1,10 @@
 
+from colander import Integer
+from colander import Length
+from colander import Schema
+from colander import SchemaNode
+from colander import Sequence
+from colander import String as ColString
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import Movement
@@ -12,7 +18,6 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import cast
 from sqlalchemy import func
-from sqlalchemy import or_
 from sqlalchemy import String
 import datetime
 import dateutil.parser
@@ -299,3 +304,43 @@ def reco_search_movement_view(context, request, complete=False):
     movements_json = render_movement_rows(movement_rows)
 
     return movements_json
+
+
+# Note: the schema below includes only the fields needed by reco-save.
+
+
+class MovementSchema(Schema):
+    id = SchemaNode(Integer())
+
+
+class RecoSchema(Schema):
+    movements = SchemaNode(
+        Sequence(),
+        MovementSchema(),
+        missing=(),
+        validator=Length(max=100))
+    comment = SchemaNode(
+        ColString(),
+        missing='',
+        validator=Length(max=10000))
+
+
+class RecoSaveSchema(Schema):
+    reco_id = SchemaNode(Integer(), missing=None)
+    reco = RecoSchema()
+
+
+@view_config(
+    name='reco-save',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def reco_save(context, request, complete=False):
+    """Save changes to a reco."""
+
+    file, _peer, _loop = get_request_file(request)
+
+    params = RecoSaveSchema().deserialize(request.json)
+    print(params)
+
+    return {'ok': True}
