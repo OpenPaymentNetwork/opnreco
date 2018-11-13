@@ -6,12 +6,19 @@ from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
 from opnreport.viewcommon import get_loop_map
-from opnreport.viewcommon import list_circ_peer_ids
+from opnreport.viewcommon import MovementQueryHelper
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
+from sqlalchemy import cast
+from sqlalchemy import func
 from sqlalchemy import or_
+from sqlalchemy import String
+import datetime
+import dateutil.parser
+import re
 
 zero = Decimal()
+null = None
 
 
 @view_config(
@@ -49,22 +56,21 @@ def reco_view(context, request, complete=False):
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
+    helper = MovementQueryHelper(
+        dbsession=dbsession,
+        file=file,
+        owner_id=owner_id)
 
     if reco_id is not None:
         movement_rows = (
-            dbsession.query(Movement, TransferRecord.transfer_id)
-            .join(
-                TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
+            start_movement_query(
+                dbsession=dbsession, owner_id=owner_id, helper=helper)
             .filter(
-                Movement.owner_id == owner_id,
-                or_(
-                    Movement.reco_id == reco_id,
-                    Movement.circ_reco_id == reco_id),
+                helper.reco_id == reco_id,
             )
             .order_by(
                 Movement.ts,
-                Movement.transfer_record_id,
+                TransferRecord.transfer_id,
                 Movement.number,
                 Movement.amount_index,
                 Movement.peer_id,
@@ -89,12 +95,9 @@ def reco_view(context, request, complete=False):
     elif movement_id is not None:
         account_entry_rows = ()
         movement_rows = (
-            dbsession.query(Movement, TransferRecord.transfer_id)
-            .join(
-                TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
+            start_movement_query(
+                dbsession=dbsession, owner_id=owner_id, helper=helper)
             .filter(
-                Movement.owner_id == owner_id,
                 Movement.id == movement_id,
             )
             .all())
@@ -112,41 +115,11 @@ def reco_view(context, request, complete=False):
     else:
         movement_rows = account_entry_rows = ()
 
-    is_circ = file.peer_id == 'c'
-    if is_circ:
-        # Include circulation replenishments.
-        circ_peer_ids = set(list_circ_peer_ids(
-            dbsession=dbsession, owner_id=owner_id))
-
-    movements_json = []
     need_loop_ids = set()
+    for row in movement_rows:
+        need_loop_ids.add(row.loop_id)
 
-    for movement, transfer_id in movement_rows:
-
-        need_loop_ids.add(movement.loop_id)
-
-        if is_circ:
-            if (
-                (reco_id is not None and movement.circ_reco_id == reco_id)
-                or (
-                    movement.orig_peer_id in circ_peer_ids
-                    and movement.wallet_delta < zero)):
-                # Circulation replenishment movement.
-                delta = movement.wallet_delta
-            else:
-                delta = movement.vault_delta
-        else:
-            delta = movement.wallet_delta
-
-        movements_json.append({
-            'id': movement.id,
-            'ts': movement.ts,
-            'loop_id': movement.loop_id,
-            'currency': movement.currency,
-            'delta': delta,
-            'transfer_id': transfer_id,
-            'number': movement.number,
-        })
+    movements_json = render_movement_rows(movement_rows)
 
     loops = get_loop_map(
         request=request,
@@ -156,5 +129,160 @@ def reco_view(context, request, complete=False):
     return {
         'movements': movements_json,
         'loops': loops,
-        'is_circ': is_circ,
+        'is_circ': helper.is_circ,
     }
+
+
+def start_movement_query(dbsession, owner_id, helper):
+    return (
+        dbsession.query(
+            Movement.id,
+            Movement.number,
+            Movement.ts,
+            Movement.loop_id,
+            Movement.currency,
+            helper.delta,
+            helper.reco_id,
+            TransferRecord.transfer_id)
+        .join(
+            TransferRecord,
+            TransferRecord.id == Movement.transfer_record_id)
+        .filter(
+            Movement.owner_id == owner_id,
+            # Note: movements of zero are not eligible for reconciliation.
+            helper.delta != zero,
+        ))
+
+
+def render_movement_rows(movement_rows):
+    res = []
+    for row in movement_rows:
+        res.append({
+            'id': row.id,
+            'ts': row.ts,
+            'loop_id': row.loop_id,
+            'currency': row.currency,
+            'delta': row.delta,
+            'transfer_id': row.transfer_id,
+            'number': row.number,
+        })
+    return res
+
+
+@view_config(
+    name='reco-search-movement',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def reco_search_movement_view(context, request, complete=False):
+    """Search for movements that haven't been reconciled."""
+
+    file, _peer, _loop = get_request_file(request)
+
+    params = request.json
+    amount_input = str(params.get('amount', ''))
+    date_input = str(params.get('date', ''))
+    transfer_input = str(params.get('transfer', ''))
+    # tzoffset is the number of minutes as given by
+    # 'new Date().getTimezoneOffset()' in Javascript.
+    tzoffset_input = str(params.get('tzoffset'))
+    seen_movement_ids = set(
+        int(mid) for mid in params.get('seen_movement_ids', ()))
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    helper = MovementQueryHelper(
+        dbsession=dbsession,
+        file=file,
+        owner_id=owner_id)
+    filters = []
+
+    match = re.search(r'[+-]?[0-9\.]+', amount_input)
+    if match is not None:
+        amount_str = match.group(0)
+        amount_abs = abs(Decimal(amount_str))
+        if '.' in amount_str:
+            # Exact amount.
+            filters.append(func.abs(helper.delta) == amount_abs)
+        else:
+            # The search omitted the subunit value.
+            filters.append(func.abs(helper.delta) >= amount_abs)
+            filters.append(func.abs(helper.delta) < amount_abs + 1)
+        if '-' in amount_str:
+            filters.append(helper.delta < zero)
+        elif '+' in amount_str:
+            filters.append(helper.delta > zero)
+
+    match = re.search(r'[a-z]+', amount_input)
+    if match is not None:
+        currency = match.group(0).upper()
+        filters.append(
+            Movement.currency.like(func.concat('%', currency, '%')))
+
+    if date_input and tzoffset_input:
+        try:
+            parsed = dateutil.parser.parse(date_input)
+            tzoffset = int(tzoffset_input)
+        except Exception:
+            pass
+        else:
+            if parsed is not None:
+                ts = parsed + datetime.timedelta(seconds=tzoffset * 60)
+                filters.append(Movement.ts >= ts)
+                colon_count = sum((1 for c in date_input if c == ':'), 0)
+                if colon_count >= 2:
+                    # Query with second resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(seconds=1))
+                elif colon_count >= 1:
+                    # Query with minute resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(seconds=60))
+                elif parsed.hour:
+                    # Query with hour resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(seconds=3600))
+                else:
+                    # Query with day resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(days=1))
+
+    match = re.search(r'[0-9\-]+', transfer_input)
+    if match is not None:
+        transfer_str = match.group(0).replace('-', '')
+        if transfer_str:
+            filters.append(
+                cast(TransferRecord.transfer_id, String).like(
+                    func.concat('%', transfer_str, '%')))
+
+    if not filters:
+        return []
+
+    if seen_movement_ids:
+        filters.append(~Movement.id.in_(seen_movement_ids))
+
+    movement_rows = (
+        start_movement_query(
+            dbsession=dbsession, owner_id=owner_id, helper=helper)
+        .filter(
+            Movement.peer_id == file.peer_id,
+            helper.reco_id == null,
+            *filters
+        )
+        .order_by(
+            Movement.ts,
+            TransferRecord.transfer_id,
+            Movement.number,
+            Movement.amount_index,
+            Movement.peer_id,
+            Movement.loop_id,
+            Movement.currency,
+            Movement.issuer_id,
+        )
+        .limit(5)
+        .all())
+
+    movements_json = render_movement_rows(movement_rows)
+
+    return movements_json

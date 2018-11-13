@@ -9,8 +9,10 @@ import { fOPNReport } from '../../util/fetcher';
 import { FormattedDate, FormattedTime } from 'react-intl';
 import { getCurrencyDeltaFormatter } from '../../util/currency';
 import { getPloopAndFile } from '../../util/ploopfile';
+import { throttler } from '../../util/throttler';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import AddCircle from '@material-ui/icons/AddCircle';
 import Button from '@material-ui/core/Button';
 import RemoveCircle from '@material-ui/icons/RemoveCircle';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -94,10 +96,6 @@ const styles = theme => ({
   removingRow: {
     opacity: 0,
   },
-  textCell: {
-    border: '1px solid #bbb',
-    padding: '2px 8px',
-  },
   numberCell: {
     border: '1px solid #bbb',
     padding: '2px 8px',
@@ -116,8 +114,27 @@ const styles = theme => ({
     display: 'block',
     margin: '0 auto',
   },
+  searchCloseIcon: {
+    color: '#777',
+    display: 'block',
+    margin: '0 auto',
+    cursor: 'pointer',
+  },
   searchInput: {
     padding: 0,
+  },
+  searchWorkingCell: {
+    border: '1px solid #bbb',
+  },
+  searchWorkingIcon: {
+    display: 'block',
+    margin: '2px auto',
+  },
+  searchEmptyCell: {
+    border: '1px solid #bbb',
+    textAlign: 'center',
+    padding: '4px 8px',
+    fontStyle: 'italic',
   },
 });
 
@@ -129,6 +146,8 @@ class RecoPopover extends React.Component {
     history: PropTypes.object.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
+    fileId: PropTypes.string,
+    ploopKey: PropTypes.string,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
     recoCompleteURL: PropTypes.string,
@@ -140,10 +159,10 @@ class RecoPopover extends React.Component {
     this.binder = binder(this);
     this.binder1 = binder1(this);
     this.state = {
-      popoverActions: null,
-      reco: null,
-      removingMovements: {},
-      undoHistory: [],  // List of reco states
+      reco: null,             // reco state copied from the server
+      removingMovements: {},  // movementId: true
+      undoHistory: [],        // List of reco states
+      searchMovement: {},     // The content of the movement search fields
     };
   }
 
@@ -152,7 +171,7 @@ class RecoPopover extends React.Component {
     let initializing = false;
 
     if (this.props.open && !prevProps.open) {
-      // Clear the old state.
+      // Clear the old reco state.
       recoState = null;
       initializing = true;
     }
@@ -167,14 +186,20 @@ class RecoPopover extends React.Component {
     if (initializing) {
       this.setState({
         reco: recoState,
+        removingMovements: {},
         undoHistory: [],
+        searchMovement: {},
       });
     }
   }
 
+  handleActionCallback(popoverActions) {
+    this.setState({popoverActions});
+  }
+
   updatePopoverPosition() {
     const {popoverActions} = this.state;
-    if (popoverActions) {
+    if (popoverActions && popoverActions.updatePosition) {
       popoverActions.updatePosition();
     }
   }
@@ -228,8 +253,7 @@ class RecoPopover extends React.Component {
     }, 200);
   }
 
-  handleActionCallback(popoverActions) {
-    this.setState({popoverActions});
+  handleAddMovement(movementId) {
   }
 
   handleUndo() {
@@ -250,6 +274,224 @@ class RecoPopover extends React.Component {
     this.updatePopoverPosition();
   }
 
+  getSearchMovementThrottler() {
+    let t = this.searchMovementThrottler;
+    if (!t) {
+      t = throttler(this.throttledSearchMovement.bind(this), 400);
+      this.searchMovementThrottler = t;
+    }
+    return t;
+  }
+
+  handleSearchMovement(fieldName, event) {
+    const hadQuery = this.state.hasQuery;
+    this.setState({searchMovement: {
+      ...this.state.searchMovement,
+      hasQuery: true,
+      working: true,
+      [fieldName]: event.target.value,
+    }});
+    this.getSearchMovementThrottler()();
+    if (!hadQuery) {
+      this.updatePopoverPosition();
+    }
+  }
+
+  handleCloseSearchMovement() {
+    this.setState({searchMovement: {}});
+  }
+
+  throttledSearchMovement() {
+    const {searchMovement} = this.state;
+    const hasQuery = !!(
+      searchMovement.amount || searchMovement.date || searchMovement.transfer);
+    if (hasQuery) {
+      const {ploopKey, fileId, reco} = this.props;
+      const seen_movement_ids = [];
+      if (reco && reco.movements) {
+        reco.movements.forEach(movement => {
+          seen_movement_ids.push(movement.id);
+        });
+      }
+      const url = fOPNReport.pathToURL('/reco-search-movement' +
+        `?ploop_key=${encodeURIComponent(ploopKey)}` +
+        `&file_id=${encodeURIComponent(fileId)}`);
+      const data = {
+        amount: searchMovement.amount || '',
+        date: searchMovement.date || '',
+        tzoffset: new Date().getTimezoneOffset(),
+        transfer: searchMovement.transfer || '',
+        seen_movement_ids,
+      };
+      const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
+      promise.then(results => {
+        const newSearch = this.state.searchMovement;
+        if (newSearch.amount === searchMovement.amount &&
+            newSearch.date === searchMovement.date &&
+            newSearch.transfer === searchMovement.transfer) {
+          this.setState({searchMovement: {
+            ...this.state.searchMovement,
+            results: results,
+            working: false,
+          }});
+          this.updatePopoverPosition();
+        }
+        // else the query changed; expect another query to provide
+        // the results.
+      });
+    } else {
+      this.setState({searchMovement: {}});
+    }
+    this.updatePopoverPosition();
+  }
+
+  renderMovementRow(movement, addCandidate) {
+    const {classes} = this.props;
+    const {removingMovements} = this.state;
+
+    const tid = dashed(movement.transfer_id);
+    const mid = movement.id;
+    const rowClass = `${classes.removableRow} ` + (
+      removingMovements[mid] && !addCandidate ? classes.removingRow : '');
+
+    let icon;
+    if (addCandidate) {
+      icon = (
+        <AddCircle
+          className={classes.addIcon}
+          onClick={this.binder1(this.handleAddMovement, mid)} />);
+    } else {
+      icon = (
+        <RemoveCircle
+          className={classes.removeIcon}
+          onClick={this.binder1(this.handleRemoveMovement, mid)} />);
+    }
+
+    return (
+      <tr key={`mv-${mid}`} className={rowClass}>
+        <td className={classes.actionCell}>
+          {icon}
+        </td>
+        <td className={classes.numberCell}>
+          {getCurrencyDeltaFormatter(movement.currency)(movement.delta)
+          } {movement.currency}
+        </td>
+        <td className={classes.numberCell}>
+          <FormattedDate value={movement.ts}
+            day="numeric" month="short" year="numeric" />
+          {' '}
+          <FormattedTime value={movement.ts}
+            hour="numeric" minute="2-digit" second="2-digit" />
+        </td>
+        <td className={classes.numberCell}>
+          <a href={`/t/${tid}`}
+              onClick={this.binder1(this.handleClickTransfer, tid)}>
+            {tid} ({movement.number})
+          </a>
+        </td>
+      </tr>
+    );
+  }
+
+  renderMovementRows() {
+    const {
+      classes,
+    } = this.props;
+
+    const {
+      reco,
+      searchMovement,
+    } = this.state;
+
+    if (!reco) {
+      return <CircularProgress />;
+    }
+
+    const rows = [
+      (<tr key="mvHead1">
+        <th colSpan="4" className={classes.headCell}>Movements</th>
+      </tr>),
+      (<tr key="mvHead2">
+        <th width="10%" className={classes.head2Cell}></th>
+        <th width="25%" className={classes.head2Cell}>
+          {reco.is_circ ? 'Vault' : 'Wallet'}
+        </th>
+        <th width="25%" className={classes.head2Cell}>Date and Time</th>
+        <th width="30%" className={classes.head2Cell}>Transfer (Movement #)</th>
+      </tr>)];
+
+    reco.movements.forEach(movement => {
+      rows.push(this.renderMovementRow(movement, false));
+    });
+
+    if (searchMovement.hasQuery && searchMovement.results &&
+        !searchMovement.working) {
+      if (searchMovement.results.length) {
+        searchMovement.results.forEach(movement => {
+          rows.push(this.renderMovementRow(movement, true));
+        });
+      } else {
+        rows.push(
+        <tr key="mvSearchEmpty">
+          <td></td>
+          <td colSpan="3" className={classes.searchEmptyCell}>
+            No movements found.
+          </td>
+        </tr>);
+      }
+    }
+
+    if (searchMovement.working) {
+      rows.push(
+        <tr key="mvSearchWorking">
+          <td></td>
+          <td colSpan="3" className={classes.searchWorkingCell}>
+            <CircularProgress
+              size="24px"
+              className={classes.searchWorkingIcon} />
+          </td>
+        </tr>);
+    }
+
+    rows.push(
+      <tr key="mvSearchInput">
+        <td className={classes.searchHeadCell}>
+          {searchMovement.hasQuery ?
+            <Close
+              className={classes.searchCloseIcon}
+              onClick={this.binder(this.handleCloseSearchMovement)} />
+            : <Search className={classes.searchIcon} />}
+        </td>
+        <td className={classes.searchCell}>
+          <Input
+            classes={{input: classes.searchInput}}
+            disableUnderline
+            value={searchMovement.amount || ''}
+            onChange={this.binder1(this.handleSearchMovement, 'amount')}
+          />
+        </td>
+        <td className={classes.searchCell}>
+          <Input
+            classes={{input: classes.searchInput}}
+            disableUnderline
+            value={searchMovement.date || ''}
+            onChange={this.binder1(this.handleSearchMovement, 'date')}
+          />
+        </td>
+        <td className={classes.searchCell}>
+          <Input
+            classes={{input: classes.searchInput}}
+            disableUnderline
+            value={searchMovement.transfer || ''}
+            onChange={this.binder1(this.handleSearchMovement, 'transfer')}
+          />
+        </td>
+      </tr>
+    );
+
+    return rows;
+  }
+
   renderTable() {
     const {
       classes,
@@ -257,48 +499,14 @@ class RecoPopover extends React.Component {
 
     const {
       reco,
-      removingMovements,
     } = this.state;
 
     if (!reco) {
       return <CircularProgress />;
     }
 
-    const movementRows = reco.movements.map(movement => {
-      const tid = dashed(movement.transfer_id);
-      const mid = movement.id;
-      const rowClass = `${classes.removableRow} ` + (
-        removingMovements[mid] ? classes.removingRow : '');
-
-      return (
-        <tr key={`mv-${mid}`} className={rowClass}>
-          <td className={classes.actionCell}>
-            <RemoveCircle
-              className={classes.removeIcon}
-              onClick={this.binder1(this.handleRemoveMovement, mid)} />
-          </td>
-          <td className={classes.numberCell}>
-            {getCurrencyDeltaFormatter(movement.currency)(movement.delta)
-            } {movement.currency}
-          </td>
-          <td className={classes.textCell}>
-            <FormattedDate value={movement.ts}
-              day="numeric" month="short" year="numeric" />
-            {' '}
-            <FormattedTime value={movement.ts}
-              hour="numeric" minute="2-digit" second="2-digit" />
-          </td>
-          <td className={classes.numberCell}>
-            <a href={`/t/${tid}`}
-                onClick={this.binder1(this.handleClickTransfer, tid)}>
-              {tid} ({movement.number})
-            </a>
-          </td>
-        </tr>
-      );
-    });
-
     const accountEntryRows = [];
+    const movementRows = this.renderMovementRows();
 
     return (
       <table className={classes.table}>
@@ -321,32 +529,7 @@ class RecoPopover extends React.Component {
             <td colSpan="4" className={classes.spaceRow}></td>
           </tr>
 
-          <tr>
-            <th colSpan="4" className={classes.headCell}>Movements</th>
-          </tr>
-          <tr>
-            <th width="10%" className={classes.head2Cell}></th>
-            <th width="25%" className={classes.head2Cell}>
-              {reco.is_circ ? 'Vault' : 'Wallet'}
-            </th>
-            <th width="25%" className={classes.head2Cell}>Date and Time</th>
-            <th width="30%" className={classes.head2Cell}>Transfer (Movement #)</th>
-          </tr>
           {movementRows}
-          <tr>
-            <td className={classes.searchHeadCell}>
-              <Search className={classes.searchIcon} />
-            </td>
-            <td className={classes.searchCell}>
-              <Input classes={{input: classes.searchInput}} disableUnderline />
-            </td>
-            <td className={classes.searchCell}>
-              <Input classes={{input: classes.searchInput}} disableUnderline />
-            </td>
-            <td className={classes.searchCell}>
-              <Input classes={{input: classes.searchInput}} disableUnderline />
-            </td>
-          </tr>
 
         </tbody>
       </table>
@@ -427,6 +610,8 @@ class RecoPopover extends React.Component {
 
 function mapStateToProps(state) {
   const {ploop, file} = getPloopAndFile(state);
+  const ploopKey = ploop.ploop_key;
+  const fileId = file ? file.file_id : 'current';
   const {recoPopover} = state.report;
   const {recoId, movementId, accountEntryId} = recoPopover;
   let recoURL, reco;
@@ -434,8 +619,8 @@ function mapStateToProps(state) {
 
   if (ploop) {
     const query = (
-      `ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
-      `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
+      `ploop_key=${encodeURIComponent(ploopKey)}` +
+      `&file_id=${encodeURIComponent(fileId)}` +
       `&movement_id=${encodeURIComponent(movementId || '')}` +
       `&reco_id=${encodeURIComponent(recoId || '')}` +
       `&account_entry_id=${encodeURIComponent(accountEntryId || '')}`);
@@ -456,11 +641,14 @@ function mapStateToProps(state) {
     recoURL = '';
     reco = null;
   }
+
   return {
     ...recoPopover,
     recoURL,
     recoCompleteURL,
     reco,
+    ploopKey,
+    fileId,
   };
 }
 

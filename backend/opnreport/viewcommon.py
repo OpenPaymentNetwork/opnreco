@@ -31,45 +31,62 @@ def list_circ_peer_ids(dbsession, owner_id):
     return [x for (x,) in circ_peer_id_rows]
 
 
+class MovementQueryHelper:
+    """Provides movement pseudo-columns for querying the movement table.
+
+    Makes circulation replenishment reconciliations look like ordinary
+    reconciliations.
+    """
+
+    def __init__(self, dbsession, file, owner_id):
+        if file.peer_id == 'c':
+            # Include circulation replenishments.
+            is_circ = True
+
+            circ_peer_ids = list_circ_peer_ids(
+                dbsession=dbsession, owner_id=owner_id)
+
+            # is_circ_repl is true for movements that are circulation
+            # replenishments.
+            is_circ_repl = or_(
+                Movement.circ_reco_id != null,
+                and_(
+                    Movement.orig_peer_id.in_(circ_peer_ids),
+                    Movement.wallet_delta < 0))
+
+            delta = case([
+                (is_circ_repl, Movement.wallet_delta),
+            ], else_=Movement.vault_delta)
+
+            reco_id = case([
+                (is_circ_repl, Movement.circ_reco_id),
+            ], else_=Movement.reco_id)
+
+        else:
+            # Simple case: no circulation replenishment is possible,
+            # so just list the movements.
+            is_circ = False
+            delta = Movement.wallet_delta
+            reco_id = Movement.reco_id
+
+        self.is_circ = is_circ
+        self.delta = delta.label('delta')
+        self.reco_id = reco_id.label('reco_id')
+
+
 def make_movement_cte(dbsession, file, owner_id):
     """Create a common table expression (CTE) that lists movements in a file.
 
     Makes circulation replenishment movements look like normal movements.
     """
-    if file.peer_id == 'c':
-        # Include circulation replenishments.
-
-        circ_peer_ids = list_circ_peer_ids(
-            dbsession=dbsession, owner_id=owner_id)
-
-        # is_circ_repl is true for movements that are circulation
-        # replenishments.
-        is_circ_repl = or_(
-            Movement.circ_reco_id != null,
-            and_(
-                Movement.orig_peer_id.in_(circ_peer_ids),
-                Movement.wallet_delta < 0))
-
-        movement_delta_c = case([
-            (is_circ_repl, Movement.wallet_delta),
-        ], else_=Movement.vault_delta)
-
-        reco_id_c = case([
-            (is_circ_repl, Movement.circ_reco_id),
-        ], else_=Movement.reco_id)
-
-    else:
-        # Simple case: no circulation replenishment is possible,
-        # so just list the movements.
-        movement_delta_c = Movement.wallet_delta
-        reco_id_c = Movement.reco_id
+    helper = MovementQueryHelper(dbsession, file, owner_id)
 
     return (
         dbsession.query(
             Movement.id,
-            movement_delta_c.label('delta'),
+            helper.delta,
             Movement.ts,
-            reco_id_c.label('reco_id'),
+            helper.reco_id,
             Movement.transfer_record_id,
         )
         .filter(

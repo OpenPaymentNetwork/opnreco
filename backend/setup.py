@@ -4,6 +4,7 @@ from setuptools import setup, find_packages
 
 requires = [
     'colander',
+    'dateutil',
     'psycopg2',
     'python-dotenv',
     'pyramid',
