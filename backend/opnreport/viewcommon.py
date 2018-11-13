@@ -32,10 +32,9 @@ def list_circ_peer_ids(dbsession, owner_id):
 
 
 class MovementQueryHelper:
-    """Provides movement pseudo-columns for querying the movement table.
+    """Provide movement pseudo-columns for querying the movement table.
 
-    Makes circulation replenishment reconciliations look like ordinary
-    reconciliations.
+    Makes circulation replenishment movements look like normal movements.
     """
 
     def __init__(self, dbsession, file, owner_id):
