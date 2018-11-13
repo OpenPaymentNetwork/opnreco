@@ -11,7 +11,7 @@ import Linger from '../../util/Linger';
 import MenuIcon from '@material-ui/icons/Menu';
 import PropTypes from 'prop-types';
 import React from 'react';
-import RecoPopover from '../report/RecoPopover';
+import RecoPopover from '../recopop/RecoPopover';
 import FileSelector from '../report/FileSelector';
 import Tab from '@material-ui/core/Tab';
 import TabContent from './TabContent';
