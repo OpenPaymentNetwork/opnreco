@@ -269,6 +269,9 @@ class RecoPopover extends React.Component {
     this.setState({
       reco: undoHistory[len1],
       undoHistory: undoHistory.slice(0, len1),
+      // Search results can contain the same movement IDs as restored rows,
+      // so clear the search results.
+      searchMovement: {},
     });
 
     this.updatePopoverPosition();
@@ -306,7 +309,8 @@ class RecoPopover extends React.Component {
     const hasQuery = !!(
       searchMovement.amount || searchMovement.date || searchMovement.transfer);
     if (hasQuery) {
-      const {ploopKey, fileId, reco} = this.props;
+      const {ploopKey, fileId} = this.props;
+      const {reco} = this.state;
       const seen_movement_ids = [];
       if (reco && reco.movements) {
         reco.movements.forEach(movement => {
