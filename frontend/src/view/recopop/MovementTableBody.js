@@ -1,6 +1,5 @@
 
 import { binder, binder1 } from '../../util/binder';
-import { closeRecoPopover } from '../../reducer/report';
 import { compose } from '../../util/functional';
 import { dashed } from '../../util/transferfmt';
 import { fOPNReport } from '../../util/fetcher';
@@ -104,6 +103,7 @@ const styles = {
 class MovementTableBody extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    close: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     fileId: PropTypes.string,
@@ -146,7 +146,7 @@ class MovementTableBody extends React.Component {
   handleClickTransfer(tid, event) {
     if (event.button === 0) {
       event.preventDefault();
-      this.props.dispatch(closeRecoPopover());
+      this.props.close();
       this.props.history.push(`/t/${tid}`);
     }
   }

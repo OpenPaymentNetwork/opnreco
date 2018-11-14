@@ -5,8 +5,6 @@ const SET_PLOOP_KEY = 'report/SET_PLOOP_KEY';
 const SET_FILE_ID = 'report/SET_FILE_ID';
 const SET_ROWS_PER_PAGE = 'report/SET_ROWS_PER_PAGE';
 const SET_PAGE_INDEX = 'report/SET_PAGE_INDEX';
-const SHOW_RECO_POPOVER = 'report/SHOW_RECO_POPOVER';
-const CLOSE_RECO_POPOVER = 'report/CLOSE_RECO_POPOVER';
 
 const initialState = {
   ploopKey: null,
@@ -14,7 +12,6 @@ const initialState = {
   // rowsPerPage and pageIndex are for the Transactions report.
   rowsPerPage: 100,  // May be null
   pageIndex: 0,
-  recoPopover: {},
 };
 
 export const setPloopKey = (ploopKey) => ({
@@ -28,11 +25,6 @@ export const setRowsPerPage = (rows) => ({
 
 export const setPageIndex = (pageIndex) => ({
   type: SET_PAGE_INDEX, payload: {pageIndex}});
-
-export const showRecoPopover = (payload) => ({
-  type: SHOW_RECO_POPOVER, payload});
-
-export const closeRecoPopover = () => ({type: CLOSE_RECO_POPOVER});
 
 const actionHandlers = {
   [SET_PLOOP_KEY]: (state, {payload: {ploopKey}}) => ({
@@ -52,28 +44,6 @@ const actionHandlers = {
   [SET_PAGE_INDEX]: (state, {payload: {pageIndex}}) => ({
     ...state,
     pageIndex,
-  }),
-
-  [SHOW_RECO_POPOVER]:
-  (state, {payload: {recoId, movementId, accountEntryId, anchorEl}}) => ({
-    ...state,
-    recoPopover: {
-      open: true,
-      recoId,
-      movementId,
-      accountEntryId,
-      anchorEl,
-    },
-  }),
-
-  [CLOSE_RECO_POPOVER]: (state) => ({
-    ...state,
-    recoPopover: {
-      // Keep the rest of the attrs so the popover doesn't get garbled while
-      // fading.
-      ...state.recoPopover,
-      open: false,
-    },
   }),
 };
 

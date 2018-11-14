@@ -1,11 +1,11 @@
 
-import { showRecoPopover } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import ButtonBase from '@material-ui/core/ButtonBase';
 import CheckBox from '@material-ui/icons/CheckBox';
 import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
 import PropTypes from 'prop-types';
 import React from 'react';
+import RecoPopover from '../recopop/RecoPopover';
 
 
 const styles = {
@@ -25,27 +25,44 @@ const styles = {
 class RecoCheckBox extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    dispatch: PropTypes.func.isRequired,
-    movementId: PropTypes.string.isRequired,
+    movementId: PropTypes.string,
+    accountEntryId: PropTypes.string,
     recoId: PropTypes.string,
   };
 
   constructor(props) {
     super(props);
-    this.handleClickBound = this.handleClick.bind(this);
+    // Implicit state: open, popupExists, anchorEl
+    // There's no need to initialize the implicit state.
+    this.state = {};
   }
 
   handleClick(event) {
-    const {movementId, recoId} = this.props;
-    this.props.dispatch(showRecoPopover({
-      movementId,
-      recoId,
+    this.setState({
+      open: true,
+      popupExists: true,
       anchorEl: event.target,
-    }));
+    });
+  }
+
+  handleClose() {
+    this.setState({
+      open: false,
+    });
   }
 
   render() {
-    const {classes, recoId} = this.props;
+    const {
+      classes,
+      recoId,
+    } = this.props;
+
+    const {
+      open,
+      popupExists,
+      anchorEl,
+    } = this.state;
+
     let Icon, hiddenText;
 
     if (recoId !== null) {
@@ -55,16 +72,50 @@ class RecoCheckBox extends React.Component {
       Icon = CheckBoxOutlineBlank;
       hiddenText = '___';
     }
+
+    let popup = null;
+
+    if (popupExists) {
+      const {
+        movementId,
+        accountEntryId,
+      } = this.props;
+
+      let closeBound = this.handleCloseBound;
+      if (!closeBound) {
+        closeBound = this.handleClose.bind(this);
+        this.handleCloseBound = closeBound;
+      }
+
+      popup = (
+        <RecoPopover
+          recoId={recoId}
+          movementId={movementId}
+          accountEntryId={accountEntryId}
+          anchorEl={anchorEl}
+          open={open}
+          close={closeBound}
+        />
+      );
+    }
+
+    let clickBound = this.handleClickBound;
+    if (!clickBound) {
+      clickBound = this.handleClick.bind(this);
+      this.handleClickBound = clickBound;
+    }
+
     return (
       <React.Fragment>
         <span className={classes.hiddenText}>{hiddenText}</span>
         <ButtonBase
           centerRipple
-          onClick={this.handleClickBound}
+          onClick={clickBound}
           className={classes.button}
         >
           <Icon />
         </ButtonBase>
+        {popup}
       </React.Fragment>
     );
   }

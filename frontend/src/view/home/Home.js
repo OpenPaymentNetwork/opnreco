@@ -7,11 +7,9 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Hidden from '@material-ui/core/Hidden';
 import IconButton from '@material-ui/core/IconButton';
-import Linger from '../../util/Linger';
 import MenuIcon from '@material-ui/icons/Menu';
 import PropTypes from 'prop-types';
 import React from 'react';
-import RecoPopover from '../recopop/RecoPopover';
 import FileSelector from '../report/FileSelector';
 import Tab from '@material-ui/core/Tab';
 import TabContent from './TabContent';
@@ -55,7 +53,6 @@ class Home extends React.Component {
     match: PropTypes.object.isRequired,
     ploop: PropTypes.object,
     file: PropTypes.object,
-    recoPopoverOpen: PropTypes.bool,
     transferId: PropTypes.string,
   };
 
@@ -88,7 +85,6 @@ class Home extends React.Component {
       file,
       match,
       ploop,
-      recoPopoverOpen,
       transferId,
     } = this.props;
 
@@ -145,22 +141,15 @@ class Home extends React.Component {
         </div>
 
         <TabContent tab={tab} ploop={ploop} file={file} />
-
-        <Linger enabled={recoPopoverOpen}>
-          <RecoPopover />
-        </Linger>
-
       </div>
     );
   }
 }
 
 function mapStateToProps(state) {
-  const {recoPopover} = state.report;
   const {ploop, file} = getPloopAndFile(state);
 
   return {
-    recoPopoverOpen: recoPopover.open,
     ploop,
     file,
     transferId: state.app.transferId,

@@ -1,7 +1,6 @@
 
 import { binder } from '../../util/binder';
-import { clearOnSaveReco } from '../../reducer/clearmost';
-import { closeRecoPopover } from '../../reducer/report';
+import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
@@ -89,6 +88,7 @@ class RecoPopover extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
+    close: PropTypes.func.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
     fileId: PropTypes.string,
@@ -148,10 +148,6 @@ class RecoPopover extends React.Component {
     if (popoverActions && popoverActions.updatePosition) {
       popoverActions.updatePosition();
     }
-  }
-
-  handleClose() {
-    this.props.dispatch(closeRecoPopover());
   }
 
   /**
@@ -283,8 +279,8 @@ class RecoPopover extends React.Component {
     const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
     this.setState({saving: true});
     promise.then(() => {
-      dispatch(clearOnSaveReco());
-      dispatch(closeRecoPopover());
+      this.props.close();
+      dispatch(clearMost());
     }).finally(() => {
       this.setState({saving: false});
     });
@@ -296,6 +292,7 @@ class RecoPopover extends React.Component {
       fileId,
       ploopKey,
       recoURL,
+      close,
     } = this.props;
 
     const {
@@ -347,6 +344,7 @@ class RecoPopover extends React.Component {
           changeMovements={this.binder(this.changeMovements)}
           isCirc={reco.is_circ}
           resetCount={resetCount}
+          close={close}
         />
       </table>
     );
@@ -371,7 +369,7 @@ class RecoPopover extends React.Component {
     } = this.state;
 
     let require = null;
-    if (recoURL) {
+    if (recoURL && open) {
       const requireURLs = [recoURL];
       if (recoCompleteURL) {
         requireURLs.push(recoCompleteURL);
@@ -391,7 +389,7 @@ class RecoPopover extends React.Component {
         id="reco-popover"
         open={open}
         anchorEl={anchorEl}
-        onClose={this.binder(this.handleClose)}
+        onClose={this.props.close}
         anchorOrigin={{
           vertical: 'top',
           horizontal: 'left',
@@ -409,7 +407,7 @@ class RecoPopover extends React.Component {
             <span className={classes.popoverTitle}>Reconciliation {recoId}</span>
             <IconButton
               className={classes.closeButton}
-              onClick={this.binder(this.handleClose)}
+              onClick={this.props.close}
             >
               <Close />
             </IconButton>
@@ -453,12 +451,10 @@ class RecoPopover extends React.Component {
 }
 
 
-function mapStateToProps(state) {
+function mapStateToProps(state, ownProps) {
   const {ploop, file} = getPloopAndFile(state);
   const ploopKey = ploop ? ploop.ploop_key : '';
   const fileId = file ? file.file_id : 'current';
-  const {recoPopover} = state.report;
-  const {recoId, movementId, accountEntryId} = recoPopover;
   let recoURL, reco;
   let recoCompleteURL = null;
 
@@ -466,9 +462,9 @@ function mapStateToProps(state) {
     const query = (
       `ploop_key=${encodeURIComponent(ploopKey)}` +
       `&file_id=${encodeURIComponent(fileId)}` +
-      `&movement_id=${encodeURIComponent(movementId || '')}` +
-      `&reco_id=${encodeURIComponent(recoId || '')}` +
-      `&account_entry_id=${encodeURIComponent(accountEntryId || '')}`);
+      `&movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
+      `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
+      `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`);
     recoURL = fOPNReport.pathToURL(`/reco?${query}`);
     reco = fetchcache.get(state, recoURL);
 
@@ -488,7 +484,6 @@ function mapStateToProps(state) {
   }
 
   return {
-    ...recoPopover,
     recoURL,
     recoCompleteURL,
     reco,
