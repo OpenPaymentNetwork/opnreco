@@ -1,5 +1,5 @@
 
-import { fOPN, fOPNReport } from '../util/fetcher';
+import { fOPN } from '../util/fetcher';
 import { fetchcache } from './fetchcache';
 
 
