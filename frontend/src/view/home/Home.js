@@ -103,7 +103,7 @@ class Home extends React.Component {
           onClick={this.binder(this.handleTabClick)} />
         <Tab value="transactions" label="Transactions" href="/transactions"
           onClick={this.binder(this.handleTabClick)} />
-        <Tab value="t" label="Transfer Summary" href={transferPath}
+        <Tab value="t" label="Transfer" href={transferPath}
           onClick={this.binder(this.handleTabClick)} />
       </Tabs>
     );

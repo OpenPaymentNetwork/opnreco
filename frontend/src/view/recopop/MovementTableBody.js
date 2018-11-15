@@ -113,6 +113,7 @@ class MovementTableBody extends React.Component {
     changeMovements: PropTypes.func.isRequired,
     isCirc: PropTypes.bool,
     resetCount: PropTypes.number.isRequired,
+    recoId: PropTypes.string,
   };
 
   constructor(props) {
@@ -251,7 +252,7 @@ class MovementTableBody extends React.Component {
     const hasQuery = !!(
       searchFields.amount || searchFields.date || searchFields.transfer);
     if (hasQuery) {
-      const {ploopKey, fileId, movements} = this.props;
+      const {ploopKey, fileId, movements, recoId} = this.props;
       const seen_movement_ids = [];
       if (movements) {
         movements.forEach(movement => {
@@ -267,6 +268,7 @@ class MovementTableBody extends React.Component {
         tzoffset: new Date().getTimezoneOffset(),
         transfer: searchFields.transfer || '',
         seen_movement_ids,
+        reco_id: recoId,
       };
       const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
       promise.then(results => {
@@ -290,7 +292,7 @@ class MovementTableBody extends React.Component {
   }
 
   renderRow(movement, addCandidate) {
-    const {classes} = this.props;
+    const {classes, isCirc} = this.props;
     const {removing} = this.state;
 
     const tid = dashed(movement.transfer_id);
@@ -314,15 +316,41 @@ class MovementTableBody extends React.Component {
     const cellClass = (
       addCandidate ? classes.candidateCell : classes.numberCell);
 
+    let vaultCell;
+    if (isCirc) {
+      if (movement.vault_delta && movement.vault_delta !== '0') {
+        vaultCell = (
+          <td className={cellClass}>
+            {getCurrencyDeltaFormatter(movement.currency)(movement.vault_delta)
+            } {movement.currency}
+          </td>
+        );
+      } else {
+        vaultCell = <td className={cellClass}></td>;
+      }
+    } else {
+      vaultCell = null;
+    }
+
+    let walletCell;
+    if (movement.wallet_delta && movement.wallet_delta !== '0') {
+      walletCell = (
+        <td className={cellClass}>
+          {getCurrencyDeltaFormatter(movement.currency)(movement.wallet_delta)
+          } {movement.currency}
+        </td>
+      );
+    } else {
+      walletCell = <td className={cellClass}></td>;
+    }
+
     return (
       <tr key={`mv-${mid}`} className={rowClass}>
         <td className={addCandidate ? classes.addCell : classes.removeCell}>
           {icon}
         </td>
-        <td className={cellClass}>
-          {getCurrencyDeltaFormatter(movement.currency)(movement.delta)
-          } {movement.currency}
-        </td>
+        {vaultCell}
+        {walletCell}
         <td className={cellClass}>
           <FormattedDate value={movement.ts}
             day="numeric" month="short" year="numeric" />
@@ -354,18 +382,30 @@ class MovementTableBody extends React.Component {
       searching,
     } = this.state;
 
+    const colCount = isCirc ? 5 : 4;
+
     const rows = [
       (<tr key="head1">
-        <th colSpan="4" className={classes.headCell}>Movements</th>
-      </tr>),
-      (<tr key="head2">
+        <th colSpan={colCount} className={classes.headCell}>Movements</th>
+      </tr>)
+    ];
+
+    if (isCirc) {
+      rows.push(<tr key="head2">
         <th width="10%" className={classes.head2Cell}></th>
-        <th width="28%" className={classes.head2Cell}>
-          {isCirc ? 'Vault' : 'Wallet'}
-        </th>
-        <th width="28%" className={classes.head2Cell}>Date and Time</th>
-        <th width="34%" className={classes.head2Cell}>Transfer (Movement #)</th>
-      </tr>)];
+        <th width="15%" className={classes.head2Cell}>Vault</th>
+        <th width="15%" className={classes.head2Cell}>Wallet</th>
+        <th width="25%" className={classes.head2Cell}>Date and Time</th>
+        <th width="35%" className={classes.head2Cell}>Transfer (Movement #)</th>
+      </tr>);
+    } else {
+      rows.push(<tr key="head2">
+        <th width="10%" className={classes.head2Cell}></th>
+        <th width="15%" className={classes.head2Cell}>Wallet</th>
+        <th width="25%" className={classes.head2Cell}>Date and Time</th>
+        <th width="50%" className={classes.head2Cell}>Transfer (Movement #)</th>
+      </tr>);
+    }
 
     if (movements) {
       movements.forEach(movement => {
@@ -382,8 +422,8 @@ class MovementTableBody extends React.Component {
         rows.push(
         <tr key="searchEmpty">
           <td></td>
-          <td colSpan="3" className={classes.searchEmptyCell}>
-            No movements found.
+          <td colSpan={colCount - 1} className={classes.searchEmptyCell}>
+            No eligible movements found.
           </td>
         </tr>);
       }
@@ -393,7 +433,7 @@ class MovementTableBody extends React.Component {
       rows.push(
         <tr key="searching">
           <td></td>
-          <td colSpan="3" className={classes.searchingCell}>
+          <td colSpan={colCount - 1} className={classes.searchingCell}>
             <CircularProgress
               size="24px"
               className={classes.searchingIcon} />
@@ -410,7 +450,7 @@ class MovementTableBody extends React.Component {
               onClick={this.binder(this.closeSearch)} />
             : <Search className={classes.searchIcon} />}
         </td>
-        <td className={classes.searchCell}>
+        <td className={classes.searchCell} colSpan={isCirc ? 2 : 1}>
           <Input
             classes={{input: classes.searchInput}}
             disableUnderline

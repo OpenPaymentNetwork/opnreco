@@ -17,6 +17,7 @@ from opnreport.viewcommon import get_loop_map
 from opnreport.viewcommon import MovementQueryHelper
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
+from sqlalchemy import and_
 from sqlalchemy import cast
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -37,7 +38,8 @@ def start_movement_query(dbsession, owner_id, helper):
             Movement.ts,
             Movement.loop_id,
             Movement.currency,
-            helper.delta,
+            Movement.vault_delta,
+            Movement.wallet_delta,
             helper.reco_id,
             TransferRecord.transfer_id)
         .join(
@@ -46,7 +48,7 @@ def start_movement_query(dbsession, owner_id, helper):
         .filter(
             Movement.owner_id == owner_id,
             # Note: movements of zero are not eligible for reconciliation.
-            helper.delta != zero,
+            or_(Movement.vault_delta != zero, Movement.wallet_delta != zero),
         ))
 
 
@@ -58,7 +60,8 @@ def render_movement_rows(movement_rows):
             'ts': row.ts,
             'loop_id': row.loop_id,
             'currency': row.currency,
-            'delta': row.delta,
+            'vault_delta': row.vault_delta,
+            'wallet_delta': row.wallet_delta,
             'transfer_id': row.transfer_id,
             'number': row.number,
         })
@@ -208,6 +211,12 @@ def reco_search_movement_view(context, request, complete=False):
     tzoffset_input = str(params.get('tzoffset'))
     seen_movement_ids = set(
         int(mid) for mid in params.get('seen_movement_ids', ()))
+    reco_id_input = params.get('reco_id')
+
+    if reco_id_input:
+        reco_id = int(reco_id_input)
+    else:
+        reco_id = None
 
     dbsession = request.dbsession
     owner = request.owner
@@ -222,17 +231,38 @@ def reco_search_movement_view(context, request, complete=False):
     if match is not None:
         amount_str = match.group(0)
         amount_abs = abs(Decimal(amount_str))
+
+        vault_sign_filters = ()
+        wallet_sign_filters = ()
+        if '-' in amount_str:
+            vault_sign_filters = ((Movement.vault_delta < 0),)
+            wallet_sign_filters = ((Movement.wallet_delta < 0),)
+        elif '+' in amount_str:
+            vault_sign_filters = ((Movement.vault_delta > 0),)
+            wallet_sign_filters = ((Movement.wallet_delta > 0),)
+
         if '.' in amount_str:
             # Exact amount.
-            filters.append(func.abs(helper.delta) == amount_abs)
+            filters.append(or_(
+                and_(
+                    func.abs(Movement.vault_delta) == amount_abs,
+                    *vault_sign_filters),
+                and_(
+                    func.abs(Movement.wallet_delta) == amount_abs,
+                    *wallet_sign_filters),
+            ))
         else:
             # The search omitted the subunit value.
-            filters.append(func.abs(helper.delta) >= amount_abs)
-            filters.append(func.abs(helper.delta) < amount_abs + 1)
-        if '-' in amount_str:
-            filters.append(helper.delta < zero)
-        elif '+' in amount_str:
-            filters.append(helper.delta > zero)
+            filters.append(or_(
+                and_(
+                    func.abs(Movement.vault_delta) >= amount_abs,
+                    func.abs(Movement.vault_delta) < amount_abs + 1,
+                    *vault_sign_filters),
+                and_(
+                    func.abs(Movement.wallet_delta) >= amount_abs,
+                    func.abs(Movement.wallet_delta) < amount_abs + 1,
+                    *wallet_sign_filters),
+            ))
 
     match = re.search(r'[a-z]+', amount_input)
     if match is not None:
@@ -287,7 +317,10 @@ def reco_search_movement_view(context, request, complete=False):
             dbsession=dbsession, owner_id=owner_id, helper=helper)
         .filter(
             Movement.peer_id == file.peer_id,
-            helper.reco_id == null,
+            or_(
+                helper.reco_id == null,
+                helper.reco_id == reco_id,
+            ),
             *filters
         )
         .order_by(
@@ -409,7 +442,7 @@ def reco_save(context, request, complete=False):
             raise HTTPBadRequest(json_body={
                 'error': 'unbalanced_reconciliation',
                 'error_description': "The proposed reconciliation is not "
-                "balanced. The total wallet and vault changes must be zero.",
+                "balanced. The total changes must be zero.",
             })
 
     if reco_id:
@@ -454,6 +487,7 @@ def reco_save(context, request, complete=False):
         dbsession.flush()  # Assign reco.id
         reco_id = reco.id
     else:
+        reco.internal = new_internal
         added = False
 
     for m, is_circ_repl in new_movement_rows:

@@ -292,6 +292,7 @@ class RecoPopover extends React.Component {
       fileId,
       ploopKey,
       recoURL,
+      recoId,
       close,
     } = this.props;
 
@@ -310,28 +311,47 @@ class RecoPopover extends React.Component {
     }
 
     const accountEntryRows = [];
+    const isCirc = reco.is_circ;
+    const colCount = isCirc ? 5 : 4;
+
+    let headRow;
+    if (isCirc) {
+      headRow = (
+        <tr>
+          <th width="10%" className={classes.actionHeadCell}></th>
+          <th width="15%" className={classes.head2Cell}>Circulation</th>
+          <th width="15%" className={classes.head2Cell}></th>
+          <th width="25%" className={classes.head2Cell}>Date</th>
+          <th width="35%" className={classes.head2Cell}>Description</th>
+        </tr>
+      );
+    } else {
+      headRow = (
+        <tr>
+          <th width="10%" className={classes.actionHeadCell}></th>
+          <th width="15%" className={classes.head2Cell}>Amount</th>
+          <th width="25%" className={classes.head2Cell}>Date</th>
+          <th width="50%" className={classes.head2Cell}>Description</th>
+        </tr>
+      );
+    }
 
     return (
       <table className={classes.table}>
         <tbody>
           <tr>
-            <th colSpan="4"className={classes.headCell}>Account Entries</th>
+            <th colSpan={colCount} className={classes.headCell}>Account Entries</th>
           </tr>
-          <tr>
-            <th width="10%" className={classes.actionHeadCell}></th>
-            <th width="28%" className={classes.head2Cell}>Amount</th>
-            <th width="28%" className={classes.head2Cell}>Date</th>
-            <th width="34%" className={classes.head2Cell}>Description</th>
-          </tr>
+          {headRow}
           {accountEntryRows}
           <tr>
-            <td colSpan="4" className={classes.searchCell}></td>
+            <td colSpan={colCount} className={classes.searchCell}></td>
           </tr>
         </tbody>
 
         <tbody>
           <tr>
-            <td colSpan="4" className={classes.spaceRow}></td>
+            <td colSpan={colCount} className={classes.spaceRow}></td>
           </tr>
         </tbody>
 
@@ -342,9 +362,10 @@ class RecoPopover extends React.Component {
           movements={reco.movements}
           updatePopoverPosition={this.binder(this.updatePopoverPosition)}
           changeMovements={this.binder(this.changeMovements)}
-          isCirc={reco.is_circ}
+          isCirc={isCirc}
           resetCount={resetCount}
           close={close}
+          recoId={recoId}
         />
       </table>
     );
