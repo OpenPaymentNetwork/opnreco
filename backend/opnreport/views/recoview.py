@@ -8,6 +8,7 @@ from colander import String as ColString
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import Movement
+from opnreport.models.db import OwnerLog
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
@@ -18,6 +19,7 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import cast
 from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy import String
 import datetime
 import dateutil.parser
@@ -330,6 +332,14 @@ class RecoSaveSchema(Schema):
     reco = RecoSchema()
 
 
+matches_required = (
+    ('currency', "currency", "currencies"),
+    ('loop_id', "cash design", "cash designs"),
+    ('transfer_record_id', "transfer", "transfers"),
+    ('peer_id', "peer", "peers"),
+)
+
+
 @view_config(
     name='reco-save',
     context=API,
@@ -337,10 +347,130 @@ class RecoSaveSchema(Schema):
     renderer='json')
 def reco_save(context, request, complete=False):
     """Save changes to a reco."""
-
     file, _peer, _loop = get_request_file(request)
-
     params = RecoSaveSchema().deserialize(request.json)
-    print(params)
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    helper = MovementQueryHelper(
+        dbsession=dbsession,
+        file=file,
+        owner_id=owner_id)
+
+    new_movement_ids = set(m['id'] for m in params['reco']['movements'])
+    new_internal = True
+    reco_id = params['reco_id']
+
+    if not new_movement_ids:
+        new_movement_rows = ()
+    else:
+        new_movement_rows = (
+            dbsession.query(Movement, helper.is_circ_repl)
+            .filter(
+                Movement.owner_id == owner_id,
+                Movement.id.in_(new_movement_ids),
+                or_(
+                    helper.reco_id == null,
+                    helper.reco_id == reco_id,
+                ),
+                or_(
+                    Movement.wallet_delta != zero,
+                    Movement.vault_delta != zero,
+                ),
+            )
+            .all())
+
+        new_movements = [m for (m, _) in new_movement_rows]
+
+        if len(new_movements) != len(new_movement_ids):
+            raise HTTPBadRequest(json_body={
+                'error': 'invalid_movement_id',
+                'error_description': (
+                    "One or more of the movements specified is not "
+                    "eligible for reconciliation. A movement may have been "
+                    "reconciled previously. Try re-syncing with OPN."),
+            })
+
+        for attr, singular, plural in matches_required:
+            value_set = set(getattr(m, attr) for m in new_movements)
+            if len(value_set) > 1:
+                raise HTTPBadRequest(json_body={
+                    'error': 'multiple_%s' % attr,
+                    'error_description': (
+                        "Multiple %s detected. All movements in a "
+                        "reconciliation must be for the same %s."
+                        % (plural, singular)),
+                })
+
+        wallet_sum = sum(m.wallet_delta for m in new_movements)
+        vault_sum = sum(m.vault_delta for m in new_movements)
+        if wallet_sum + vault_sum != 0:
+            raise HTTPBadRequest(json_body={
+                'error': 'unbalanced_reconciliation',
+                'error_description': "The proposed reconciliation is not "
+                "balanced. The total wallet and vault changes must be zero.",
+            })
+
+    if reco_id:
+        reco = (
+            dbsession.query(Reco)
+            .filter(
+                Reco.owner_id == owner_id,
+                Reco.id == reco_id)
+            .first())
+        if reco is None:
+            raise HTTPBadRequest(json_body={
+                'error': 'reco_not_found',
+                'error_description': "Reconciliation record not found.",
+            })
+    else:
+        reco = None
+
+    # Everything checks out. Save the changes.
+
+    if reco_id:
+        # Remove old movements from the reco.
+        old_movements = (
+            dbsession.query(Movement, helper.is_circ_repl)
+            .filter(
+                Movement.owner_id == owner_id,
+                helper.reco_id == reco_id,
+                ~Movement.id.in_(new_movement_ids),
+            )
+            .all())
+        for m, is_circ_repl in old_movements:
+            if is_circ_repl:
+                m.circ_reco_id = None
+            else:
+                m.reco_id = None
+
+    if reco is None:
+        added = True
+        reco = Reco(
+            owner_id=owner_id,
+            internal=new_internal)
+        dbsession.add(reco)
+        dbsession.flush()  # Assign reco.id
+        reco_id = reco.id
+    else:
+        added = False
+
+    for m, is_circ_repl in new_movement_rows:
+        if is_circ_repl:
+            m.circ_reco_id = reco_id
+        else:
+            m.reco_id = reco_id
+
+    reco.comment = params['reco']['comment']
+
+    dbsession.add(OwnerLog(
+        owner_id=owner.id,
+        event_type='reco_add' if added else 'reco_update',
+        remote_addr=request.remote_addr,
+        user_agent=request.user_agent,
+        content=params,
+    ))
+    dbsession.flush()
 
     return {'ok': True}

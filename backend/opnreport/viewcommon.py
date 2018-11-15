@@ -6,6 +6,7 @@ from opnreport.models.db import Peer
 from opnreport.util import check_requests_response
 from sqlalchemy import and_
 from sqlalchemy import case
+from sqlalchemy import literal
 from sqlalchemy import or_
 import datetime
 import os
@@ -65,10 +66,12 @@ class MovementQueryHelper:
             # Simple case: no circulation replenishment is possible,
             # so just list the movements.
             is_circ = False
+            is_circ_repl = literal(False)
             delta = Movement.wallet_delta
             reco_id = Movement.reco_id
 
         self.is_circ = is_circ
+        self.is_circ_repl = is_circ_repl.label('is_circ_repl')
         self.delta = delta.label('delta')
         self.reco_id = reco_id.label('reco_id')
 
