@@ -151,7 +151,8 @@ def transfer_record_view(context, request, complete=False):
         vault_delta = movement.vault_delta
         wallet_delta = movement.wallet_delta
 
-        if file_peer_id == 'c' or orig_peer_id == file_peer_id:
+        if ((file_peer_id == 'c' and issuer_id == orig_peer_id)
+                or orig_peer_id == file_peer_id):
             reco_applicable = not not (wallet_delta or vault_delta)
         else:
             # This file does not reconcile this movement.
