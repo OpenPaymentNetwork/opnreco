@@ -383,7 +383,7 @@ class MovementTable extends React.Component {
       const ts = ci.ts;
 
       rows.push(
-        <tr key={`circ_increase-${ciIndex}`}>
+        <tr data-movement-id={movement_id} key={`circ_increase-${ciIndex}`}>
           <td className={txtCell}></td>
           <td className={txtCell}></td>
           <td className={numCell}>
@@ -657,7 +657,7 @@ class MovementTable extends React.Component {
         </td>);
 
       bodyRows.push(
-        <tr key={`movement-${index}`}>
+        <tr data-movement-id={movement_id} key={`movement-${index}`}>
           {mvCells}
         </tr>
       );
