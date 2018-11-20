@@ -336,89 +336,6 @@ class MovementTable extends React.Component {
       </td>);
   }
 
-  renderCircReplenishments(layout) {
-    const {
-      columnsAfterGraphic,
-      showOtherAmount,
-    } = layout;
-
-    const {
-      classes,
-      record,
-      dispatch,
-    } = this.props;
-
-    const {
-      cell,
-      numberCell,
-      textCell,
-      checkCell,
-    } = classes;
-
-    const {
-      circ_replenishments,
-    } = record;
-
-    const numCell = `${cell} ${numberCell}`;
-    const txtCell = `${cell} ${textCell}`;
-    const chkCell = `${cell} ${checkCell}`;
-
-    const rows = [
-      <tr key="circ_replenishments">
-        <th className={`${classes.cell} ${classes.headCell}`}
-          colSpan={2 + columnsAfterGraphic}
-        >
-          Circulation Replenishments
-        </th>
-      </tr>
-    ];
-
-    circ_replenishments.forEach((ci, ciIndex) => {
-      const {
-        movement_id,
-        loop_id,
-        reco_id,
-      } = ci;
-
-      const ts = ci.ts;
-
-      rows.push(
-        <tr data-movement-id={movement_id} key={`circ_increase-${ciIndex}`}>
-          <td className={txtCell}></td>
-          <td className={txtCell}></td>
-          <td className={numCell}>
-            {getCurrencyDeltaFormatter(ci.currency)(ci.amount)
-            } {ci.currency}
-          </td>
-          <td className={numCell}></td>
-          <td className={numCell}></td>
-          {showOtherAmount ? <td className={numCell}></td> : null}
-          <td className={txtCell}>
-            {this.renderLoopTitle(loop_id)}
-          </td>
-          <td className={txtCell}>
-            <ProfileLink id={ci.issuer_id} profiles={record.peers} />
-          </td>
-          <td className={txtCell}></td>
-          <td className={txtCell} title={ts}>
-            <FormattedDate value={ts}
-              day="numeric" month="short" year="numeric" />
-            {' '}
-            <FormattedTime value={ts}
-              hour="numeric" minute="2-digit" second="2-digit" />
-          </td>
-          <td className={chkCell}>
-            <RecoCheckBox
-              movementId={movement_id}
-              recoId={reco_id}
-              dispatch={dispatch} />
-          </td>
-        </tr>);
-    });
-
-    return rows;
-  }
-
   renderLoopTitle(loopId) {
     if (loopId === '0') {
       return 'Open Loop';
@@ -435,10 +352,12 @@ class MovementTable extends React.Component {
     const {movements} = record;
 
     let showVault = false;
-    if (record.circ_replenishments && record.circ_replenishments.length) {
+    let showOtherAmount = false;
+
+    if (record.is_circ) {
       showVault = true;
     }
-    let showOtherAmount = false;
+
     movements.forEach(movement => {
       if (movement.vault_delta && movement.vault_delta !== '0') {
         showVault = true;
@@ -453,7 +372,7 @@ class MovementTable extends React.Component {
     });
 
     const columnsAfterGraphic = (
-      (showVault ? 2 : 0) + 1 + (showOtherAmount ? 1 : 0) + 5);
+      (showVault ? 1 : 0) + 1 + (showOtherAmount ? 1 : 0) + 5);
 
     return {
       showOtherAmount,
@@ -506,9 +425,6 @@ class MovementTable extends React.Component {
         <td key="number" className={labelCell}>Number</td>
         <td key="legend" className={legendLowerCell} style={legendWidthStyle}>
         </td>
-        {layout.showVault ?
-          <td key="circ" className={labelCell}>Circulation</td>
-          : null}
         {layout.showVault ?
           <td key="vault" className={labelCell}>Vault</td>
           : null}
@@ -564,7 +480,6 @@ class MovementTable extends React.Component {
         amount,
         wallet_delta,
         vault_delta,
-        circ_delta,
         issuer_id,
         reco_id,
         reco_applicable,
@@ -576,16 +491,6 @@ class MovementTable extends React.Component {
       mvCells.push(this.renderGraphicCell(movement));
 
       if (showVault) {
-        if (circ_delta && circ_delta !== '0') {
-          mvCells.push(
-            <td key="circ" className={numCell}>
-              {getCurrencyDeltaFormatter(currency)(
-                circ_delta)} {currency}
-            </td>);
-        } else {
-          mvCells.push(<td key="circ" className={numCell}></td>);
-        }
-
         if (vault_delta && vault_delta !== '0') {
           mvCells.push(
             <td key="vault" className={numCell}>
@@ -663,12 +568,6 @@ class MovementTable extends React.Component {
       );
     });
 
-    if (record.circ_replenishments && record.circ_replenishments.length) {
-      this.renderCircReplenishments(layout).forEach(row => {
-        bodyRows.push(row);
-      });
-    }
-
     return <tbody>{bodyRows}</tbody>;
   }
 
@@ -702,7 +601,6 @@ class MovementTable extends React.Component {
       const {
         currency,
         loop_id,
-        circ,
         vault,
         wallet,
       } = row;
@@ -713,18 +611,6 @@ class MovementTable extends React.Component {
       totalCells.push(<td className={labelCell} key="graphic"></td>);
 
       if (layout.showVault) {
-        if (circ && circ !== '0') {
-          totalCells.push(
-            <td className={numCell} key="circ">
-              <strong>
-                {fmt(circ)} {currency}
-              </strong>
-            </td>
-          );
-        } else {
-          totalCells.push(<td className={numCell} key="circ"></td>);
-        }
-
         if (vault && vault !== '0') {
           totalCells.push(
             <td className={numCell} key="vault">

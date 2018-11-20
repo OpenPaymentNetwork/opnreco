@@ -88,7 +88,7 @@ def reco_report_view(request):
     str_signs = {-1: '-1', 1: '1'}
 
     # Create workflow_types_pre:
-    # {(str(sign), workflow_type): (circ_delta, surplus_delta, combined_delta)}}
+    # {(str(sign), workflow_type): (circ, surplus, combined)}}
     workflow_types_pre = collections.defaultdict(Decimal)
     for r in workflow_type_rows:
         str_sign = str_signs[r.sign]
@@ -148,8 +148,7 @@ def reco_report_view(request):
             lst.sort(key=lambda x: x['ts'])
 
     # Convert workflow_types to JSON encoding:
-    # {str(sign):
-    #     {workflow_type: {'circ_delta', 'surplus_delta', 'combined_delta'}}}
+    # {str(sign): {workflow_type: {'circ', 'surplus', 'combined'}}}
     workflow_types = {}
     for (str_sign, workflow_type), deltas in workflow_types_pre.items():
         d = workflow_types.get(str_sign)
@@ -169,13 +168,14 @@ def reco_report_view(request):
     reconciled_totals['combined'] = (
         reconciled_totals['circ'] + reconciled_totals['surplus'])
 
+    circ_delta_total = sum(row.circ_delta for row in outstanding_rows)
+    surplus_delta_total = sum(row.surplus_delta for row in outstanding_rows)
     outstanding_totals = {
-        'circ': reconciled_totals['circ'] + sum(
-            row.circ_delta for row in outstanding_rows),
-        'surplus': reconciled_totals['surplus'] + sum(
-            row.surplus_delta for row in outstanding_rows),
-        'combined': reconciled_totals['combined'] + sum(
-            row.circ_delta + row.surplus_delta for row in outstanding_rows),
+        'circ': reconciled_totals['circ'] + circ_delta_total,
+        'surplus': reconciled_totals['surplus'] + surplus_delta_total,
+        'combined': (
+            reconciled_totals['combined'] +
+            circ_delta_total + surplus_delta_total),
     }
 
     return {

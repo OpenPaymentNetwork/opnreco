@@ -47,8 +47,7 @@ def transfer_record_view(context, request, complete=False):
     owner = request.owner
     owner_id = owner.id
     file_peer_id = file.peer_id
-    circ_replenishments = []
-    is_circ_replenishment = False
+    is_circ = file_peer_id == 'c'
 
     record = (
         dbsession.query(TransferRecord)
@@ -68,7 +67,7 @@ def transfer_record_view(context, request, complete=False):
     # Note: there are effectively two copies of every row in the Movement
     # table because we store a movement row for both the peer and the 'c'
     # peer. Disambiguate.
-    if file_peer_id == 'c':
+    if is_circ:
         movement_filter = (Movement.peer_id == 'c')
     else:
         movement_filter = (Movement.peer_id != 'c')
@@ -111,9 +110,6 @@ def transfer_record_view(context, request, complete=False):
             peer_appearance[peer_id].append((m.number, m.amount_index))
         need_loop_ids.add(m.loop_id)
 
-        if m.circ_reco_id:
-            is_circ_replenishment = True
-
     peers = get_peer_map(
         request=request,
         need_peer_ids=need_peer_ids,
@@ -125,20 +121,12 @@ def transfer_record_view(context, request, complete=False):
         complete=complete)
 
     movements_json = []
-    # delta_totals: {(currency, loop_id): {'circ', 'vault', 'wallet'}}
+    # delta_totals: {(currency, loop_id): {'vault', 'wallet'}}
     zero = Decimal()
     delta_totals = collections.defaultdict(lambda: {
-        'circ': zero,
         'vault': zero,
         'wallet': zero,
     })
-
-    if file_peer_id == 'c' and not is_circ_replenishment:
-        recipient_peer = peers.get(record.recipient_id)
-        if recipient_peer is not None and recipient_peer.get('is_circ'):
-            # This transfer seems to have sent acquired notes
-            # to a circulation account, replenishing the circulation value.
-            is_circ_replenishment = True
 
     for movement in movement_rows:
         movement_id = movement.id
@@ -151,35 +139,11 @@ def transfer_record_view(context, request, complete=False):
         vault_delta = movement.vault_delta
         wallet_delta = movement.wallet_delta
 
-        if ((file_peer_id == 'c')
-                or orig_peer_id == file_peer_id):
+        if is_circ or orig_peer_id == file_peer_id:
             reco_applicable = not not (wallet_delta or vault_delta)
         else:
             # This file does not reconcile this movement.
             reco_applicable = False
-
-        if is_circ_replenishment:
-            # When replenishing circulation, treat movements from the
-            # circulating issuer's wallet to the circulation account as a
-            # circulation replenishment.
-            if (movement.from_id == owner_id and
-                    movement.to_id == record.recipient_id and
-                    issuer_id != owner_id):
-                circ_reco_id = movement.circ_reco_id
-                circ_replenishments.append({
-                    'movement_id': str(movement_id),
-                    'loop_id': loop_id,
-                    'currency': currency,
-                    'amount': str(movement.amount or '0'),
-                    'issuer_id': issuer_id,
-                    'ts': movement.ts.isoformat() + 'Z',
-                    'reco_id': (
-                        None if circ_reco_id is None else str(circ_reco_id)),
-                })
-                delta_totals[(currency, loop_id)]['circ'] += movement.amount
-                # The movement from the wallet does not apply to
-                # circulation account statements.
-                reco_applicable = False
 
         reco_id = movement.reco_id
         movements_json.append({
@@ -197,13 +161,11 @@ def transfer_record_view(context, request, complete=False):
             'ts': movement.ts.isoformat() + 'Z',
             'wallet_delta': str(wallet_delta or '0'),
             'vault_delta': str(vault_delta or '0'),
-            'circ_delta': str(-vault_delta or '0'),
             'reco_applicable': not not reco_applicable,
             'reco_id': None if reco_id is None else str(reco_id),
         })
 
         if vault_delta:
-            delta_totals[(currency, loop_id)]['circ'] -= vault_delta
             delta_totals[(currency, loop_id)]['vault'] += vault_delta
         if wallet_delta:
             delta_totals[(currency, loop_id)]['wallet'] += wallet_delta
@@ -239,12 +201,11 @@ def transfer_record_view(context, request, complete=False):
     peer_order = [y for x, y in peer_ordering]
     peer_index = {x: i for (i, x) in enumerate(peer_order)}
 
-    self_id = owner_id if file_peer_id == 'c' else file_peer_id
+    self_id = owner_id if is_circ else file.peer_id
 
     delta_totals_json = [{
         'currency': currency1,
         'loop_id': loop_id1,
-        'circ': str(deltas['circ']),
         'vault': str(deltas['vault']),
         'wallet': str(deltas['wallet']),
     } for ((currency1, loop_id1), deltas) in sorted(delta_totals.items())]
@@ -269,5 +230,5 @@ def transfer_record_view(context, request, complete=False):
         'peer_index': peer_index,
         'loops': loops,
         'delta_totals': delta_totals_json,
-        'circ_replenishments': circ_replenishments,
+        'is_circ': is_circ,
     }

@@ -314,7 +314,7 @@ class RecoReport extends React.Component {
             Circulation
           </td>
           <td className={amountCellCN} width="15%">
-            Surplus
+            Surplus/Deficit
           </td>
           <td className={amountCellCN} width="15%">
             Combined
