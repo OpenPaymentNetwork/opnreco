@@ -463,6 +463,7 @@ class SyncView:
                         wallet_delta=wallet_delta,
                         vault_delta=vault_delta,
                         file_id=file_id,
+                        reco_wallet_delta=wallet_delta,
                     )
                     dbsession.add(movement)
                     movement_dict[row_key] = movement
@@ -682,8 +683,6 @@ class SyncView:
             conflict = False
             wallet_total = zero
             vault_total = zero
-            # wallet_nets: {issuer_id: wallet_net}
-            wallet_nets = collections.defaultdict(Decimal)
             for movement in mvlist:
                 if movement.id in done_movement_ids:
                     # This auto-reco would conflict with an existent reco.
@@ -692,18 +691,20 @@ class SyncView:
                     break
                 wallet_total += movement.wallet_delta
                 vault_total += movement.vault_delta
-                wallet_nets[movement.issuer_id] += movement.wallet_delta
 
             if conflict:
                 continue
 
-            if wallet_total != -vault_total:
+            if wallet_total + vault_total != zero:
                 raise AssertionError(
                     "find_internal_movements() returned an unbalanced "
                     "movement list for transfer %s: %s != %s" % (
                         record.transfer_id, wallet_total, -vault_total))
 
-            reco = Reco(owner_id=self.owner_id, internal=True)
+            reco = Reco(
+                owner_id=self.owner_id,
+                reco_type='standard',
+                internal=True)
             dbsession.add(reco)
             dbsession.flush()
             reco_id = reco.id

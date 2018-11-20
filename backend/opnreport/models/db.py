@@ -10,6 +10,7 @@ from sqlalchemy import func
 from sqlalchemy import Index
 from sqlalchemy import Integer
 from sqlalchemy import Numeric
+from sqlalchemy import or_
 from sqlalchemy import String
 from sqlalchemy import Unicode
 from sqlalchemy.dialects.postgresql import JSONB
@@ -130,9 +131,11 @@ class File(Base):
     subtitle = Column(Unicode, nullable=True)
 
     start_date = Column(Date, nullable=True)
-    start_balance = Column(Numeric, nullable=False, default=0)
+    start_circ = Column(Numeric, nullable=False, default=0)
+    start_surplus = Column(Numeric, nullable=False, default=0)
     end_date = Column(Date, nullable=True)
-    end_balance = Column(Numeric, nullable=True)
+    end_circ = Column(Numeric, nullable=True)
+    end_surplus = Column(Numeric, nullable=True)
 
     # peer_* and loop_* apply only when current = False.
     peer_title = Column(Unicode, nullable=True)
@@ -245,14 +248,16 @@ class Movement(Base):
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
     number = Column(Integer, nullable=False)
-    # An OPN movement can move multiple amounts, but this database
-    # needs to represent each amount as a single movement, so this database
+
+    # An OPN movement can move multiple amounts, but this database needs to
+    # represent each moved amount as a single movement, so this database
     # stores multiple movement rows for each OPN movement and disambiguates
-    # them by 'amount_index'.
+    # them first using loop_id, currency, and issuer_id, and finally by
+    # incrementing amount_index.
     amount_index = Column(Integer, nullable=False)
 
-    # peer_id can be 'c' (for 'common' or 'circulation'). The 'c'
-    # row is the doubled row.
+    # peer_id is either an OPN profile ID or 'c' (for 'common' or
+    # 'circulation'). The 'c' row is the doubled row.
     peer_id = Column(String, nullable=False)
     # orig_peer_id is never 'c'.
     orig_peer_id = Column(
@@ -271,18 +276,31 @@ class Movement(Base):
 
     # The delta is positive for movements into the wallet or vault
     # or negative for movements out of the wallet or vault.
+    # All movements with a nonzero wallet delta or vault delta are
+    # reconcilable.
     wallet_delta = Column(Numeric, nullable=False)
     vault_delta = Column(Numeric, nullable=False)
 
-    # Mutable fields: file_id, reco_id, and circ_reco_id.
+    ################
+    # Mutable fields
+    ################
 
     file_id = Column(
         BigInteger, ForeignKey('file.id'), nullable=False, index=True)
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
-    # circ_reco_id is for reconciliation of a circulation replenishment.
-    circ_reco_id = Column(
-        BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
+
+    # reco_wallet_delta is the same as wallet_delta except when the movement
+    # is part of a wallet_ie reco, in which case reco_wallet_delta
+    # is zero, meaning no compensating surplus delta is expected.
+    reco_wallet_delta = Column(Numeric, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(or_(
+            reco_wallet_delta == wallet_delta,
+            reco_wallet_delta == 0
+        ), name='ck_movement_reco_wallet_delta'),
+        {})
 
     transfer_record = relationship(TransferRecord)
 
@@ -378,18 +396,29 @@ class AccountEntryLog(Base):
 
 
 class Reco(Base):
-    """A reconciliation row matches movement(s) and account entries."""
+    """A reconciliation matches movement(s) and account entries."""
     __tablename__ = 'reco'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    reco_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # internal is true if the reconciliation is a sequence of movements
-    # that don't require an account entry to balance.
+    # internal is true if the reconciliation has no account entries.
     internal = Column(Boolean, nullable=False)
 
+    __table_args__ = (
+        CheckConstraint(reco_type.in_([
+            # Note: standard and replenish recos must be balanced;
+            # wallet_ie and account_ie recos do not need to be.
+            'standard',
+            'replenish',       # Surplus Replenishment
+            'wallet_ie',       # Wallet Income/Expense
+            'account_ie',      # Account Income/Expense
+        ]), name='ck_reco_type'),
+        {})
 
-# all_metadata_defined must be at the end of the file. It signals that
-# all model classes have been defined successfully.
+
+# all_metadata_defined must be at the end of this module. It signals that
+# the full database schema has been defined successfully.
 all_metadata_defined = True

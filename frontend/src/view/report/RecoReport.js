@@ -124,10 +124,11 @@ class RecoReport extends React.Component {
   }
 
   renderOutstanding(sign, cfmt) {
-    const {classes, recoReport, expanded} = this.props;
+    const {classes, recoReport, expanded, file} = this.props;
     const {workflow_types, outstanding_map} = recoReport;
 
     const wfTypes = workflow_types[sign] || {};
+    const isCirc = (file.peer_id === 'c');
 
     const sortable = [];
     Object.keys(wfTypes).forEach(wfType => {
@@ -136,7 +137,7 @@ class RecoReport extends React.Component {
         wfType: wfType,
         sortKey: `${title.toLowerCase()}|${title}`,
         title: title,
-        delta: wfTypes[wfType],
+        deltas: wfTypes[wfType],
       });
     });
 
@@ -181,6 +182,19 @@ class RecoReport extends React.Component {
         outstandingList ? (isExpanded ? expandedCN : collapsedCN)
           : hiddenArrowCN);
 
+      let itemCircColumns = null;
+      if (isCirc) {
+        itemCircColumns = (
+          <React.Fragment>
+            <td className={typeAmountCellCN}>
+              {item.deltas.circ === '0' ? '-' : cfmt(item.deltas.circ)}
+            </td>
+            <td className={typeAmountCellCN}>
+              {item.deltas.surplus === '0' ? '-' : cfmt(item.deltas.surplus)}
+            </td>
+          </React.Fragment>
+        );
+      }
       res.push(
         <tr className={trCN} key={item.wfType}
           onClick={this.binder1(this.handleToggleNode, expandKey)}
@@ -188,8 +202,9 @@ class RecoReport extends React.Component {
           <td className={typeCellCN}>
             <span className={arrowCN}>&#x2BC8;</span> {item.title}
           </td>
+          {itemCircColumns}
           <td className={typeAmountCellCN}>
-            {item.delta === '0' ? '-' : cfmt(item.delta)}
+            {item.deltas.combined === '0' ? '-' : cfmt(item.deltas.combined)}
           </td>
         </tr>
       );
@@ -199,6 +214,19 @@ class RecoReport extends React.Component {
         if (outstandingList) {
           outstandingList.forEach(movement => {
             const tid = dashed(movement.transfer_id);
+            let movementCircColumns = null;
+            if (isCirc) {
+              movementCircColumns = (
+                <React.Fragment>
+                  <td className={miniAmountCellCN}>
+                    {movement.circ === '0' ? '-' : cfmt(movement.circ)}
+                  </td>
+                  <td className={miniAmountCellCN}>
+                    {movement.surplus === '0' ? '-' : cfmt(movement.surplus)}
+                  </td>
+                </React.Fragment>
+              );
+            }
             res.push(
               <tr className={transferRowCN} key={movement.movement_id}>
                 <td className={movementCellCN}>
@@ -213,8 +241,9 @@ class RecoReport extends React.Component {
                     </span>
                   </a>
                 </td>
+                {movementCircColumns}
                 <td className={miniAmountCellCN}>
-                  {cfmt(movement.delta)}
+                  {cfmt(movement.combined)}
                 </td>
               </tr>
             );
@@ -274,10 +303,81 @@ class RecoReport extends React.Component {
     const labelCellCN = `${classes.cell} ${classes.labelCell}`;
     const amountCellCN = `${classes.cell} ${classes.amountCell}`;
 
-    const bottomLabel = (
-      file.peer_id === 'c' ?
-        'Amount in Circulation' :
-        'Balance With Outstanding Changes');
+    let headRow, recoTotalRow, outstandingTotalRow, columnCount;
+    if (file.peer_id === 'c') {
+      columnCount = 4;
+      headRow = (
+        <tr>
+          <td className={labelCellCN} width="55%">
+          </td>
+          <td className={amountCellCN} width="15%">
+            Circulation
+          </td>
+          <td className={amountCellCN} width="15%">
+            Surplus
+          </td>
+          <td className={amountCellCN} width="15%">
+            Combined
+          </td>
+        </tr>
+      );
+      recoTotalRow = (
+        <tr>
+          <td className={labelCellCN} width="55%">
+            Reconciled Balance
+          </td>
+          <td className={amountCellCN} width="15%">
+            {cfmt(recoReport.reconciled_totals.circ)}
+          </td>
+          <td className={amountCellCN} width="15%">
+            {cfmt(recoReport.reconciled_totals.surplus)}
+          </td>
+          <td className={amountCellCN} width="15%">
+            {cfmt(recoReport.reconciled_totals.combined)}
+          </td>
+        </tr>
+      );
+      outstandingTotalRow = (
+        <tr>
+          <td className={labelCellCN}>
+            Balance With Outstanding Changes
+          </td>
+          <td className={amountCellCN}>
+            {cfmt(recoReport.outstanding_totals.circ)}
+          </td>
+          <td className={amountCellCN}>
+            {cfmt(recoReport.outstanding_totals.surplus)}
+          </td>
+          <td className={amountCellCN}>
+            {cfmt(recoReport.outstanding_totals.combined)}
+          </td>
+        </tr>
+      );
+
+    } else {
+      columnCount = 2;
+      headRow = null;
+      recoTotalRow = (
+        <tr>
+          <td className={labelCellCN} width="80%">
+            Reconciled Balance
+          </td>
+          <td className={amountCellCN} width="20%">
+            {cfmt(recoReport.reconciled_totals.combined)}
+          </td>
+        </tr>
+      );
+      outstandingTotalRow = (
+        <tr>
+          <td className={labelCellCN}>
+            Balance With Outstanding Changes
+          </td>
+          <td className={amountCellCN}>
+            {cfmt(recoReport.outstanding_totals.combined)}
+          </td>
+        </tr>
+      );
+    }
 
     return (
       <Typography className={classes.root} component="div">
@@ -286,7 +386,8 @@ class RecoReport extends React.Component {
           <table className={classes.table}>
             <thead>
               <tr>
-                <th className={`${classes.cell} ${classes.headCell}`} colSpan="2">
+                <th className={`${classes.cell} ${classes.headCell}`}
+                    colSpan={columnCount}>
                   {peer_title} Reconciliation Report
                   <div>
                     {currency}
@@ -295,36 +396,23 @@ class RecoReport extends React.Component {
                   </div>
                 </th>
               </tr>
+              {headRow}
             </thead>
             <tbody>
+              {recoTotalRow}
               <tr>
-                <td className={labelCellCN} width="80%">
-                  Reconciled Balance
-                </td>
-                <td className={amountCellCN} width="20%">
-                  {cfmt(recoReport.reconciled_balance)}
-                </td>
-              </tr>
-              <tr>
-                <td className={labelCellCN} colSpan="2">
+                <td className={labelCellCN} colSpan={columnCount}>
                   Add: Outstanding Deposits
                 </td>
               </tr>
               {this.renderOutstanding('1', cfmt)}
               <tr>
-                <td className={labelCellCN} colSpan="2">
+                <td className={labelCellCN} colSpan={columnCount}>
                   Subtract: Outstanding Withdrawals
                 </td>
               </tr>
               {this.renderOutstanding('-1', cfmt)}
-              <tr>
-                <td className={labelCellCN}>
-                  {bottomLabel}
-                </td>
-                <td className={amountCellCN}>
-                  {cfmt(recoReport.outstanding_balance)}
-                </td>
-              </tr>
+              {outstandingTotalRow}
             </tbody>
           </table>
         </Paper>
@@ -334,6 +422,7 @@ class RecoReport extends React.Component {
   }
 
 }
+
 
 function mapStateToProps(state, ownProps) {
   const {ploop, file} = ownProps;

@@ -11,9 +11,11 @@ def serialize_file(file, peer, loop=None):
         'has_vault': file.has_vault,
         'subtitle': file.subtitle,
         'start_date': file.start_date,
-        'start_balance': file.start_balance,
+        'start_circ': file.start_circ,
+        'start_surplus': file.start_surplus,
         'end_date': file.end_date,
-        'end_balance': file.end_balance,
+        'end_circ': file.end_circ,
+        'end_surplus': file.end_surplus,
     }
 
     if file.current:
