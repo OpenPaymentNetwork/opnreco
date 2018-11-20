@@ -404,7 +404,10 @@ class Reco(Base):
     reco_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # internal is true if the reconciliation has no account entries.
+    # internal is true if the reconciliation is balanced and
+    # has no account entries. Internal recos are not shown in the
+    # Reconciliation and Transactions reports, but they are shown
+    # in transfers.
     internal = Column(Boolean, nullable=False)
 
     __table_args__ = (
