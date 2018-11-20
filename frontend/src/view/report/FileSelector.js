@@ -106,7 +106,13 @@ class FileSelector extends React.Component {
       } else if (loadError) {
         errorMessage = <em>Unable to load account list</em>;
       } else if (syncProgress !== null) {
-        errorMessage = <em>Syncing&hellip;</em>;
+        let syncMessage;
+        if (syncProgress < 0) {
+          syncMessage = 'Connecting';
+        } else {
+          syncMessage = `${syncProgress}%`;
+        }
+        errorMessage = <em>Syncing ({syncMessage})&hellip;</em>;
       } else {
         errorMessage = <em>No accounts found for your profile</em>;
       }
