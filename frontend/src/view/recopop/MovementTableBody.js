@@ -386,7 +386,9 @@ class MovementTableBody extends React.Component {
 
     const rows = [
       (<tr key="head1">
-        <th colSpan={colCount} className={classes.headCell}>Movements</th>
+        <th colSpan={colCount} className={classes.headCell}>
+          Wallet Movements
+        </th>
       </tr>)
     ];
 

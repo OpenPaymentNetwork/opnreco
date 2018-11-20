@@ -417,7 +417,7 @@ class Reco(Base):
             'standard',
             'replenish',       # Surplus Replenishment
             'wallet_ie',       # Wallet Income/Expense
-            'account_ie',      # Account Income/Expense
+            'account_cd',      # Account Credit/Debit
         ]), name='ck_reco_type'),
         {})
 

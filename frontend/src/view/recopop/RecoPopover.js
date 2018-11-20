@@ -13,13 +13,17 @@ import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Close from '@material-ui/icons/Close';
 import Fade from '@material-ui/core/Fade';
+import FormControl from '@material-ui/core/FormControl';
 import IconButton from '@material-ui/core/IconButton';
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
 import MovementTableBody from './MovementTableBody';
 import Popover from '@material-ui/core/Popover';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Redo from '@material-ui/icons/Redo';
 import Require from '../../util/Require';
+import Select from '@material-ui/core/Select';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import Undo from '@material-ui/icons/Undo';
@@ -73,12 +77,16 @@ const styles = theme => ({
     border: '1px solid #bbb',
     textAlign: 'center',
   },
-  commentBox: {
-    textAlign: 'center',
+  metadataBox: {
+    display: 'flex',
+    marginBottom: '16px',
+    justifyContent: 'space-between',
   },
-  commentField: {
-    marginTop: '16px',
-    minWidth: '400px',
+  typeControl: {
+    marginRight: '32px',
+  },
+  commentControl: {
+    flexGrow: '1',
   },
 });
 
@@ -319,8 +327,7 @@ class RecoPopover extends React.Component {
       headRow = (
         <tr>
           <th width="10%" className={classes.actionHeadCell}></th>
-          <th width="15%" className={classes.head2Cell}>Circulation</th>
-          <th width="15%" className={classes.head2Cell}></th>
+          <th className={classes.head2Cell} colSpan="2">Amount</th>
           <th width="25%" className={classes.head2Cell}>Date</th>
           <th width="35%" className={classes.head2Cell}>Description</th>
         </tr>
@@ -434,16 +441,31 @@ class RecoPopover extends React.Component {
             </IconButton>
           </Typography>
           <Typography className={classes.content} component="div">
-            {this.renderTable()}
-            <div className={classes.commentBox}>
-              <TextField
-                label="Comment"
-                className={classes.commentField}
-                value={comment}
-                onChange={this.binder(this.handleComment)}
-                multiline
-              />
+            <div className={classes.metadataBox}>
+
+              <FormControl className={classes.typeControl}>
+                <Select
+                  value="standard"
+                  displayEmpty
+                  name="reco_type"
+                >
+                  <MenuItem value="standard">Standard Reconciliation</MenuItem>
+                  <MenuItem value="wallet_ie">Wallet Income/Expense</MenuItem>
+                  <MenuItem value="account_cd">Account Credit/Debit</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl className={classes.commentControl}>
+                <TextField
+                  placeholder="Comment"
+                  value={comment}
+                  onChange={this.binder(this.handleComment)}
+                  multiline
+                />
+              </FormControl>
+
             </div>
+            {this.renderTable()}
             <div className={classes.actionBox}>
               <div className={classes.actionLeftButtons}>
                 <IconButton

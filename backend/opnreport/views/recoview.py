@@ -14,7 +14,6 @@ from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
 from opnreport.viewcommon import get_loop_map
-from opnreport.viewcommon import MovementQueryHelper
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -30,7 +29,7 @@ zero = Decimal()
 null = None
 
 
-def start_movement_query(dbsession, owner_id, helper):
+def start_movement_query(dbsession, owner_id):
     return (
         dbsession.query(
             Movement.id,
@@ -40,7 +39,7 @@ def start_movement_query(dbsession, owner_id, helper):
             Movement.currency,
             Movement.vault_delta,
             Movement.wallet_delta,
-            helper.reco_id,
+            Movement.reco_id,
             TransferRecord.transfer_id)
         .join(
             TransferRecord,
@@ -104,17 +103,12 @@ def reco_view(context, request, complete=False):
     owner = request.owner
     owner_id = owner.id
     comment = ''
-    helper = MovementQueryHelper(
-        dbsession=dbsession,
-        file=file,
-        owner_id=owner_id)
 
     if reco_id is not None:
         movement_rows = (
-            start_movement_query(
-                dbsession=dbsession, owner_id=owner_id, helper=helper)
+            start_movement_query(dbsession=dbsession, owner_id=owner_id)
             .filter(
-                helper.reco_id == reco_id,
+                Movement.reco_id == reco_id,
             )
             .order_by(
                 Movement.ts,
@@ -153,8 +147,7 @@ def reco_view(context, request, complete=False):
     elif movement_id is not None:
         account_entry_rows = ()
         movement_rows = (
-            start_movement_query(
-                dbsession=dbsession, owner_id=owner_id, helper=helper)
+            start_movement_query(dbsession=dbsession, owner_id=owner_id)
             .filter(
                 Movement.id == movement_id,
             )
@@ -187,7 +180,7 @@ def reco_view(context, request, complete=False):
     return {
         'movements': movements_json,
         'loops': loops,
-        'is_circ': helper.is_circ,
+        'is_circ': file.peer_id == 'c',
         'comment': comment,
     }
 
@@ -221,10 +214,6 @@ def reco_search_movement_view(context, request, complete=False):
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
-    helper = MovementQueryHelper(
-        dbsession=dbsession,
-        file=file,
-        owner_id=owner_id)
     filters = []
 
     match = re.search(r'[+-]?[0-9\.]+', amount_input)
@@ -313,13 +302,12 @@ def reco_search_movement_view(context, request, complete=False):
         filters.append(~Movement.id.in_(seen_movement_ids))
 
     movement_rows = (
-        start_movement_query(
-            dbsession=dbsession, owner_id=owner_id, helper=helper)
+        start_movement_query(dbsession=dbsession, owner_id=owner_id)
         .filter(
             Movement.peer_id == file.peer_id,
             or_(
-                helper.reco_id == null,
-                helper.reco_id == reco_id,
+                Movement.reco_id == null,
+                Movement.reco_id == reco_id,
             ),
             *filters
         )
@@ -386,26 +374,22 @@ def reco_save(context, request, complete=False):
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
-    helper = MovementQueryHelper(
-        dbsession=dbsession,
-        file=file,
-        owner_id=owner_id)
 
     new_movement_ids = set(m['id'] for m in params['reco']['movements'])
     new_internal = True
     reco_id = params['reco_id']
 
     if not new_movement_ids:
-        new_movement_rows = ()
+        new_movements = ()
     else:
-        new_movement_rows = (
-            dbsession.query(Movement, helper.is_circ_repl)
+        new_movements = (
+            dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
                 Movement.id.in_(new_movement_ids),
                 or_(
-                    helper.reco_id == null,
-                    helper.reco_id == reco_id,
+                    Movement.reco_id == null,
+                    Movement.reco_id == reco_id,
                 ),
                 or_(
                     Movement.wallet_delta != zero,
@@ -413,8 +397,6 @@ def reco_save(context, request, complete=False):
                 ),
             )
             .all())
-
-        new_movements = [m for (m, _) in new_movement_rows]
 
         if len(new_movements) != len(new_movement_ids):
             raise HTTPBadRequest(json_body={
@@ -465,23 +447,21 @@ def reco_save(context, request, complete=False):
     if reco_id:
         # Remove old movements from the reco.
         old_movements = (
-            dbsession.query(Movement, helper.is_circ_repl)
+            dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
-                helper.reco_id == reco_id,
+                Movement.reco_id == reco_id,
                 ~Movement.id.in_(new_movement_ids),
             )
             .all())
-        for m, is_circ_repl in old_movements:
-            if is_circ_repl:
-                m.circ_reco_id = None
-            else:
-                m.reco_id = None
+        for m in old_movements:
+            m.reco_id = None
 
     if reco is None:
         added = True
         reco = Reco(
             owner_id=owner_id,
+            reco_type='standard',
             internal=new_internal)
         dbsession.add(reco)
         dbsession.flush()  # Assign reco.id
@@ -490,11 +470,8 @@ def reco_save(context, request, complete=False):
         reco.internal = new_internal
         added = False
 
-    for m, is_circ_repl in new_movement_rows:
-        if is_circ_repl:
-            m.circ_reco_id = reco_id
-        else:
-            m.reco_id = reco_id
+    for m in new_movements:
+        m.reco_id = reco_id
 
     reco.comment = params['reco']['comment']
 
