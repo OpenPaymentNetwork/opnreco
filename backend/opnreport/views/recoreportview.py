@@ -30,6 +30,8 @@ def reco_report_view(request):
     dbsession = request.dbsession
     owner_id = request.owner.id
 
+    combined_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
+
     movement_filter = and_(
         Movement.owner_id == owner_id,
         Movement.file_id == file_id,
@@ -39,10 +41,8 @@ def reco_report_view(request):
         Movement.loop_id == file.loop_id,
         Movement.currency == file.currency,
         Movement.transfer_record_id == TransferRecord.id,
-        or_(Movement.wallet_delta != 0, Movement.vault_delta != 0),
+        combined_delta != 0,
     )
-
-    combined_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
     # # reconciled_delta is the total of reconciled DFI entries in this file.
     # reconciled_delta = (

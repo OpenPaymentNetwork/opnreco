@@ -1,5 +1,6 @@
 
-// Redux reducer for fetching info from URLs and caching the results.
+// FetchCache is a Redux reducer for fetching info from URLs
+// and caching the results.
 
 function arraysEqual(a, b) {
   if (!a || !b) {

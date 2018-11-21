@@ -160,15 +160,21 @@ class RecoPopover extends React.Component {
 
   /**
    * Commit all changes to state.reco and return the updated reco.
-   * (Note: this does not save the changes.)
+   * (Note: this does not save the changes on the server.)
    */
   commit() {
     const {typingComment, reco, undoLog} = this.state;
     let newReco = reco;
+    let changed = false;
+
     if (typingComment !== null && typingComment !== undefined &&
         typingComment !== reco.comment) {
       // Commit the comment and record in the undo log.
       newReco = {...reco, comment: typingComment};
+      changed = true;
+    }
+
+    if (changed) {
       this.setState({
         reco: newReco,
         typingComment: null,
@@ -177,6 +183,7 @@ class RecoPopover extends React.Component {
       });
       this.updatePopoverPosition();
     }
+
     return newReco;
   }
 
@@ -237,10 +244,25 @@ class RecoPopover extends React.Component {
     this.updatePopoverPosition();
   }
 
+  /**
+   * Accept a change to the reco's movement list.
+   */
   changeMovements(movements) {
     const {reco, undoLog} = this.state;
     this.setState({
       reco: {...reco, movements},
+      undoLog: [...undoLog, reco],
+      redoLog: [],
+    });
+  }
+
+  /**
+   * Accept a change to the reco_type.
+   */
+  handleRecoType(event) {
+    const {reco, undoLog} = this.state;
+    this.setState({
+      reco: {...reco, reco_type: event.target.value},
       undoLog: [...undoLog, reco],
       redoLog: [],
     });
@@ -320,6 +342,7 @@ class RecoPopover extends React.Component {
 
     const accountEntryRows = [];
     const isCirc = reco.is_circ;
+    const recoType = reco.reco_type;
     const colCount = isCirc ? 5 : 4;
 
     let headRow;
@@ -343,8 +366,9 @@ class RecoPopover extends React.Component {
       );
     }
 
-    return (
-      <table className={classes.table}>
+    let accountTableBody = null;
+    if (recoType !== 'wallet_only') {
+      accountTableBody = (
         <tbody>
           <tr>
             <th colSpan={colCount} className={classes.headCell}>Account Entries</th>
@@ -354,14 +378,16 @@ class RecoPopover extends React.Component {
           <tr>
             <td colSpan={colCount} className={classes.searchCell}></td>
           </tr>
-        </tbody>
-
-        <tbody>
           <tr>
             <td colSpan={colCount} className={classes.spaceRow}></td>
           </tr>
         </tbody>
+      );
+    }
 
+    let movementTableBody = null;
+    if (recoType !== 'account_only') {
+      movementTableBody = (
         <MovementTableBody
           dispatch={this.props.dispatch}
           fileId={fileId}
@@ -374,6 +400,13 @@ class RecoPopover extends React.Component {
           close={close}
           recoId={recoId}
         />
+      );
+    }
+
+    return (
+      <table className={classes.table}>
+        {accountTableBody}
+        {movementTableBody}
       </table>
     );
   }
@@ -445,18 +478,20 @@ class RecoPopover extends React.Component {
 
               <FormControl className={classes.typeControl}>
                 <Select
-                  value="standard"
-                  displayEmpty
                   name="reco_type"
+                  value={reco ? reco.reco_type : 'standard'}
+                  displayEmpty
+                  onChange={this.binder(this.handleRecoType)}
                 >
                   <MenuItem value="standard">Standard Reconciliation</MenuItem>
-                  <MenuItem value="wallet_ie">Wallet Income/Expense</MenuItem>
-                  <MenuItem value="account_cd">Account Credit/Debit</MenuItem>
+                  <MenuItem value="wallet_only">Wallet Income/Expense</MenuItem>
+                  <MenuItem value="account_only">Account Credit/Debit</MenuItem>
                 </Select>
               </FormControl>
 
               <FormControl className={classes.commentControl}>
                 <TextField
+                  name="comment"
                   placeholder="Comment"
                   value={comment}
                   onChange={this.binder(this.handleComment)}

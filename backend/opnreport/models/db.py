@@ -291,7 +291,7 @@ class Movement(Base):
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
 
     # reco_wallet_delta is the same as wallet_delta except when the movement
-    # is part of a wallet_ie reco, in which case reco_wallet_delta
+    # is part of a wallet_only reco, in which case reco_wallet_delta
     # is zero, meaning no compensating surplus delta is expected.
     reco_wallet_delta = Column(Numeric, nullable=False)
 
@@ -299,7 +299,7 @@ class Movement(Base):
         CheckConstraint(or_(
             reco_wallet_delta == wallet_delta,
             reco_wallet_delta == 0
-        ), name='ck_movement_reco_wallet_delta'),
+        ), name='reco_wallet_delta'),
         {})
 
     transfer_record = relationship(TransferRecord)
@@ -404,7 +404,7 @@ class Reco(Base):
     reco_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 
-    # internal is true if the reconciliation is balanced and
+    # internal is true if the reconciliation is standard, balanced, and
     # has no account entries. Internal recos are not shown in the
     # Reconciliation and Transactions reports, but they are shown
     # in transfers.
@@ -412,13 +412,15 @@ class Reco(Base):
 
     __table_args__ = (
         CheckConstraint(reco_type.in_([
-            # Note: standard and replenish recos must be balanced;
-            # wallet_ie and account_ie recos do not need to be.
+            # Note: standard recos must be balanced;
+            # wallet_only and account_only recos do not need to be.
+            # wallet_only recos can only contain wallet movements (not
+            # account entries or vault movements).
+            # account_only recos can only contain account movements.
             'standard',
-            'replenish',       # Surplus Replenishment
-            'wallet_ie',       # Wallet Income/Expense
-            'account_cd',      # Account Credit/Debit
-        ]), name='ck_reco_type'),
+            'wallet_only',       # Wallet Income/Expense
+            'account_only',      # Account Credit/Debit
+        ]), name='reco_type'),
         {})
 
 

@@ -1,10 +1,11 @@
 
 from colander import Integer
 from colander import Length
+from colander import OneOf
 from colander import Schema
 from colander import SchemaNode
 from colander import Sequence
-from colander import String as ColString
+from colander import String as ColanderString
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import Movement
@@ -103,6 +104,7 @@ def reco_view(context, request, complete=False):
     owner = request.owner
     owner_id = owner.id
     comment = ''
+    reco_type = 'standard'
 
     if reco_id is not None:
         movement_rows = (
@@ -143,6 +145,7 @@ def reco_view(context, request, complete=False):
 
         if reco is not None:
             comment = reco.comment or ''
+            reco_type = reco.reco_type
 
     elif movement_id is not None:
         account_entry_rows = ()
@@ -178,10 +181,11 @@ def reco_view(context, request, complete=False):
         complete=complete)
 
     return {
+        'reco_type': reco_type,
+        'comment': comment,
         'movements': movements_json,
         'loops': loops,
         'is_circ': file.peer_id == 'c',
-        'comment': comment,
     }
 
 
@@ -337,15 +341,18 @@ class MovementSchema(Schema):
 
 
 class RecoSchema(Schema):
+    reco_type = SchemaNode(
+        ColanderString(),
+        validator=OneOf(('standard', 'wallet_only', 'account_only')))
+    comment = SchemaNode(
+        ColanderString(),
+        missing='',
+        validator=Length(max=10000))
     movements = SchemaNode(
         Sequence(),
         MovementSchema(),
         missing=(),
         validator=Length(max=100))
-    comment = SchemaNode(
-        ColString(),
-        missing='',
-        validator=Length(max=10000))
 
 
 class RecoSaveSchema(Schema):
@@ -353,7 +360,7 @@ class RecoSaveSchema(Schema):
     reco = RecoSchema()
 
 
-matches_required = (
+movement_matches_required = (
     ('currency', "currency", "currencies"),
     ('loop_id', "cash design", "cash designs"),
     ('transfer_record_id', "transfer", "transfers"),
@@ -375,9 +382,14 @@ def reco_save(context, request, complete=False):
     owner = request.owner
     owner_id = owner.id
 
-    new_movement_ids = set(m['id'] for m in params['reco']['movements'])
-    new_internal = True
     reco_id = params['reco_id']
+    reco_type = params['reco']['reco_type']
+    new_internal = (reco_type == 'standard')
+
+    if reco_type == 'account_only':
+        new_movement_ids = ()
+    else:
+        new_movement_ids = set(m['id'] for m in params['reco']['movements'])
 
     if not new_movement_ids:
         new_movements = ()
@@ -407,7 +419,7 @@ def reco_save(context, request, complete=False):
                     "reconciled previously. Try re-syncing with OPN."),
             })
 
-        for attr, singular, plural in matches_required:
+        for attr, singular, plural in movement_matches_required:
             value_set = set(getattr(m, attr) for m in new_movements)
             if len(value_set) > 1:
                 raise HTTPBadRequest(json_body={
@@ -418,16 +430,28 @@ def reco_save(context, request, complete=False):
                         % (plural, singular)),
                 })
 
-        wallet_sum = sum(m.wallet_delta for m in new_movements)
-        vault_sum = sum(m.vault_delta for m in new_movements)
-        if wallet_sum + vault_sum != 0:
-            raise HTTPBadRequest(json_body={
-                'error': 'unbalanced_reconciliation',
-                'error_description': "The proposed reconciliation is not "
-                "balanced. The total changes must be zero.",
-            })
+        if reco_type == 'standard':
+            wallet_sum = sum(m.wallet_delta for m in new_movements)
+            vault_sum = sum(m.vault_delta for m in new_movements)
+            if wallet_sum + vault_sum != 0:
+                raise HTTPBadRequest(json_body={
+                    'error': 'unbalanced_reconciliation',
+                    'error_description': "The proposed reconciliation is "
+                    "unbalanced. Standard reconciliation requires the total "
+                    "of the account, vault, and wallet changes to "
+                    "equal zero.",
+                })
+        elif reco_type == 'wallet_only':
+            for m in new_movements:
+                if m.vault_delta:
+                    raise HTTPBadRequest(json_body={
+                        'error': 'wallet_only_excludes_vault',
+                        'error_description': "Wallet Income/Expense "
+                        "reconciliation can include wallet changes only, "
+                        "not vault changes.",
+                    })
 
-    if reco_id:
+    if reco_id is not None:
         reco = (
             dbsession.query(Reco)
             .filter(
@@ -444,7 +468,7 @@ def reco_save(context, request, complete=False):
 
     # Everything checks out. Save the changes.
 
-    if reco_id:
+    if reco_id is not None:
         # Remove old movements from the reco.
         old_movements = (
             dbsession.query(Movement)
@@ -456,32 +480,50 @@ def reco_save(context, request, complete=False):
             .all())
         for m in old_movements:
             m.reco_id = None
+            m.reco_wallet_delta = m.wallet_delta
+    else:
+        if not new_movements:
+            # This is a new reco with no movements, account entries, or
+            # even a comment. Don't create an empty reco.
+            return {'empty': True}
 
     if reco is None:
         added = True
         reco = Reco(
             owner_id=owner_id,
-            reco_type='standard',
+            reco_type=reco_type,
             internal=new_internal)
         dbsession.add(reco)
         dbsession.flush()  # Assign reco.id
         reco_id = reco.id
     else:
+        reco.reco_type = reco_type
         reco.internal = new_internal
         added = False
 
     for m in new_movements:
         m.reco_id = reco_id
+        if reco_type == 'wallet_only':
+            # Wallet-only reconciliations should have no effect on
+            # the surplus amount.
+            m.reco_wallet_delta = zero
+        else:
+            # Other reconciliations expect the surplus to change
+            # inversely to the wallet.
+            m.reco_wallet_delta = m.wallet_delta
 
     reco.comment = params['reco']['comment']
 
     dbsession.add(OwnerLog(
         owner_id=owner.id,
-        event_type='reco_add' if added else 'reco_update',
+        event_type='reco_add' if added else 'reco_change',
         remote_addr=request.remote_addr,
         user_agent=request.user_agent,
-        content=params,
+        content={
+            'reco_id': reco_id,
+            'reco': params['reco'],
+        },
     ))
     dbsession.flush()
 
-    return {'ok': True}
+    return {'ok': True, 'reco_id': reco_id}
