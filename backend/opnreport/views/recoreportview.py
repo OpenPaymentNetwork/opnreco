@@ -30,7 +30,8 @@ def reco_report_view(request):
     dbsession = request.dbsession
     owner_id = request.owner.id
 
-    combined_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
+    movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
+    reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
     movement_filter = and_(
         Movement.owner_id == owner_id,
@@ -41,7 +42,7 @@ def reco_report_view(request):
         Movement.loop_id == file.loop_id,
         Movement.currency == file.currency,
         Movement.transfer_record_id == TransferRecord.id,
-        combined_delta != 0,
+        movement_delta != 0,
     )
 
     # # reconciled_delta is the total of reconciled DFI entries in this file.
@@ -70,7 +71,7 @@ def reco_report_view(request):
     # but not from the internally reconciled movements.
     workflow_type_rows = (
         dbsession.query(
-            func.sign(combined_delta).label('sign'),
+            func.sign(movement_delta).label('sign'),
             TransferRecord.workflow_type,
         )
         .outerjoin(Reco, Reco.id == Movement.reco_id)
@@ -81,7 +82,7 @@ def reco_report_view(request):
                 ~Reco.internal,
             ))
         .group_by(
-            func.sign(combined_delta),
+            func.sign(movement_delta),
             TransferRecord.workflow_type)
         .all())
 
@@ -99,7 +100,7 @@ def reco_report_view(request):
     # Negate the amounts because we're showing compensating amounts.
     outstanding_rows = (
         dbsession.query(
-            func.sign(combined_delta).label('sign'),
+            func.sign(movement_delta).label('sign'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
             (-Movement.vault_delta).label('circ_delta'),

@@ -78,7 +78,8 @@ def transactions_view(request):
     # Include non-internal reconciled entries.
     # query = query.union(
 
-    movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
+    movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
+    reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
     query = (
         dbsession.query(
@@ -89,6 +90,7 @@ def transactions_view(request):
             Movement.ts,
             Movement.reco_id,
             movement_delta.label('movement_delta'),
+            reco_movement_delta.label('reco_movement_delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
@@ -109,7 +111,7 @@ def transactions_view(request):
             Movement.currency == file.currency,
 
             AccountEntry.id == null,
-            or_(Movement.wallet_delta != 0, Movement.vault_delta != 0),
+            movement_delta != 0,
             or_(Reco.id == null, ~Reco.internal),
         )
     )
@@ -136,19 +138,19 @@ def transactions_view(request):
                 (dec_row, total_cte.c.account_delta),
             ], else_=0)).label('dec_account_delta'),
             func.sum(case([
-                (inc_row, total_cte.c.movement_delta),
-            ], else_=0)).label('inc_movement_delta'),
+                (inc_row, total_cte.c.reco_movement_delta),
+            ], else_=0)).label('inc_reco_movement_delta'),
             func.sum(case([
-                (dec_row, total_cte.c.movement_delta),
-            ], else_=0)).label('dec_movement_delta'),
+                (dec_row, total_cte.c.reco_movement_delta),
+            ], else_=0)).label('dec_reco_movement_delta'),
         ).one())
     all_incs = {
         'account_delta': totals_row.inc_account_delta or zero,
-        'movement_delta': totals_row.inc_movement_delta or zero,
+        'reco_movement_delta': totals_row.inc_reco_movement_delta or zero,
     }
     all_decs = {
         'account_delta': totals_row.dec_account_delta or zero,
-        'movement_delta': totals_row.dec_movement_delta or zero,
+        'reco_movement_delta': totals_row.dec_reco_movement_delta or zero,
     }
 
     rows_query = query.order_by(time_expr).offset(offset)
@@ -157,9 +159,9 @@ def transactions_view(request):
     rows = rows_query.all()
 
     inc_records = []
-    page_incs = {'account_delta': zero, 'movement_delta': zero}
+    page_incs = {'account_delta': zero, 'reco_movement_delta': zero}
     dec_records = []
-    page_decs = {'account_delta': zero, 'movement_delta': zero}
+    page_decs = {'account_delta': zero, 'reco_movement_delta': zero}
 
     for row in rows:
         account_delta = row.account_delta
@@ -173,6 +175,7 @@ def transactions_view(request):
         if inc is not None:
             account_entry_id = row.account_entry_id
             reco_id = row.reco_id
+            reco_movement_delta = row.reco_movement_delta
             record = {
                 'account_entry_id': (
                     None if account_entry_id is None
@@ -182,22 +185,23 @@ def transactions_view(request):
                 'movement_id': str(row.movement_id),
                 'ts': row.ts,
                 'reco_id': None if reco_id is None else str(reco_id),
-                'movement_delta': movement_delta,
+                'movement_delta': movement_delta or '0',
+                'reco_movement_delta': reco_movement_delta or '0',
                 'workflow_type': row.workflow_type,
                 'transfer_id': row.transfer_id,
             }
             if inc:
                 inc_records.append(record)
-                if account_delta is not None:
+                if account_delta:
                     page_incs['account_delta'] += account_delta
-                if movement_delta is not None:
-                    page_incs['movement_delta'] += movement_delta
+                if reco_movement_delta:
+                    page_incs['reco_movement_delta'] += reco_movement_delta
             else:
                 dec_records.append(record)
-                if account_delta is not None:
+                if account_delta:
                     page_decs['account_delta'] += account_delta
-                if movement_delta is not None:
-                    page_decs['movement_delta'] += movement_delta
+                if reco_movement_delta:
+                    page_decs['reco_movement_delta'] += reco_movement_delta
 
     all_shown = totals_row.rowcount == len(rows)
     if all_shown:

@@ -466,6 +466,13 @@ def reco_save(context, request, complete=False):
     else:
         reco = None
 
+    if reco_type != 'standard' and not params['reco']['comment']:
+        raise HTTPBadRequest(json_body={
+            'error': 'comment_required',
+            'error_description': (
+                "A comment is required for all nonstandard reconciliations."),
+        })
+
     # Everything checks out. Save the changes.
 
     if reco_id is not None:

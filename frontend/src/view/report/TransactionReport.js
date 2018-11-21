@@ -84,6 +84,10 @@ const styles = {
     textAlign: 'center',
     padding: '0',
   },
+  strikeout: {
+    textDecoration: 'line-through',
+    opacity: '0.3',
+  },
 };
 
 
@@ -153,7 +157,8 @@ class TransactionReport extends React.Component {
             Account Activity
           </th>
           <th className={`${activityHeadCell} ${groupEndCell}`} colSpan="4">
-            Note Activity
+            {ploop.peer_id === 'c' ?
+              'Wallet and Vault Activity' : 'Wallet Activity'}
           </th>
           <th className={activityHeadCell}>
           </th>
@@ -197,6 +202,19 @@ class TransactionReport extends React.Component {
           );
         }
 
+        let movement_amount_cell = null;
+        if (record.movement_delta && record.movement_delta !== '0') {
+          if (!record.reco_movement_delta || record.reco_movement_delta === '0') {
+            movement_amount_cell = (
+              <span className={classes.strikeout}>
+                {fmt(record.movement_delta)}
+              </span>
+            );
+          } else {
+            movement_amount_cell = fmt(record.reco_movement_delta);
+          }
+        }
+
         rows.push(
           <tr key={index}>
             <td className={txtCell}>
@@ -215,7 +233,7 @@ class TransactionReport extends React.Component {
                 : null}
             </td>
             <td className={numCell}>
-              {record.movement_delta ? fmt(record.movement_delta) : null}
+              {movement_amount_cell}
             </td>
             <td className={txtCell}>
               {record.workflow_type ?
@@ -249,7 +267,7 @@ class TransactionReport extends React.Component {
           <td className={txtCell}>
           </td>
           <td className={`${numCell} ${pageTotalCell}`}>
-            {fmt(totals.page.movement_delta)}
+            {fmt(totals.page.reco_movement_delta)}
           </td>
           <td className={txtCell}>
           </td>
@@ -272,7 +290,7 @@ class TransactionReport extends React.Component {
         <td className={txtCell}>
         </td>
         <td className={`${numCell} ${totalCell}`}>
-          {fmt(totals.all.movement_delta)}
+          {fmt(totals.all.reco_movement_delta)}
         </td>
         <td className={txtCell}>
         </td>
