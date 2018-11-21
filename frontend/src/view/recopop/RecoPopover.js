@@ -15,7 +15,6 @@ import Close from '@material-ui/icons/Close';
 import Fade from '@material-ui/core/Fade';
 import FormControl from '@material-ui/core/FormControl';
 import IconButton from '@material-ui/core/IconButton';
-import InputLabel from '@material-ui/core/InputLabel';
 import MenuItem from '@material-ui/core/MenuItem';
 import MovementTableBody from './MovementTableBody';
 import Popover from '@material-ui/core/Popover';

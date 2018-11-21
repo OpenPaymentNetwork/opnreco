@@ -91,6 +91,7 @@ class App extends React.Component {
             <OPNDrawer />
             <main className={classes.main}>
               <Switch>
+                <Route path="/login" component={LoginView} />
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/:tab(t)/:transferId" component={Home} />
