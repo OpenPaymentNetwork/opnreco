@@ -7,7 +7,6 @@ import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReport } from '../../util/fetcher';
 import { getPloopAndFile } from '../../util/ploopfile';
 import { throttler } from '../../util/throttler';
-import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -94,7 +93,6 @@ class RecoPopover extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    history: PropTypes.object.isRequired,
     close: PropTypes.func.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
@@ -572,6 +570,5 @@ function mapStateToProps(state, ownProps) {
 
 export default compose(
   withStyles(styles, {withTheme: true}),
-  withRouter,
   connect(mapStateToProps),
 )(RecoPopover);

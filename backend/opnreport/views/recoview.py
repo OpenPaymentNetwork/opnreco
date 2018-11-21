@@ -206,8 +206,7 @@ def reco_search_movement_view(context, request, complete=False):
     # tzoffset is the number of minutes as given by
     # 'new Date().getTimezoneOffset()' in Javascript.
     tzoffset_input = str(params.get('tzoffset'))
-    seen_movement_ids = set(
-        int(mid) for mid in params.get('seen_movement_ids', ()))
+    seen_ids = set(int(x) for x in params.get('seen_ids', ()))
     reco_id_input = params.get('reco_id')
 
     if reco_id_input:
@@ -302,8 +301,8 @@ def reco_search_movement_view(context, request, complete=False):
     if not filters:
         return []
 
-    if seen_movement_ids:
-        filters.append(~Movement.id.in_(seen_movement_ids))
+    if seen_ids:
+        filters.append(~Movement.id.in_(seen_ids))
 
     movement_rows = (
         start_movement_query(dbsession=dbsession, owner_id=owner_id)
@@ -436,9 +435,9 @@ def reco_save(context, request, complete=False):
             if wallet_sum + vault_sum != 0:
                 raise HTTPBadRequest(json_body={
                     'error': 'unbalanced_reconciliation',
-                    'error_description': "The proposed reconciliation is "
-                    "unbalanced. Standard reconciliation requires the total "
-                    "of the account, vault, and wallet changes to "
+                    'error_description': "Unbalanced reconciliation. "
+                    "Standard reconciliation requires the sum "
+                    "of changes to the account, vault, and wallet to "
                     "equal zero.",
                 })
         elif reco_type == 'wallet_only':
@@ -470,7 +469,8 @@ def reco_save(context, request, complete=False):
         raise HTTPBadRequest(json_body={
             'error': 'comment_required',
             'error_description': (
-                "A comment is required for all nonstandard reconciliations."),
+                "An explanatory comment is required "
+                "for nonstandard reconciliations."),
         })
 
     # Everything checks out. Save the changes.
