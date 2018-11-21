@@ -17,16 +17,16 @@ import VisibilityOff from '@material-ui/icons/VisibilityOff';
 import { binder } from '../../util/binder';
 import { fOPN } from '../../util/fetcher';
 import { connect } from 'react-redux';
-import { switchProfile, logOut } from '../../reducer/login';
+import { setAccessToken, logOut } from '../../reducer/login';
 import { tokenRefreshSuccess, tokenRefreshCancel } from '../../reducer/app';
 
 
 class TokenRefreshDialog extends React.Component {
   static propTypes = {
     dispatch: PropTypes.func.isRequired,
+    profileId: PropTypes.string.isRequired,
     personalProfile: PropTypes.object,
     tokenRefresh: PropTypes.bool.isRequired,
-    token: PropTypes.string,
   };
 
   constructor(props) {
@@ -47,7 +47,7 @@ class TokenRefreshDialog extends React.Component {
   }
 
   handleOk() {
-    const {dispatch} = this.props;
+    const {dispatch, profileId} = this.props;
     this.setState({submitting: true, error: null});
     const options = {
       data: {
@@ -56,16 +56,10 @@ class TokenRefreshDialog extends React.Component {
       disableTokenRefresh: true,
     };
     const action1 = fOPN.fetchPath('/token/refresh', options);
-    let token;
     dispatch(action1).then(tokenInfo => {
-      token = tokenInfo.access_token;
+      const token = tokenInfo.access_token;
+      setAccessToken(profileId, token);
       dispatch(tokenRefreshSuccess(token));
-      dispatch(switchProfile(tokenInfo.access_token, ''));
-      // Update the profile ID.
-      const action2 = fOPN.fetchPath('/me', {disableTokenRefresh: true});
-      return dispatch(action2);
-    }).then(profileInfo => {
-      dispatch(switchProfile(token, profileInfo.id));
       this.setState({submitting: false});
     }).catch((error) => {
       this.setState({error: String(error), submitting: false});
@@ -155,9 +149,9 @@ class TokenRefreshDialog extends React.Component {
 
 
 const mapStateToProps = (state) => ({
-  token: state.login.token,
   tokenRefresh: state.app.tokenRefresh,
   personalProfile: state.login.personalProfile,
+  profileId: state.login.id,
 });
 
 

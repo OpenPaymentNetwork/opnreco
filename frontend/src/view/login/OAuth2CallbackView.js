@@ -16,7 +16,7 @@ class OAuth2CallbackView extends React.Component {
     deviceUUID: PropTypes.string,
     history: PropTypes.object.isRequired,
     oauthState: PropTypes.string,
-    token: PropTypes.string,
+    authenticated: PropTypes.bool,
   };
 
   constructor(props) {
@@ -25,7 +25,7 @@ class OAuth2CallbackView extends React.Component {
   }
 
   componentDidMount() {
-    if (this.props.token) {
+    if (this.props.authenticated) {
       // Another instance of this view already set the token
       // and will finish asynchronously.
       return;
@@ -44,7 +44,10 @@ class OAuth2CallbackView extends React.Component {
 
       dispatch(clearOAuthState());
       dispatch(logIn(parsed.access_token));
-      const action = fOPN.fetchPath('/me', {disableRefresh: true});
+      const action = fOPN.fetchPath('/me', {
+        disableRefresh: true,
+        token: parsed.access_token,
+      });
       dispatch(action).then(profileInfo => {
         dispatch(logIn(parsed.access_token, {
           id: profileInfo.id,
@@ -78,10 +81,15 @@ class OAuth2CallbackView extends React.Component {
 }
 
 function mapStateToProps(state) {
+  const {
+    oauthState,
+    cameFrom,
+    authenticated,
+  } = state.login;
   return {
-    oauthState: state.login.oauthState,
-    cameFrom: state.login.cameFrom,
-    token: state.login.token,
+    oauthState,
+    cameFrom,
+    authenticated,
   };
 }
 

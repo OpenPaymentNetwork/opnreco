@@ -15,8 +15,8 @@ class LoginRedirect extends React.Component {
 
   componentDidMount() {
     const { history } = this.props;
-    if (history.location && history.location.pathName) {
-      this.props.dispatch(setCameFrom(history.location.pathName));
+    if (history.location && history.location.pathname) {
+      this.props.dispatch(setCameFrom(history.location.pathname));
     } else {
       this.props.dispatch(setCameFrom(''));
     }

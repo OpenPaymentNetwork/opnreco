@@ -3,7 +3,7 @@
 
 /* global process: false */
 
-import { logOut } from '../reducer/login';
+import { getAccessToken, logOut } from '../reducer/login';
 
 import { tokenRefreshRequest, tokenRefreshCancel, setServerError }
   from '../reducer/app';
@@ -145,7 +145,10 @@ export class OPNFetcher {
 
       let initToken = tokenOption;
       if (!initToken && this.config.useToken) {
-        initToken = getState().login.token;
+        const state = getState();
+        if (state.login && state.login.id) {
+          initToken = getAccessToken(state.login.id);
+        }
       }
       tryFetch(initToken);
     });

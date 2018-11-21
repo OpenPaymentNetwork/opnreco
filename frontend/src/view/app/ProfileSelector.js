@@ -65,16 +65,9 @@ class ProfileSelector extends React.Component {
     this.setState({selectingId: profileId});
 
     const action1 = fOPN.fetchPath('/token/select/' + profileId);
-    let token;
     dispatch(action1).then(tokenInfo => {
-      token = tokenInfo.access_token;
-      const action2 = fOPN.fetchPath('/me', {
-        token,
-        disableRefresh: true,
-      });
-      return dispatch(action2);
-    }).then(profileInfo => {
-      dispatch(switchProfile(token, profileInfo.id));
+      const token = tokenInfo.access_token;
+      dispatch(switchProfile(token, profileId));
       dispatch(clearMost());
       dispatch(triggerResync());
       dispatch(closeDrawer());

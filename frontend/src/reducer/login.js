@@ -8,6 +8,8 @@ const START_OAUTH = 'login/START_OAUTH';
 const CLEAR_OAUTH_STATE = 'login/CLEAR_OAUTH_STATE';
 const SWITCH_PROFILE = 'login/SWITCH_PROFILE';
 
+const ACCESS_TOKEN_KEY = 'opnreport:access_tokens';
+
 // Note: the login state is persistent, so only the small amount of state
 // that should persist between sesssions should be stored here.
 //
@@ -23,8 +25,8 @@ const SWITCH_PROFILE = 'login/SWITCH_PROFILE';
 // and they should re-enter their web credentials at OPN.
 
 const initialState = {
-  token: '',
-  id: '',  // id of the logged in profile (may be diff from personal profile)
+  authenticated: false,
+  id: '',  // id of the selected profile (may be diff from personal profile)
   personalProfile: {},  // id and title of the logged in personal profile
   oauthState: '',
   cameFrom: '',
@@ -33,36 +35,81 @@ const initialState = {
 
 export const logOut = () => ({type: LOG_OUT});
 
-export const logIn = (token, personalProfile) => ({
-  type: LOG_IN,
-  payload: {token, personalProfile},
-});
+export const logIn = (token, personalProfile) => {
+  if (personalProfile && personalProfile.id) {
+    setAccessToken(personalProfile.id, token);
+  }
+  return {
+    type: LOG_IN,
+    payload: {personalProfile},
+  };
+};
 
 export const setCameFrom = (pathName) => ({
   type: SET_CAME_FROM,
   payload: {pathName},
 });
 
-export const startOAuth = () => ({
-  type: START_OAUTH,
-  payload: {oauthState: makeRandomUUID()},
-});
+export const startOAuth = () => {
+  clearAccessTokens();
+  return {
+    type: START_OAUTH,
+    payload: {oauthState: makeRandomUUID()},
+  };
+};
 
 export const clearOAuthState = () => ({
   type: CLEAR_OAUTH_STATE,
 });
 
-export const switchProfile = (token, id) => ({
-  type: SWITCH_PROFILE,
-  payload: {token, id},
-});
+export const switchProfile = (token, id) => {
+  setAccessToken(id, token);
+  return {
+    type: SWITCH_PROFILE,
+    payload: {id},
+  };
+};
+
+export const clearAccessTokens = () => {
+  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+};
+
+export const getAccessToken = (profileId) => {
+  const mapStr = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (mapStr) {
+    let mapObj;
+    try {
+      mapObj = JSON.parse(mapStr);
+    } catch (e) {
+      return null;
+    }
+    if (mapObj) {
+      return mapObj[profileId];
+    }
+  }
+  return null;
+};
+
+export const setAccessToken = (profileId, token) => {
+  const mapStr = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+  let mapObj = {};
+  if (mapStr) {
+    try {
+      mapObj = JSON.parse(mapStr);
+    } catch (e) {
+      // ignore
+    }
+  }
+  mapObj[profileId] = token;
+  window.localStorage.setItem(ACCESS_TOKEN_KEY, JSON.stringify(mapObj));
+};
 
 const actionHandlers = {
   [LOG_OUT]: () => ({...initialState, forceLogin: true}),
 
-  [LOG_IN]: (state, {payload: {token, personalProfile}}) => ({
+  [LOG_IN]: (state, {payload: {personalProfile}}) => ({
     ...state,
-    token,
+    authenticated: true,
     id: personalProfile ? personalProfile.id : '',
     personalProfile,
     forceLogin: false,
@@ -75,7 +122,7 @@ const actionHandlers = {
 
   [START_OAUTH]: (state, {payload: {oauthState}}) => ({
     ...state,
-    token: '',
+    authenticated: false,
     id: '',
     personalProfile: {},
     oauthState,
@@ -86,9 +133,8 @@ const actionHandlers = {
     oauthState: undefined,
   }),
 
-  [SWITCH_PROFILE]: (state, {payload: {token, id}}) => ({
+  [SWITCH_PROFILE]: (state, {payload: {id}}) => ({
     ...state,
-    token,
     id,
   }),
 };

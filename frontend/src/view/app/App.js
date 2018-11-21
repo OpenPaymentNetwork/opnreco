@@ -9,6 +9,7 @@ import NotFound from './NotFound';
 import OAuth2CallbackView from '../login/OAuth2CallbackView';
 import OPNDrawer from './OPNDrawer';
 import PropTypes from 'prop-types';
+import Redirecting from './Redirecting';
 import React from 'react';
 import ServerErrorDialog from './ServerErrorDialog';
 import TokenRefreshDialog from './TokenRefreshDialog';
@@ -61,13 +62,12 @@ class App extends React.Component {
     classes: PropTypes.object.isRequired,
     loggingOut: PropTypes.bool.isRequired,
     serverErrorOpen: PropTypes.bool,
-    token: PropTypes.string,
     personalTitle: PropTypes.string,
     tokenRefresh: PropTypes.bool.isRequired,
   };
 
   render() {
-    if (!this.props.token || !this.props.personalTitle) {
+    if (!this.props.personalTitle) {
       return (
         <Switch>
           <Route path="/login" component={LoginView} />
@@ -91,6 +91,7 @@ class App extends React.Component {
             <OPNDrawer />
             <main className={classes.main}>
               <Switch>
+                <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/:tab(t)/:transferId" component={Home} />
                 <Route path="/:tab(|reco|transactions|liabilities|t)" component={Home} />
@@ -121,13 +122,12 @@ const mapStateToProps = (state) => {
     serverErrorOpen,
     tokenRefresh,
   } = state.app;
-  const {personalProfile, token} = state.login;
+  const {personalProfile} = state.login;
   return {
     loggingOut: !!loggingOut,
     personalTitle: personalProfile ? personalProfile.title : null,
     serverError: serverError,
     serverErrorOpen: !!serverErrorOpen,
-    token: token,
     tokenRefresh: !!tokenRefresh,
   };
 };
