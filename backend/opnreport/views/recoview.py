@@ -184,6 +184,7 @@ def reco_view(context, request, complete=False):
         'reco_type': reco_type,
         'comment': comment,
         'movements': movements_json,
+        'account_entries': [],
         'loops': loops,
         'is_circ': file.peer_id == 'c',
     }

@@ -11,6 +11,7 @@ import Input from '@material-ui/core/Input';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Search from '@material-ui/icons/Search';
+import Edit from '@material-ui/icons/Edit';
 
 
 const styles = {
@@ -61,6 +62,7 @@ const styles = {
   },
   searchInput: {
     padding: 0,
+    textAlign: 'right',
   },
   searchingCell: {
     border: '1px solid #bbb',
@@ -74,6 +76,19 @@ const styles = {
     textAlign: 'center',
     padding: '4px 8px',
     fontStyle: 'italic',
+  },
+  createIconCell: {
+    border: '1px solid #bbb',
+    textAlign: 'center',
+  },
+  createCell: {
+    border: '1px solid #bbb',
+    padding: '2px 8px',
+    textAlign: 'right',
+  },
+  createInput: {
+    padding: 0,
+    textAlign: 'right',
   },
 };
 
@@ -95,10 +110,10 @@ class RecoTableBody extends React.Component {
     renderItemCells: PropTypes.func.isRequired,
     searchFields: PropTypes.array.isRequired,
     searchCallPath: PropTypes.string.isRequired,
-    colCount: PropTypes.number.isRequired,
     tableTitle: PropTypes.string.isRequired,
     columnHeadRow: PropTypes.node.isRequired,
     emptyMessage: PropTypes.string.isRequired,
+    allowCreate: PropTypes.bool,
   };
 
   constructor(props) {
@@ -111,6 +126,7 @@ class RecoTableBody extends React.Component {
       searchResults: null,  // [item]
       hasQuery: false,
       searching: false,
+      createInputs: {},
     };
   }
 
@@ -277,6 +293,15 @@ class RecoTableBody extends React.Component {
     this.props.updatePopoverPosition();
   }
 
+  handleCreateInput(fieldName, event) {
+    this.setState({
+      createInputs: {
+        ...this.state.createInputs,
+        [fieldName]: event.target.value,
+      },
+    });
+  }
+
   renderRow(item, addCandidate) {
     const {classes, renderItemCells} = this.props;
     const {removing} = this.state;
@@ -308,14 +333,39 @@ class RecoTableBody extends React.Component {
     );
   }
 
+  renderCreateRow() {
+    const {classes, searchFields} = this.props;
+    const {createInputs} = this.state;
+    return (
+      <tr key="create">
+        <td className={classes.createIconCell}>
+          <Edit className={classes.addRemoveIcon} />
+        </td>
+        {searchFields.map(field => (
+          <td key={field.name} className={classes.createCell}
+              colSpan={field.colSpan || 1}>
+            <Input
+              classes={{input: classes.createInput}}
+              disableUnderline
+              value={createInputs[field.name] || ''}
+              onChange={this.binder1(this.handleCreateInput, field.name)}
+              fullWidth
+            />
+          </td>
+        ))}
+      </tr>
+    );
+  }
+
   render() {
     const {
       classes,
       items,
-      colCount,
       tableTitle,
       columnHeadRow,
       searchFields,
+      isCirc,
+      allowCreate,
     } = this.props;
 
     const {
@@ -324,6 +374,8 @@ class RecoTableBody extends React.Component {
       hasQuery,
       searching,
     } = this.state;
+
+    const colCount = isCirc ? 5 : 4;
 
     const rows = [
       (<tr key="head1">
@@ -339,6 +391,10 @@ class RecoTableBody extends React.Component {
       items.forEach(item => {
         rows.push(this.renderRow(item, false));
       });
+    }
+
+    if (allowCreate) {
+      rows.push(this.renderCreateRow());
     }
 
     if (hasQuery && searchResults) {
@@ -386,6 +442,7 @@ class RecoTableBody extends React.Component {
               disableUnderline
               value={searchInputs[field.name] || ''}
               onChange={this.binder1(this.handleSearchInput, field.name)}
+              fullWidth
             />
           </td>
         ))}

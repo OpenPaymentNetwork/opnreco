@@ -8,6 +8,7 @@ import { fOPNReport } from '../../util/fetcher';
 import { getPloopAndFile } from '../../util/ploopfile';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
+import AccountEntryTableBody from './AccountEntryTableBody';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Close from '@material-ui/icons/Close';
@@ -68,7 +69,7 @@ const styles = theme => ({
     fontWeight: 'normal',
   },
   spaceRow: {
-    height: '16px',
+    height: '24px',
   },
   actionHeadCell: {
     backgroundColor: '#ddd',
@@ -254,6 +255,18 @@ class RecoPopover extends React.Component {
   }
 
   /**
+   * Accept a change to the reco's account_entries list.
+   */
+  changeAccountEntries(account_entries) {
+    const {reco, undoLog} = this.state;
+    this.setState({
+      reco: {...reco, account_entries},
+      undoLog: [...undoLog, reco],
+      redoLog: [],
+    });
+  }
+
+  /**
    * Accept a change to the reco_type.
    */
   handleRecoType(event) {
@@ -337,48 +350,25 @@ class RecoPopover extends React.Component {
       return <CircularProgress />;
     }
 
-    const accountEntryRows = [];
     const isCirc = reco.is_circ;
     const recoType = reco.reco_type;
     const colCount = isCirc ? 5 : 4;
 
-    let headRow;
-    if (isCirc) {
-      headRow = (
-        <tr>
-          <th width="10%" className={classes.actionHeadCell}></th>
-          <th className={classes.head2Cell} colSpan="2">Amount</th>
-          <th width="25%" className={classes.head2Cell}>Date</th>
-          <th width="35%" className={classes.head2Cell}>Description</th>
-        </tr>
-      );
-    } else {
-      headRow = (
-        <tr>
-          <th width="10%" className={classes.actionHeadCell}></th>
-          <th width="15%" className={classes.head2Cell}>Amount</th>
-          <th width="25%" className={classes.head2Cell}>Date</th>
-          <th width="50%" className={classes.head2Cell}>Description</th>
-        </tr>
-      );
-    }
-
-    let accountTableBody = null;
+    let accountEntryTableBody = null;
     if (recoType !== 'wallet_only') {
-      accountTableBody = (
-        <tbody>
-          <tr>
-            <th colSpan={colCount} className={classes.headCell}>Account Entries</th>
-          </tr>
-          {headRow}
-          {accountEntryRows}
-          <tr>
-            <td colSpan={colCount} className={classes.searchCell}></td>
-          </tr>
-          <tr>
-            <td colSpan={colCount} className={classes.spaceRow}></td>
-          </tr>
-        </tbody>
+      accountEntryTableBody = (
+        <AccountEntryTableBody
+          dispatch={this.props.dispatch}
+          fileId={fileId}
+          ploopKey={ploopKey}
+          movements={reco.account_entries}
+          updatePopoverPosition={this.binder(this.updatePopoverPosition)}
+          changeAccountEntries={this.binder(this.changeAccountEntries)}
+          isCirc={isCirc}
+          resetCount={resetCount}
+          close={close}
+          recoId={recoId}
+        />
       );
     }
 
@@ -402,7 +392,12 @@ class RecoPopover extends React.Component {
 
     return (
       <table className={classes.table}>
-        {accountTableBody}
+        {accountEntryTableBody}
+        {accountEntryTableBody && movementTableBody ? (
+          <tr>
+            <td colSpan={colCount} className={classes.spaceRow}></td>
+          </tr>
+        ) : null}
         {movementTableBody}
       </table>
     );

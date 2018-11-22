@@ -13,7 +13,7 @@ import RecoTableBody from './RecoTableBody';
 
 const styles = {
   head2Cell: {
-    backgroundColor: '#ddd',
+    backgroundColor: '#eee',
     border: '1px solid #bbb',
     fontWeight: 'normal',
   },
@@ -133,7 +133,6 @@ class MovementTableBody extends React.Component {
       recoId,
     } = this.props;
 
-    const colCount = isCirc ? 5 : 4;
     let columnHeadRow;
 
     if (isCirc) {
@@ -173,7 +172,6 @@ class MovementTableBody extends React.Component {
           {name: 'transfer'},
         ]}
         searchCallPath="/reco-search-movement"
-        colCount={colCount}
         tableTitle="Wallet Movements"
         columnHeadRow={columnHeadRow}
         emptyMessage="No eligible movements found."
