@@ -90,6 +90,9 @@ const styles = theme => ({
 });
 
 
+let nextCreatingId = 1;
+
+
 class RecoPopover extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
@@ -103,6 +106,8 @@ class RecoPopover extends React.Component {
     recoURL: PropTypes.string.isRequired,
     recoCompleteURL: PropTypes.string,
     reco: PropTypes.object,
+    loopId: PropTypes.string.isRequired,
+    currency: PropTypes.string.isRequired,
   };
 
   constructor(props) {
@@ -116,6 +121,7 @@ class RecoPopover extends React.Component {
       resetCount: 0,
       typingComment: null,
       saving: false,
+      createInputs: {},      // {entryId.fieldName: text}
     };
   }
 
@@ -130,8 +136,15 @@ class RecoPopover extends React.Component {
     }
 
     if (!reco && this.props.reco) {
-      // Initialize the reco state.
-      reco = this.props.reco;
+      // Initialize the reco state. Add one 'creating' entry.
+      const account_entries = [
+        ...(this.props.reco.account_entries || []),
+        this.makeCreatingEntry(),
+      ];
+      reco = {
+        ...this.props.reco,
+        account_entries,
+      };
       initializing = true;
     }
 
@@ -143,6 +156,18 @@ class RecoPopover extends React.Component {
       });
       this.updatePopoverPosition();
     }
+  }
+
+  makeCreatingEntry() {
+    const {currency, loopId} = this.props;
+    const creatingId = nextCreatingId;
+    nextCreatingId += 1;
+    return {
+      id: `creating_${creatingId}`,
+      currency: currency,
+      loop_id: loopId,
+      creating: true,
+    };
   }
 
   handleActionCallback(popoverActions) {
@@ -161,7 +186,7 @@ class RecoPopover extends React.Component {
    * (Note: this does not save the changes on the server.)
    */
   commit() {
-    const {typingComment, reco, undoLog} = this.state;
+    const {typingComment, reco, undoLog, createInputs} = this.state;
     let newReco = reco;
     let changed = false;
 
@@ -172,10 +197,59 @@ class RecoPopover extends React.Component {
       changed = true;
     }
 
+    let changedInputs = false;
+    Object.keys(createInputs).forEach(fieldKey => {
+      // Fold an input field value into reco.account_entries.
+      const parts = fieldKey.split(' ');
+      if (parts.length === 2) {
+        const entryId = parts[0];
+        const fieldName = parts[1];
+        const newEntries = [];
+        (newReco.account_entries || []).forEach(entry => {
+          if (entry.id === entryId) {
+            const value = createInputs[fieldKey];
+            newEntries.push({
+              ...entry,
+              [fieldName]: value,
+              fieldsFilled: true,
+            });
+          } else {
+            newEntries.push(entry);
+          }
+        });
+        newReco = {
+          ...newReco,
+          account_entries: newEntries,
+        };
+        changed = true;
+        changedInputs = true;
+      }
+    });
+
+    if (changedInputs) {
+      // If there is no longer a blank creation entry, add one now.
+      let hasEmpty = false;
+      newReco.account_entries.forEach(entry => {
+        if (!entry.fieldsFilled) {
+          hasEmpty = true;
+        }
+      });
+      if (!hasEmpty) {
+        newReco = {
+          ...newReco,
+          account_entries: [
+            ...newReco.account_entries,
+            this.makeCreatingEntry()
+          ],
+        };
+      }
+    }
+
     if (changed) {
       this.setState({
         reco: newReco,
         typingComment: null,
+        createInputs: {},
         undoLog: [...undoLog, reco],
         redoLog: [],
       });
@@ -286,6 +360,17 @@ class RecoPopover extends React.Component {
     this.getCommitThrottler()();
   }
 
+  handleCreateInput(fieldKey, value) {
+    this.setState({
+      createInputs: {
+        ...this.state.createInputs,
+        [fieldKey]: value,
+      },
+      redoLog: [],
+    });
+    this.getCommitThrottler()();
+  }
+
   getCommitThrottler() {
     let t = this.commitThrottler;
     if (!t) {
@@ -328,6 +413,7 @@ class RecoPopover extends React.Component {
 
   renderTable() {
     const {
+      dispatch,
       classes,
       fileId,
       ploopKey,
@@ -339,6 +425,7 @@ class RecoPopover extends React.Component {
     const {
       reco,
       resetCount,
+      createInputs,
     } = this.state;
 
     if (!recoURL) {
@@ -358,16 +445,18 @@ class RecoPopover extends React.Component {
     if (recoType !== 'wallet_only') {
       accountEntryTableBody = (
         <AccountEntryTableBody
-          dispatch={this.props.dispatch}
+          dispatch={dispatch}
           fileId={fileId}
           ploopKey={ploopKey}
-          movements={reco.account_entries}
           updatePopoverPosition={this.binder(this.updatePopoverPosition)}
+          accountEntries={reco.account_entries}
           changeAccountEntries={this.binder(this.changeAccountEntries)}
           isCirc={isCirc}
           resetCount={resetCount}
           close={close}
           recoId={recoId}
+          createInputs={createInputs}
+          handleCreateInput={this.binder(this.handleCreateInput)}
         />
       );
     }
@@ -376,11 +465,11 @@ class RecoPopover extends React.Component {
     if (recoType !== 'account_only') {
       movementTableBody = (
         <MovementTableBody
-          dispatch={this.props.dispatch}
+          dispatch={dispatch}
           fileId={fileId}
           ploopKey={ploopKey}
-          movements={reco.movements}
           updatePopoverPosition={this.binder(this.updatePopoverPosition)}
+          movements={reco.movements}
           changeMovements={this.binder(this.changeMovements)}
           isCirc={isCirc}
           resetCount={resetCount}
@@ -394,9 +483,11 @@ class RecoPopover extends React.Component {
       <table className={classes.table}>
         {accountEntryTableBody}
         {accountEntryTableBody && movementTableBody ? (
-          <tr>
-            <td colSpan={colCount} className={classes.spaceRow}></td>
-          </tr>
+          <tbody>
+            <tr>
+              <td colSpan={colCount} className={classes.spaceRow}></td>
+            </tr>
+          </tbody>
         ) : null}
         {movementTableBody}
       </table>
@@ -557,6 +648,8 @@ function mapStateToProps(state, ownProps) {
     recoURL,
     recoCompleteURL,
     reco,
+    currency: ploop ? ploop.currency : 'USD',
+    loopId: ploop ? ploop.loop_id : '0',
     ploopKey,
     fileId,
   };

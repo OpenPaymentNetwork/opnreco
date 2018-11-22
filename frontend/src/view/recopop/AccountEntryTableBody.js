@@ -1,6 +1,5 @@
 
 import { binder, binder1 } from '../../util/binder';
-import { compose } from '../../util/functional';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyDeltaFormatter } from '../../util/currency';
 import { withStyles } from '@material-ui/core/styles';
@@ -34,16 +33,9 @@ const styles = {
 class AccountEntryTableBody extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    close: PropTypes.func.isRequired,
-    dispatch: PropTypes.func.isRequired,
-    fileId: PropTypes.string,
-    ploopKey: PropTypes.string,
     accountEntries: PropTypes.array,
-    updatePopoverPosition: PropTypes.func.isRequired,
     changeAccountEntries: PropTypes.func.isRequired,
     isCirc: PropTypes.bool,
-    resetCount: PropTypes.number.isRequired,
-    recoId: PropTypes.string,
   };
 
   constructor(props) {
@@ -79,15 +71,10 @@ class AccountEntryTableBody extends React.Component {
   render() {
     const {
       classes,
-      dispatch,
-      fileId,
-      ploopKey,
       accountEntries,
-      updatePopoverPosition,
       changeAccountEntries,
       isCirc,
-      resetCount,
-      recoId,
+      ...otherProps
     } = this.props;
 
     let columnHeadRow;
@@ -112,15 +99,9 @@ class AccountEntryTableBody extends React.Component {
 
     return (
       <RecoTableBody
-        dispatch={dispatch}
-        fileId={fileId}
-        ploopKey={ploopKey}
         items={accountEntries}
-        updatePopoverPosition={updatePopoverPosition}
         changeItems={changeAccountEntries}
         isCirc={isCirc}
-        resetCount={resetCount}
-        recoId={recoId}
         renderItemCells={this.binder(this.renderItemCells)}
         searchFields={[
           {name: 'amount', colSpan: isCirc ? 2 : 1},
@@ -131,11 +112,9 @@ class AccountEntryTableBody extends React.Component {
         tableTitle="Account Entries"
         columnHeadRow={columnHeadRow}
         emptyMessage="No eligible account entries found."
-        allowCreate
+        {...otherProps}
       />);
   }
 }
 
-export default compose(
-  withStyles(styles),
-)(AccountEntryTableBody);
+export default withStyles(styles)(AccountEntryTableBody);

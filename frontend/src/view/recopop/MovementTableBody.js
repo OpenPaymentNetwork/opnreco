@@ -40,14 +40,9 @@ class MovementTableBody extends React.Component {
     close: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    fileId: PropTypes.string,
-    ploopKey: PropTypes.string,
     movements: PropTypes.array,
-    updatePopoverPosition: PropTypes.func.isRequired,
     changeMovements: PropTypes.func.isRequired,
     isCirc: PropTypes.bool,
-    resetCount: PropTypes.number.isRequired,
-    recoId: PropTypes.string,
   };
 
   constructor(props) {
@@ -123,14 +118,10 @@ class MovementTableBody extends React.Component {
     const {
       classes,
       dispatch,
-      fileId,
-      ploopKey,
       movements,
-      updatePopoverPosition,
       changeMovements,
       isCirc,
-      resetCount,
-      recoId,
+      ...otherProps
     } = this.props;
 
     let columnHeadRow;
@@ -157,14 +148,9 @@ class MovementTableBody extends React.Component {
     return (
       <RecoTableBody
         dispatch={dispatch}
-        fileId={fileId}
-        ploopKey={ploopKey}
         items={movements}
-        updatePopoverPosition={updatePopoverPosition}
         changeItems={changeMovements}
         isCirc={isCirc}
-        resetCount={resetCount}
-        recoId={recoId}
         renderItemCells={this.binder(this.renderItemCells)}
         searchFields={[
           {name: 'amount', colSpan: isCirc ? 2 : 1},
@@ -175,6 +161,7 @@ class MovementTableBody extends React.Component {
         tableTitle="Wallet Movements"
         columnHeadRow={columnHeadRow}
         emptyMessage="No eligible movements found."
+        {...otherProps}
       />);
   }
 }
