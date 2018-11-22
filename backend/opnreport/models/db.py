@@ -363,6 +363,9 @@ class AccountEntry(Base):
     statement_refs = Column(JSONB, nullable=True)
     entry_date = Column(Date, nullable=False)
 
+    loop_id = Column(String, nullable=False)
+    currency = Column(String, nullable=False)
+
     # The delta is negative for account decreases.
     # Note: we use the terms increase and decrease instead of debit/credit
     # because debit/credit is ambiguous: an increase of a checking account is
