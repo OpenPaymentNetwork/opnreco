@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from opnreport.models.db import File
 from opnreport.models.db import Loop
 from opnreport.models.db import Peer
@@ -64,3 +65,28 @@ def get_request_file(request):
         raise HTTPNotFound()
 
     return row
+
+
+amount_re = re.compile(r'[+-\u2212]?[0-9.,]+', re.U)
+
+
+def parse_amount(amount_input):
+    match = amount_re.search(amount_input)
+    if match is None:
+        return None
+    amount_str = match.group(0).replace('\u2212', '-').replace(',', '')
+    return ParsedAmount(amount_str)
+
+
+class ParsedAmount(Decimal):
+    def __new__(cls, amount_str):
+        self = Decimal.__new__(cls, amount_str)
+        self.str_value = amount_str
+        if '-' in amount_str:
+            self.sign = -1
+        elif '+' in amount_str:
+            self.sign = 1
+        else:
+            # Unspecified.
+            self.sign = 0
+        return self

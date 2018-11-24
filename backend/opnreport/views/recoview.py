@@ -1,7 +1,11 @@
 
+from colander import All
+from colander import Boolean
 from colander import Integer
+from colander import Invalid
 from colander import Length
 from colander import OneOf
+from colander import Regex
 from colander import Schema
 from colander import SchemaNode
 from colander import Sequence
@@ -14,6 +18,7 @@ from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
+from opnreport.param import parse_amount
 from opnreport.viewcommon import get_loop_map
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
@@ -220,21 +225,20 @@ def reco_search_movement_view(context, request, complete=False):
     owner_id = owner.id
     filters = []
 
-    match = re.search(r'[+-]?[0-9\.]+', amount_input)
-    if match is not None:
-        amount_str = match.group(0)
-        amount_abs = abs(Decimal(amount_str))
+    amount_parsed = parse_amount(amount_input)
+    if amount_parsed is not None:
+        amount_abs = abs(amount_parsed)
 
         vault_sign_filters = ()
         wallet_sign_filters = ()
-        if '-' in amount_str:
+        if amount_parsed.sign < 0:
             vault_sign_filters = ((Movement.vault_delta < 0),)
             wallet_sign_filters = ((Movement.wallet_delta < 0),)
-        elif '+' in amount_str:
+        elif amount_parsed.sign > 0:
             vault_sign_filters = ((Movement.vault_delta > 0),)
             wallet_sign_filters = ((Movement.wallet_delta > 0),)
 
-        if '.' in amount_str:
+        if '.' in amount_parsed.str_value:
             # Exact amount.
             filters.append(or_(
                 and_(
@@ -257,7 +261,7 @@ def reco_search_movement_view(context, request, complete=False):
                     *wallet_sign_filters),
             ))
 
-    match = re.search(r'[a-z]+', amount_input)
+    match = re.search(r'[A-Z]+', amount_input, re.I)
     if match is not None:
         currency = match.group(0).upper()
         filters.append(
@@ -340,6 +344,39 @@ class MovementSchema(Schema):
     id = SchemaNode(Integer())
 
 
+# \u2212 = true minus sign
+amount_re = re.compile(r'^[+\-\u2212]?[0-9.,]+$', re.UNICODE)
+
+
+class AccountEntrySchema(Schema):
+    # Validate these fields only lightly. The code will do its own
+    # parsing and validation.
+    id = SchemaNode(
+        ColanderString(),
+        validator=Regex(r'^(creating_)?[0-9]+$'))
+    creating = SchemaNode(Boolean(), missing=False)
+    amount = SchemaNode(
+        ColanderString(),
+        missing='',
+        validator=All(
+            Length(max=100),
+            Regex(amount_re, msg="Invalid amount"),
+        ))
+    currency = SchemaNode(
+        ColanderString(),
+        validator=All(
+            Length(max=100),
+            Regex(r'^[A-Z]{3,}$'),
+        ))
+    loop_id = SchemaNode(
+        ColanderString(), validator=All(
+            Length(max=100),
+            Regex(r'^[0-9]+$'),
+        ))
+    date = SchemaNode(ColanderString(), missing='', validator=Length(max=100))
+    desc = SchemaNode(ColanderString(), missing='', validator=Length(max=1000))
+
+
 class RecoSchema(Schema):
     reco_type = SchemaNode(
         ColanderString(),
@@ -351,6 +388,11 @@ class RecoSchema(Schema):
     movements = SchemaNode(
         Sequence(),
         MovementSchema(),
+        missing=(),
+        validator=Length(max=100))
+    account_entries = SchemaNode(
+        Sequence(),
+        AccountEntrySchema(),
         missing=(),
         validator=Length(max=100))
 
@@ -373,35 +415,72 @@ movement_matches_required = (
     context=API,
     permission='use_app',
     renderer='json')
-def reco_save(context, request, complete=False):
-    """Save changes to a reco."""
-    file, _peer, _loop = get_request_file(request)
-    params = RecoSaveSchema().deserialize(request.json)
+class RecoSave:
+    def __init__(self, context, request):
+        self.request = request
 
-    dbsession = request.dbsession
-    owner = request.owner
-    owner_id = owner.id
+    def __call__(self):
+        """Save changes to a reco."""
+        request = self.request
+        file, _peer, _loop = get_request_file(request)
+        try:
+            self.params = params = RecoSaveSchema().deserialize(request.json)
+        except Invalid as e:
+            raise HTTPBadRequest(json_body={
+                'error': 'invalid',
+                'error_description': '; '.join(
+                    "%s (%s)" % (v, k)
+                    for (k, v) in sorted(e.asdict().items())),
+            })
 
-    reco_id = params['reco_id']
-    reco_type = params['reco']['reco_type']
-    new_internal = (reco_type == 'standard')
+        self.reco_id = params['reco_id']
+        self.reco_type = reco_type = params['reco']['reco_type']
+        self.new_internal = (reco_type == 'standard')
 
-    if reco_type == 'account_only':
-        new_movement_ids = ()
-    else:
-        new_movement_ids = set(m['id'] for m in params['reco']['movements'])
+        if reco_type == 'account_only':
+            self.new_movement_ids = ()
+        else:
+            self.new_movement_ids = set(
+                m['id'] for m in params['reco']['movements'])
 
-    if not new_movement_ids:
-        new_movements = ()
-    else:
+        new_movements = self.get_new_movements()
+        reco = self.get_old_reco()
+        self.final_check()
+
+        # Everything checks out. Save the changes.
+
+        if self.reco_id is not None:
+            self.remove_old_movements()
+        else:
+            if not new_movements:
+                # This is a new reco with no movements, account entries, or
+                # even a comment. Don't create an empty reco.
+                return {'empty': True}
+
+        reco_id = self.save(
+            reco=reco,
+            new_movements=new_movements)
+
+        return {'ok': True, 'reco_id': reco_id}
+
+    def get_new_movements(self):
+        if not self.new_movement_ids:
+            return ()
+
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+        owner_id = owner.id
+        reco_type = self.reco_type
+
         new_movements = (
             dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
-                Movement.id.in_(new_movement_ids),
+                Movement.id.in_(self.new_movement_ids),
                 or_(
                     Movement.reco_id == null,
-                    Movement.reco_id == reco_id,
+                    Movement.reco_id == self.reco_id,
                 ),
                 or_(
                     Movement.wallet_delta != zero,
@@ -410,13 +489,14 @@ def reco_save(context, request, complete=False):
             )
             .all())
 
-        if len(new_movements) != len(new_movement_ids):
+        if len(new_movements) != len(self.new_movement_ids):
             raise HTTPBadRequest(json_body={
                 'error': 'invalid_movement_id',
                 'error_description': (
                     "One or more of the movements specified is not "
-                    "eligible for reconciliation. A movement may have been "
-                    "reconciled previously. Try re-syncing with OPN."),
+                    "eligible for reconciliation. A movement may have "
+                    "been reconciled previously. "
+                    "Try re-syncing with OPN."),
             })
 
         for attr, singular, plural in movement_matches_required:
@@ -451,7 +531,16 @@ def reco_save(context, request, complete=False):
                         "not vault changes.",
                     })
 
-    if reco_id is not None:
+        return new_movements
+
+    def get_old_reco(self):
+        reco_id = self.reco_id
+        if reco_id is None:
+            return None
+
+        request = self.request
+        dbsession = request.dbsession
+        owner_id = request.owner.id
         reco = (
             dbsession.query(Reco)
             .filter(
@@ -463,75 +552,80 @@ def reco_save(context, request, complete=False):
                 'error': 'reco_not_found',
                 'error_description': "Reconciliation record not found.",
             })
-    else:
-        reco = None
 
-    if reco_type != 'standard' and not params['reco']['comment']:
-        raise HTTPBadRequest(json_body={
-            'error': 'comment_required',
-            'error_description': (
-                "An explanatory comment is required "
-                "for nonstandard reconciliations."),
-        })
+        return reco
 
-    # Everything checks out. Save the changes.
+    def final_check(self):
+        if self.reco_type != 'standard' and not self.params['reco']['comment']:
+            raise HTTPBadRequest(json_body={
+                'error': 'comment_required',
+                'error_description': (
+                    "An explanatory comment is required "
+                    "for nonstandard reconciliations."),
+            })
 
-    if reco_id is not None:
+    def remove_old_movements(self):
         # Remove old movements from the reco.
+        request = self.request
+        dbsession = request.dbsession
+        owner_id = request.owner.id
         old_movements = (
             dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
-                Movement.reco_id == reco_id,
-                ~Movement.id.in_(new_movement_ids),
+                Movement.reco_id == self.reco_id,
+                ~Movement.id.in_(self.new_movement_ids),
             )
             .all())
         for m in old_movements:
             m.reco_id = None
             m.reco_wallet_delta = m.wallet_delta
-    else:
-        if not new_movements:
-            # This is a new reco with no movements, account entries, or
-            # even a comment. Don't create an empty reco.
-            return {'empty': True}
 
-    if reco is None:
-        added = True
-        reco = Reco(
-            owner_id=owner_id,
-            reco_type=reco_type,
-            internal=new_internal)
-        dbsession.add(reco)
-        dbsession.flush()  # Assign reco.id
-        reco_id = reco.id
-    else:
-        reco.reco_type = reco_type
-        reco.internal = new_internal
-        added = False
+    def save(self, reco, new_movements):
+        request = self.request
+        dbsession = request.dbsession
+        owner_id = request.owner.id
+        reco_type = self.reco_type
+        params = self.params
 
-    for m in new_movements:
-        m.reco_id = reco_id
-        if reco_type == 'wallet_only':
-            # Wallet-only reconciliations should have no effect on
-            # the surplus amount.
-            m.reco_wallet_delta = zero
+        if reco is None:
+            added = True
+            reco = Reco(
+                owner_id=owner_id,
+                reco_type=reco_type,
+                internal=self.new_internal)
+            dbsession.add(reco)
+            dbsession.flush()  # Assign reco.id
+            reco_id = reco.id
         else:
-            # Other reconciliations expect the surplus to change
-            # inversely to the wallet.
-            m.reco_wallet_delta = m.wallet_delta
+            reco_id = reco.id
+            reco.reco_type = reco_type
+            reco.internal = self.new_internal
+            added = False
 
-    reco.comment = params['reco']['comment']
+        for m in new_movements:
+            m.reco_id = reco_id
+            if reco_type == 'wallet_only':
+                # Wallet-only reconciliations should have no effect on
+                # the surplus amount.
+                m.reco_wallet_delta = zero
+            else:
+                # Other reconciliations expect the surplus to change
+                # inversely to the wallet.
+                m.reco_wallet_delta = m.wallet_delta
 
-    dbsession.add(OwnerLog(
-        owner_id=owner.id,
-        event_type='reco_add' if added else 'reco_change',
-        remote_addr=request.remote_addr,
-        user_agent=request.user_agent,
-        content={
-            'reco_id': reco_id,
-            'reco': params['reco'],
-        },
-    ))
-    dbsession.flush()
+        reco.comment = params['reco']['comment']
 
-    return {'ok': True, 'reco_id': reco_id}
+        dbsession.add(OwnerLog(
+            owner_id=owner_id,
+            event_type='reco_add' if added else 'reco_change',
+            remote_addr=request.remote_addr,
+            user_agent=request.user_agent,
+            content={
+                'reco_id': reco_id,
+                'reco': params['reco'],
+            },
+        ))
+        dbsession.flush()
+
+        return reco_id
