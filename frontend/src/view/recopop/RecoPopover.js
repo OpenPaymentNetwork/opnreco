@@ -618,7 +618,7 @@ class RecoPopover extends React.Component {
           vertical: 'top',
           horizontal: 'right',
         }}
-        TransitionComponent={FadeDraggable}
+        TransitionComponent={FadeDrag1}
         TransitionProps={{onDragStart: this.binder(this.onDragStart)}}
         action={this.binder(this.handleActionCallback)}
       >
@@ -628,24 +628,29 @@ class RecoPopover extends React.Component {
   }
 }
 
-
-function FadeDraggable(props) {
+/**
+ * Wrapper 1 for mixing Fade and Draggable
+ */
+function FadeDrag1(props) {
   const {children, onDragStart, ...rest} = props;
   return (
     <Fade {...rest}>
-      <CustomDraggable onDragStart={onDragStart}>
+      <FadeDrag2 onDragStart={onDragStart}>
         {children}
-      </CustomDraggable>
+      </FadeDrag2>
     </Fade>);
 }
 
 
-FadeDraggable.propTypes = {
+FadeDrag1.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
 
-function CustomDraggable(props) {
+/**
+ * Wrapper 2 for mixing Fade and Draggable
+ */
+function FadeDrag2(props) {
   // Render Draggable with specific props.
   const {children, onDragStart, ...rest} = props;
   return (
@@ -658,10 +663,9 @@ function CustomDraggable(props) {
 }
 
 
-CustomDraggable.propTypes = {
+FadeDrag2.propTypes = {
   children: PropTypes.node.isRequired,
   onDragStart: PropTypes.func,
-  style: PropTypes.object,
 };
 
 
