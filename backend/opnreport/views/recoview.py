@@ -438,19 +438,19 @@ class RecoSave:
         self.new_internal = (reco_type == 'standard')
 
         if reco_type == 'account_only':
-            self.new_movement_ids = ()
+            new_movements = ()
         else:
-            self.new_movement_ids = set(
+            new_movement_ids = set(
                 m['id'] for m in params['reco']['movements'])
+            new_movements = self.get_new_movements(new_movement_ids)
 
-        new_movements = self.get_new_movements()
         reco = self.get_old_reco()
         self.final_check()
 
         # Everything checks out. Save the changes.
 
         if self.reco_id is not None:
-            self.remove_old_movements()
+            self.remove_old_movements(new_movements=new_movements)
         else:
             if not new_movements:
                 # This is a new reco with no movements, account entries, or
@@ -463,8 +463,8 @@ class RecoSave:
 
         return {'ok': True, 'reco_id': reco_id}
 
-    def get_new_movements(self):
-        if not self.new_movement_ids:
+    def get_new_movements(self, new_movement_ids):
+        if not new_movement_ids:
             return ()
 
         request = self.request
@@ -477,7 +477,7 @@ class RecoSave:
             dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
-                Movement.id.in_(self.new_movement_ids),
+                Movement.id.in_(new_movement_ids),
                 or_(
                     Movement.reco_id == null,
                     Movement.reco_id == self.reco_id,
@@ -489,7 +489,7 @@ class RecoSave:
             )
             .all())
 
-        if len(new_movements) != len(self.new_movement_ids):
+        if len(new_movements) != len(new_movement_ids):
             raise HTTPBadRequest(json_body={
                 'error': 'invalid_movement_id',
                 'error_description': (
@@ -564,19 +564,24 @@ class RecoSave:
                     "for nonstandard reconciliations."),
             })
 
-    def remove_old_movements(self):
+    def remove_old_movements(self, new_movements):
         # Remove old movements from the reco.
         request = self.request
         dbsession = request.dbsession
         owner_id = request.owner.id
+
+        filters = []
+        if new_movements:
+            filters.append(~Movement.id.in_(m.id for m in new_movements))
+
         old_movements = (
             dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
                 Movement.reco_id == self.reco_id,
-                ~Movement.id.in_(self.new_movement_ids),
-            )
+                *filters)
             .all())
+
         for m in old_movements:
             m.reco_id = None
             m.reco_wallet_delta = m.wallet_delta

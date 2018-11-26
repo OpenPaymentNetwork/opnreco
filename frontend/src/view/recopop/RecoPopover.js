@@ -357,6 +357,7 @@ class RecoPopover extends React.Component {
       undoLog: [...undoLog, reco],
       redoLog: [],
     });
+    this.updatePopoverPosition();
   }
 
   handleComment(event) {
