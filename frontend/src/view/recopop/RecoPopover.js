@@ -108,8 +108,6 @@ class RecoPopover extends React.Component {
     recoURL: PropTypes.string.isRequired,
     recoCompleteURL: PropTypes.string,
     reco: PropTypes.object,
-    loopId: PropTypes.string.isRequired,
-    currency: PropTypes.string.isRequired,
   };
 
   constructor(props) {
@@ -166,13 +164,10 @@ class RecoPopover extends React.Component {
   }
 
   makeCreatingEntry() {
-    const {currency, loopId} = this.props;
     const creatingId = nextCreatingId;
     nextCreatingId += 1;
     return {
       id: `creating_${creatingId}`,
-      currency: currency,
-      loop_id: loopId,
       creating: true,
     };
   }
@@ -706,8 +701,6 @@ function mapStateToProps(state, ownProps) {
     recoURL,
     recoCompleteURL,
     reco,
-    currency: ploop ? ploop.currency : 'USD',
-    loopId: ploop ? ploop.loop_id : '0',
     ploopKey,
     fileId,
   };

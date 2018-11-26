@@ -216,7 +216,9 @@ class TransactionReport extends React.Component {
         }
 
         rows.push(
-          <tr key={index}>
+          <tr key={index}
+              data-movement-id={record.movement_id}
+              data-account-entry-id={record.account_entry_id}>
             <td className={txtCell}>
               {record.entry_date ?
                 <FormattedDate value={record.entry_date}
@@ -246,6 +248,7 @@ class TransactionReport extends React.Component {
             <td className={chkCell}>
               <RecoCheckBox
                 movementId={record.movement_id}
+                accountEntryId={record.account_entry_id}
                 recoId={record.reco_id}
                 dispatch={dispatch} />
             </td>

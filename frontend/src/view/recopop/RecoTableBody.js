@@ -274,7 +274,8 @@ class RecoTableBody extends React.Component {
         data[field.name] = searchInputs[field.name] || '';
       });
       const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
-      promise.then(results => {
+
+      const handleResults = (results) => {
         const newSearchInputs = this.state.searchInputs;
         let match = true;
         searchFields.forEach(field => {
@@ -291,6 +292,10 @@ class RecoTableBody extends React.Component {
         }
         // else the query changed; expect another query to provide
         // the results.
+      };
+
+      promise.then(handleResults).catch(() => {
+          handleResults([]);
       });
     } else {
       this.closeSearch();

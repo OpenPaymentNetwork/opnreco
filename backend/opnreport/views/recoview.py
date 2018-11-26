@@ -61,7 +61,7 @@ def render_movement_rows(movement_rows):
     res = []
     for row in movement_rows:
         res.append({
-            'id': row.id,
+            'id': str(row.id),
             'ts': row.ts,
             'loop_id': row.loop_id,
             'currency': row.currency,
@@ -69,6 +69,20 @@ def render_movement_rows(movement_rows):
             'wallet_delta': row.wallet_delta,
             'transfer_id': row.transfer_id,
             'number': row.number,
+        })
+    return res
+
+
+def render_account_entry_rows(account_entry_rows):
+    res = []
+    for row in account_entry_rows:
+        res.append({
+            'id': str(row.id),
+            'entry_date': row.entry_date,
+            'loop_id': row.loop_id,
+            'currency': row.currency,
+            'delta': row.delta,
+            'desc': row.desc,
         })
     return res
 
@@ -179,6 +193,7 @@ def reco_view(context, request, complete=False):
         need_loop_ids.add(row.loop_id)
 
     movements_json = render_movement_rows(movement_rows)
+    account_entries_json = render_account_entry_rows(account_entry_rows)
 
     loops = get_loop_map(
         request=request,
@@ -189,7 +204,7 @@ def reco_view(context, request, complete=False):
         'reco_type': reco_type,
         'comment': comment,
         'movements': movements_json,
-        'account_entries': [],
+        'account_entries': account_entries_json,
         'loops': loops,
         'is_circ': file.peer_id == 'c',
     }
@@ -313,6 +328,8 @@ def reco_search_movement_view(context, request, complete=False):
         start_movement_query(dbsession=dbsession, owner_id=owner_id)
         .filter(
             Movement.peer_id == file.peer_id,
+            Movement.currency == file.currency,
+            Movement.loop_id == file.loop_id,
             or_(
                 Movement.reco_id == null,
                 Movement.reco_id == reco_id,
@@ -355,26 +372,21 @@ class AccountEntrySchema(Schema):
         ColanderString(),
         validator=Regex(r'^(creating_)?[0-9]+$'))
     creating = SchemaNode(Boolean(), missing=False)
-    amount = SchemaNode(
+    delta = SchemaNode(
         ColanderString(),
         missing='',
         validator=All(
             Length(max=100),
             Regex(amount_re, msg="Invalid amount"),
         ))
-    currency = SchemaNode(
+    entry_date = SchemaNode(
         ColanderString(),
-        validator=All(
-            Length(max=100),
-            Regex(r'^[A-Z]{3,}$'),
-        ))
-    loop_id = SchemaNode(
-        ColanderString(), validator=All(
-            Length(max=100),
-            Regex(r'^[0-9]+$'),
-        ))
-    date = SchemaNode(ColanderString(), missing='', validator=Length(max=100))
-    desc = SchemaNode(ColanderString(), missing='', validator=Length(max=1000))
+        missing='',
+        validator=Length(max=100))
+    desc = SchemaNode(
+        ColanderString(),
+        missing='',
+        validator=Length(max=1000))
 
 
 class RecoSchema(Schema):
@@ -433,9 +445,9 @@ class RecoSave:
                     for (k, v) in sorted(e.asdict().items())),
             })
 
+        self.file = file
         self.reco_id = params['reco_id']
         self.reco_type = reco_type = params['reco']['reco_type']
-        self.new_internal = (reco_type == 'standard')
 
         if reco_type == 'account_only':
             new_movements = ()
@@ -444,22 +456,34 @@ class RecoSave:
                 m['id'] for m in params['reco']['movements'])
             new_movements = self.get_new_movements(new_movement_ids)
 
+        if reco_type == 'wallet_only':
+            new_account_entries = ()
+        else:
+            new_account_entries = self.get_new_account_entries(
+                params['reco']['account_entries'])
+
         reco = self.get_old_reco()
-        self.final_check()
+        self.final_check(
+            new_movements=new_movements,
+            new_account_entries=new_account_entries)
 
         # Everything checks out. Save the changes.
 
         if self.reco_id is not None:
             self.remove_old_movements(new_movements=new_movements)
+            self.remove_old_account_entries(
+                new_account_entries=new_account_entries)
         else:
-            if not new_movements:
+            if (not new_movements and not new_account_entries and
+                    not params['reco']['comment']):
                 # This is a new reco with no movements, account entries, or
                 # even a comment. Don't create an empty reco.
                 return {'empty': True}
 
         reco_id = self.save(
             reco=reco,
-            new_movements=new_movements)
+            new_movements=new_movements,
+            new_account_entries=new_account_entries)
 
         return {'ok': True, 'reco_id': reco_id}
 
@@ -471,13 +495,16 @@ class RecoSave:
         dbsession = request.dbsession
         owner = request.owner
         owner_id = owner.id
-        reco_type = self.reco_type
+        file = self.file
 
         new_movements = (
             dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
                 Movement.id.in_(new_movement_ids),
+                Movement.peer_id == file.peer_id,
+                Movement.currency == file.currency,
+                Movement.loop_id == file.loop_id,
                 or_(
                     Movement.reco_id == null,
                     Movement.reco_id == self.reco_id,
@@ -510,28 +537,113 @@ class RecoSave:
                         % (plural, singular)),
                 })
 
-        if reco_type == 'standard':
-            wallet_sum = sum(m.wallet_delta for m in new_movements)
-            vault_sum = sum(m.vault_delta for m in new_movements)
-            if wallet_sum + vault_sum != 0:
-                raise HTTPBadRequest(json_body={
-                    'error': 'unbalanced_reconciliation',
-                    'error_description': "Unbalanced reconciliation. "
-                    "Standard reconciliation requires the sum "
-                    "of changes to the account, vault, and wallet to "
-                    "equal zero.",
-                })
-        elif reco_type == 'wallet_only':
-            for m in new_movements:
-                if m.vault_delta:
-                    raise HTTPBadRequest(json_body={
-                        'error': 'wallet_only_excludes_vault',
-                        'error_description': "Wallet Income/Expense "
-                        "reconciliation can include wallet changes only, "
-                        "not vault changes.",
-                    })
-
         return new_movements
+
+    def parse_creating_account_entry(self, entry):
+        """Create a new AccountEntry from the inputs."""
+        file = self.file
+        delta_input = entry['delta']
+        if not delta_input:
+            raise HTTPBadRequest(json_body={
+                'error': 'amount_required',
+                'error_description': (
+                    "An amount is required for each account entry."),
+            })
+
+        try:
+            delta = parse_amount(delta_input)
+        except Exception as e:
+            raise HTTPBadRequest(json_body={
+                'error': 'amount_parse_error',
+                'error_description': (
+                    "Unable to parse amount '%s': %s" % (delta_input, e))
+            })
+
+        match = re.search(r'[A-Z]+', delta_input, re.I)
+        if match is not None:
+            currency = match.group(0).upper()
+            if currency != file.currency:
+                raise HTTPBadRequest(json_body={
+                    'error': 'currency_mismatch',
+                    'error_description': (
+                        "Currency should be %s" % self.file.currency)
+                })
+
+        date_input = entry['entry_date']
+        if not date_input:
+            raise HTTPBadRequest(json_body={
+                'error': 'date_required',
+                'error_description': (
+                    "A date is required for each account entry."),
+            })
+
+        try:
+            entry_date = dateutil.parser.parse(date_input).date()
+        except Exception as e:
+            raise HTTPBadRequest(json_body={
+                'error': 'date_parse_error',
+                'error_description': (
+                    "Unable to parse date '%s': %s" % (date_input, e))
+            })
+
+        entry = AccountEntry(
+            owner_id=self.request.owner.id,
+            file_id=file.id,
+            entry_date=entry_date,
+            loop_id=file.loop_id,
+            currency=file.currency,
+            delta=delta,
+            desc=entry['desc'] or '',
+        )
+        return entry
+
+    def get_new_account_entries(self, new_entries):
+        res = []
+        reusing_ids = []
+
+        for entry in new_entries:
+            if entry['creating']:
+                if entry['delta'] or entry['entry_date'] or entry['desc']:
+                    res.append(self.parse_creating_account_entry(entry))
+                # else it's a blank input row; ignore it.
+            else:
+                reusing_ids.append(int(entry['id']))
+
+        if reusing_ids:
+            request = self.request
+            dbsession = request.dbsession
+            owner = request.owner
+            owner_id = owner.id
+            file = self.file
+
+            reusing_entries = (
+                dbsession.query(AccountEntry)
+                .filter(
+                    AccountEntry.owner_id == owner_id,
+                    AccountEntry.id.in_(reusing_ids),
+                    AccountEntry.currency == file.currency,
+                    AccountEntry.loop_id == file.loop_id,
+                    or_(
+                        AccountEntry.reco_id == null,
+                        AccountEntry.reco_id == self.reco_id,
+                    ),
+                    AccountEntry.delta != zero,
+                )
+                .all())
+
+            if len(reusing_entries) != len(reusing_ids):
+                raise HTTPBadRequest(json_body={
+                    'error': 'invalid_account_entry_id',
+                    'error_description': (
+                        "One or more of the account entries specified is not "
+                        "eligible for reconciliation. An account entry "
+                        "may have been reconciled previously. "
+                        "Try re-syncing with OPN."),
+                })
+
+            res.extend(reusing_entries)
+
+        return res
 
     def get_old_reco(self):
         reco_id = self.reco_id
@@ -555,7 +667,30 @@ class RecoSave:
 
         return reco
 
-    def final_check(self):
+    def final_check(self, new_movements, new_account_entries):
+        reco_type = self.reco_type
+        if reco_type == 'standard':
+            wallet_sum = sum(m.wallet_delta for m in new_movements)
+            vault_sum = sum(m.vault_delta for m in new_movements)
+            entries_sum = sum(e.delta for e in new_account_entries)
+            if wallet_sum + vault_sum + entries_sum != zero:
+                raise HTTPBadRequest(json_body={
+                    'error': 'unbalanced_reconciliation',
+                    'error_description': "Unbalanced reconciliation. "
+                    "Standard reconciliation requires the sum "
+                    "of changes to the account, vault, and wallet to "
+                    "equal zero.",
+                })
+        elif reco_type == 'wallet_only':
+            for m in new_movements:
+                if m.vault_delta:
+                    raise HTTPBadRequest(json_body={
+                        'error': 'wallet_only_excludes_vault',
+                        'error_description': "Wallet Income/Expense "
+                        "reconciliation can include wallet changes only, "
+                        "not vault changes.",
+                    })
+
         if self.reco_type != 'standard' and not self.params['reco']['comment']:
             raise HTTPBadRequest(json_body={
                 'error': 'comment_required',
@@ -565,7 +700,7 @@ class RecoSave:
             })
 
     def remove_old_movements(self, new_movements):
-        # Remove old movements from the reco.
+        """Remove old movements from the reco."""
         request = self.request
         dbsession = request.dbsession
         owner_id = request.owner.id
@@ -586,26 +721,50 @@ class RecoSave:
             m.reco_id = None
             m.reco_wallet_delta = m.wallet_delta
 
-    def save(self, reco, new_movements):
+    def remove_old_account_entries(self, new_account_entries):
+        """Remove old account entries from the reco."""
+        request = self.request
+        dbsession = request.dbsession
+        owner_id = request.owner.id
+
+        new_account_entry_ids = [
+            e.id for e in new_account_entries if e.id is not None]
+        filters = []
+        if new_account_entry_ids:
+            filters.append(~AccountEntry.id.in_(new_account_entry_ids))
+
+        old_account_entries = (
+            dbsession.query(AccountEntry)
+            .filter(
+                AccountEntry.owner_id == owner_id,
+                AccountEntry.reco_id == self.reco_id,
+                *filters)
+            .all())
+
+        for e in old_account_entries:
+            e.reco_id = None
+
+    def save(self, reco, new_movements, new_account_entries):
         request = self.request
         dbsession = request.dbsession
         owner_id = request.owner.id
         reco_type = self.reco_type
         params = self.params
+        internal = (reco_type == 'standard' and not new_account_entries)
 
         if reco is None:
             added = True
             reco = Reco(
                 owner_id=owner_id,
                 reco_type=reco_type,
-                internal=self.new_internal)
+                internal=internal)
             dbsession.add(reco)
             dbsession.flush()  # Assign reco.id
             reco_id = reco.id
         else:
             reco_id = reco.id
             reco.reco_type = reco_type
-            reco.internal = self.new_internal
+            reco.internal = internal
             added = False
 
         for m in new_movements:
@@ -619,7 +778,17 @@ class RecoSave:
                 # inversely to the wallet.
                 m.reco_wallet_delta = m.wallet_delta
 
+        created_account_entries = []
+        for entry in new_account_entries:
+            entry.reco_id = reco_id
+            if entry.id is None:
+                dbsession.add(entry)
+                created_account_entries.append(entry)
+
         reco.comment = params['reco']['comment']
+
+        if created_account_entries:
+            dbsession.flush()  # Assign the entry IDs
 
         dbsession.add(OwnerLog(
             owner_id=owner_id,
@@ -629,6 +798,17 @@ class RecoSave:
             content={
                 'reco_id': reco_id,
                 'reco': params['reco'],
+                'internal': internal,
+                'created_account_entries': [{
+                    'id': e.id,
+                    'owner_id': e.owner_id,
+                    'file_id': e.file_id,
+                    'entry_date': e.entry_date,
+                    'currency': e.currency,
+                    'loop_id': e.loop_id,
+                    'delta': e.delta,
+                    'desc': e.desc,
+                } for e in created_account_entries],
             },
         ))
         dbsession.flush()

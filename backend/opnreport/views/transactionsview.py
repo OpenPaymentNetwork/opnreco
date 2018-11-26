@@ -47,41 +47,42 @@ def transactions_view(request):
     owner = request.owner
     owner_id = owner.id
 
-    # List all unreconciled account entries and the non-internal
-    # reconciled account entries.
-    # query = (
-    #     dbsession.query(
-    #         AccountEntry.id.label('account_entry_id'),
-    #         AccountEntry.entry_date,
-    #         AccountEntry.delta.label('account_delta'),
-    #         Movement.id.label('movement_id'),
-    #         Movement.ts,
-    #         Movement.reco_id,
-    #         movement_delta.label('movement_delta'),
-    #         TransferRecord.workflow_type,
-    #         TransferRecord.transfer_id,
-    #     )
-    #     .outerjoin(Reco, Reco.id == AccountEntry.reco_id)
-    #     .outerjoin(Movement, Movement.reco_id == Reco.id)
-    #     .outerjoin(
-    #         TransferRecord,
-    #         TransferRecord.id == Movement.transfer_record_id)
-    #     .filter(
-    #         AccountEntry.owner_id == owner_id,
-    #         AccountEntry.file_id == file.id,
-    #         AccountEntry.delta != 0,
-    #         or_(Reco.id == null, ~Reco.internal),
-    #     )
-    # )
-
-    # List all movements in the file not reconciled with account entries.
-    # Include non-internal reconciled entries.
-    # query = query.union(
-
     movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
     reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
+    # List all unreconciled account entries and the non-internal
+    # reconciled account entries.
     query = (
+        dbsession.query(
+            AccountEntry.id.label('account_entry_id'),
+            AccountEntry.entry_date,
+            AccountEntry.delta.label('account_delta'),
+            Movement.id.label('movement_id'),
+            Movement.ts,
+            Movement.reco_id,
+            movement_delta.label('movement_delta'),
+            reco_movement_delta.label('reco_movement_delta'),
+            TransferRecord.workflow_type,
+            TransferRecord.transfer_id,
+        )
+        .select_from(AccountEntry)
+        .outerjoin(Reco, Reco.id == AccountEntry.reco_id)
+        .outerjoin(Movement, Movement.reco_id == Reco.id)
+        .outerjoin(
+            TransferRecord,
+            TransferRecord.id == Movement.transfer_record_id)
+        .filter(
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.file_id == file.id,
+            AccountEntry.delta != 0,
+            or_(Reco.id == null, ~Reco.internal),
+        )
+    )
+
+    # List all movements in the file not reconciled with account entries.
+    # Include non-internal reconciled entries.
+
+    query = query.union(
         dbsession.query(
             AccountEntry.id.label('account_entry_id'),
             AccountEntry.entry_date,
@@ -116,12 +117,6 @@ def transactions_view(request):
         )
     )
 
-    # TODO: allow a query parameter that provides the TZ offset.
-    time_expr = func.timezone('US/Eastern', func.coalesce(
-        cast(AccountEntry.entry_date, DateTime),
-        func.timezone('UTC', Movement.ts),
-    ))
-
     total_cte = query.cte('total_cte')
     amount_expr = func.coalesce(
         total_cte.c.account_delta, total_cte.c.movement_delta)
@@ -153,7 +148,11 @@ def transactions_view(request):
         'reco_movement_delta': totals_row.dec_reco_movement_delta or zero,
     }
 
-    rows_query = query.order_by(time_expr).offset(offset)
+    rows_query = query.order_by(
+        AccountEntry.entry_date,
+        Movement.ts,
+        Movement.id,
+    ).offset(offset)
     if limit is not None:
         rows_query = rows_query.limit(limit)
     rows = rows_query.all()
@@ -173,6 +172,7 @@ def transactions_view(request):
         inc = True if d > zero else False if d < zero else None
 
         if inc is not None:
+            movement_id = row.movement_id
             account_entry_id = row.account_entry_id
             reco_id = row.reco_id
             reco_movement_delta = row.reco_movement_delta
@@ -182,7 +182,9 @@ def transactions_view(request):
                     else str(account_entry_id)),
                 'entry_date': row.entry_date,
                 'account_delta': account_delta,
-                'movement_id': str(row.movement_id),
+                'movement_id': (
+                    None if movement_id is None
+                    else str(movement_id)),
                 'ts': row.ts,
                 'reco_id': None if reco_id is None else str(reco_id),
                 'movement_delta': movement_delta or '0',

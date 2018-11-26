@@ -104,8 +104,8 @@ class AccountEntryTableBody extends React.Component {
         isCirc={isCirc}
         renderItemCells={this.binder(this.renderItemCells)}
         searchFields={[
-          {name: 'amount', colSpan: isCirc ? 2 : 1},
-          {name: 'date'},
+          {name: 'delta', colSpan: isCirc ? 2 : 1},
+          {name: 'entry_date'},
           {name: 'desc'},
         ]}
         searchCallPath="/reco-search-account-entries"
