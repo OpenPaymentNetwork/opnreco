@@ -12,6 +12,7 @@ import AccountEntryTableBody from './AccountEntryTableBody';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Close from '@material-ui/icons/Close';
+import Draggable from 'react-draggable';
 import Fade from '@material-ui/core/Fade';
 import FormControl from '@material-ui/core/FormControl';
 import IconButton from '@material-ui/core/IconButton';
@@ -30,7 +31,8 @@ import Undo from '@material-ui/icons/Undo';
 
 const styles = theme => ({
   popoverContent: {
-    minWidth: '700px',
+    width: '750px',
+    minHeight: '250px',
   },
   titleBar: {
     backgroundColor: theme.palette.primary.main,
@@ -121,7 +123,8 @@ class RecoPopover extends React.Component {
       resetCount: 0,
       typingComment: null,
       saving: false,
-      createInputs: {},      // {entryId.fieldName: text}
+      createInputs: {},       // {entryId.fieldName: text}
+      dragged: false,
     };
   }
 
@@ -153,6 +156,10 @@ class RecoPopover extends React.Component {
         reco,
         undoLog: [],
         redoLog: [],
+        typingComment: null,
+        saving: false,
+        createInputs: {},
+        dragged: false,
       });
       this.updatePopoverPosition();
     }
@@ -175,8 +182,8 @@ class RecoPopover extends React.Component {
   }
 
   updatePopoverPosition() {
-    const {popoverActions} = this.state;
-    if (popoverActions && popoverActions.updatePosition) {
+    const {dragged, popoverActions} = this.state;
+    if (!dragged && popoverActions && popoverActions.updatePosition) {
       popoverActions.updatePosition();
     }
   }
@@ -404,11 +411,16 @@ class RecoPopover extends React.Component {
     const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
     this.setState({saving: true});
     promise.then(() => {
+      this.setState({saving: false});
       this.props.close();
       dispatch(clearMost());
-    }).finally(() => {
+    }).catch(() => {
       this.setState({saving: false});
     });
+  }
+
+  onDragStart() {
+    this.setState({dragged: true});
   }
 
   renderTable() {
@@ -528,6 +540,70 @@ class RecoPopover extends React.Component {
       comment = (reco ? reco.comment || '' : '');
     }
 
+    const popoverContent = (
+      <div className={classes.popoverContent}>
+        {require}
+        <Typography variant="h6" className={`titlebar ${classes.titleBar}`}>
+          <span className={classes.popoverTitle}>Reconciliation {recoId}</span>
+          <IconButton
+            className={classes.closeButton}
+            onClick={this.props.close}
+          >
+            <Close />
+          </IconButton>
+        </Typography>
+        <Typography className={classes.content} component="div">
+          <div className={classes.metadataBox}>
+
+            <FormControl className={classes.typeControl}>
+              <Select
+                name="reco_type"
+                value={reco ? reco.reco_type : 'standard'}
+                displayEmpty
+                onChange={this.binder(this.handleRecoType)}
+              >
+                <MenuItem value="standard">Standard Reconciliation</MenuItem>
+                <MenuItem value="wallet_only">Wallet Income/Expense</MenuItem>
+                <MenuItem value="account_only">Account Credit/Debit</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl className={classes.commentControl}>
+              <TextField
+                name="comment"
+                placeholder="Comment"
+                value={comment}
+                onChange={this.binder(this.handleComment)}
+                multiline
+              />
+            </FormControl>
+
+          </div>
+          {this.renderTable()}
+          <div className={classes.actionBox}>
+            <div className={classes.actionLeftButtons}>
+              <IconButton
+                disabled={!undoLog.length}
+                onClick={this.binder(this.handleUndo)}
+              >
+                <Undo/>
+              </IconButton>
+              <IconButton
+                disabled={!redoLog.length}
+                onClick={this.binder(this.handleRedo)}
+              >
+                <Redo/>
+              </IconButton>
+            </div>
+            <Button
+              color="primary"
+              disabled={saving}
+              onClick={this.binder(this.handleSave)}>Save</Button>
+          </div>
+        </Typography>
+      </div>
+    );
+
     return (
       <Popover
         id="reco-popover"
@@ -542,74 +618,51 @@ class RecoPopover extends React.Component {
           vertical: 'top',
           horizontal: 'right',
         }}
-        TransitionComponent={Fade}
+        TransitionComponent={FadeDraggable}
+        TransitionProps={{onDragStart: this.binder(this.onDragStart)}}
         action={this.binder(this.handleActionCallback)}
       >
-        {require}
-        <div className={classes.popoverContent}>
-          <Typography variant="h6" className={classes.titleBar}>
-            <span className={classes.popoverTitle}>Reconciliation {recoId}</span>
-            <IconButton
-              className={classes.closeButton}
-              onClick={this.props.close}
-            >
-              <Close />
-            </IconButton>
-          </Typography>
-          <Typography className={classes.content} component="div">
-            <div className={classes.metadataBox}>
-
-              <FormControl className={classes.typeControl}>
-                <Select
-                  name="reco_type"
-                  value={reco ? reco.reco_type : 'standard'}
-                  displayEmpty
-                  onChange={this.binder(this.handleRecoType)}
-                >
-                  <MenuItem value="standard">Standard Reconciliation</MenuItem>
-                  <MenuItem value="wallet_only">Wallet Income/Expense</MenuItem>
-                  <MenuItem value="account_only">Account Credit/Debit</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl className={classes.commentControl}>
-                <TextField
-                  name="comment"
-                  placeholder="Comment"
-                  value={comment}
-                  onChange={this.binder(this.handleComment)}
-                  multiline
-                />
-              </FormControl>
-
-            </div>
-            {this.renderTable()}
-            <div className={classes.actionBox}>
-              <div className={classes.actionLeftButtons}>
-                <IconButton
-                  disabled={!undoLog.length}
-                  onClick={this.binder(this.handleUndo)}
-                >
-                  <Undo/>
-                </IconButton>
-                <IconButton
-                  disabled={!redoLog.length}
-                  onClick={this.binder(this.handleRedo)}
-                >
-                  <Redo/>
-                </IconButton>
-              </div>
-              <Button
-                color="primary"
-                disabled={saving}
-                onClick={this.binder(this.handleSave)}>Save</Button>
-            </div>
-          </Typography>
-        </div>
+        {popoverContent}
       </Popover>
     );
   }
 }
+
+
+function FadeDraggable(props) {
+  const {children, onDragStart, ...rest} = props;
+  return (
+    <Fade {...rest}>
+      <CustomDraggable onDragStart={onDragStart}>
+        {children}
+      </CustomDraggable>
+    </Fade>);
+}
+
+
+FadeDraggable.propTypes = {
+  children: PropTypes.node.isRequired,
+};
+
+
+function CustomDraggable(props) {
+  // Render Draggable with specific props.
+  const {children, onDragStart, ...rest} = props;
+  return (
+    <Draggable
+      handle=".titlebar"
+      onStart={onDragStart}
+    >
+      {React.cloneElement(children, rest)}
+    </Draggable>);
+}
+
+
+CustomDraggable.propTypes = {
+  children: PropTypes.node.isRequired,
+  onDragStart: PropTypes.func,
+  style: PropTypes.object,
+};
 
 
 function mapStateToProps(state, ownProps) {
