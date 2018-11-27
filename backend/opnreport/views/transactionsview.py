@@ -17,6 +17,7 @@ from sqlalchemy import Date
 from sqlalchemy import DateTime
 from sqlalchemy import Numeric
 from sqlalchemy import String
+import collections
 import re
 
 
@@ -109,8 +110,8 @@ def transactions_view(request):
 
     # List the reconciled entries in the file.
     # Since recos can contain any number of account entries and movements,
-    # list just the reco IDs, delta totals, and dates. Get the account entries
-    # and movements in a moment.
+    # list just the reco IDs, delta totals, and dates. Get the reco-specific
+    # account entries and movements after ordering and pagination.
     query = (
         dbsession.query(
             Reco.id.label('reco_id'),
@@ -214,23 +215,72 @@ def transactions_view(request):
         'reco_movement_delta': totals_row.dec_reco_movement_delta or zero,
     }
 
-    rows_query = query.order_by(
+    main_rows_query = query.order_by(
         AccountEntry.entry_date,
         Movement.ts,
         Movement.id,
     ).offset(offset)
     if limit is not None:
-        rows_query = rows_query.limit(limit)
-    rows = rows_query.all()
+        main_rows_query = main_rows_query.limit(limit)
+    main_rows = main_rows_query.all()
+
+    # Now main_rows contains the rows for the table.
 
     inc_records = []
     page_incs = {'account_delta': zero, 'reco_movement_delta': zero}
     dec_records = []
     page_decs = {'account_delta': zero, 'reco_movement_delta': zero}
 
-    for row in rows:
-        account_delta = row.account_delta
-        movement_delta = row.movement_delta
+    query_reco_ids = [r.reco_id for r in main_rows if r.reco_id is not None]
+    # reco_movements_map: {reco_id: [Movement]}
+    reco_movements_map = collections.defaultdict(list)
+    # reco_entries_map: {reco_id: [AccountEntry]}
+    reco_entries_map = collections.defaultdict(list)
+
+    if query_reco_ids:
+        # Some of the rows may contain multiple account entries or movements.
+        # Fill reco_movements_map and reco_entries_map.
+        rows = (
+            dbsession.query(
+                Movement.reco_id,
+                Movement.id.label('movement_id'),
+                Movement.ts,
+                movement_delta.label('movement_delta'),
+                reco_movement_delta.label('reco_movement_delta'),
+                TransferRecord.workflow_type,
+                TransferRecord.transfer_id,
+            )
+            .join(
+                TransferRecord,
+                TransferRecord.id == Movement.transfer_record_id)
+            .filter(
+                Movement.owner_id == owner_id,
+                Movement.reco_id.in_(query_reco_ids),
+            )
+            .order_by(Movement.ts, Movement.id)
+            .all())
+        for row in rows:
+            reco_movements_map[row.reco_id].append(row)
+
+        rows = (
+            dbsession.query(
+                AccountEntry.reco_id,
+                AccountEntry.id.label('account_entry_id'),
+                AccountEntry.entry_date,
+                AccountEntry.delta.label('account_delta'),
+            )
+            .filter(
+                AccountEntry.owner_id == owner_id,
+                AccountEntry.reco_id.in_(query_reco_ids),
+            )
+            .order_by(AccountEntry.entry_date, AccountEntry.id)
+            .all())
+        for row in rows:
+            reco_entries_map[row.reco_id].append(row)
+
+    for main_row in main_rows:
+        account_delta = main_row.account_delta
+        movement_delta = main_row.movement_delta
         d = (
             account_delta if account_delta is not None
             else movement_delta if movement_delta is not None
@@ -238,26 +288,58 @@ def transactions_view(request):
         inc = True if d > zero else False if d < zero else None
 
         if inc is not None:
-            movement_id = row.movement_id
-            account_entry_id = row.account_entry_id
-            reco_id = row.reco_id
-            reco_movement_delta = row.reco_movement_delta
+            movement_id = main_row.movement_id
+            account_entry_id = main_row.account_entry_id
+            reco_id = main_row.reco_id
+            reco_movement_delta = main_row.reco_movement_delta
             record = {
+                'reco_id': None if reco_id is None else str(reco_id),
                 'account_entry_id': (
                     None if account_entry_id is None
                     else str(account_entry_id)),
-                'entry_date': row.entry_date,
-                'account_delta': account_delta,
                 'movement_id': (
                     None if movement_id is None
                     else str(movement_id)),
-                'ts': row.ts,
-                'reco_id': None if reco_id is None else str(reco_id),
-                'movement_delta': movement_delta or '0',
-                'reco_movement_delta': reco_movement_delta or '0',
-                'workflow_type': row.workflow_type,
-                'transfer_id': row.transfer_id,
+                'account_entries': [],
+                'movements': [],
             }
+
+            if reco_id is None:
+                # Unreconciled rows contain a movement or account entry.
+                if account_entry_id is not None:
+                    record['account_entries'].append({
+                        'id': str(account_entry_id),
+                        'entry_date': main_row.entry_date,
+                        'account_delta': account_delta,
+                    })
+                if movement_id is not None:
+                    record['movements'].append({
+                        'id': str(movement_id),
+                        'ts': main_row.ts,
+                        'movement_delta': movement_delta or '0',
+                        'reco_movement_delta': reco_movement_delta or '0',
+                        'workflow_type': main_row.workflow_type,
+                        'transfer_id': main_row.transfer_id,
+                    })
+            else:
+                # Reconciled rows have multiple (or zero) movements
+                # and account entries. Include them.
+                for row in reco_movements_map[reco_id]:
+                    record['movements'].append({
+                        'id': str(row.movement_id),
+                        'ts': row.ts,
+                        'movement_delta': row.movement_delta or '0',
+                        'reco_movement_delta': row.reco_movement_delta or '0',
+                        'workflow_type': row.workflow_type,
+                        'transfer_id': row.transfer_id,
+                    })
+                for row in reco_entries_map[reco_id]:
+                    record['account_entries'].append({
+                        'id': str(row.account_entry_id),
+                        'entry_date': row.entry_date,
+                        'account_delta': row.account_delta,
+                    })
+
             if inc:
                 inc_records.append(record)
                 if account_delta:
@@ -271,9 +353,9 @@ def transactions_view(request):
                 if reco_movement_delta:
                     page_decs['reco_movement_delta'] += reco_movement_delta
 
-    all_shown = totals_row.rowcount == len(rows)
+    all_shown = totals_row.rowcount == len(main_rows)
     if all_shown:
-        # Double check the total calculations.
+        # Take an opportunity to test the total calculations.
         if page_incs != all_incs or page_decs != all_decs:
             raise AssertionError("All rows shown but total mismatch. %s" % {
                 'page_incs': page_incs,

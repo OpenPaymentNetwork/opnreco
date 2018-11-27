@@ -67,10 +67,12 @@ const styles = {
     padding: '2px 8px',
     fontWeight: 'normal',
     textAlign: 'left',
+    verticalAlign: 'top',
   },
   numberCell: {
     padding: '2px 8px',
     textAlign: 'right',
+    verticalAlign: 'top',
   },
   pageTotalCell: {
     padding: '2px 8px',
@@ -83,6 +85,7 @@ const styles = {
   checkCell: {
     textAlign: 'center',
     padding: '0',
+    verticalAlign: 'top',
   },
   strikeout: {
     textDecoration: 'line-through',
@@ -190,72 +193,96 @@ class TransactionReport extends React.Component {
         </tr>
       );
 
-      records.forEach((record, index) => {
-
-        const tid = record.transfer_id ? dashed(record.transfer_id) : null;
-        let transferLink = null;
-        if (tid) {
-          transferLink = (
-            <a href={`/t/${record.transfer_id}`}
-              onClick={this.binder1(this.handleClickTransfer, tid)}
-            >{tid}</a>
-          );
-        }
-
-        let movement_amount_cell = null;
-        if (record.movement_delta && record.movement_delta !== '0') {
-          if (!record.reco_movement_delta || record.reco_movement_delta === '0') {
-            movement_amount_cell = (
+      const renderAmountCell = (m) => {
+        if (m.movement_delta && m.movement_delta !== '0') {
+          if (!m.reco_movement_delta || m.reco_movement_delta === '0') {
+            return (
               <span className={classes.strikeout}>
-                {fmt(record.movement_delta)}
+                {fmt(m.movement_delta)}
               </span>
             );
           } else {
-            movement_amount_cell = fmt(record.reco_movement_delta);
+            return fmt(m.reco_movement_delta);
           }
+        } else {
+          return <span>&nbsp;</span>;
         }
+      };
 
+      const renderTransferLink = (m) => {
+        if (!m.transfer_id) {
+          return <span>&nbsp;</span>;
+        }
+        const tid = m.transfer_id ? dashed(m.transfer_id) : null;
+        return (
+          <a href={`/t/${m.transfer_id}`}
+            onClick={this.binder1(this.handleClickTransfer, tid)}
+          >{tid}</a>
+        );
+      };
+
+      records.forEach((record, index) => {
         rows.push(
           <tr key={index}
               data-movement-id={record.movement_id}
-              data-account-entry-id={record.account_entry_id}>
-            <td className={txtCell} title={record.entry_date}>
-              {record.entry_date ?
-                <FormattedDate value={record.entry_date}
-                  day="numeric" month="short" year="numeric" timeZone="UTC" />
-                : null}
+              data-account-entry-id={record.account_entry_id}
+              data-reco-id={record.reco_id}>
+            <td className={txtCell}>
+              {record.account_entries.map((entry, i) => (
+                <div key={i} title={entry.entry_date}
+                    data-account-entry-id={entry.id}>
+                  <FormattedDate value={entry.entry_date}
+                    day="numeric" month="short" year="numeric"
+                    timeZone="UTC" />
+                </div>
+              ))}
             </td>
             <td className={numGroupEndCell}>
-              {record.account_delta ? fmt(record.account_delta) : null}
-            </td>
-            <td className={txtCell} title={record.ts}>
-              {record.ts ?
-                <FormattedDate value={record.ts}
-                  day="numeric" month="short" year="numeric" />
-                : null}
-            </td>
-            <td className={numCell}>
-              {movement_amount_cell}
+              {record.account_entries.map((entry, i) => (
+                <div key={i} data-account-entry-id={entry.id}>
+                  {fmt(entry.account_delta)}
+                </div>
+              ))}
             </td>
             <td className={txtCell}>
-              {record.workflow_type ?
-                (wfTypeTitles[record.workflow_type] || record.workflow_type)
-                : null}
+              {record.movements.map((m, i) => (
+                <div key={i} title={m.ts} data-movement-id={m.id}>
+                  <FormattedDate value={m.ts}
+                    day="numeric" month="short" year="numeric" />
+                </div>
+              ))}
+            </td>
+            <td className={numCell}>
+              {record.movements.map((m, i) => (
+                <div key={i} data-movement-id={m.id}>
+                  {renderAmountCell(m)}
+                </div>
+              ))}
+            </td>
+            <td className={txtCell}>
+              {record.movements.map((m, i) => (
+                <div key={i} data-movement-id={m.id}>
+                  {wfTypeTitles[m.workflow_type] || m.workflow_type}
+                </div>
+              ))}
             </td>
             <td className={txtGroupEndCell}>
-              {transferLink}
+              {record.movements.map((m, i) => (
+                <div key={i} data-movement-id={m.id}>
+                  {renderTransferLink(m)}
+                </div>
+              ))}
             </td>
             <td className={chkCell}>
               <RecoCheckBox
+                recoId={record.reco_id}
                 movementId={record.movement_id}
                 accountEntryId={record.account_entry_id}
-                recoId={record.reco_id}
                 dispatch={dispatch} />
             </td>
           </tr>
         );
       });
-
     }
 
     if (!all_shown) {

@@ -240,7 +240,6 @@ def reco_search_movement_view(context, request, complete=False):
     owner_id = owner.id
     filters = []
 
-
     amount_parsed = parse_amount(amount_input)
     if amount_parsed is not None:
         amount_abs = abs(amount_parsed)
@@ -327,6 +326,8 @@ def reco_search_movement_view(context, request, complete=False):
     movement_rows = (
         start_movement_query(dbsession=dbsession, owner_id=owner_id)
         .filter(
+            # Note: don't filter by file_id, otherwise, users won't be able
+            # to reconcile entries across files.
             Movement.peer_id == file.peer_id,
             Movement.currency == file.currency,
             Movement.loop_id == file.loop_id,
@@ -432,7 +433,9 @@ def reco_search_account_entries(context, request, complete=False):
         dbsession.query(AccountEntry)
         .filter(
             AccountEntry.owner_id == owner_id,
-            AccountEntry.file_id == file.id,
+            # Note: don't filter by file_id, otherwise, users won't be able
+            # to reconcile entries across files.
+            AccountEntry.peer_id == file.peer_id,
             AccountEntry.currency == file.currency,
             AccountEntry.loop_id == file.loop_id,
             or_(
@@ -688,6 +691,7 @@ class RecoSave:
 
         entry = AccountEntry(
             owner_id=self.request.owner.id,
+            peer_id=file.peer_id,
             file_id=file.id,
             entry_date=entry_date,
             loop_id=file.loop_id,

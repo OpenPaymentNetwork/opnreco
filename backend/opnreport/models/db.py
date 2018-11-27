@@ -356,6 +356,7 @@ class AccountEntry(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    peer_id = Column(String, nullable=False)
     file_id = Column(
         BigInteger, ForeignKey('file.id'),
         nullable=False, index=True)
