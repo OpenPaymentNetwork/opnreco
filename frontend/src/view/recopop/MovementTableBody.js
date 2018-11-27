@@ -97,7 +97,7 @@ class MovementTableBody extends React.Component {
       <React.Fragment>
         {vaultCell}
         {walletCell}
-        <td className={cellClass}>
+        <td className={cellClass} title={movement.ts}>
           <FormattedDate value={movement.ts}
             day="numeric" month="short" year="numeric" />
           {' '}

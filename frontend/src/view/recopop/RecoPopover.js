@@ -640,6 +640,7 @@ function FadeDrag1(props) {
 
 FadeDrag1.propTypes = {
   children: PropTypes.node.isRequired,
+  onDragStart: PropTypes.func,
 };
 
 

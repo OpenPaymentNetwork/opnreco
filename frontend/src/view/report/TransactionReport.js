@@ -219,10 +219,10 @@ class TransactionReport extends React.Component {
           <tr key={index}
               data-movement-id={record.movement_id}
               data-account-entry-id={record.account_entry_id}>
-            <td className={txtCell}>
+            <td className={txtCell} title={record.entry_date}>
               {record.entry_date ?
                 <FormattedDate value={record.entry_date}
-                  day="numeric" month="short" year="numeric" />
+                  day="numeric" month="short" year="numeric" timeZone="UTC" />
                 : null}
             </td>
             <td className={numGroupEndCell}>
@@ -350,8 +350,8 @@ class TransactionReport extends React.Component {
       let fileDate;
       if (file.end_date) {
         fileDate = (
-          <FormattedDate value={file.end_date}
-            day="numeric" month="short" year="numeric" />);
+          <FormattedDate value={file.end_date} title={file.end_date}
+            day="numeric" month="short" year="numeric" timeZone="UTC" />);
       } else {
         fileDate = (
           <span title={report.now}>

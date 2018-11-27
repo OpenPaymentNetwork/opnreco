@@ -59,7 +59,8 @@ class AccountEntryTableBody extends React.Component {
         </td>
         <td className={numCell}>
           <FormattedDate value={entry.entry_date}
-            day="numeric" month="short" year="numeric" />
+            day="numeric" month="short" year="numeric"
+            timeZone="UTC" title={entry.entry_date} />
         </td>
         <td className={txtCell}>
           {entry.desc}

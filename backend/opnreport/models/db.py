@@ -404,6 +404,11 @@ class Reco(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    # file_id is copied from the first (chronological)
+    # account entry or movement in the reco.
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'),
+        nullable=False, index=True)
     reco_type = Column(String, nullable=False)
     comment = Column(Unicode, nullable=True)
 

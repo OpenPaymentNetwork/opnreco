@@ -703,6 +703,7 @@ class SyncView:
 
             reco = Reco(
                 owner_id=self.owner_id,
+                file_id=mvlist[0].file_id,
                 reco_type='standard',
                 internal=True)
             dbsession.add(reco)

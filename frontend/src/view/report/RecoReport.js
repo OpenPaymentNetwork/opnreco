@@ -287,8 +287,8 @@ class RecoReport extends React.Component {
     let fileDate;
     if (file.end_date) {
       fileDate = (
-        <FormattedDate value={file.end_date}
-          day="numeric" month="short" year="numeric" />);
+        <FormattedDate value={file.end_date} title={file.end_date}
+          day="numeric" month="short" year="numeric" timeZone="UTC" />);
     } else {
       fileDate = (
         <span title={recoReport.now}>

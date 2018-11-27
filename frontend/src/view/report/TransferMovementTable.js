@@ -540,7 +540,7 @@ class MovementTable extends React.Component {
 
       const ts = movement.ts;
       mvCells.push(
-        <td key="ts" className={txtCell} title={movement.ts}>
+        <td key="ts" className={txtCell} title={ts}>
           <FormattedDate value={ts}
             day="numeric" month="short" year="numeric" />
           {' '}

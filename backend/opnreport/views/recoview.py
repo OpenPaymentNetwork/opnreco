@@ -639,10 +639,10 @@ class RecoSave:
 
         return new_movements
 
-    def parse_creating_account_entry(self, entry):
+    def create_account_entry(self, inputs):
         """Create a new AccountEntry from the inputs."""
         file = self.file
-        delta_input = entry['delta']
+        delta_input = inputs['delta']
         if not delta_input:
             raise HTTPBadRequest(json_body={
                 'error': 'amount_required',
@@ -669,7 +669,7 @@ class RecoSave:
                         "Currency should be %s" % self.file.currency)
                 })
 
-        date_input = entry['entry_date']
+        date_input = inputs['entry_date']
         if not date_input:
             raise HTTPBadRequest(json_body={
                 'error': 'date_required',
@@ -693,7 +693,7 @@ class RecoSave:
             loop_id=file.loop_id,
             currency=file.currency,
             delta=delta,
-            desc=entry['desc'] or '',
+            desc=inputs['desc'] or '',
         )
         return entry
 
@@ -704,7 +704,7 @@ class RecoSave:
         for entry in new_entries:
             if entry['creating']:
                 if entry['delta'] or entry['entry_date'] or entry['desc']:
-                    res.append(self.parse_creating_account_entry(entry))
+                    res.append(self.create_account_entry(entry))
                 # else it's a blank input row; ignore it.
             else:
                 reusing_ids.append(int(entry['id']))
@@ -851,13 +851,28 @@ class RecoSave:
         reco_type = self.reco_type
         params = self.params
         internal = (reco_type == 'standard' and not new_account_entries)
+        comment = params['reco']['comment']
+
+        if new_account_entries:
+            # Get the file_id from the first account entry.
+            by_date = sorted(
+                new_account_entries, key=lambda x: (x.entry_date, x.id))
+            file_id = by_date[0].file_id
+        elif new_movements:
+            # Get the file_id from the first movement.
+            by_ts = sorted(new_movements, key=lambda x: (x.ts, x.number, x.id))
+            file_id = by_ts[0].file_id
+        else:
+            file_id = self.file.id
 
         if reco is None:
             added = True
             reco = Reco(
                 owner_id=owner_id,
                 reco_type=reco_type,
-                internal=internal)
+                internal=internal,
+                file_id=file_id,
+                comment=comment)
             dbsession.add(reco)
             dbsession.flush()  # Assign reco.id
             reco_id = reco.id
@@ -865,6 +880,8 @@ class RecoSave:
             reco_id = reco.id
             reco.reco_type = reco_type
             reco.internal = internal
+            reco.file_id = file_id
+            reco.comment = comment
             added = False
 
         for m in new_movements:
@@ -884,8 +901,6 @@ class RecoSave:
             if entry.id is None:
                 dbsession.add(entry)
                 created_account_entries.append(entry)
-
-        reco.comment = params['reco']['comment']
 
         if created_account_entries:
             dbsession.flush()  # Assign the entry IDs
@@ -909,6 +924,7 @@ class RecoSave:
                     'delta': e.delta,
                     'desc': e.desc,
                 } for e in created_account_entries],
+                'file_id': file_id,
             },
         ))
         dbsession.flush()
