@@ -259,7 +259,9 @@ class RecoTableBody extends React.Component {
       const seen_ids = [];
       if (items) {
         items.forEach(item => {
-          seen_ids.push(item.id);
+          if (!item.creating) {
+            seen_ids.push(item.id);
+          }
         });
       }
       const url = fOPNReport.pathToURL(searchCallPath +

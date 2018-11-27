@@ -31,7 +31,6 @@ def reco_report_view(request):
     owner_id = request.owner.id
 
     movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
-    reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
     movement_filter = and_(
         Movement.owner_id == owner_id,

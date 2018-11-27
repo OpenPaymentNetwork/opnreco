@@ -14,11 +14,31 @@ from sqlalchemy import or_
 from sqlalchemy import case
 from sqlalchemy import cast
 from sqlalchemy import DateTime
+from sqlalchemy import literal_column
 import re
 
 
 null = None
 zero = Decimal()
+
+
+movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
+reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
+
+
+def start_query(dbsession):
+    return dbsession.query(
+        AccountEntry.id.label('account_entry_id'),
+        AccountEntry.entry_date,
+        AccountEntry.delta.label('account_delta'),
+        Movement.id.label('movement_id'),
+        Movement.ts,
+        Movement.reco_id,
+        movement_delta.label('movement_delta'),
+        reco_movement_delta.label('reco_movement_delta'),
+        TransferRecord.workflow_type,
+        TransferRecord.transfer_id,
+    )
 
 
 @view_config(
@@ -49,47 +69,71 @@ def transactions_view(request):
 
     movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
     reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
+    queries = []
 
-    # List all unreconciled account entries and the non-internal
-    # reconciled account entries.
-    query = (
+    # List the reconciled entries.
+    queries.append(
         dbsession.query(
+            Reco.id.label('reco_id'),
+            func.min(AccountEntry.id).label('account_entry_id'),
+            func.min(AccountEntry.entry_date).label('entry_date'),
+            func.sum(AccountEntry.delta).label('account_delta'),
+            func.min(Movement.id).label('movement_id'),
+            func.min(Movement.ts).label('ts'),
+            func.sum(movement_delta).label('movement_delta'),
+            func.sum(reco_movement_delta).label('reco_movement_delta'),
+            func.min(TransferRecord.workflow_type).label('workflow_type'),
+            func.min(TransferRecord.transfer_id).label('transfer_id'),
+        )
+        .select_from(Reco)
+        .outerjoin(AccountEntry, AccountEntry.reco_id == Reco.id)
+        .outerjoin(Movement, Movement.reco_id == Reco.id)
+        .outerjoin(TransferRecord, TransferRecord.id == null)
+        .filter(
+            Reco.owner_id == owner_id,
+            ~Reco.internal,
+            or_(
+                Movement.file_id == file.id,
+                AccountEntry.file_id == file.id,
+            ),
+        )
+        .group_by(Reco.id)
+    )
+
+    # Include the unreconciled account entries.
+    queries.append(
+        dbsession.query(
+            AccountEntry.reco_id,
             AccountEntry.id.label('account_entry_id'),
             AccountEntry.entry_date,
             AccountEntry.delta.label('account_delta'),
             Movement.id.label('movement_id'),
-            Movement.ts,
-            Movement.reco_id,
+            Movement.ts.label('ts'),
             movement_delta.label('movement_delta'),
             reco_movement_delta.label('reco_movement_delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
         .select_from(AccountEntry)
-        .outerjoin(Reco, Reco.id == AccountEntry.reco_id)
-        .outerjoin(Movement, Movement.reco_id == Reco.id)
-        .outerjoin(
-            TransferRecord,
-            TransferRecord.id == Movement.transfer_record_id)
+        .outerjoin(Movement, Movement.id == null)
+        .outerjoin(TransferRecord, TransferRecord.id == null)
         .filter(
             AccountEntry.owner_id == owner_id,
             AccountEntry.file_id == file.id,
             AccountEntry.delta != 0,
-            or_(Reco.id == null, ~Reco.internal),
+            AccountEntry.reco_id == null,
         )
     )
 
-    # List all movements in the file not reconciled with account entries.
-    # Include non-internal reconciled entries.
-
-    query = query.union(
+    # Include the unreconciled movements.
+    queries.append(
         dbsession.query(
+            Movement.reco_id,
             AccountEntry.id.label('account_entry_id'),
             AccountEntry.entry_date,
             AccountEntry.delta.label('account_delta'),
             Movement.id.label('movement_id'),
             Movement.ts,
-            Movement.reco_id,
             movement_delta.label('movement_delta'),
             reco_movement_delta.label('reco_movement_delta'),
             TransferRecord.workflow_type,
@@ -99,8 +143,7 @@ def transactions_view(request):
         .join(
             TransferRecord,
             TransferRecord.id == Movement.transfer_record_id)
-        .outerjoin(Reco, Reco.id == Movement.reco_id)
-        .outerjoin(AccountEntry, AccountEntry.reco_id == Reco.id)
+        .outerjoin(AccountEntry, AccountEntry.id == null)
         .filter(
             Movement.owner_id == owner_id,
             Movement.file_id == file.id,
@@ -111,12 +154,12 @@ def transactions_view(request):
             Movement.loop_id == file.loop_id,
             Movement.currency == file.currency,
 
-            AccountEntry.id == null,
             movement_delta != 0,
-            or_(Reco.id == null, ~Reco.internal),
+            Movement.reco_id == null,
         )
     )
 
+    query = queries[0].union(*queries[1:])
     total_cte = query.cte('total_cte')
     amount_expr = func.coalesce(
         total_cte.c.account_delta, total_cte.c.movement_delta)

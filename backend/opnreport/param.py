@@ -1,5 +1,6 @@
 
 from decimal import Decimal
+from decimal import InvalidOperation
 from opnreport.models.db import File
 from opnreport.models.db import Loop
 from opnreport.models.db import Peer
@@ -75,7 +76,10 @@ def parse_amount(amount_input):
     if match is None:
         return None
     amount_str = match.group(0).replace('\u2212', '-').replace(',', '')
-    return ParsedAmount(amount_str)
+    try:
+        return ParsedAmount(amount_str)
+    except InvalidOperation:
+        return None
 
 
 class ParsedAmount(Decimal):

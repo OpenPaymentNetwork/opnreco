@@ -240,10 +240,10 @@ def reco_search_movement_view(context, request, complete=False):
     owner_id = owner.id
     filters = []
 
+
     amount_parsed = parse_amount(amount_input)
     if amount_parsed is not None:
         amount_abs = abs(amount_parsed)
-
         vault_sign_filters = ()
         wallet_sign_filters = ()
         if amount_parsed.sign < 0:
@@ -398,93 +398,60 @@ def reco_search_account_entries(context, request, complete=False):
                 *sign_filters))
         else:
             # The search omitted the subunit value.
-            filters.append(or_(
-                and_(
-                    func.abs(Movement.vault_delta) >= amount_abs,
-                    func.abs(Movement.vault_delta) < amount_abs + 1,
-                    *vault_sign_filters),
-                and_(
-                    func.abs(Movement.wallet_delta) >= amount_abs,
-                    func.abs(Movement.wallet_delta) < amount_abs + 1,
-                    *wallet_sign_filters),
-            ))
+            filters.append(and_(
+                func.abs(AccountEntry.delta) >= delta_abs,
+                func.abs(AccountEntry.delta) < delta_abs + 1,
+                *sign_filters))
 
-    match = re.search(r'[A-Z]+', amount_input, re.I)
+    match = re.search(r'[A-Z]+', delta_input, re.I)
     if match is not None:
         currency = match.group(0).upper()
         filters.append(
-            Movement.currency.like(func.concat('%', currency, '%')))
+            AccountEntry.currency.like(func.concat('%', currency, '%')))
 
-    if date_input and tzoffset_input:
+    if entry_date_input:
         try:
-            parsed = dateutil.parser.parse(date_input)
-            tzoffset = int(tzoffset_input)
+            parsed = dateutil.parser.parse(entry_date_input).date()
         except Exception:
             pass
         else:
             if parsed is not None:
-                ts = parsed + datetime.timedelta(seconds=tzoffset * 60)
-                filters.append(Movement.ts >= ts)
-                colon_count = sum((1 for c in date_input if c == ':'), 0)
-                if colon_count >= 2:
-                    # Query with second resolution
-                    filters.append(
-                        Movement.ts < ts + datetime.timedelta(seconds=1))
-                elif colon_count >= 1:
-                    # Query with minute resolution
-                    filters.append(
-                        Movement.ts < ts + datetime.timedelta(seconds=60))
-                elif parsed.hour:
-                    # Query with hour resolution
-                    filters.append(
-                        Movement.ts < ts + datetime.timedelta(seconds=3600))
-                else:
-                    # Query with day resolution
-                    filters.append(
-                        Movement.ts < ts + datetime.timedelta(days=1))
+                filters.append(AccountEntry.entry_date == parsed)
 
-    match = re.search(r'[0-9\-]+', transfer_input)
-    if match is not None:
-        transfer_str = match.group(0).replace('-', '')
-        if transfer_str:
-            filters.append(
-                cast(TransferRecord.transfer_id, String).like(
-                    func.concat('%', transfer_str, '%')))
+    if desc_input:
+        filters.append(AccountEntry.desc.ilike(
+            func.concat('%', desc_input, '%')))
 
     if not filters:
         return []
 
     if seen_ids:
-        filters.append(~Movement.id.in_(seen_ids))
+        filters.append(~AccountEntry.id.in_(seen_ids))
 
-    movement_rows = (
-        start_movement_query(dbsession=dbsession, owner_id=owner_id)
+    rows = (
+        dbsession.query(AccountEntry)
         .filter(
-            Movement.peer_id == file.peer_id,
-            Movement.currency == file.currency,
-            Movement.loop_id == file.loop_id,
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.file_id == file.id,
+            AccountEntry.currency == file.currency,
+            AccountEntry.loop_id == file.loop_id,
             or_(
-                Movement.reco_id == null,
-                Movement.reco_id == reco_id,
+                AccountEntry.reco_id == null,
+                AccountEntry.reco_id == reco_id,
             ),
             *filters
         )
         .order_by(
-            Movement.ts,
-            TransferRecord.transfer_id,
-            Movement.number,
-            Movement.amount_index,
-            Movement.peer_id,
-            Movement.loop_id,
-            Movement.currency,
-            Movement.issuer_id,
+            AccountEntry.entry_date,
+            AccountEntry.desc,
+            AccountEntry.id,
         )
         .limit(5)
         .all())
 
-    movements_json = render_movement_rows(movement_rows)
+    entries_json = render_account_entry_rows(rows)
 
-    return movements_json
+    return entries_json
 
 
 # Note: the schema below includes only the fields needed by reco-save.
