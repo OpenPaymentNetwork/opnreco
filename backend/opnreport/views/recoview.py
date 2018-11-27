@@ -354,6 +354,139 @@ def reco_search_movement_view(context, request, complete=False):
     return movements_json
 
 
+@view_config(
+    name='reco-search-account-entries',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def reco_search_account_entries(context, request, complete=False):
+    """Search for account entries that haven't been reconciled."""
+
+    file, _peer, _loop = get_request_file(request)
+
+    params = request.json
+    delta_input = str(params.get('delta', ''))
+    entry_date_input = str(params.get('entry_date', ''))
+    desc_input = str(params.get('desc', ''))
+    seen_ids = set(int(x) for x in params.get('seen_ids', ()))
+    reco_id_input = params.get('reco_id')
+
+    if reco_id_input:
+        reco_id = int(reco_id_input)
+    else:
+        reco_id = None
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    filters = []
+
+    delta_parsed = parse_amount(delta_input)
+    if delta_parsed is not None:
+        delta_abs = abs(delta_parsed)
+
+        sign_filters = ()
+        if delta_parsed.sign < 0:
+            sign_filters = ((AccountEntry.delta < 0),)
+        elif delta_parsed.sign > 0:
+            sign_filters = ((AccountEntry.delta > 0),)
+
+        if '.' in delta_parsed.str_value:
+            # Exact amount.
+            filters.append(and_(
+                func.abs(AccountEntry.delta) == delta_abs,
+                *sign_filters))
+        else:
+            # The search omitted the subunit value.
+            filters.append(or_(
+                and_(
+                    func.abs(Movement.vault_delta) >= amount_abs,
+                    func.abs(Movement.vault_delta) < amount_abs + 1,
+                    *vault_sign_filters),
+                and_(
+                    func.abs(Movement.wallet_delta) >= amount_abs,
+                    func.abs(Movement.wallet_delta) < amount_abs + 1,
+                    *wallet_sign_filters),
+            ))
+
+    match = re.search(r'[A-Z]+', amount_input, re.I)
+    if match is not None:
+        currency = match.group(0).upper()
+        filters.append(
+            Movement.currency.like(func.concat('%', currency, '%')))
+
+    if date_input and tzoffset_input:
+        try:
+            parsed = dateutil.parser.parse(date_input)
+            tzoffset = int(tzoffset_input)
+        except Exception:
+            pass
+        else:
+            if parsed is not None:
+                ts = parsed + datetime.timedelta(seconds=tzoffset * 60)
+                filters.append(Movement.ts >= ts)
+                colon_count = sum((1 for c in date_input if c == ':'), 0)
+                if colon_count >= 2:
+                    # Query with second resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(seconds=1))
+                elif colon_count >= 1:
+                    # Query with minute resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(seconds=60))
+                elif parsed.hour:
+                    # Query with hour resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(seconds=3600))
+                else:
+                    # Query with day resolution
+                    filters.append(
+                        Movement.ts < ts + datetime.timedelta(days=1))
+
+    match = re.search(r'[0-9\-]+', transfer_input)
+    if match is not None:
+        transfer_str = match.group(0).replace('-', '')
+        if transfer_str:
+            filters.append(
+                cast(TransferRecord.transfer_id, String).like(
+                    func.concat('%', transfer_str, '%')))
+
+    if not filters:
+        return []
+
+    if seen_ids:
+        filters.append(~Movement.id.in_(seen_ids))
+
+    movement_rows = (
+        start_movement_query(dbsession=dbsession, owner_id=owner_id)
+        .filter(
+            Movement.peer_id == file.peer_id,
+            Movement.currency == file.currency,
+            Movement.loop_id == file.loop_id,
+            or_(
+                Movement.reco_id == null,
+                Movement.reco_id == reco_id,
+            ),
+            *filters
+        )
+        .order_by(
+            Movement.ts,
+            TransferRecord.transfer_id,
+            Movement.number,
+            Movement.amount_index,
+            Movement.peer_id,
+            Movement.loop_id,
+            Movement.currency,
+            Movement.issuer_id,
+        )
+        .limit(5)
+        .all())
+
+    movements_json = render_movement_rows(movement_rows)
+
+    return movements_json
+
+
 # Note: the schema below includes only the fields needed by reco-save.
 
 
