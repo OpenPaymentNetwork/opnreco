@@ -8,14 +8,15 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import LayoutConfig from '../app/LayoutConfig';
+import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import RecoCheckBox from './RecoCheckBox';
 import Require from '../../util/Require';
-import TransactionReportForm from './TransactionReportForm';
 import Typography from '@material-ui/core/Typography';
 import { FormattedDate } from 'react-intl';
+import { setRowsPerPage, setPageIndex } from '../../reducer/report';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
 
 
@@ -105,6 +106,7 @@ class TransactionReport extends React.Component {
     file: PropTypes.object,
     ploop: PropTypes.object,
     rowsPerPage: PropTypes.number,
+    pageIndex: PropTypes.number,
   };
 
   constructor(props) {
@@ -118,6 +120,14 @@ class TransactionReport extends React.Component {
       event.preventDefault();
       this.props.history.push(`/t/${tid}`);
     }
+  }
+
+  setRowsPerPage(rows) {
+    this.props.dispatch(setRowsPerPage(rows));
+  }
+
+  setPageIndex(pageIndex) {
+    this.props.dispatch(setPageIndex(pageIndex));
   }
 
   renderBody(records, totals, subtitle) {
@@ -365,7 +375,15 @@ class TransactionReport extends React.Component {
   }
 
   render() {
-    const {classes, reportURL, report, loading, file} = this.props;
+    const {
+      classes,
+      reportURL,
+      report,
+      loading,
+      file,
+      pageIndex,
+      rowsPerPage,
+    } = this.props;
     if (!reportURL || !file) {
       // No peer loop or file selected.
       return null;
@@ -437,7 +455,13 @@ class TransactionReport extends React.Component {
         <LayoutConfig title="Transactions Report" />
         <Require fetcher={fOPNReport} urls={[reportURL]} />
         <Paper className={classes.formPaper}>
-          <TransactionReportForm rowcount={rowcount} />
+          <Pager
+            pageIndex={pageIndex}
+            rowsPerPage={rowsPerPage}
+            rowcount={rowcount}
+            setRowsPerPage={this.binder(this.setRowsPerPage)}
+            setPageIndex={this.binder(this.setPageIndex)}
+          />
         </Paper>
         {content}
         <div style={{height: 1}}></div>
@@ -449,13 +473,12 @@ class TransactionReport extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const {ploop, file} = ownProps;
+  const {
+    rowsPerPage,
+    pageIndex,
+  } = state.report;
 
   if (ploop) {
-    const {
-      rowsPerPage,
-      pageIndex,
-    } = state.report;
-
     const reportURL = fOPNReport.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
@@ -475,7 +498,10 @@ function mapStateToProps(state, ownProps) {
       pageIndex,
     };
   } else {
-    return {};
+    return {
+      rowsPerPage,
+      pageIndex,
+    };
   }
 }
 

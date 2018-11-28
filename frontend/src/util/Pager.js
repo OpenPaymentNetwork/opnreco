@@ -1,8 +1,5 @@
 
-import { binder, binder1 } from '../../util/binder';
-import { compose } from '../../util/functional';
-import { connect } from 'react-redux';
-import { setRowsPerPage, setPageIndex } from '../../reducer/report';
+import { binder, binder1 } from './binder';
 import { withStyles } from '@material-ui/core/styles';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import IconButton from '@material-ui/core/IconButton';
@@ -39,13 +36,14 @@ const styles = {
 };
 
 
-class TransactionReportForm extends React.Component {
+class Pager extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    dispatch: PropTypes.func.isRequired,
     pageIndex: PropTypes.number,
     rowsPerPage: PropTypes.number,
     rowcount: PropTypes.number,
+    setRowsPerPage: PropTypes.func.isRequired,
+    setPageIndex: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -60,24 +58,24 @@ class TransactionReportForm extends React.Component {
   handleChangeRowsPerPage(event) {
     const value = event.target.value;
     const rowsPerPage = (value === 'none' ? null : parseInt(value, 10));
-    this.props.dispatch(setRowsPerPage(rowsPerPage));
+    this.props.setRowsPerPage(rowsPerPage);
   }
 
   handleNavFirst() {
-    this.props.dispatch(setPageIndex(0));
+    this.props.setPageIndex(0);
   }
 
   handleNavPrev() {
-    this.props.dispatch(setPageIndex(this.props.pageIndex - 1));
+    this.props.setPageIndex(this.props.pageIndex - 1);
   }
 
   handleNavNext() {
-    this.props.dispatch(setPageIndex(this.props.pageIndex + 1));
+    this.props.setPageIndex(this.props.pageIndex + 1);
   }
 
   handleNavLast() {
-    const {dispatch, rowcount, rowsPerPage} = this.props;
-    dispatch(setPageIndex(Math.floor((rowcount - 1) / rowsPerPage)));
+    const {rowcount, rowsPerPage} = this.props;
+    this.props.setPageIndex(Math.floor((rowcount - 1) / rowsPerPage));
   }
 
   render() {
@@ -167,21 +165,4 @@ class TransactionReportForm extends React.Component {
   }
 }
 
-
-function mapStateToProps(state) {
-  const {
-    rowsPerPage,
-    pageIndex,
-  } = state.report;
-
-  return {
-    rowsPerPage,
-    pageIndex,
-  };
-}
-
-
-export default compose(
-  withStyles(styles),
-  connect(mapStateToProps),
-)(TransactionReportForm);
+export default withStyles(styles)(Pager);
