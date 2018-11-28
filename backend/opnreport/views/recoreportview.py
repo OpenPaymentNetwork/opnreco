@@ -44,24 +44,6 @@ def reco_report_view(request):
         movement_delta != 0,
     )
 
-    # # reconciled_delta is the total of reconciled DFI entries in this file.
-    # reconciled_delta = (
-    #     dbsession.query(func.sum(AccountEntry.delta))
-    #     .filter(
-    #         AccountEntry.file_id == file_id,
-    #         AccountEntry.reco_id != null)
-    #     .scalar()) or 0
-
-    reconciled_row = (
-        dbsession.query(
-            func.sum(-Movement.vault_delta).label('circ_delta'),
-            func.sum(-Movement.reco_wallet_delta).label('surplus_delta'),
-        )
-        .filter(
-            movement_filter,
-            Movement.reco_id != null)
-        .one())
-
     now = dbsession.query(now_func).scalar()
 
     # workflow_type_rows lists the workflow types of movements
@@ -140,6 +122,30 @@ def reco_report_view(request):
             sd0 + surplus_delta,
             td0 + combined_delta)
 
+    # # Include the effects of unreconciled account entries.
+    # unreco_entry_rows = (
+    #     dbsession.query(
+    #         func.sign(AccountEntry.delta).label('sign'),
+    #         func.sum(AccountEntry.delta).label('delta'),
+    #     )
+    #     .filter(
+    #         AccountEntry.owner_id == owner_id,
+    #         AccountEntry.file_id == file_id,
+    #         AccountEntry.reco_id == null,
+    #         AccountEntry.delta != zero,
+    #     )
+    #     .group_by(func.sign(AccountEntry.delta))
+    #     .all())
+
+    # for sign, delta in unreco_entry_rows:
+    #     str_sign = str_signs[sign]
+    #     workflow_type = '_account_credit' if sign > 0 else '_account_debit'
+    #     workflow_types_pre[(str_sign, workflow_type)] = (
+    #         zero,
+    #         delta,
+    #         delta,
+    #     )
+
     # Convert outstanding_map from defaultdicts to dicts for JSON encoding.
     for sign, m in list(outstanding_map.items()):
         outstanding_map[sign] = dict(m)
@@ -161,15 +167,36 @@ def reco_report_view(request):
             'combined': str(td) if td else '0',
         }
 
+    reconciled_circ = (
+        dbsession.query(
+            func.sum(-Movement.vault_delta).label('circ'),
+        )
+        .filter(
+            movement_filter,
+            Movement.reco_id != null)
+        .scalar()) or zero
+
+    reconciled_combined = (
+        dbsession.query(func.sum(AccountEntry.delta))
+        .filter(
+            AccountEntry.file_id == file_id,
+            AccountEntry.reco_id != null)
+        .scalar()) or zero
+
+    reconciled_surplus = reconciled_combined - reconciled_circ
+
     reconciled_totals = {
-        'circ': file.start_circ + (reconciled_row.circ_delta or zero),
-        'surplus': file.start_surplus + (reconciled_row.surplus_delta or zero),
+        'circ': file.start_circ + reconciled_circ,
+        'surplus': file.start_surplus + reconciled_surplus,
     }
     reconciled_totals['combined'] = (
         reconciled_totals['circ'] + reconciled_totals['surplus'])
 
-    circ_delta_total = sum(row.circ_delta for row in outstanding_rows)
-    surplus_delta_total = sum(row.surplus_delta for row in outstanding_rows)
+    circ_delta_total = sum((row.circ_delta for row in outstanding_rows), zero)
+    surplus_delta_total = (
+        sum((row.surplus_delta for row in outstanding_rows), zero)
+        # + sum((row.delta for row in unreco_entry_rows), zero)
+    )
     outstanding_totals = {
         'circ': reconciled_totals['circ'] + circ_delta_total,
         'surplus': reconciled_totals['surplus'] + surplus_delta_total,
