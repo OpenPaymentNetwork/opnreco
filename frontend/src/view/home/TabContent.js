@@ -1,5 +1,6 @@
 import { binder } from '../../util/binder';
 import Button from '@material-ui/core/Button';
+import FilesView from '../file/FilesView';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -76,6 +77,8 @@ export default class TabContent extends React.Component {
       return this.renderLiabilitiesTab();
     case 't':
       return <TransferSummary ploop={ploop} file={file} />;
+    case 'file':
+      return <FilesView ploop={ploop} />;
     default:
       return null;
     }

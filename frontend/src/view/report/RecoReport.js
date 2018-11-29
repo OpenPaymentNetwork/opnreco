@@ -4,6 +4,7 @@ import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
+import { renderReportDate } from '../../util/reportrender';
 import { toggleNode } from '../../reducer/tree';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -102,6 +103,7 @@ class RecoReport extends React.Component {
     recoReportURL: PropTypes.string,
     recoReport: PropTypes.object,
     loading: PropTypes.bool,
+    ploop: PropTypes.object,
     file: PropTypes.object,
     expanded: PropTypes.object,  // a Map or undefined
   };
@@ -256,8 +258,15 @@ class RecoReport extends React.Component {
   }
 
   render() {
-    const {classes, recoReportURL, recoReport, loading, file} = this.props;
-    if (!recoReportURL || !file) {
+    const {
+      classes,
+      recoReportURL,
+      recoReport,
+      loading,
+      ploop,
+      file,
+    } = this.props;
+    if (!recoReportURL || !ploop || !file) {
       // No peer loop or file selected.
       return null;
     }
@@ -284,20 +293,8 @@ class RecoReport extends React.Component {
       return <div className={classes.root}>{require}</div>;
     }
 
-    let fileDate;
-    if (file.end_date) {
-      fileDate = (
-        <FormattedDate value={file.end_date} title={file.end_date}
-          day="numeric" month="short" year="numeric" timeZone="UTC" />);
-    } else {
-      fileDate = (
-        <span title={recoReport.now}>
-          <FormattedDate value={recoReport.now}
-            day="numeric" month="short" year="numeric" /> (in progress)
-        </span>);
-    }
+    const reportDate = renderReportDate(file, recoReport.now);
 
-    const {peer_title, currency} = file;
     const cfmt = new getCurrencyFormatter(currency);
 
     const labelCellCN = `${classes.cell} ${classes.labelCell}`;
@@ -379,6 +376,7 @@ class RecoReport extends React.Component {
       );
     }
 
+    const {peer_title, currency, loop_id, loop_title} = ploop;
     return (
       <Typography className={classes.root} component="div">
         {require}
@@ -391,8 +389,8 @@ class RecoReport extends React.Component {
                   {peer_title} Reconciliation Report
                   <div>
                     {currency}
-                    {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
-                    {' - '}{fileDate}
+                    {' '}{loop_id === '0' ? 'Open Loop' : loop_title}
+                    {' - '}{reportDate}
                   </div>
                 </th>
               </tr>

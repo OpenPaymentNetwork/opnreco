@@ -348,24 +348,37 @@ class SyncView:
                 }))
 
         else:
-            found = 0
+            attrs_found = 0
             changes = {}
+
+            # Changeable attrs
             attrs = (
                 ('title', 'title'),
                 ('screen_name', 'username'),
+            )
+            for source_attr, dest_attr in attrs:
+                value = info.get(source_attr)
+                if value:
+                    attrs_found += 1
+                    if getattr(peer, dest_attr) != value:
+                        changes[dest_attr] = value
+                        setattr(peer, dest_attr, value)
+
+            # One-shot boolean attrs (once set, stay set)
+            attrs = (
                 ('is_dfi_account', 'is_dfi_account'),
                 ('is_own_dfi_account', 'is_own_dfi_account'),
             )
             for source_attr, dest_attr in attrs:
                 value = info.get(source_attr)
-                if value:
-                    found += 1
-                    if getattr(peer, dest_attr) != value:
-                        changes[dest_attr] = value
-                        setattr(peer, dest_attr, value)
-            if found:
-                peer.last_update = now_func
+                if value is not None:
+                    attrs_found += 1
+                    if value and not getattr(peer, dest_attr):
+                        changes[dest_attr] = True
+                        setattr(peer, dest_attr, True)
 
+            if attrs_found:
+                peer.last_update = now_func
                 if changes:
                     dbsession.add(OwnerLog(
                         owner_id=self.owner_id,

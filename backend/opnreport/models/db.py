@@ -126,23 +126,19 @@ class File(Base):
     # New recos are added to the 'current' file.
     current = Column(Boolean, nullable=False, default=True)
     # has_vault becomes true if money ever moves in or out of the
-    # vault connected with this File.
+    # vault connected with this File. (has_vault is an attr of File rather
+    # than Peer because an issuer might hold notes of multiple
+    # currencies / loops, but issue only one currency / loop.)
     has_vault = Column(Boolean, nullable=False, default=False)
-    subtitle = Column(Unicode, nullable=True)
 
     start_date = Column(Date, nullable=True)
-    start_circ = Column(Numeric, nullable=False, default=0)
-    start_surplus = Column(Numeric, nullable=False, default=0)
     end_date = Column(Date, nullable=True)
-    end_circ = Column(Numeric, nullable=True)
-    end_surplus = Column(Numeric, nullable=True)
 
-    # peer_* and loop_* apply only when current = False.
-    peer_title = Column(Unicode, nullable=True)
-    peer_username = Column(String, nullable=True)
-    peer_is_dfi_account = Column(Boolean, nullable=True)
-    peer_is_own_dfi_account = Column(Boolean, nullable=True)
-    loop_title = Column(Unicode, nullable=True)
+    start_circ = Column(Numeric, nullable=False, default=0)
+    end_circ = Column(Numeric, nullable=True)
+
+    start_surplus = Column(Numeric, nullable=False, default=0)
+    end_surplus = Column(Numeric, nullable=True)
 
     owner = relationship(Owner)
 

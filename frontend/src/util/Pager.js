@@ -1,5 +1,8 @@
 
 import { binder, binder1 } from './binder';
+import { compose } from './functional';
+import { connect } from 'react-redux';
+import { setRowsPerPage, setPageIndex } from '../reducer/pager';
 import { withStyles } from '@material-ui/core/styles';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import IconButton from '@material-ui/core/IconButton';
@@ -38,12 +41,12 @@ const styles = {
 
 class Pager extends React.Component {
   static propTypes = {
+    dispatch: PropTypes.func.isRequired,
     classes: PropTypes.object.isRequired,
+    name: PropTypes.string.isRequired,
+    rowcount: PropTypes.number,
     pageIndex: PropTypes.number,
     rowsPerPage: PropTypes.number,
-    rowcount: PropTypes.number,
-    setRowsPerPage: PropTypes.func.isRequired,
-    setPageIndex: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -51,31 +54,44 @@ class Pager extends React.Component {
     this.binder = binder(this);
     this.binder1 = binder1(this);
     this.state = {
-      filterAnchor: null,
+      oldRowcount: null,
     };
+  }
+
+  componentDidUpdate() {
+    const {rowcount} = this.props;
+    if ((rowcount || rowcount === 0) && this.state.oldRowcount !== rowcount) {
+      // Keep a memory of the rowcount so this component can continue
+      // to display it while switching pages.
+      this.setState({oldRowcount: rowcount});
+    }
   }
 
   handleChangeRowsPerPage(event) {
     const value = event.target.value;
     const rowsPerPage = (value === 'none' ? null : parseInt(value, 10));
-    this.props.setRowsPerPage(rowsPerPage);
+    this.props.dispatch(setRowsPerPage(this.props.name, rowsPerPage));
+  }
+
+  setPageIndex(pageIndex) {
+    this.props.dispatch(setPageIndex(this.props.name, pageIndex));
   }
 
   handleNavFirst() {
-    this.props.setPageIndex(0);
+    this.setPageIndex(0);
   }
 
   handleNavPrev() {
-    this.props.setPageIndex(this.props.pageIndex - 1);
+    this.setPageIndex(this.props.pageIndex - 1);
   }
 
   handleNavNext() {
-    this.props.setPageIndex(this.props.pageIndex + 1);
+    this.setPageIndex(this.props.pageIndex + 1);
   }
 
   handleNavLast() {
     const {rowcount, rowsPerPage} = this.props;
-    this.props.setPageIndex(Math.floor((rowcount - 1) / rowsPerPage));
+    this.setPageIndex(Math.floor(((rowcount || 1) - 1) / rowsPerPage));
   }
 
   render() {
@@ -91,20 +107,23 @@ class Pager extends React.Component {
       formLabel,
     } = classes;
 
+    const rcount = (
+      rowcount || rowcount === 0 ? rowcount : this.state.oldRowcount);
+
     let rowsInfo;
 
-    if (rowcount && rowcount > 0) {
+    if (rcount && rcount > 0) {
       if (!rowsPerPage) {
         rowsInfo = (
           <span className={formLabel}>
-            1-{rowcount} of {rowcount}
+            1-{rcount} of {rcount}
           </span>
         );
       } else {
         rowsInfo = (
           <span className={formLabel}>
-            {Math.min(rowcount, (rowsPerPage * pageIndex) + 1)}-
-            {Math.min(rowcount, rowsPerPage * (pageIndex + 1))} of {rowcount}
+            {Math.min(rcount, (rowsPerPage * pageIndex) + 1)}-
+            {Math.min(rcount, rowsPerPage * (pageIndex + 1))} of {rcount}
           </span>
         );
       }
@@ -112,9 +131,9 @@ class Pager extends React.Component {
       rowsInfo = <span className={formLabel}>0-0 of 0</span>;
     }
 
-    const navPrev = rowsPerPage && rowcount && (pageIndex > 0);
+    const navPrev = rowsPerPage && rcount && (pageIndex > 0);
     const navNext = (
-      rowsPerPage && rowcount && ((pageIndex + 1) * rowsPerPage < rowcount));
+      rowsPerPage && rcount && ((pageIndex + 1) * rowsPerPage < rcount));
 
     return (
       <div className={classes.root}>
@@ -165,4 +184,18 @@ class Pager extends React.Component {
   }
 }
 
-export default withStyles(styles)(Pager);
+
+function mapStateToProps(state, ownProps) {
+  const {name, initialRowsPerPage} = ownProps;
+  const pagerState = state.pager[name] || {
+    rowsPerPage: initialRowsPerPage || 100,
+    pageIndex: 0,
+  };
+  return pagerState;
+}
+
+
+export default compose(
+  withStyles(styles),
+  connect(mapStateToProps),
+)(Pager);

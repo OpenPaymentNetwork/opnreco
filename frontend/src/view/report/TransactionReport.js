@@ -1,9 +1,11 @@
+
 import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
+import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -16,7 +18,6 @@ import RecoCheckBox from './RecoCheckBox';
 import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
 import { FormattedDate } from 'react-intl';
-import { setRowsPerPage, setPageIndex } from '../../reducer/report';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
 
 
@@ -28,7 +29,7 @@ const styles = {
     fontSize: '0.9rem',
     padding: '0 16px',
   },
-  formPaper: {
+  pagerPaper: {
     margin: '16px auto',
     maxWidth: tableWidth - 16,
     padding: '8px',
@@ -105,8 +106,8 @@ class TransactionReport extends React.Component {
     loading: PropTypes.bool,
     file: PropTypes.object,
     ploop: PropTypes.object,
-    rowsPerPage: PropTypes.number,
-    pageIndex: PropTypes.number,
+    pagerName: PropTypes.string.isRequired,
+    initialRowsPerPage: PropTypes.number.isRequired,
   };
 
   constructor(props) {
@@ -120,14 +121,6 @@ class TransactionReport extends React.Component {
       event.preventDefault();
       this.props.history.push(`/t/${tid}`);
     }
-  }
-
-  setRowsPerPage(rows) {
-    this.props.dispatch(setRowsPerPage(rows));
-  }
-
-  setPageIndex(pageIndex) {
-    this.props.dispatch(setPageIndex(pageIndex));
   }
 
   renderBody(records, totals, subtitle) {
@@ -381,9 +374,11 @@ class TransactionReport extends React.Component {
       report,
       loading,
       file,
-      pageIndex,
-      rowsPerPage,
+      ploop,
+      pagerName,
+      initialRowsPerPage,
     } = this.props;
+
     if (!reportURL || !file) {
       // No peer loop or file selected.
       return null;
@@ -392,20 +387,7 @@ class TransactionReport extends React.Component {
     let content, rowcount;
 
     if (report) {
-      let fileDate;
-      if (file.end_date) {
-        fileDate = (
-          <FormattedDate value={file.end_date} title={file.end_date}
-            day="numeric" month="short" year="numeric" timeZone="UTC" />);
-      } else {
-        fileDate = (
-          <span title={report.now}>
-            <FormattedDate value={report.now}
-              day="numeric" month="short" year="numeric" /> (in progress)
-          </span>);
-      }
-
-      const {peer_title, currency} = file;
+      const reportDate = renderReportDate(file, report.now);
 
       rowcount = report.rowcount;
       content = (
@@ -416,11 +398,11 @@ class TransactionReport extends React.Component {
                 <th className={`${classes.cell} ${classes.headCell}`}
                   colSpan="7"
                 >
-                  {peer_title} Transaction Report
+                  {ploop.peer_title} Transaction Report
                   <div>
-                    {currency}
-                    {' '}{file.loop_id === '0' ? 'Open Loop' : file.loop_title}
-                    {' - '}{fileDate}
+                    {ploop.currency}
+                    {' '}{ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title}
+                    {' - '}{reportDate}
                   </div>
                 </th>
               </tr>
@@ -438,7 +420,7 @@ class TransactionReport extends React.Component {
       );
 
     } else {
-      rowcount = 0;
+      rowcount = null;
       if (loading) {
         content = (
           <Paper className={classes.tablePaper} style={{textAlign: 'center'}}>
@@ -454,14 +436,11 @@ class TransactionReport extends React.Component {
       <Typography className={classes.root} component="div">
         <LayoutConfig title="Transactions Report" />
         <Require fetcher={fOPNReport} urls={[reportURL]} />
-        <Paper className={classes.formPaper}>
+        <Paper className={classes.pagerPaper}>
           <Pager
-            pageIndex={pageIndex}
-            rowsPerPage={rowsPerPage}
-            rowcount={rowcount}
-            setRowsPerPage={this.binder(this.setRowsPerPage)}
-            setPageIndex={this.binder(this.setPageIndex)}
-          />
+            name={pagerName}
+            initialRowsPerPage={initialRowsPerPage}
+            rowcount={rowcount} />
         </Paper>
         {content}
         <div style={{height: 1}}></div>
@@ -472,18 +451,20 @@ class TransactionReport extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
+  const pagerName = 'transactionReport';
+  const initialRowsPerPage = 100;
   const {ploop, file} = ownProps;
-  const {
-    rowsPerPage,
-    pageIndex,
-  } = state.report;
+  const pagerState = state.pager[pagerName] || {
+    rowsPerPage: initialRowsPerPage,
+    pageIndex: 0,
+  };
+  const {rowsPerPage, pageIndex} = pagerState;
 
   if (ploop) {
     const reportURL = fOPNReport.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
-      `&offset=${encodeURIComponent(
-        rowsPerPage ? pageIndex * rowsPerPage : 0)}` +
+      `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
       `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
     const report = fetchcache.get(state, reportURL);
     const loading = fetchcache.fetching(state, reportURL);
@@ -494,13 +475,13 @@ function mapStateToProps(state, ownProps) {
       report,
       loading,
       loadError,
-      rowsPerPage,
-      pageIndex,
+      pagerName,
+      initialRowsPerPage,
     };
   } else {
     return {
-      rowsPerPage,
-      pageIndex,
+      pagerName,
+      initialRowsPerPage,
     };
   }
 }

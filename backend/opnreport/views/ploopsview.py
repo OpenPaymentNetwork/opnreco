@@ -3,7 +3,6 @@ from opnreport.models.db import File
 from opnreport.models.db import Loop
 from opnreport.models.db import Peer
 from opnreport.models.site import API
-from opnreport.serialize import serialize_file
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -33,16 +32,8 @@ def ploops_view(request):
             'files': {file_id: {
                 'file_id',
                 'current',
-                'subtitle',
                 'start_date',
-                'start_balance',
                 'end_date',
-                'end_balance',
-                'peer_title',
-                'peer_username',
-                'peer_is_dfi_account',
-                'peer_is_own_dfi_account',
-                'loop_title',
             }},
             'file_order': [file_id],
         }},
@@ -70,7 +61,6 @@ def ploops_view(request):
             or_(
                 and_(File.peer_id == 'c', File.has_vault),
                 Peer.is_own_dfi_account,
-                File.peer_is_own_dfi_account,
             ))
         .order_by(
             func.coalesce(File.start_date, future).desc(),
@@ -103,9 +93,13 @@ def ploops_view(request):
             }
             ploops[ploop_key] = ploop
 
-        file_info = serialize_file(file, peer, loop)
         file_id_str = str(file.id)
-        ploop['files'][file_id_str] = file_info
+        ploop['files'][file_id_str] = {
+            'file_id': file_id_str,
+            'current': file.current,
+            'start_date': file.start_date,
+            'end_date': file.end_date,
+        }
         ploop['file_order'].append(file_id_str)
 
     # Determine the ordering of the ploops.
