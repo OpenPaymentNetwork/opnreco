@@ -343,10 +343,14 @@ class Statement(Base):
     # peer_id is either an OPN holder ID or
     # the letter 'c' for circulating.
     peer_id = Column(String, nullable=False)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'),
+        nullable=False, index=True)
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
+    ext_ids = Column(Unicode, nullable=True)
     content = Column(JSONB, nullable=False)
 
 
@@ -360,10 +364,14 @@ class AccountEntry(Base):
     file_id = Column(
         BigInteger, ForeignKey('file.id'),
         nullable=False, index=True)
+    # statement_id is null for manual account entries.
+    statement_id = Column(
+        BigInteger, ForeignKey('statement.id'),
+        nullable=True, index=True)
+    statement_page = Column(String, nullable=True)
+    statement_line = Column(String, nullable=True)
 
-    statement_refs = Column(JSONB, nullable=True)
     entry_date = Column(Date, nullable=False)
-
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
 
@@ -371,7 +379,8 @@ class AccountEntry(Base):
     # Note: we use the terms increase and decrease instead of debit/credit
     # because debit/credit is ambiguous: an increase of a checking account is
     # both a *credit* to the account holder's asset account and a *debit* to
-    # the bank's liability account.
+    # the bank's liability account. To make things even more interesting,
+    # the account holder is often the bank itself.
     delta = Column(Numeric, nullable=False)
 
     # desc contains descriptive info provided by the bank.

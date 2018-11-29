@@ -95,7 +95,7 @@ class App extends React.Component {
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/:tab(t)/:transferId" component={Home} />
-                <Route path="/:tab(|reco|transactions|liabilities|t)" component={Home} />
+                <Route path="/:tab(|reco|transactions|liabilities|t|file)" component={Home} />
                 <Route component={NotFound} />
               </Switch>
             </main>

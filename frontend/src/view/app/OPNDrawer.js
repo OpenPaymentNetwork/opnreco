@@ -10,15 +10,16 @@ import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
-import Folder from '@material-ui/icons/Folder';
+//import Folder from '@material-ui/icons/Folder';
 import List from '@material-ui/core/List';
+//import ListAlt from '@material-ui/icons/ListAlt';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import ProfileSelector from './ProfileSelector';
 import PropTypes from 'prop-types';
 import React from 'react';
-import Settings from '@material-ui/icons/Settings';
+//import Settings from '@material-ui/icons/Settings';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
 import TableChart from '@material-ui/icons/TableChart';
@@ -182,7 +183,7 @@ class OPNDrawer extends React.Component {
 
   handleFiles() {
     this.props.dispatch(closeDrawer());
-    this.props.history.push('/files');
+    this.props.history.push('/file');
   }
 
   handleSettings() {
@@ -213,6 +214,7 @@ class OPNDrawer extends React.Component {
           <ListItemText primary="Reports" />
         </ListItem>
 
+        {/*
         <ListItem
           button
           onClick={this.binder(this.handleFiles)}
@@ -228,6 +230,7 @@ class OPNDrawer extends React.Component {
           <ListItemIcon><Settings/></ListItemIcon>
           <ListItemText primary="Settings" />
         </ListItem>
+        */}
 
         <ListItem
           button
