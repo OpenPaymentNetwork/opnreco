@@ -60,13 +60,14 @@ def transfer_record_view(context, request, complete=False):
         raise HTTPBadRequest(json_body={
             'error': 'transfer_not_found',
             'error_description': (
-                'Transfer %s is not found in your OPN Reports database.'
-                % transfer_id_input),
+                "Transfer %s is not found in the OPN Reconciliation "
+                "database for %s."
+                % (transfer_id_input, owner.title)),
         })
 
-    # Note: there are effectively two copies of every row in the Movement
-    # table because we store a movement row for both the peer and the 'c'
-    # peer. Disambiguate.
+    # Note: there are exactly two copies of every row in the Movement
+    # table because we store a movement row for both the original peer
+    # and the 'c' peer. Disambiguate.
     if is_circ:
         movement_filter = (Movement.peer_id == 'c')
     else:
@@ -87,6 +88,7 @@ def transfer_record_view(context, request, complete=False):
 
     need_peer_ids = set()
     need_loop_ids = set()
+
     # peer_appearance is used for sorting the peers by order of
     # appearance in the transfer.
     # peer_appearance: {peer_id: [(movement_number, amount_index)]}

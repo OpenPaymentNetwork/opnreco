@@ -42,7 +42,7 @@ class MovementTableBody extends React.Component {
     history: PropTypes.object.isRequired,
     movements: PropTypes.array,
     changeMovements: PropTypes.func.isRequired,
-    isCirc: PropTypes.bool,
+    showVault: PropTypes.bool,
   };
 
   constructor(props) {
@@ -60,13 +60,13 @@ class MovementTableBody extends React.Component {
   }
 
   renderItemCells(movement, addCandidate) {
-    const {classes, isCirc} = this.props;
+    const {classes, showVault} = this.props;
     const tid = dashed(movement.transfer_id);
     const cellClass = (
       addCandidate ? classes.candidateCell : classes.numberCell);
 
     let vaultCell;
-    if (isCirc) {
+    if (showVault) {
       if (movement.vault_delta && movement.vault_delta !== '0') {
         vaultCell = (
           <td className={cellClass}>
@@ -120,13 +120,13 @@ class MovementTableBody extends React.Component {
       dispatch,
       movements,
       changeMovements,
-      isCirc,
+      showVault,
       ...otherProps
     } = this.props;
 
     let columnHeadRow;
 
-    if (isCirc) {
+    if (showVault) {
       columnHeadRow = (
         <tr key="head2">
           <th width="10%" className={classes.head2Cell}></th>
@@ -150,10 +150,10 @@ class MovementTableBody extends React.Component {
         dispatch={dispatch}
         items={movements}
         changeItems={changeMovements}
-        isCirc={isCirc}
+        showVault={showVault}
         renderItemCells={this.binder(this.renderItemCells)}
         searchFields={[
-          {name: 'amount', colSpan: isCirc ? 2 : 1},
+          {name: 'amount', colSpan: showVault ? 2 : 1},
           {name: 'date'},
           {name: 'transfer'},
         ]}

@@ -445,9 +445,9 @@ class RecoPopover extends React.Component {
       return <CircularProgress />;
     }
 
-    const isCirc = reco.is_circ;
+    const showVault = reco.show_vault;
     const recoType = reco.reco_type;
-    const colCount = isCirc ? 5 : 4;
+    const colCount = showVault ? 5 : 4;
 
     let accountEntryTableBody = null;
     if (recoType !== 'wallet_only') {
@@ -459,7 +459,7 @@ class RecoPopover extends React.Component {
           updatePopoverPosition={this.binder(this.updatePopoverPosition)}
           accountEntries={reco.account_entries}
           changeAccountEntries={this.binder(this.changeAccountEntries)}
-          isCirc={isCirc}
+          showVault={showVault}
           resetCount={resetCount}
           close={close}
           recoId={recoId}
@@ -479,7 +479,7 @@ class RecoPopover extends React.Component {
           updatePopoverPosition={this.binder(this.updatePopoverPosition)}
           movements={reco.movements}
           changeMovements={this.binder(this.changeMovements)}
-          isCirc={isCirc}
+          showVault={showVault}
           resetCount={resetCount}
           close={close}
           recoId={recoId}

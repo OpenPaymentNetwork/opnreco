@@ -189,7 +189,10 @@ def reco_view(context, request, complete=False):
         movement_rows = account_entry_rows = ()
 
     need_loop_ids = set()
+    show_vault = file.peer_id == 'c'
     for row in movement_rows:
+        if row.vault_delta:
+            show_vault = True
         need_loop_ids.add(row.loop_id)
 
     movements_json = render_movement_rows(movement_rows)
@@ -206,7 +209,7 @@ def reco_view(context, request, complete=False):
         'movements': movements_json,
         'account_entries': account_entries_json,
         'loops': loops,
-        'is_circ': file.peer_id == 'c',
+        'show_vault': show_vault,
     }
 
 

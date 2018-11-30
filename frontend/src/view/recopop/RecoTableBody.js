@@ -109,7 +109,7 @@ class RecoTableBody extends React.Component {
     updatePopoverPosition: PropTypes.func.isRequired,
     items: PropTypes.array,
     changeItems: PropTypes.func.isRequired,
-    isCirc: PropTypes.bool,
+    showVault: PropTypes.bool,
     resetCount: PropTypes.number.isRequired,
     recoId: PropTypes.string,
     renderItemCells: PropTypes.func.isRequired,
@@ -381,7 +381,7 @@ class RecoTableBody extends React.Component {
       tableTitle,
       columnHeadRow,
       searchFields,
-      isCirc,
+      showVault,
     } = this.props;
 
     const {
@@ -391,7 +391,7 @@ class RecoTableBody extends React.Component {
       searching,
     } = this.state;
 
-    const colCount = isCirc ? 5 : 4;
+    const colCount = showVault ? 5 : 4;
 
     const rows = [
       (<tr key="head1">

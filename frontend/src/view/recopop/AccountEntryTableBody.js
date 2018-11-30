@@ -35,7 +35,7 @@ class AccountEntryTableBody extends React.Component {
     classes: PropTypes.object.isRequired,
     accountEntries: PropTypes.array,
     changeAccountEntries: PropTypes.func.isRequired,
-    isCirc: PropTypes.bool,
+    showVault: PropTypes.bool,
   };
 
   constructor(props) {
@@ -45,7 +45,7 @@ class AccountEntryTableBody extends React.Component {
   }
 
   renderItemCells(entry, addCandidate) {
-    const {classes, isCirc} = this.props;
+    const {classes, showVault} = this.props;
     const numCell = `${classes.cell} ${classes.numberCell}` + (
       addCandidate ? ` ${classes.candidateCell}` : '');
     const txtCell = `${classes.cell}` + (
@@ -53,7 +53,7 @@ class AccountEntryTableBody extends React.Component {
 
     return (
       <React.Fragment>
-        <td className={numCell} colSpan={isCirc ? 2 : 1}>
+        <td className={numCell} colSpan={showVault ? 2 : 1}>
           {getCurrencyDeltaFormatter(entry.currency)(entry.delta)
           } {entry.currency}
         </td>
@@ -74,13 +74,13 @@ class AccountEntryTableBody extends React.Component {
       classes,
       accountEntries,
       changeAccountEntries,
-      isCirc,
+      showVault,
       ...otherProps
     } = this.props;
 
     let columnHeadRow;
 
-    if (isCirc) {
+    if (showVault) {
       columnHeadRow = (
         <tr key="head2">
           <th width="10%" className={classes.head2Cell}></th>
@@ -102,10 +102,10 @@ class AccountEntryTableBody extends React.Component {
       <RecoTableBody
         items={accountEntries}
         changeItems={changeAccountEntries}
-        isCirc={isCirc}
+        showVault={showVault}
         renderItemCells={this.binder(this.renderItemCells)}
         searchFields={[
-          {name: 'delta', colSpan: isCirc ? 2 : 1},
+          {name: 'delta', colSpan: showVault ? 2 : 1},
           {name: 'entry_date'},
           {name: 'desc'},
         ]}
