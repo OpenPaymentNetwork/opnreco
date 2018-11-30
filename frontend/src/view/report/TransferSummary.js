@@ -98,7 +98,7 @@ class TransferSummary extends React.Component {
     profileId: PropTypes.string.isRequired,
     recordURL: PropTypes.string,
     record: PropTypes.object,
-    recordCompleteURL: PropTypes.string,
+    recordFinalURL: PropTypes.string,
     loading: PropTypes.bool,
     loadError: PropTypes.any,
     transferId: PropTypes.string,
@@ -307,7 +307,7 @@ class TransferSummary extends React.Component {
       classes,
       recordURL,
       record,
-      recordCompleteURL,
+      recordFinalURL,
       loading,
       loadError,
       transferId,
@@ -323,14 +323,15 @@ class TransferSummary extends React.Component {
       );
     }
 
-    const requireURLs = [recordURL];
-    if (recordCompleteURL) {
-      requireURLs.push(recordCompleteURL);
-    }
     const require = (
       <Require fetcher={fOPNReport}
-        urls={requireURLs}
-        options={{suppressServerError: true}} />);
+        urls={[recordURL]}
+        options={{
+          // If there's an error, this component will show it. Don't
+          // pop up a dialog.
+          suppressServerError: true,
+          finalURL: recordFinalURL,
+        }} />);
 
     let content;
 
@@ -394,28 +395,18 @@ function mapStateToProps(state, ownProps) {
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
       `&transfer_id=${encodeURIComponent(transferId)}`);
     const recordURL = fOPNReport.pathToURL(`/transfer-record?${query}`);
+    const recordFinalURL = fOPNReport.pathToURL(
+      `/transfer-record-final?${query}`);
     let record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);
-    let recordCompleteURL = null;
-
-    if (record) {
-      // Now that the initial record is loaded, load the complete record,
-      // which often takes longer because it updates all profiles and loops.
-      recordCompleteURL = fOPNReport.pathToURL(
-        `/transfer-record-complete?${query}`);
-      const recordComplete = fetchcache.get(state, recordCompleteURL);
-      if (recordComplete) {
-        record = recordComplete;
-      }
-    }
 
     return {
       profileId,
       transferId,
       recordURL,
       record,
-      recordCompleteURL,
+      recordFinalURL,
       loading,
       loadError,
     };

@@ -106,7 +106,7 @@ class RecoPopover extends React.Component {
     ploopKey: PropTypes.string,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
-    recoCompleteURL: PropTypes.string,
+    recoFinalURL: PropTypes.string,
     reco: PropTypes.object,
   };
 
@@ -509,7 +509,7 @@ class RecoPopover extends React.Component {
       anchorEl,
       recoId,
       recoURL,
-      recoCompleteURL,
+      recoFinalURL,
     } = this.props;
 
     const {
@@ -522,11 +522,13 @@ class RecoPopover extends React.Component {
 
     let require = null;
     if (recoURL && open) {
-      const requireURLs = [recoURL];
-      if (recoCompleteURL) {
-        requireURLs.push(recoCompleteURL);
-      }
-      require = <Require urls={requireURLs} fetcher={fOPNReport} />;
+      require = (
+        <Require
+          urls={[recoURL]}
+          fetcher={fOPNReport}
+          options={{
+            finalURL: recoFinalURL,
+          }} />);
     }
 
     let comment = '';
@@ -670,8 +672,7 @@ function mapStateToProps(state, ownProps) {
   const {ploop, file} = getPloopAndFile(state);
   const ploopKey = ploop ? ploop.ploop_key : '';
   const fileId = file ? file.file_id : 'current';
-  let recoURL, reco;
-  let recoCompleteURL = null;
+  let recoURL, recoFinalURL, reco;
 
   if (ploop) {
     const query = (
@@ -681,26 +682,18 @@ function mapStateToProps(state, ownProps) {
       `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
       `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`);
     recoURL = fOPNReport.pathToURL(`/reco?${query}`);
+    recoFinalURL = fOPNReport.pathToURL(`/reco-final?${query}`);
     reco = fetchcache.get(state, recoURL);
-
-    if (reco) {
-      // Now that the initial record is loaded, load the complete record,
-      // which often takes longer because it updates all profiles and loops.
-      recoCompleteURL = fOPNReport.pathToURL(`/reco-complete?${query}`);
-      const recoComplete = fetchcache.get(state, recoCompleteURL);
-      if (recoComplete) {
-        reco = recoComplete;
-      }
-    }
 
   } else {
     recoURL = '';
+    recoFinalURL = '';
     reco = null;
   }
 
   return {
     recoURL,
-    recoCompleteURL,
+    recoFinalURL,
     reco,
     ploopKey,
     fileId,

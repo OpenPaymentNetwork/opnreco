@@ -88,12 +88,12 @@ def render_account_entry_rows(account_entry_rows):
 
 
 @view_config(
-    name='reco-complete',
+    name='reco-final',
     context=API,
     permission='use_app',
     renderer='json')
-def reco_complete_view(context, request):
-    return reco_view(context, request, complete=True)
+def reco_final_view(context, request):
+    return reco_view(context, request, final=True)
 
 
 @view_config(
@@ -101,7 +101,7 @@ def reco_complete_view(context, request):
     context=API,
     permission='use_app',
     renderer='json')
-def reco_view(context, request, complete=False):
+def reco_view(context, request, final=False):
     """Return the state of a reco or a movement proposed for a reco."""
 
     file, _peer, _loop = get_request_file(request)
@@ -201,7 +201,7 @@ def reco_view(context, request, complete=False):
     loops = get_loop_map(
         request=request,
         need_loop_ids=need_loop_ids,
-        complete=complete)
+        final=final)
 
     return {
         'reco_type': reco_type,
@@ -218,7 +218,7 @@ def reco_view(context, request, complete=False):
     context=API,
     permission='use_app',
     renderer='json')
-def reco_search_movement_view(context, request, complete=False):
+def reco_search_movement_view(context, request, final=False):
     """Search for movements that haven't been reconciled."""
 
     file, _peer, _loop = get_request_file(request)
@@ -363,7 +363,7 @@ def reco_search_movement_view(context, request, complete=False):
     context=API,
     permission='use_app',
     renderer='json')
-def reco_search_account_entries(context, request, complete=False):
+def reco_search_account_entries(context, request, final=False):
     """Search for account entries that haven't been reconciled."""
 
     file, _peer, _loop = get_request_file(request)

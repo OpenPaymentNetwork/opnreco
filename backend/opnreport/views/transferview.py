@@ -12,12 +12,12 @@ import collections
 
 
 @view_config(
-    name='transfer-record-complete',
+    name='transfer-record-final',
     context=API,
     permission='use_app',
     renderer='json')
-def transfer_record_complete_view(context, request):
-    return transfer_record_view(context, request, complete=True)
+def transfer_record_final_view(context, request):
+    return transfer_record_view(context, request, final=True)
 
 
 @view_config(
@@ -25,7 +25,7 @@ def transfer_record_complete_view(context, request):
     context=API,
     permission='use_app',
     renderer='json')
-def transfer_record_view(context, request, complete=False):
+def transfer_record_view(context, request, final=False):
     """Prepare all the info for displaying a transfer record.
 
     Requires peer_key, file_id, and transfer_id in the query string.
@@ -34,7 +34,7 @@ def transfer_record_view(context, request, complete=False):
 
     To optimize for performance, this view should not fetch peer and
     loop titles by default. It should fetch updates when accessed
-    as 'transfer-record-complete'.
+    as 'transfer-record-final'.
     """
     file, peer, loop = get_request_file(request)
 
@@ -115,12 +115,12 @@ def transfer_record_view(context, request, complete=False):
     peers = get_peer_map(
         request=request,
         need_peer_ids=need_peer_ids,
-        complete=complete)
+        final=final)
 
     loops = get_loop_map(
         request=request,
         need_loop_ids=need_loop_ids,
-        complete=complete)
+        final=final)
 
     movements_json = []
     # delta_totals: {(currency, loop_id): {'vault', 'wallet'}}

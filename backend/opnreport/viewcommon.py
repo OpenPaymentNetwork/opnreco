@@ -93,13 +93,13 @@ def fetch_peers(request, input_peers):
     return res
 
 
-def get_peer_map(request, need_peer_ids, complete):
+def get_peer_map(request, need_peer_ids, final):
     """Given a list of peer_ids, get a map of peers.
 
     Return:
     {peer_id: {'title', 'username', 'is_dfi_account', ['is_circ']}}.
 
-    Update old peers from OPN if the 'complete' param is true.
+    Update old peers from OPN if the 'final' param is true.
     """
     owner = request.owner
     owner_id = owner.id
@@ -147,7 +147,7 @@ def get_peer_map(request, need_peer_ids, complete):
             'is_dfi_account': False,
         }
 
-    if complete:
+    if final:
         # Update all of the peers involved in this transfer.
         peers.update(fetch_peers(request, peers))
 
@@ -222,10 +222,10 @@ def fetch_loops(request, input_loops):
     return res
 
 
-def get_loop_map(request, need_loop_ids, complete=False):
+def get_loop_map(request, need_loop_ids, final=False):
     """Given a list of loop_ids, get {loop_id: {'title'}}.
 
-    Update old loops from OPN if the 'complete' param is true.
+    Update old loops from OPN if the 'final' param is true.
     """
     if '0' in need_loop_ids:
         need_loop_ids = set(need_loop_ids)
@@ -243,7 +243,7 @@ def get_loop_map(request, need_loop_ids, complete=False):
 
     loops = {row.loop_id: {'title': row.title} for row in loop_rows}
 
-    if complete:
+    if final:
         # Update all of the loops involved in this transfer.
         loops.update(fetch_loops(request, loops))
 

@@ -238,8 +238,12 @@ export class FetchCache {
       clear,
       keepFresh,
       fetcher,
+      finalURL,
+      useFinalURL,
       ...fetchOptions
     } = options;
+
+    const fetchURL = finalURL && useFinalURL ? finalURL : url;
 
     let promise;
     if (fetcher) {
@@ -248,11 +252,11 @@ export class FetchCache {
         ...fetchOptions,
         isCurrent,
       };
-      promise = dispatch(fetcher.fetch(url, fetcherOptions));
+      promise = dispatch(fetcher.fetch(fetchURL, fetcherOptions));
     } else {
       // Fetch without the features of a fetcher (such as access token
       // refresh, error display, status code checking, etc.)
-      promise = fetch(url, fetchOptions);
+      promise = fetch(fetchURL, fetchOptions);
     }
 
     const actionTypes = this.actionTypes;
@@ -266,6 +270,15 @@ export class FetchCache {
           options,
         },
       });
+
+      if (finalURL && !useFinalURL) {
+        // A final URL was provided and has not been used yet.
+        // Now get the slower, final version of the data.
+        dispatch(this.fetchNow(url, {
+          ...options,
+          useFinalURL: true,
+        }));
+      }
     }).catch((error) => {
       dispatch({
         type: isCurrent() ? actionTypes.ERROR : actionTypes.ERROR_STALE,
@@ -421,6 +434,11 @@ export class FetchCache {
 
       [actionTypes.ERROR]: (state, action) => {
         const {options, url, message} = action.payload;
+        if (options.useFinalURL) {
+          // Ignore errors when retrieving the final URL. The initial
+          // URL worked so just leave well enough alone.
+          return state;
+        }
         const expires = Date.now() + this.error_expires_ms;
         return {
           meta: {
