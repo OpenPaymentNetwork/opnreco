@@ -295,7 +295,7 @@ class RecoReport extends React.Component {
 
     const reportDate = renderReportDate(file, recoReport.now);
 
-    const cfmt = new getCurrencyFormatter(currency);
+    const cfmt = new getCurrencyFormatter(ploop.currency);
 
     const labelCellCN = `${classes.cell} ${classes.labelCell}`;
     const amountCellCN = `${classes.cell} ${classes.amountCell}`;
