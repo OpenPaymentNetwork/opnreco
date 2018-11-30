@@ -121,7 +121,7 @@ def ploops_view(request):
     file_alias = aliased(File, subq)
     file_filters = [subq.c.rownum <= 10]
     # if selected_file_id:
-    #     file_filters.append(file_alias.id == selected_file_id)
+    #     file_filters.append(subq.c.id == selected_file_id)
     file_rows_query = (
         dbsession.query(file_alias)
         .filter(or_(*file_filters)))
