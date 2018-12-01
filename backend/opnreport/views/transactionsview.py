@@ -2,23 +2,22 @@
 from decimal import Decimal
 from opnreport.models.db import AccountEntry
 from opnreport.models.db import Movement
+from opnreport.models.db import now_func
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
-from opnreport.models.db import now_func
 from opnreport.models.site import API
+from opnreport.param import get_offset_limit
 from opnreport.param import get_request_file
-from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
-from sqlalchemy import func
+from sqlalchemy import BigInteger
 from sqlalchemy import case
 from sqlalchemy import cast
-from sqlalchemy import BigInteger
 from sqlalchemy import Date
 from sqlalchemy import DateTime
+from sqlalchemy import func
 from sqlalchemy import Numeric
 from sqlalchemy import String
 import collections
-import re
 
 
 null = None
@@ -52,19 +51,7 @@ def start_query(dbsession):
 def transactions_view(request):
     file, peer, loop = get_request_file(request)
     params = request.params
-
-    offset_str = params.get('offset', '')
-    if not re.match(r'^[0-9]+$', offset_str):
-        raise HTTPBadRequest(json_body={'error': 'offset required'})
-    offset = max(int(offset_str), 0)
-
-    limit_str = params.get('limit', '')
-    if limit_str == 'none':
-        limit = None
-    else:
-        if not re.match(r'^[0-9]+$', limit_str):
-            raise HTTPBadRequest(json_body={'error': 'limit required'})
-        limit = max(int(limit_str), 0)
+    offset, limit = get_offset_limit(params)
 
     dbsession = request.dbsession
     owner = request.owner

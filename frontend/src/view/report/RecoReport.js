@@ -126,11 +126,11 @@ class RecoReport extends React.Component {
   }
 
   renderOutstanding(sign, cfmt) {
-    const {classes, recoReport, expanded, file} = this.props;
+    const {classes, recoReport, expanded, ploop} = this.props;
     const {workflow_types, outstanding_map} = recoReport;
 
     const wfTypes = workflow_types[sign] || {};
-    const isCirc = (file.peer_id === 'c');
+    const isCirc = (ploop.peer_id === 'c');
 
     const sortable = [];
     Object.keys(wfTypes).forEach(wfType => {
@@ -266,8 +266,8 @@ class RecoReport extends React.Component {
       ploop,
       file,
     } = this.props;
-    if (!recoReportURL || !ploop || !file) {
-      // No peer loop or file selected.
+    if (!recoReportURL || !ploop) {
+      // No peer loop selected.
       return null;
     }
 
@@ -301,7 +301,7 @@ class RecoReport extends React.Component {
     const amountCellCN = `${classes.cell} ${classes.amountCell}`;
 
     let headRow, recoTotalRow, outstandingTotalRow, columnCount;
-    if (file.peer_id === 'c') {
+    if (ploop.peer_id === 'c') {
       columnCount = 4;
       headRow = (
         <tr>
@@ -377,6 +377,7 @@ class RecoReport extends React.Component {
     }
 
     const {peer_title, currency, loop_id, loop_title} = ploop;
+
     return (
       <Typography className={classes.root} component="div">
         {require}

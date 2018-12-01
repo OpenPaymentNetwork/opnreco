@@ -7,7 +7,6 @@ from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
-from opnreport.serialize import serialize_file
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -207,7 +206,6 @@ def reco_report_view(request):
 
     return {
         'now': now,
-        'file': serialize_file(file, peer, loop),
         'reconciled_totals': reconciled_totals,
         'outstanding_totals': outstanding_totals,
         'workflow_types': workflow_types,
