@@ -57,6 +57,11 @@ def transactions_view(request):
     owner = request.owner
     owner_id = owner.id
 
+    # Compose a big query that returns a combination of reconciled rows,
+    # unreconciled account entries, and unreconciled movements.
+    # (The big query causes all ordering and paging to be done in the
+    # database, which is faster than retrieving rows first.)
+
     movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
     reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
@@ -159,13 +164,6 @@ def transactions_view(request):
         .filter(
             Movement.owner_id == owner_id,
             Movement.file_id == file.id,
-
-            # The peer_id, loop_id, and currency conditions are redudandant,
-            # but they might help avoid accidents.
-            Movement.peer_id == file.peer_id,
-            Movement.loop_id == file.loop_id,
-            Movement.currency == file.currency,
-
             movement_delta != 0,
             Movement.reco_id == null,
         ),

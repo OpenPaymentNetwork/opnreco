@@ -1,5 +1,6 @@
 
 import Settings from '../settings/Settings';
+import FileView from '../file/FileView';
 import Home from '../home/Home';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
@@ -95,6 +96,7 @@ class App extends React.Component {
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/:tab(t)/:transferId" component={Home} />
+                <Route path="/file/:file_id" component={FileView} />
                 <Route path="/:tab(|reco|transactions|liabilities|t|file)" component={Home} />
                 <Route component={NotFound} />
               </Switch>

@@ -626,9 +626,9 @@ class RecoSave:
             raise HTTPBadRequest(json_body={
                 'error': 'invalid_movement_id',
                 'error_description': (
-                    "One or more of the movements specified is not "
-                    "eligible for reconciliation. A movement may have "
-                    "been reconciled previously. "
+                    "One (or more) of the movements specified is not "
+                    "eligible for this reconciliation. Some movements "
+                    "may have been reconciled previously. "
                     "Try re-syncing with OPN."),
             })
 
@@ -728,6 +728,7 @@ class RecoSave:
                 .filter(
                     AccountEntry.owner_id == owner_id,
                     AccountEntry.id.in_(reusing_ids),
+                    AccountEntry.peer_id == file.peer_id,
                     AccountEntry.currency == file.currency,
                     AccountEntry.loop_id == file.loop_id,
                     or_(
@@ -742,10 +743,10 @@ class RecoSave:
                 raise HTTPBadRequest(json_body={
                     'error': 'invalid_account_entry_id',
                     'error_description': (
-                        "One or more of the account entries specified is not "
-                        "eligible for reconciliation. An account entry "
-                        "may have been reconciled previously. "
-                        "Try re-syncing with OPN."),
+                        "One (or more) of the account entries specified "
+                        "is not eligible for this reconciliation. "
+                        "Some account entries may have been reconciled "
+                        "previously. Try re-syncing with OPN."),
                 })
 
             res.extend(reusing_entries)

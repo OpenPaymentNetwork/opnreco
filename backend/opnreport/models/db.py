@@ -6,6 +6,7 @@ from sqlalchemy import Column
 from sqlalchemy import Date
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import func
 from sqlalchemy import Index
 from sqlalchemy import Integer
@@ -153,6 +154,15 @@ Index(
     unique=True)
 
 
+Index(
+    'ix_file_peer_unique',
+    File.id,
+    File.peer_id,
+    File.loop_id,
+    File.currency,
+    unique=True)
+
+
 class TransferRecord(Base):
     """An owner's transfer record.
 
@@ -281,8 +291,7 @@ class Movement(Base):
     # Mutable fields
     ################
 
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'), nullable=False, index=True)
+    file_id = Column(BigInteger, nullable=False, index=True)
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
 
@@ -292,6 +301,12 @@ class Movement(Base):
     reco_wallet_delta = Column(Numeric, nullable=False)
 
     __table_args__ = (
+        ForeignKeyConstraint(
+            # This FK ensures the peer_id, loop_id, and currency
+            # match the file.
+            ['file_id', 'peer_id', 'loop_id', 'currency'],
+            ['file.id', 'file.peer_id', 'file.loop_id', 'file.currency'],
+        ),
         CheckConstraint(or_(
             reco_wallet_delta == wallet_delta,
             reco_wallet_delta == 0
@@ -339,15 +354,22 @@ class Statement(Base):
     # peer_id is either an OPN holder ID or
     # the letter 'c' for circulating.
     peer_id = Column(String, nullable=False)
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'),
-        nullable=False, index=True)
+    file_id = Column(BigInteger, nullable=False, index=True)
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     ext_ids = Column(Unicode, nullable=True)
     content = Column(JSONB, nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            # This FK ensures the peer_id, loop_id, and currency
+            # match the file.
+            ['file_id', 'peer_id', 'loop_id', 'currency'],
+            ['file.id', 'file.peer_id', 'file.loop_id', 'file.currency'],
+        ),
+        {})
 
 
 class AccountEntry(Base):
@@ -357,9 +379,7 @@ class AccountEntry(Base):
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
     peer_id = Column(String, nullable=False)
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'),
-        nullable=False, index=True)
+    file_id = Column(BigInteger, nullable=False, index=True)
     # statement_id is null for manual account entries.
     statement_id = Column(
         BigInteger, ForeignKey('statement.id'),
@@ -386,6 +406,15 @@ class AccountEntry(Base):
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
 
     file = relationship(File)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            # This FK ensures the peer_id, loop_id, and currency
+            # match the file.
+            ['file_id', 'peer_id', 'loop_id', 'currency'],
+            ['file.id', 'file.peer_id', 'file.loop_id', 'file.currency'],
+        ),
+        {})
 
 
 class AccountEntryLog(Base):

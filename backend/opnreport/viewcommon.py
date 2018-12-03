@@ -1,8 +1,14 @@
 
+from decimal import Decimal
+from opnreport.models.db import AccountEntry
+from opnreport.models.db import File
 from opnreport.models.db import Loop
+from opnreport.models.db import Movement
 from opnreport.models.db import now_func
 from opnreport.models.db import Peer
 from opnreport.util import check_requests_response
+from sqlalchemy import and_
+from sqlalchemy import func
 import datetime
 import os
 import requests
@@ -248,3 +254,140 @@ def get_loop_map(request, need_loop_ids, final=False):
         loops.update(fetch_loops(request, loops))
 
     return loops
+
+
+def compute_file_totals(dbsession, owner_id, file_ids):
+    """Compute the balances and deltas for a set of files.
+
+    Gets the start balances (circ, surplus, and combined) and computes:
+    - reconciled_delta
+    - reconciled_total
+    - outstanding_delta
+    - end
+
+    Return:
+    {file_id: {
+        'start': {'circ', 'surplus', 'combined'},
+        'reconciled_delta': {'circ', 'surplus', 'combined'},
+        'reconciled_total': {'circ', 'surplus', 'combined'},
+        'outstanding_delta': {'circ', 'surplus', 'combined'},
+        'end': {'circ', 'surplus', 'combined'},
+    }
+    """
+    res = {}
+    zero = Decimal('0')
+
+    # Get the file start balances.
+    rows = (
+        dbsession.query(
+            File.id,
+            File.start_circ.label('circ'),
+            File.start_surplus.label('surplus'),
+        )
+        .filter(
+            File.owner_id == owner_id,
+            File.id.in_(file_ids),
+        )
+        .all())
+    for row in rows:
+        res[row.id] = {
+            'start': {
+                'circ': row.circ,
+                'surplus': row.surplus,
+                'combined': row.circ + row.surplus,
+            },
+            'reconciled_delta': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+            'reconciled_total': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+            'outstanding_delta': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+            'end': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+        }
+
+    # Gather the circulation amounts from reconciled movements.
+    rows = (
+        dbsession.query(
+            Movement.file_id,
+            func.sum(-Movement.vault_delta).label('circ'),
+        )
+        .filter(
+            Movement.owner_id == owner_id,
+            Movement.reco_id != null,
+            Movement.file_id.in_(file_ids),
+        )
+        .group_by(Movement.file_id)
+        .all())
+    for row in rows:
+        m = res[row.file_id]['reconciled_delta']
+        m['circ'] = row.circ
+
+    # Gather the combined amounts from reconciled account entries.
+    # Compute the surplus as the difference between the reconciled
+    # account entries and the reconciled movements.
+    rows = (
+        dbsession.query(
+            AccountEntry.file_id,
+            func.sum(AccountEntry.delta).label('combined'),
+        )
+        .filter(
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.reco_id != null,
+            AccountEntry.file_id.in_(file_ids),
+        )
+        .group_by(AccountEntry.file_id)
+        .all())
+    for row in rows:
+        m = res[row.file_id]['reconciled_delta']
+        m['surplus'] = row.combined - m['circ']
+        m['combined'] = row.combined
+
+    # Gather the amounts from unreconciled movements.
+    rows = (
+        dbsession.query(
+            Movement.file_id,
+            func.sum(-Movement.vault_delta).label('circ'),
+            func.sum(-Movement.reco_wallet_delta).label('surplus'),
+        )
+        .filter(
+            Movement.owner_id == owner_id,
+            Movement.reco_id == null,
+            Movement.file_id.in_(file_ids),
+        )
+        .group_by(Movement.file_id)
+        .all())
+    for row in rows:
+        m = res[row.file_id]['outstanding_delta']
+        m['circ'] = row.circ
+        m['surplus'] = row.surplus
+        m['combined'] = row.circ + row.surplus
+
+    # Note that this code ignore the amounts from unreconciled account
+    # entries. That's because there are two kinds of unreconciled
+    # account entries, the majority of which are represented by
+    # unreconciled movements that have been included in the totals
+    # already. Unreconciled account entries from sources other than
+    # movements will nearly always throw off the account surplus balance,
+    # which should make them obvious to the people performing
+    # reconciliation.
+
+    for m in res.values():
+        for k in 'circ', 'surplus', 'combined':
+            reconciled_total = m['start'][k] + m['reconciled_delta'][k]
+            m['reconciled_total'][k] = reconciled_total
+            m['end'][k] = reconciled_total + m['outstanding_delta'][k]
+
+    return res

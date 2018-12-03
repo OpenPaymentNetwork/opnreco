@@ -138,6 +138,10 @@ class FilesView extends React.Component {
     this.binder1 = binder1(this);
   }
 
+  handleClickFile(fileId) {
+    this.props.history.push('/file/' + fileId);
+  }
+
   renderTableBody(showCirc) {
     const {
       classes,
@@ -149,13 +153,10 @@ class FilesView extends React.Component {
     const rows = [];
     const ccStartDate = classes.cell;
     const ccEndDate = classes.cellRight;
-    const ccStatus = classes.cellLeftRight;
     const ccStartCirc = `${classes.cellLeft} ${classes.right}`;
     const ccEndCirc = `${classes.cellRight} ${classes.right}`;
     const ccStartCombined = `${classes.cellLeft} ${classes.right}`;
     const ccEndCombined = `${classes.cell} ${classes.right}`;
-    const ccStatementSpacer = `${classes.cellRight}`;
-    const ccStatementList = `${classes.cellLeft}`;
 
     content.files.forEach(file => {
       rows.push(
@@ -163,48 +164,37 @@ class FilesView extends React.Component {
           key={file.file_id}
           data-file-id={file.file_id}
           className={classes.fileRow}
+          onClick={this.binder1(this.handleClickFile, file.file_id)}
         >
-          <td className={ccStartDate} width="15%">
+          <td className={ccStartDate} width="20%">
             {file.start_date ?
               <FormattedDate value={file.start_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
-              : '-'}
+              : '(Initial file)'}
           </td>
-          <td className={ccEndDate} width="15%">
+          <td className={ccEndDate} width="20%">
             {file.end_date ?
               <FormattedDate value={file.end_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
-              : '-'}
-          </td>
-          <td className={ccStatus} width="20%">
+              : '(In progress)'}
           </td>
           {showCirc ?
-            <td className={ccStartCirc} width="10%">
+            <td className={ccStartCirc} width="15%">
               {cfmt(file.start_circ)}
             </td>
             : null}
           {showCirc ?
-            <td className={ccEndCirc} width="10%">
+            <td className={ccEndCirc} width="15%">
               {cfmt(file.end_circ)}
             </td>
             : null}
-          <td className={ccStartCombined} width="10%">
+          <td className={ccStartCombined} width="15%">
             {cfmt(file.start_combined)}
           </td>
-          <td className={ccEndCombined} width="10%">
+          <td className={ccEndCombined} width="15%">
             {file.end_combined ? cfmt(file.end_combined) : 'In progress'}
-          </td>
-        </tr>
-      );
-
-      rows.push(
-        <tr key={`statements-${file.file_id}`}>
-          <td className={ccStatementSpacer} colSpan="2">
-          </td>
-          <td className={ccStatementList} colSpan={showCirc ? 5 : 3}>
-            <em>No statements.</em>
           </td>
         </tr>
       );
@@ -228,7 +218,7 @@ class FilesView extends React.Component {
     const showCirc = (ploop.peer_id === 'c');
 
     if (showCirc) {
-      columnCount = 7;
+      columnCount = 6;
       circHead0 = (
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Circulation</td>
       );
@@ -239,13 +229,12 @@ class FilesView extends React.Component {
         </React.Fragment>
       );
     } else {
-      columnCount = 5;
+      columnCount = 4;
     }
 
     const headRow0 = (
       <tr>
         <td colSpan="2" className={`${classes.headCellRight} ${classes.center}`}>Date</td>
-        <td colSpan="1" className={`${classes.headCellLeftRight} ${classes.center}`}>Status</td>
         {circHead0}
         <td colSpan="2" className={`${classes.headCellLeft} ${classes.center}`}>Balance</td>
       </tr>
@@ -255,7 +244,6 @@ class FilesView extends React.Component {
       <tr>
         <td className={classes.headCell}>Start</td>
         <td className={classes.headCellRight}>End</td>
-        <td className={classes.headCellLeftRight}>Statements</td>
         {circHead1}
         <td className={`${classes.headCellLeft} ${classes.right}`}>Start</td>
         <td className={`${classes.headCell} ${classes.right}`}>End</td>
@@ -272,6 +260,10 @@ class FilesView extends React.Component {
                 <div>
                   {currency}
                   {' '}{loop_id === '0' ? 'Open Loop' : ploop.loop_title}
+                  {' - '}
+                  <FormattedDate
+                    value={new Date()}
+                    day="numeric" month="short" year="numeric" />
                 </div>
               </th>
             </tr>

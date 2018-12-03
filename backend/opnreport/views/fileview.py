@@ -1,10 +1,10 @@
 
 from opnreport.models.db import File
-from opnreport.models.db import Movement
 from opnreport.models.site import API
 from opnreport.param import get_offset_limit
 from opnreport.param import parse_ploop_key
 from opnreport.serialize import serialize_file
+from opnreport.viewcommon import compute_file_totals
 from pyramid.view import view_config
 from sqlalchemy import func
 import datetime
@@ -57,50 +57,17 @@ def files_view(request):
         file.id for file in file_rows
         if file.end_circ is None or file.end_surplus is None]
     if partial_ids:
-        movement_sum_rows = (
-            dbsession.query(
-                Movement.file_id,
-                func.sum(-Movement.vault_delta).label('circ'),
-                func.sum(-Movement.reco_wallet_delta).label('surplus'),
-            )
-            .filter(
-                Movement.owner_id == owner_id,
-                Movement.file_id.in_(partial_ids),
-                # The peer_id, loop_id, and currency conditions are
-                # redudandant, but they might help avoid accidents.
-                Movement.peer_id == peer_id,
-                Movement.loop_id == loop_id,
-                Movement.currency == currency,
-            )
-            .group_by(Movement.file_id)
-            .all())
-
-        # TODO: include the effect of reconciled account entries.
-        # Create a function that computes the amounts for a list
-        # of files. It must separate reconciled movements from
-        # unreconciled movements. Compute just like the current
-        # recoreportview, then make recoreportview use the new function
-        # as well.
-
-        # entry_sum_rows = (
-        #     dbsession.query(
-        #         AccountEntry.file_id,
-        #         func.sum(AccountEntry.delta).label('delta'),
-        #     )
-        #     .filter(
-        #         AccountEntry.owner_id == owner_id,
-        #         AccountEntry.file_id.in_(partial_ids),
-        #         AccountEntry.reco_id != null,
-        #     )
-        #     .group_by(AccountEntry.file_id)
-        #     .all())
-
-        # end_amounts_map = {}
-        # for file_id in partial_ids:
+        totals = compute_file_totals(
+            dbsession=dbsession,
+            owner_id=owner_id,
+            file_ids=partial_ids)
 
         end_amounts_map = {
-            row.file_id: {'circ': row.circ, 'surplus': row.surplus}
-            for row in movement_sum_rows}
+            file_id: {
+                'circ': total['end']['circ'],
+                'surplus': total['end']['surplus'],
+            } for (file_id, total) in totals.items()}
+
     else:
         end_amounts_map = {}
 

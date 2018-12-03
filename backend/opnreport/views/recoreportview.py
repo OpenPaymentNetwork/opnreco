@@ -1,12 +1,12 @@
 
 from decimal import Decimal
-from opnreport.models.db import AccountEntry
 from opnreport.models.db import Movement
 from opnreport.models.db import now_func
 from opnreport.models.db import Reco
 from opnreport.models.db import TransferRecord
 from opnreport.models.site import API
 from opnreport.param import get_request_file
+from opnreport.viewcommon import compute_file_totals
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -34,11 +34,6 @@ def reco_report_view(request):
     movement_filter = and_(
         Movement.owner_id == owner_id,
         Movement.file_id == file_id,
-        # The peer_id, loop_id, and currency conditions are redudandant,
-        # but they might help avoid accidents.
-        Movement.peer_id == file.peer_id,
-        Movement.loop_id == file.loop_id,
-        Movement.currency == file.currency,
         Movement.transfer_record_id == TransferRecord.id,
         movement_delta != 0,
     )
@@ -166,48 +161,15 @@ def reco_report_view(request):
             'combined': str(td) if td else '0',
         }
 
-    reconciled_circ = (
-        dbsession.query(
-            func.sum(-Movement.vault_delta).label('circ'),
-        )
-        .filter(
-            movement_filter,
-            Movement.reco_id != null)
-        .scalar()) or zero
-
-    reconciled_combined = (
-        dbsession.query(func.sum(AccountEntry.delta))
-        .filter(
-            AccountEntry.file_id == file_id,
-            AccountEntry.reco_id != null)
-        .scalar()) or zero
-
-    reconciled_surplus = reconciled_combined - reconciled_circ
-
-    reconciled_totals = {
-        'circ': file.start_circ + reconciled_circ,
-        'surplus': file.start_surplus + reconciled_surplus,
-    }
-    reconciled_totals['combined'] = (
-        reconciled_totals['circ'] + reconciled_totals['surplus'])
-
-    circ_delta_total = sum((row.circ_delta for row in outstanding_rows), zero)
-    surplus_delta_total = (
-        sum((row.surplus_delta for row in outstanding_rows), zero)
-        # + sum((row.delta for row in unreco_entry_rows), zero)
-    )
-    outstanding_totals = {
-        'circ': reconciled_totals['circ'] + circ_delta_total,
-        'surplus': reconciled_totals['surplus'] + surplus_delta_total,
-        'combined': (
-            reconciled_totals['combined'] +
-            circ_delta_total + surplus_delta_total),
-    }
+    totals = compute_file_totals(
+        dbsession=dbsession,
+        owner_id=owner_id,
+        file_ids=[file_id])[file_id]
 
     return {
         'now': now,
-        'reconciled_totals': reconciled_totals,
-        'outstanding_totals': outstanding_totals,
+        'reconciled_totals': totals['reconciled_total'],
+        'outstanding_totals': totals['end'],
         'workflow_types': workflow_types,
         'outstanding_map': outstanding_map,
     }
