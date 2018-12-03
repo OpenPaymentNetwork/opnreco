@@ -334,6 +334,10 @@ def compute_file_totals(dbsession, owner_id, file_ids):
     for row in rows:
         m = res[row.file_id]['reconciled_delta']
         m['circ'] = row.circ
+        # Generate initial surplus and combined values. These apply
+        # only if there are no reconciled account entries.
+        m['surplus'] = -row.circ
+        m['combined'] = zero
 
     # Gather the combined amounts from reconciled account entries.
     # Compute the surplus as the difference between the reconciled
