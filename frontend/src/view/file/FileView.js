@@ -23,6 +23,8 @@ import InputLabel from '@material-ui/core/InputLabel';
 import Input from '@material-ui/core/Input';
 import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
+import Lock from '@material-ui/icons/Lock';
+import LockOpen from '@material-ui/icons/LockOpen';
 
 
 const tableWidth = '800px';
@@ -42,6 +44,14 @@ const styles = {
   },
   saveButton: {
     margin: '16px 16px 16px 0',
+  },
+  lockSelection: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  lockSelectionText: {
+    display: 'block',
+    marginLeft: '8px',
   },
 };
 
@@ -90,11 +100,11 @@ class FileView extends React.Component {
     });
   }
 
-  handleChangeClosed(event) {
+  handleChangeLocked(event) {
     this.setState({
       form: {
         ...this.state.form,
-        closed: event.target.value === 'closed',
+        locked: event.target.value === 'locked',
       },
       changed: true,
     });
@@ -110,22 +120,30 @@ class FileView extends React.Component {
       changed,
     } = this.state;
 
-    const closed = form.closed;
+    const locked = form.locked;
 
     return (
       <Paper className={classes.paperContent}>
         <form className={classes.form} noValidate>
           <FormGroup row>
             <FormControl className={classes.field}>
-              <InputLabel htmlFor="closed-select">File State</InputLabel>
+              <InputLabel htmlFor="locked-select">File State</InputLabel>
               <Select
-                value={form.closed ? 'closed' : 'open'}
-                onChange={this.binder(this.handleChangeClosed)}
-                input={<Input name="closed" id="closed-select" />}
+                value={form.locked ? 'locked' : 'unlocked'}
+                onChange={this.binder(this.handleChangeLocked)}
+                input={<Input name="locked" id="locked-select" />}
               >
-                <MenuItem value="open">Open - accept changes</MenuItem>
-                <MenuItem value="closed">
-                  Closed - prevent changes
+                <MenuItem value="unlocked">
+                  <div className={classes.lockSelection}>
+                    <LockOpen/>
+                    <span className={classes.lockSelectionText}>Unlocked</span>
+                  </div>
+                </MenuItem>
+                <MenuItem value="locked">
+                  <div className={classes.lockSelection}>
+                    <Lock />
+                    <span className={classes.lockSelectionText}>Locked</span>
+                  </div>
                 </MenuItem>
               </Select>
             </FormControl>
@@ -143,7 +161,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={closed}
+              disabled={locked}
             />
 
             <TextField
@@ -156,7 +174,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={closed}
+              disabled={locked}
             />
           </FormGroup>
 
@@ -170,7 +188,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={closed}
+              disabled={locked}
             />
 
             <TextField
@@ -182,7 +200,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={closed}
+              disabled={locked}
             />
           </FormGroup>
 

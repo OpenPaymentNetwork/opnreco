@@ -193,7 +193,7 @@ class FilesView extends React.Component {
               <FormattedDate value={file.end_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
-              : '(In progress)'}
+              : 'In progress'}
           </td>
           {showCirc ?
             <td className={ccStartCirc} width="12%">
@@ -214,8 +214,8 @@ class FilesView extends React.Component {
           <td className={ccStatements} width="12%" title="Statements">
             {file.statement_count}
           </td>
-          <td className={ccState} width="12%" title={file.closed ? 'Closed' : 'Open'}>
-            {file.closed ? <Lock/> : <LockOpen/>}
+          <td className={ccState} width="12%" title={file.locked ? 'Locked' : 'Unlocked'}>
+            {file.locked ? <Lock/> : <LockOpen/>}
           </td>
         </tr>
       );
@@ -259,7 +259,7 @@ class FilesView extends React.Component {
         {circHead0}
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Balance</td>
         <td className={`${classes.headCellLeft} ${classes.center}`}>Statements</td>
-        <td className={`${classes.headCell} ${classes.center}`}>Open/Closed</td>
+        <td className={`${classes.headCell} ${classes.center}`}>State</td>
       </tr>
     );
 

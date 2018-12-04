@@ -384,14 +384,13 @@ def compute_file_totals(dbsession, owner_id, file_ids):
         m['surplus'] = row.surplus
         m['combined'] = row.circ + row.surplus
 
-    # Note that this code ignore the amounts from unreconciled account
-    # entries. That's because there are two kinds of unreconciled
-    # account entries, the majority of which are represented by
-    # unreconciled movements that have been included in the totals
-    # already. Unreconciled account entries from sources other than
-    # movements will nearly always throw off the account surplus balance,
-    # which should make them obvious to the people performing
-    # reconciliation.
+    # Note that this code does not include the amounts from unreconciled
+    # account entries in the totals. That's because there are two kinds of
+    # unreconciled account entries, the majority of which are represented by
+    # unreconciled movements that have been included in the totals already.
+    # Unreconciled account entries from sources other than movements will
+    # nearly always throw off the account surplus balance, which should make
+    # them obvious to the people performing reconciliation.
 
     for m in res.values():
         for k in 'circ', 'surplus', 'combined':
