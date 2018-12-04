@@ -361,7 +361,7 @@ class Statement(Base):
     currency = Column(String, nullable=False)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
-    ext_ids = Column(Unicode, nullable=True)
+    ext_name = Column(Unicode, nullable=True)
     content = Column(JSONB, nullable=False)
 
     __table_args__ = (

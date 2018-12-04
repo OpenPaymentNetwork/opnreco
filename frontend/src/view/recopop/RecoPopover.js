@@ -449,22 +449,26 @@ class RecoPopover extends React.Component {
     const recoType = reco.reco_type;
     const colCount = showVault ? 5 : 4;
 
+    const tableBodyProps = {
+      close: close,
+      dispatch: dispatch,
+      fileId: fileId,
+      ploopKey: ploopKey,
+      recoId: recoId,
+      resetCount: resetCount,
+      showVault: showVault,
+      updatePopoverPosition: this.binder(this.updatePopoverPosition),
+    };
+
     let accountEntryTableBody = null;
     if (recoType !== 'wallet_only') {
       accountEntryTableBody = (
         <AccountEntryTableBody
-          dispatch={dispatch}
-          fileId={fileId}
-          ploopKey={ploopKey}
-          updatePopoverPosition={this.binder(this.updatePopoverPosition)}
           accountEntries={reco.account_entries}
           changeAccountEntries={this.binder(this.changeAccountEntries)}
-          showVault={showVault}
-          resetCount={resetCount}
-          close={close}
-          recoId={recoId}
           createInputs={createInputs}
           handleCreateInput={this.binder(this.handleCreateInput)}
+          {...tableBodyProps}
         />
       );
     }
@@ -473,16 +477,9 @@ class RecoPopover extends React.Component {
     if (recoType !== 'account_only') {
       movementTableBody = (
         <MovementTableBody
-          dispatch={dispatch}
-          fileId={fileId}
-          ploopKey={ploopKey}
-          updatePopoverPosition={this.binder(this.updatePopoverPosition)}
           movements={reco.movements}
           changeMovements={this.binder(this.changeMovements)}
-          showVault={showVault}
-          resetCount={resetCount}
-          close={close}
-          recoId={recoId}
+          {...tableBodyProps}
         />
       );
     }

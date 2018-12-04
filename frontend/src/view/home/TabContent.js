@@ -78,7 +78,7 @@ export default class TabContent extends React.Component {
     case 't':
       return <TransferSummary ploop={ploop} file={file} />;
     case 'file':
-      return <FilesView ploop={ploop} />;
+      return <FilesView ploop={ploop} file={file} />;
     default:
       return null;
     }

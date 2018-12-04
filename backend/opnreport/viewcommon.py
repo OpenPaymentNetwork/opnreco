@@ -51,18 +51,23 @@ def fetch_peers(request, input_peers):
                 # No update needed.
                 continue
 
-        url = '%s/p/%s' % (api_url, peer_id)
-        headers = {'Authorization': 'Bearer %s' % request.access_token}
-        r = requests.get(url, headers=headers)
-        if check_requests_response(r, raise_exc=False):
+        if peer_id == 'c':
             fetched = True
-            r_json = r.json()
-            title = r_json['title']
-            username = r_json['username']
+            title = request.owner.title
+            username = request.owner.username
         else:
-            fetched = False
-            title = '[Missing Profile %s]' % peer_id
-            username = None
+            url = '%s/p/%s' % (api_url, peer_id)
+            headers = {'Authorization': 'Bearer %s' % request.access_token}
+            r = requests.get(url, headers=headers)
+            if check_requests_response(r, raise_exc=False):
+                fetched = True
+                r_json = r.json()
+                title = r_json['title']
+                username = r_json['username']
+            else:
+                fetched = False
+                title = '[Missing Profile %s]' % peer_id
+                username = None
 
         res[peer_id] = {
             'title': title,

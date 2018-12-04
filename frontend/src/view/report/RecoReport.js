@@ -229,12 +229,12 @@ class RecoReport extends React.Component {
                 </React.Fragment>
               );
             }
+            const handleClick = this.binder1(this.handleClickTransfer, tid);
             res.push(
-              <tr className={transferRowCN} key={movement.movement_id}>
+              <tr className={transferRowCN} key={movement.movement_id}
+                  onClick={handleClick}>
                 <td className={movementCellCN}>
-                  <a href={`/t/${tid}`}
-                    onClick={this.binder1(this.handleClickTransfer, tid)}
-                  >
+                  <a href={`/t/${tid}`} onClick={handleClick}>
                     Transfer {tid} (
                     <span title={movement.ts}>
                       <FormattedDate

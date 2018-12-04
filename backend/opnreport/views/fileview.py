@@ -1,5 +1,7 @@
 
 from opnreport.models.db import File
+from opnreport.models.db import now_func
+from opnreport.models.db import Statement
 from opnreport.models.site import API
 from opnreport.param import get_offset_limit
 from opnreport.param import parse_ploop_key
@@ -54,6 +56,20 @@ def files_view(request):
         list_query = list_query.limit(limit)
     file_rows = list_query.all()
 
+    all_file_ids = [file.id for file in file_rows]
+
+    statement_rows = (
+        dbsession.query(
+            Statement.file_id,
+            func.count(1).label('count'),
+        )
+        .filter(
+            Statement.owner_id == owner_id,
+            Statement.file_id.in_(all_file_ids),
+        )
+        .group_by(Statement.file_id)
+        .all())
+
     # Compute the end_circ and end_surplus for files that haven't computed
     # them yet.
     partial_ids = [
@@ -74,9 +90,14 @@ def files_view(request):
     else:
         end_amounts_map = {}
 
-    files = [
-        serialize_file(f, end_amounts=end_amounts_map.get(f.id))
-        for f in file_rows]
+    statement_map = {row.file_id: row.count for row in statement_rows}
+
+    files = []
+    for f in file_rows:
+        file_id = f.id
+        file_state = serialize_file(f, end_amounts=end_amounts_map.get(f.id))
+        file_state['statement_count'] = statement_map.get(file_id, 0)
+        files.append(file_state)
 
     return {
         'files': files,
@@ -102,6 +123,8 @@ def file_view(request):
     owner = request.owner
     owner_id = owner.id
 
+    now = dbsession.query(now_func).scalar()
+
     file = (
         dbsession.query(File)
         .filter(
@@ -121,11 +144,9 @@ def file_view(request):
         owner_id=owner_id,
         file_ids=[file.id])[file_id]
 
-    end_amounts_map = {
-        file_id: {
-            'circ': totals['end']['circ'],
-            'surplus': totals['end']['surplus'],
-        },
+    end_amounts = {
+        'circ': totals['end']['circ'],
+        'surplus': totals['end']['surplus'],
     }
 
     peers = get_peer_map(
@@ -138,7 +159,8 @@ def file_view(request):
         loops = {}
 
     res = {
-        'file': serialize_file(file, end_amounts=end_amounts_map),
+        'now': now,
+        'file': serialize_file(file, end_amounts=end_amounts),
         'peer': peers.get(file.peer_id),
         'loop': loops.get(file.loop_id),
         'totals': totals,

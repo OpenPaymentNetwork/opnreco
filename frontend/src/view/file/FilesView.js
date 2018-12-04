@@ -16,6 +16,8 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
+import Lock from '@material-ui/icons/Lock';
+import LockOpen from '@material-ui/icons/LockOpen';
 
 
 const tableWidth = 800;
@@ -117,6 +119,9 @@ const styles = {
       backgroundColor: '#eee',
     },
   },
+  fileSelectedRow: {
+    backgroundColor: '#ffe',
+  },
 };
 
 
@@ -131,6 +136,7 @@ class FilesView extends React.Component {
     ploop: PropTypes.object,
     pagerName: PropTypes.string.isRequired,
     initialRowsPerPage: PropTypes.number.isRequired,
+    file: PropTypes.object,
   };
 
   constructor(props) {
@@ -148,6 +154,7 @@ class FilesView extends React.Component {
       classes,
       content,
       ploop,
+      file: selectedFile,
     } = this.props;
 
     const cfmt = new getCurrencyFormatter(ploop.currency);
@@ -157,24 +164,31 @@ class FilesView extends React.Component {
     const ccStartCirc = `${classes.cellLeft} ${classes.right}`;
     const ccEndCirc = `${classes.cellRight} ${classes.right}`;
     const ccStartCombined = `${classes.cellLeft} ${classes.right}`;
-    const ccEndCombined = `${classes.cell} ${classes.right}`;
+    const ccEndCombined = `${classes.cellRight} ${classes.right}`;
+    const ccStatements = `${classes.cellLeft} ${classes.right}`;
+    const ccState = `${classes.cell} ${classes.center}`;
 
     content.files.forEach(file => {
+      let rowClass = classes.fileRow;
+      if (selectedFile && file.file_id === selectedFile.file_id) {
+        rowClass += ' ' + classes.fileSelectedRow;
+      }
+
       rows.push(
         <tr
           key={file.file_id}
           data-file-id={file.file_id}
-          className={classes.fileRow}
+          className={rowClass}
           onClick={this.binder1(this.handleClickFile, file.file_id)}
         >
-          <td className={ccStartDate} width="20%">
+          <td className={ccStartDate} width="14%">
             {file.start_date ?
               <FormattedDate value={file.start_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
-              : '(Initial file)'}
+              : 'Initial'}
           </td>
-          <td className={ccEndDate} width="20%">
+          <td className={ccEndDate} width="14%">
             {file.end_date ?
               <FormattedDate value={file.end_date}
                 day="numeric" month="short" year="numeric"
@@ -182,20 +196,26 @@ class FilesView extends React.Component {
               : '(In progress)'}
           </td>
           {showCirc ?
-            <td className={ccStartCirc} width="15%">
+            <td className={ccStartCirc} width="12%">
               {cfmt(file.start_circ)}
             </td>
             : null}
           {showCirc ?
-            <td className={ccEndCirc} width="15%">
+            <td className={ccEndCirc} width="12%">
               {cfmt(file.end_circ)}
             </td>
             : null}
-          <td className={ccStartCombined} width="15%">
+          <td className={ccStartCombined} width="12%">
             {cfmt(file.start_combined)}
           </td>
-          <td className={ccEndCombined} width="15%">
+          <td className={ccEndCombined} width="12%">
             {file.end_combined ? cfmt(file.end_combined) : 'In progress'}
+          </td>
+          <td className={ccStatements} width="12%" title="Statements">
+            {file.statement_count}
+          </td>
+          <td className={ccState} width="12%" title={file.closed ? 'Closed' : 'Open'}>
+            {file.closed ? <Lock/> : <LockOpen/>}
           </td>
         </tr>
       );
@@ -219,7 +239,7 @@ class FilesView extends React.Component {
     const showCirc = (ploop.peer_id === 'c');
 
     if (showCirc) {
-      columnCount = 6;
+      columnCount = 8;
       circHead0 = (
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Circulation</td>
       );
@@ -230,14 +250,16 @@ class FilesView extends React.Component {
         </React.Fragment>
       );
     } else {
-      columnCount = 4;
+      columnCount = 6;
     }
 
     const headRow0 = (
       <tr>
         <td colSpan="2" className={`${classes.headCellRight} ${classes.center}`}>Date</td>
         {circHead0}
-        <td colSpan="2" className={`${classes.headCellLeft} ${classes.center}`}>Balance</td>
+        <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Balance</td>
+        <td className={`${classes.headCellLeft} ${classes.center}`}>Statements</td>
+        <td className={`${classes.headCell} ${classes.center}`}>Open/Closed</td>
       </tr>
     );
 
@@ -247,7 +269,9 @@ class FilesView extends React.Component {
         <td className={classes.headCellRight}>End</td>
         {circHead1}
         <td className={`${classes.headCellLeft} ${classes.right}`}>Start</td>
-        <td className={`${classes.headCell} ${classes.right}`}>End</td>
+        <td className={`${classes.headCellRight} ${classes.right}`}>End</td>
+        <td className={`${classes.headCellLeft} ${classes.center}`}></td>
+        <td className={`${classes.headCell} ${classes.center}`}></td>
       </tr>
     );
 
