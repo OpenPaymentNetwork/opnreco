@@ -454,11 +454,10 @@ function mapStateToProps(state, ownProps) {
   const pagerName = 'transactionReport';
   const initialRowsPerPage = 100;
   const {ploop, file} = ownProps;
-  const pagerState = state.pager[pagerName] || {
-    rowsPerPage: initialRowsPerPage,
-    pageIndex: 0,
-  };
-  const {rowsPerPage, pageIndex} = pagerState;
+
+  const pagerState = state.pager[pagerName] || {};
+  const rowsPerPage = pagerState.rowsPerPage || initialRowsPerPage || 100;
+  const pageIndex = pagerState.pageIndex || 0;
 
   if (ploop) {
     const reportURL = fOPNReport.pathToURL(

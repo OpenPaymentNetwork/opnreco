@@ -187,11 +187,11 @@ class Pager extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const {name, initialRowsPerPage} = ownProps;
-  const pagerState = state.pager[name] || {
-    rowsPerPage: initialRowsPerPage || 100,
-    pageIndex: 0,
+  const pagerState = state.pager[name] || {};
+  return {
+    rowsPerPage: pagerState.rowsPerPage || initialRowsPerPage || 100,
+    pageIndex: pagerState.pageIndex || 0,
   };
-  return pagerState;
 }
 
 
