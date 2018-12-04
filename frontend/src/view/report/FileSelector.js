@@ -1,7 +1,7 @@
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { setPloopKey, setFileId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
@@ -41,7 +41,7 @@ const styles = theme => ({
   },
 });
 
-const ploopsURL = fOPNReport.pathToURL('/ploops');
+const ploopsURL = fOPNReco.pathToURL('/ploops');
 
 
 class FileSelector extends React.Component {
@@ -176,7 +176,7 @@ class FileSelector extends React.Component {
 
     return (
       <Paper className={classes.root}>
-        <Require fetcher={fOPNReport} urls={[ploopsURL]} />
+        <Require fetcher={fOPNReco} urls={[ploopsURL]} />
         <div className={classes.controlBox}>
           <FormControl>
             <Select

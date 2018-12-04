@@ -1,6 +1,6 @@
 
 import { binder, binder1 } from '../../util/binder';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
 import AddCircle from '@material-ui/icons/AddCircle';
@@ -264,7 +264,7 @@ class RecoTableBody extends React.Component {
           }
         });
       }
-      const url = fOPNReport.pathToURL(searchCallPath +
+      const url = fOPNReco.pathToURL(searchCallPath +
         `?ploop_key=${encodeURIComponent(ploopKey)}` +
         `&file_id=${encodeURIComponent(fileId)}`);
       const data = {
@@ -275,7 +275,7 @@ class RecoTableBody extends React.Component {
       searchFields.forEach(field => {
         data[field.name] = searchInputs[field.name] || '';
       });
-      const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
+      const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
 
       const handleResults = (results) => {
         const newSearchInputs = this.state.searchInputs;

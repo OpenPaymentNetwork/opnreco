@@ -1,8 +1,8 @@
 
 import { fetchcache } from '../reducer/fetchcache';
-import { fOPNReport } from './fetcher';
+import { fOPNReco } from './fetcher';
 
-const ploopsURL = fOPNReport.pathToURL('/ploops');
+const ploopsURL = fOPNReco.pathToURL('/ploops');
 
 
 // Get the current ploop and file objects from the Redux state.

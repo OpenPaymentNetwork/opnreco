@@ -4,7 +4,7 @@ import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { getPloopAndFile } from '../../util/ploopfile';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
@@ -396,7 +396,7 @@ class RecoPopover extends React.Component {
 
     const reco = this.commit();
 
-    const url = fOPNReport.pathToURL('/reco-save' +
+    const url = fOPNReco.pathToURL('/reco-save' +
       `?ploop_key=${encodeURIComponent(ploopKey)}` +
       `&file_id=${encodeURIComponent(fileId)}`);
     const data = {
@@ -404,7 +404,7 @@ class RecoPopover extends React.Component {
       reco_id: recoId,
     };
 
-    const promise = this.props.dispatch(fOPNReport.fetch(url, {data}));
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
     this.setState({saving: true});
     promise.then(() => {
       this.setState({saving: false});
@@ -525,7 +525,7 @@ class RecoPopover extends React.Component {
       require = (
         <Require
           urls={[recoURL]}
-          fetcher={fOPNReport}
+          fetcher={fOPNReco}
           options={{
             finalURL: recoFinalURL,
           }} />);
@@ -681,8 +681,8 @@ function mapStateToProps(state, ownProps) {
       `&movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
       `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
       `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`);
-    recoURL = fOPNReport.pathToURL(`/reco?${query}`);
-    recoFinalURL = fOPNReport.pathToURL(`/reco-final?${query}`);
+    recoURL = fOPNReco.pathToURL(`/reco?${query}`);
+    recoFinalURL = fOPNReco.pathToURL(`/reco-final?${query}`);
     reco = fetchcache.get(state, recoURL);
 
   } else {

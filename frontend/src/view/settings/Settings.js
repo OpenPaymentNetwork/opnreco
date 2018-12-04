@@ -2,7 +2,7 @@ import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import LayoutConfig from '../app/LayoutConfig';
@@ -69,7 +69,7 @@ class Settings extends React.Component {
 
     return (
       <div className={classes.root}>
-        <Require urls={[settingsURL]} fetcher={fOPNReport} />
+        <Require urls={[settingsURL]} fetcher={fOPNReco} />
         <LayoutConfig title="Settings" />
 
         <OPNAppBar />
@@ -83,7 +83,7 @@ class Settings extends React.Component {
 }
 
 function mapStateToProps(state) {
-  const settingsURL = fOPNReport.pathToURL('/settings');
+  const settingsURL = fOPNReco.pathToURL('/settings');
   const settings = fetchcache.get(state, settingsURL);
   const loading = fetchcache.fetching(state, settingsURL);
   return {

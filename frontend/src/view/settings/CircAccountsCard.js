@@ -2,7 +2,7 @@ import { binder } from '../../util/binder';
 import { refetchAll } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -63,7 +63,7 @@ class CircAccountsCard extends React.Component {
       circ_map[peer_id] = peer_checked;
     });
 
-    const action = fOPNReport.fetchPath(
+    const action = fOPNReco.fetchPath(
       '/set-circ-accounts', {data: {circ_map}});
 
     this.setState({saving: true});

@@ -1,7 +1,7 @@
 import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
 import { renderReportDate } from '../../util/reportrender';
@@ -274,7 +274,7 @@ class RecoReport extends React.Component {
     const require = (
       <div>
         <LayoutConfig title="Reconciliation Report" />
-        <Require fetcher={fOPNReport} urls={[recoReportURL]} />
+        <Require fetcher={fOPNReco} urls={[recoReportURL]} />
       </div>);
 
     if (!recoReport) {
@@ -427,7 +427,7 @@ function mapStateToProps(state, ownProps) {
   const {ploop, file} = ownProps;
   const expanded = state.tree.reco;
   if (ploop) {
-    const recoReportURL = fOPNReport.pathToURL(
+    const recoReportURL = fOPNReco.pathToURL(
       `/reco-report?ploop_key=${encodeURIComponent(ploop.ploop_key)}&` +
       `file_id=${encodeURIComponent(file ? file.file_id : 'current')}`);
     const recoReport = fetchcache.get(state, recoReportURL);

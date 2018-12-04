@@ -51,7 +51,7 @@ class LoginView extends React.Component {
       encodeURIComponent(
         'mobile_device select_profile view_wallet ' +
         'view_history view_full_history') +
-      '&name=OPNReport' +
+      '&name=OPNReco' +
       '&uuid=' + encodeURIComponent(deviceUUID) +
       '&state=' + encodeURIComponent(oauthState) +
       (forceLogin ? '&force_login=true' : ''));

@@ -2,7 +2,7 @@ import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
 import { setTransferId } from '../../reducer/app';
@@ -324,7 +324,7 @@ class TransferSummary extends React.Component {
     }
 
     const require = (
-      <Require fetcher={fOPNReport}
+      <Require fetcher={fOPNReco}
         urls={[recordURL]}
         options={{
           // If there's an error, this component will show it. Don't
@@ -394,8 +394,8 @@ function mapStateToProps(state, ownProps) {
       `ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
       `&transfer_id=${encodeURIComponent(transferId)}`);
-    const recordURL = fOPNReport.pathToURL(`/transfer-record?${query}`);
-    const recordFinalURL = fOPNReport.pathToURL(
+    const recordURL = fOPNReco.pathToURL(`/transfer-record?${query}`);
+    const recordFinalURL = fOPNReco.pathToURL(
       `/transfer-record-final?${query}`);
     let record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);

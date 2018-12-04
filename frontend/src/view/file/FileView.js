@@ -1,7 +1,7 @@
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -61,7 +61,7 @@ class FileView extends React.Component {
     return (
       <div className={classes.root}>
         <LayoutConfig title="File" />
-        <Require fetcher={fOPNReport} urls={[fileURL]} />
+        <Require fetcher={fOPNReco} urls={[fileURL]} />
 
         <OPNAppBar />
 
@@ -78,7 +78,7 @@ class FileView extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const {match} = ownProps;
-  const fileURL = fOPNReport.pathToURL(
+  const fileURL = fOPNReco.pathToURL(
     `/file?file_id=${encodeURIComponent(match.params.file_id)}`);
   const file = fetchcache.get(state, fileURL);
   const loading = fetchcache.fetching(state, fileURL);

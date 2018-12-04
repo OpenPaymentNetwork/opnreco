@@ -2,7 +2,7 @@
 import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
@@ -436,7 +436,7 @@ class TransactionReport extends React.Component {
     return (
       <Typography className={classes.root} component="div">
         <LayoutConfig title="Transactions Report" />
-        <Require fetcher={fOPNReport} urls={[reportURL]} />
+        <Require fetcher={fOPNReco} urls={[reportURL]} />
         <Paper className={classes.pagerPaper}>
           <Pager
             name={pagerName}
@@ -462,7 +462,7 @@ function mapStateToProps(state, ownProps) {
   } = getPagerState(state, pagerName, 100);
 
   if (ploop) {
-    const reportURL = fOPNReport.pathToURL(
+    const reportURL = fOPNReco.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
       `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +

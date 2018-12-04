@@ -1,7 +1,7 @@
 import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
@@ -317,7 +317,7 @@ class FilesView extends React.Component {
     return (
       <Typography className={classes.root} component="div">
         <LayoutConfig title="Files" />
-        <Require fetcher={fOPNReport} urls={[contentURL]} />
+        <Require fetcher={fOPNReco} urls={[contentURL]} />
         <Paper className={classes.pagerPaper}>
           <Pager
             name={pagerName}
@@ -342,7 +342,7 @@ function mapStateToProps(state, ownProps) {
   } = getPagerState(state, pagerName, 10);
 
   if (ploop) {
-    const contentURL = fOPNReport.pathToURL(
+    const contentURL = fOPNReco.pathToURL(
       `/files?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
       `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);

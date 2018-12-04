@@ -1,5 +1,5 @@
 
-// Fetcher for OPN and OPNReport services.
+// Fetcher for OPN and OPNReco services.
 
 /* global process: false */
 
@@ -168,5 +168,5 @@ export class OPNFetcher {
 export const fOPN = new OPNFetcher(
   process.env.REACT_APP_OPN_API_URL, {useToken: true});
 
-export const fOPNReport = new OPNFetcher(
+export const fOPNReco = new OPNFetcher(
   process.env.REACT_APP_OPNREPORT_API_URL, {useToken: true});

@@ -3,7 +3,7 @@ import { binder } from '../../util/binder';
 import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReport } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -140,7 +140,7 @@ class OPNDrawer extends React.Component {
     }
 
     const syncBatch = () => {
-      const action = fOPNReport.fetchPath('/sync', {method: 'post'});
+      const action = fOPNReco.fetchPath('/sync', {method: 'post'});
       dispatch(action).then(status => {
         if (status.more) {
           dispatch(setSyncProgress(status.progress_percent));
