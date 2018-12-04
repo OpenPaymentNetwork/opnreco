@@ -153,7 +153,7 @@ def get_peer_map(request, need_peer_ids, final):
             'is_dfi_account': False,
         }
 
-    if final:
+    if final and peers:
         # Update all of the peers involved in this transfer.
         peers.update(fetch_peers(request, peers))
 
@@ -249,7 +249,7 @@ def get_loop_map(request, need_loop_ids, final=False):
 
     loops = {row.loop_id: {'title': row.title} for row in loop_rows}
 
-    if final:
+    if final and loops:
         # Update all of the loops involved in this transfer.
         loops.update(fetch_loops(request, loops))
 

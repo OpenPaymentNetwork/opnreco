@@ -19,13 +19,13 @@ def parse_ploop_key(ploop_key):
     """
     if not ploop_key:
         raise HTTPBadRequest(
-            json_body={'error': 'ploop_key required'})
+            json_body={'error': 'ploop_key_required'})
 
     match = re.match(
         r'^(c|[0-9]{1,20})-([0-9]{1,20})-([A-Z]{3,50})$', ploop_key)
     if match is None:
         raise HTTPBadRequest(
-            json_body={'error': 'invalid ploop_key provided'})
+            json_body={'error': 'invalid_ploop_key'})
     peer_id, loop_id, currency = match.groups()
     return (peer_id, loop_id, currency)
 
@@ -53,7 +53,7 @@ def get_request_file(request):
             file_id = int(file_id_str)
         except ValueError:
             raise HTTPBadRequest(
-                json_body={'error': 'bad file_id provided'})
+                json_body={'error': 'bad_file_id'})
         file_id_filter = (File.id == file_id)
 
     row = (
@@ -83,7 +83,7 @@ def get_offset_limit(params):
     """Get the offset and limit from request params."""
     offset_str = params.get('offset', '')
     if not re.match(r'^[0-9]{1,20}$', offset_str):
-        raise HTTPBadRequest(json_body={'error': 'offset required'})
+        raise HTTPBadRequest(json_body={'error': 'offset_required'})
     offset = max(int(offset_str), 0)
 
     limit_str = params.get('limit', '')
@@ -91,7 +91,7 @@ def get_offset_limit(params):
         limit = None
     else:
         if not re.match(r'^[0-9]{1,20}$', limit_str):
-            raise HTTPBadRequest(json_body={'error': 'limit required'})
+            raise HTTPBadRequest(json_body={'error': 'limit_required'})
         limit = max(int(limit_str), 0)
 
     return offset, limit

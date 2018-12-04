@@ -5,6 +5,9 @@ from opnreport.param import get_offset_limit
 from opnreport.param import parse_ploop_key
 from opnreport.serialize import serialize_file
 from opnreport.viewcommon import compute_file_totals
+from opnreport.viewcommon import get_loop_map
+from opnreport.viewcommon import get_peer_map
+from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import func
 import datetime
@@ -79,3 +82,66 @@ def files_view(request):
         'files': files,
         'rowcount': totals_row.rowcount,
     }
+
+
+@view_config(
+    name='file',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def file_view(request):
+    """Return info about a file, its peer, and its loop."""
+    try:
+        file_id = int(request.params['file_id'])
+    except Exception:
+        raise HTTPBadRequest(json_body={
+            'error': 'bad_file_id',
+        })
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    file = (
+        dbsession.query(File)
+        .filter(
+            File.owner_id == owner_id,
+            File.id == file_id,
+        )
+        .first())
+    if file is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'file_not_found',
+            'error_description': (
+                "No file found for your profile with file ID %s" % file_id),
+        })
+
+    totals = compute_file_totals(
+        dbsession=dbsession,
+        owner_id=owner_id,
+        file_ids=[file.id])[file_id]
+
+    end_amounts_map = {
+        file_id: {
+            'circ': totals['end']['circ'],
+            'surplus': totals['end']['surplus'],
+        },
+    }
+
+    peers = get_peer_map(
+        request=request, need_peer_ids=set([file.peer_id]), final=True)
+
+    if file.loop_id != '0':
+        loops = get_loop_map(
+            request=request, need_loop_ids=set([file.loop_id]), final=True)
+    else:
+        loops = {}
+
+    res = {
+        'file': serialize_file(file, end_amounts=end_amounts_map),
+        'peer': peers.get(file.peer_id),
+        'loop': loops.get(file.loop_id),
+        'totals': totals,
+    }
+
+    return res

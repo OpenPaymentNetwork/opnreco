@@ -141,6 +141,8 @@ class File(Base):
     start_surplus = Column(Numeric, nullable=False, default=0)
     end_surplus = Column(Numeric, nullable=True)
 
+    closed = Column(Boolean, nullable=False, default=False)
+
     owner = relationship(Owner)
 
 
