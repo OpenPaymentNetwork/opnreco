@@ -2,6 +2,7 @@
 import { binder, binder1 } from './binder';
 import { compose } from './functional';
 import { connect } from 'react-redux';
+import { getPagerState } from '../reducer/pager';
 import { setRowsPerPage, setPageIndex } from '../reducer/pager';
 import { withStyles } from '@material-ui/core/styles';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -187,11 +188,7 @@ class Pager extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const {name, initialRowsPerPage} = ownProps;
-  const pagerState = state.pager[name] || {};
-  return {
-    rowsPerPage: pagerState.rowsPerPage || initialRowsPerPage || 100,
-    pageIndex: pagerState.pageIndex || 0,
-  };
+  return getPagerState(state, name, initialRowsPerPage);
 }
 
 

@@ -5,6 +5,7 @@ import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
+import { getPagerState } from '../../reducer/pager';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -328,18 +329,17 @@ class FilesView extends React.Component {
       </Typography>
     );
   }
-
 }
 
 
 function mapStateToProps(state, ownProps) {
   const pagerName = 'fileList';
-  const initialRowsPerPage = 10;
   const {ploop} = ownProps;
-
-  const pagerState = state.pager[pagerName] || {};
-  const rowsPerPage = pagerState.rowsPerPage || initialRowsPerPage || 100;
-  const pageIndex = pagerState.pageIndex || 0;
+  const {
+    rowsPerPage,
+    pageIndex,
+    initialRowsPerPage,
+  } = getPagerState(state, pagerName, 10);
 
   if (ploop) {
     const contentURL = fOPNReport.pathToURL(

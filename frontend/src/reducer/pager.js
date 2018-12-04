@@ -30,4 +30,13 @@ const actionHandlers = {
   }),
 };
 
+export const getPagerState = (state, pagerName, initialRowsPerPage=100) => {
+  const pagerState = state.pager[pagerName] || {};
+  return {
+    rowsPerPage: pagerState.rowsPerPage || initialRowsPerPage,
+    pageIndex: pagerState.pageIndex || 0,
+    initialRowsPerPage,
+  };
+};
+
 export default createReducer(initialState, actionHandlers);

@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import { fOPNReport } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
+import { getPagerState } from '../../reducer/pager';
 import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -452,12 +453,13 @@ class TransactionReport extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const pagerName = 'transactionReport';
-  const initialRowsPerPage = 100;
   const {ploop, file} = ownProps;
 
-  const pagerState = state.pager[pagerName] || {};
-  const rowsPerPage = pagerState.rowsPerPage || initialRowsPerPage || 100;
-  const pageIndex = pagerState.pageIndex || 0;
+  const {
+    rowsPerPage,
+    pageIndex,
+    initialRowsPerPage,
+  } = getPagerState(state, pagerName, 100);
 
   if (ploop) {
     const reportURL = fOPNReport.pathToURL(
