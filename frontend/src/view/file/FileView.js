@@ -18,6 +18,8 @@ import Paper from '@material-ui/core/Paper';
 import TextField from '@material-ui/core/TextField';
 import FormGroup from '@material-ui/core/FormGroup';
 import FormControl from '@material-ui/core/FormControl';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormHelperText from '@material-ui/core/FormHelperText';
 import Select from '@material-ui/core/Select';
 import InputLabel from '@material-ui/core/InputLabel';
 import Input from '@material-ui/core/Input';
@@ -25,6 +27,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
 import Lock from '@material-ui/icons/Lock';
 import LockOpen from '@material-ui/icons/LockOpen';
+import Checkbox from '@material-ui/core/Checkbox';
 
 
 const tableWidth = '800px';
@@ -110,6 +113,15 @@ class FileView extends React.Component {
     });
   }
 
+  handleChangeReassign(event) {
+    this.setState({
+      form: {
+        ...this.state.form,
+        reassign: event.target.checked,
+      },
+    });
+  }
+
   renderForm() {
     const {
       classes,
@@ -155,7 +167,7 @@ class FileView extends React.Component {
               id="start_date"
               label="Start Date"
               type="date"
-              value={form.start_date}
+              value={form.start_date || ''}
               onChange={this.binder1(this.handleChangeText, 'start_date')}
               className={classes.field}
               InputLabelProps={{
@@ -168,7 +180,7 @@ class FileView extends React.Component {
               id="end_date"
               label="End Date"
               type="date"
-              value={form.end_date}
+              value={form.end_date || ''}
               onChange={this.binder1(this.handleChangeText, 'end_date')}
               className={classes.field}
               InputLabelProps={{
@@ -182,7 +194,7 @@ class FileView extends React.Component {
             <TextField
               id="start_circ"
               label="Circulation on Start Date"
-              value={form.start_circ}
+              value={form.start_circ || ''}
               onChange={this.binder1(this.handleChangeText, 'start_circ')}
               className={classes.field}
               InputLabelProps={{
@@ -194,13 +206,31 @@ class FileView extends React.Component {
             <TextField
               id="start_surplus"
               label="Surplus/Deficit on Start Date"
-              value={form.start_surplus}
+              value={form.start_surplus || ''}
               onChange={this.binder1(this.handleChangeText, 'start_surplus')}
               className={classes.field}
               InputLabelProps={{
                 shrink: true,
               }}
               disabled={locked}
+            />
+          </FormGroup>
+
+          <FormGroup row>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.reassign}
+                  onChange={this.binder(this.handleChangeReassign)}
+                  disabled={locked}
+                />
+              }
+              label={
+                <div>
+                  Reassign account entries and movements based on
+                  the new date range.
+                </div>
+              }
             />
           </FormGroup>
 
