@@ -19,7 +19,7 @@ import ListItemText from '@material-ui/core/ListItemText';
 import ProfileSelector from './ProfileSelector';
 import PropTypes from 'prop-types';
 import React from 'react';
-//import Settings from '@material-ui/icons/Settings';
+import Settings from '@material-ui/icons/Settings';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
 import TableChart from '@material-ui/icons/TableChart';
@@ -139,7 +139,15 @@ class OPNDrawer extends React.Component {
       return;
     }
 
-    const tzname = String(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    let tzname;
+    try {
+      tzname = String(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    } catch(e) {
+      // Intl isn't supported in every browser and getting the right
+      // tzname is probably only important for high volume users.
+      // There's a settings page that lets people choose the tzname.
+      tzname = '';
+    }
 
     const syncBatch = () => {
       const action = fOPNReco.fetchPath('/sync', {data: {
@@ -226,6 +234,7 @@ class OPNDrawer extends React.Component {
           <ListItemIcon><Folder/></ListItemIcon>
           <ListItemText primary="Files" />
         </ListItem>
+        */}
 
         <ListItem
           button
@@ -234,7 +243,6 @@ class OPNDrawer extends React.Component {
           <ListItemIcon><Settings/></ListItemIcon>
           <ListItemText primary="Settings" />
         </ListItem>
-        */}
 
         <ListItem
           button

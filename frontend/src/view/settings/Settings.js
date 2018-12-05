@@ -13,7 +13,7 @@ import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Require from '../../util/Require';
-import CircAccountsCard from './CircAccountsCard';
+import TimeZoneCard from './TimeZoneCard';
 
 
 const styles = {
@@ -61,10 +61,7 @@ class Settings extends React.Component {
         </Card>
       );
     } else if (settings) {
-      if (settings.is_issuer) {
-        cards.push(
-          <CircAccountsCard key="circAccounts" settings={settings} />);
-      }
+      cards.push(<TimeZoneCard key="tz" settings={settings} />);
     }
 
     return (
