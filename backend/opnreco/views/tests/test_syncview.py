@@ -1,6 +1,6 @@
 
 from decimal import Decimal
-from opnreport.testing import DBSessionFixture
+from opnreco.testing import DBSessionFixture
 import datetime
 import os
 import pyramid.testing
@@ -36,7 +36,7 @@ class TestDownloadView(unittest.TestCase):
         return SyncView
 
     def _make(self, owner_id='11'):
-        from opnreport.models.db import Owner
+        from opnreco.models.db import Owner
 
         owner = Owner(
             id=owner_id,
@@ -63,7 +63,7 @@ class TestDownloadView(unittest.TestCase):
 
     @responses.activate
     def test_with_no_transfers(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         responses.add(
             responses.POST,
@@ -94,7 +94,7 @@ class TestDownloadView(unittest.TestCase):
 
     @responses.activate
     def test_redeem_from_sender_perspective(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         responses.add(
             responses.POST,
@@ -260,7 +260,7 @@ class TestDownloadView(unittest.TestCase):
 
     @responses.activate
     def test_redeem_from_issuer_perspective(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         responses.add(
             responses.POST,
@@ -381,7 +381,7 @@ class TestDownloadView(unittest.TestCase):
 
     @responses.activate
     def test_grant_from_recipient_perspective(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         responses.add(
             responses.POST,
@@ -542,7 +542,7 @@ class TestDownloadView(unittest.TestCase):
 
     @responses.activate
     def test_grant_from_issuer_perspective(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         responses.add(
             responses.POST,
@@ -703,7 +703,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('download', event.event_type)
 
     def test_redownload_with_updates(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         def _make_transfer_result():
             return {
@@ -945,7 +945,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(Decimal('-1.00'), m.vault_delta)
 
     def test_redownload_with_no_movements_and_no_updates(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         def _make_transfer_result():
             return {
@@ -1015,7 +1015,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(0, len(movements))
 
     def test_redownload_with_movements_but_no_updates(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         def _make_transfer_result():
             return {
@@ -1110,7 +1110,7 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(2, len(mss))
 
     def test_redownload_with_profile_updates(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         def _make_transfer_result():
             return {
@@ -1229,7 +1229,7 @@ class TestDownloadView(unittest.TestCase):
         }, events[-1].content)
 
     def test_sync_error(self):
-        from opnreport.views.syncview import SyncError
+        from opnreco.views.syncview import SyncError
 
         def _make_transfer_result():
             return {
@@ -1301,7 +1301,7 @@ class TestDownloadView(unittest.TestCase):
                 obj()
 
     def test_download_batches(self):
-        from opnreport.models import db
+        from opnreco.models import db
 
         def _make_transfer_result():
             return {

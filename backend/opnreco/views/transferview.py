@@ -1,11 +1,11 @@
 
 from decimal import Decimal
-from opnreport.models.db import Movement
-from opnreport.models.db import TransferRecord
-from opnreport.models.site import API
-from opnreport.param import get_request_file
-from opnreport.viewcommon import get_loop_map
-from opnreport.viewcommon import get_peer_map
+from opnreco.models.db import Movement
+from opnreco.models.db import TransferRecord
+from opnreco.models.site import API
+from opnreco.param import get_request_file
+from opnreco.viewcommon import get_loop_map
+from opnreco.viewcommon import get_peer_map
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 import collections
@@ -232,5 +232,5 @@ def transfer_record_view(context, request, final=False):
         'peer_index': peer_index,
         'loops': loops,
         'delta_totals': delta_totals_json,
-        'is_circ': is_circ,
+        'show_vault': is_circ,
     }

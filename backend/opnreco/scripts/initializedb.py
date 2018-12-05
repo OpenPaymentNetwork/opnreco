@@ -1,7 +1,7 @@
 
 from dotenv import load_dotenv
-from opnreport.models.dbmeta import get_engine
-from opnreport.models.db import Base
+from opnreco.models.dbmeta import get_engine
+from opnreco.models.db import Base
 from pyramid.paster import setup_logging
 import os
 import sys

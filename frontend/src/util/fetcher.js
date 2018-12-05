@@ -169,4 +169,4 @@ export const fOPN = new OPNFetcher(
   process.env.REACT_APP_OPN_API_URL, {useToken: true});
 
 export const fOPNReco = new OPNFetcher(
-  process.env.REACT_APP_OPNREPORT_API_URL, {useToken: true});
+  process.env.REACT_APP_OPNRECO_API_URL, {useToken: true});

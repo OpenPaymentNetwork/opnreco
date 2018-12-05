@@ -34,4 +34,4 @@ def tween_factory(handler, registry):
 
 
 def includeme(config):
-    config.add_tween('opnreport.cors.tween_factory')
+    config.add_tween('opnreco.cors.tween_factory')

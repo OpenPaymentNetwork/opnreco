@@ -19,7 +19,6 @@ import TextField from '@material-ui/core/TextField';
 import FormGroup from '@material-ui/core/FormGroup';
 import FormControl from '@material-ui/core/FormControl';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import FormHelperText from '@material-ui/core/FormHelperText';
 import Select from '@material-ui/core/Select';
 import InputLabel from '@material-ui/core/InputLabel';
 import Input from '@material-ui/core/Input';
@@ -297,7 +296,7 @@ class FileView extends React.Component {
 
     return (
       <div className={classes.root}>
-        <LayoutConfig title={titleParts.join(' ')} />
+        <LayoutConfig title={titleParts.join(' ')} perOwner />
         <Require fetcher={fOPNReco} urls={[queryURL]} />
 
         <OPNAppBar />

@@ -130,7 +130,7 @@ class RecoReport extends React.Component {
     const {workflow_types, outstanding_map} = recoReport;
 
     const wfTypes = workflow_types[sign] || {};
-    const isCirc = (ploop.peer_id === 'c');
+    const showCirc = (ploop.peer_id === 'c');
 
     const sortable = [];
     Object.keys(wfTypes).forEach(wfType => {
@@ -185,7 +185,7 @@ class RecoReport extends React.Component {
           : hiddenArrowCN);
 
       let itemCircColumns = null;
-      if (isCirc) {
+      if (showCirc) {
         itemCircColumns = (
           <React.Fragment>
             <td className={typeAmountCellCN}>
@@ -217,7 +217,7 @@ class RecoReport extends React.Component {
           outstandingList.forEach(movement => {
             const tid = dashed(movement.transfer_id);
             let movementCircColumns = null;
-            if (isCirc) {
+            if (showCirc) {
               movementCircColumns = (
                 <React.Fragment>
                   <td className={miniAmountCellCN}>

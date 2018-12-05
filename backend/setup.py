@@ -4,12 +4,13 @@ from setuptools import setup, find_packages
 
 requires = [
     'colander',
-    'dateutil',
     'psycopg2',
-    'python-dotenv',
     'pyramid',
     'pyramid_retry',
     'pyramid_tm',
+    'python-dateutil',
+    'python-dotenv',
+    'pytz',
     'requests',
     'SQLAlchemy',
     'transaction',
@@ -17,9 +18,9 @@ requires = [
 ]
 
 setup(
-    name='opnreport',
+    name='opnreco',
     version='0.0',
-    description='opnreport',
+    description='OPN Reconciliation Tool',
     classifiers=[
         "Programming Language :: Python",
         "Framework :: Pyramid",
@@ -32,15 +33,15 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
-    test_suite='opnreport',
+    test_suite='opnreco',
     install_requires=requires,
     extras_require={
         'test': ['responses'],
     },
     entry_points="""\
     [paste.app_factory]
-    main = opnreport.main:main
+    main = opnreco.main:main
     [console_scripts]
-    initialize_opnreport_db = opnreport.scripts.initializedb:main
+    initialize_opnreco_db = opnreco.scripts.initializedb:main
     """,
 )

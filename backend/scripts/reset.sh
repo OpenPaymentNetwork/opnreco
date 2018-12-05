@@ -5,9 +5,9 @@
 cd "$(dirname $0)"
 here="$(pwd)"
 cd /
-sudo -u postgres dropdb opnreport || true
-sudo -u postgres createdb -O "${USER}" opnreport
-sudo -u postgres dropdb opnreporttest || true
-sudo -u postgres createdb -O "${USER}" opnreporttest
+sudo -u postgres dropdb opnreco || true
+sudo -u postgres createdb -O "${USER}" opnreco
+sudo -u postgres dropdb opnrecotest || true
+sudo -u postgres createdb -O "${USER}" opnrecotest
 cd "${here}/.."
-bin/initialize_opnreport_db development.ini#opnreport
+bin/initialize_opnreco_db development.ini#opnreco

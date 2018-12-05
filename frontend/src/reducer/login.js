@@ -8,7 +8,7 @@ const START_OAUTH = 'login/START_OAUTH';
 const CLEAR_OAUTH_STATE = 'login/CLEAR_OAUTH_STATE';
 const SWITCH_PROFILE = 'login/SWITCH_PROFILE';
 
-const ACCESS_TOKEN_KEY = 'opnreport:access_tokens';
+const ACCESS_TOKEN_KEY = 'opnreco:access_tokens';
 
 // Note: the login state is persistent, so only the small amount of state
 // that should persist between sesssions should be stored here.

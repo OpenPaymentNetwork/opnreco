@@ -1,6 +1,6 @@
 
-from opnreport.models.db import OwnerLog
-from opnreport.util import check_requests_response
+from opnreco.models.db import OwnerLog
+from opnreco.util import check_requests_response
 from pyramid.interfaces import IAuthenticationPolicy
 from pyramid.security import Authenticated
 from pyramid.security import Everyone

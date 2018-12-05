@@ -17,4 +17,4 @@ __pycache__
 /buildout.cfg
 
 .coverage
-/opnreport/htmlcov
+htmlcov

@@ -1,11 +1,11 @@
 
 from dotenv import load_dotenv
-from opnreport.auth import OPNTokenAuthenticationPolicy
-from opnreport.models.db import Owner
-from opnreport.models.db import OwnerLog
-from opnreport.models.site import Site
-from opnreport.render import CustomJSONRenderer
-from opnreport.util import check_requests_response
+from opnreco.auth import OPNTokenAuthenticationPolicy
+from opnreco.models.db import Owner
+from opnreco.models.db import OwnerLog
+from opnreco.models.site import Site
+from opnreco.render import CustomJSONRenderer
+from opnreco.util import check_requests_response
 from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.config import Configurator
 import datetime
@@ -133,12 +133,12 @@ def main(global_config, **settings):
     config.add_request_method(owner, name='owner', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 
-    config.include('opnreport.cors')
+    config.include('opnreco.cors')
     config.include('pyramid_retry')
     config.include('pyramid_tm')
-    config.include('opnreport.models.dbmeta')
-    config.scan('opnreport.views', ignore='opnreport.views.tests')
+    config.include('opnreco.models.dbmeta')
+    config.scan('opnreco.views', ignore='opnreco.views.tests')
 
-    # config.add_translation_dirs('opnreport:locale/')
+    # config.add_translation_dirs('opnreco:locale/')
     config.add_translation_dirs('colander:locale/')
     return config.make_wsgi_app()

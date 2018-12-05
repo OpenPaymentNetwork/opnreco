@@ -33,7 +33,7 @@ const whitelist = [
 ];
 
 const persistConfig = {
-  key: 'opnreport',
+  key: 'opnreco',
   storage,
   whitelist,
 };

@@ -44,6 +44,7 @@ class Owner(Base):
     id = Column(String, nullable=False, primary_key=True)
     title = Column(Unicode, nullable=False)
     username = Column(String, nullable=False)
+    tzname = Column(String, nullable=True)
     # last_update is when the title and username were last updated.
     last_update = Column(DateTime, nullable=True, server_default=now_func)
     # first_sync_ts is set when a sync has started but not
@@ -87,9 +88,6 @@ class Peer(Base):
     is_dfi_account = Column(Boolean, nullable=False, default=False)
     # is_own_dfi_account is true for DFI accounts linked to the owner.
     is_own_dfi_account = Column(Boolean, nullable=False, default=False)
-    # is_circ is true for the circulation account(s) linked to the
-    # owner, where the owner is the issuer.
-    is_circ = Column(Boolean, nullable=False, default=False)
 
     # Note: don't try to update if removed.
     removed = Column(Boolean, nullable=False, default=False)
@@ -393,12 +391,13 @@ class AccountEntry(Base):
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
 
-    # The delta is negative for account decreases.
+    # The delta is positive for account increases and negative for decreases.
     # Note: we use the terms increase and decrease instead of debit/credit
     # because debit/credit is ambiguous: an increase of a checking account is
     # both a *credit* to the account holder's asset account and a *debit* to
     # the bank's liability account. To make things even more interesting,
-    # the account holder is often the bank itself.
+    # the account holder is often the bank itself. Meanwhile, the terms
+    # increase and decrease have well-understood meanings.
     delta = Column(Numeric, nullable=False)
 
     # desc contains descriptive info provided by the bank.

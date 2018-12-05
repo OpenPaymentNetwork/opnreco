@@ -139,8 +139,12 @@ class OPNDrawer extends React.Component {
       return;
     }
 
+    const tzname = String(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
     const syncBatch = () => {
-      const action = fOPNReco.fetchPath('/sync', {method: 'post'});
+      const action = fOPNReco.fetchPath('/sync', {data: {
+        tzname,
+      }});
       dispatch(action).then(status => {
         if (status.more) {
           dispatch(setSyncProgress(status.progress_percent));

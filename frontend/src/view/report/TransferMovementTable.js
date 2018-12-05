@@ -354,7 +354,7 @@ class MovementTable extends React.Component {
     let showVault = false;
     let showOtherAmount = false;
 
-    if (record.is_circ) {
+    if (record.show_vault) {
       showVault = true;
     }
 
@@ -375,8 +375,8 @@ class MovementTable extends React.Component {
       (showVault ? 1 : 0) + 1 + (showOtherAmount ? 1 : 0) + 5);
 
     return {
-      showOtherAmount,
       showVault,
+      showOtherAmount,
       columnsAfterGraphic,
     };
   }

@@ -1,24 +1,25 @@
 
 from decimal import Decimal
-from opnreport.models.db import File
-from opnreport.models.db import Movement
-from opnreport.models.db import MovementLog
-from opnreport.models.db import now_func
-from opnreport.models.db import OPNDownload
-from opnreport.models.db import OwnerLog
-from opnreport.models.db import Peer
-from opnreport.models.db import Reco
-from opnreport.models.db import TransferDownloadRecord
-from opnreport.models.db import TransferRecord
-from opnreport.models.site import API
-from opnreport.util import check_requests_response
-from opnreport.util import to_datetime
+from opnreco.models.db import File
+from opnreco.models.db import Movement
+from opnreco.models.db import MovementLog
+from opnreco.models.db import now_func
+from opnreco.models.db import OPNDownload
+from opnreco.models.db import OwnerLog
+from opnreco.models.db import Peer
+from opnreco.models.db import Reco
+from opnreco.models.db import TransferDownloadRecord
+from opnreco.models.db import TransferRecord
+from opnreco.models.site import API
+from opnreco.util import check_requests_response
+from opnreco.util import to_datetime
 from pyramid.decorator import reify
 from pyramid.view import view_config
 import collections
 import datetime
 import logging
 import os
+import pytz
 import requests
 
 log = logging.getLogger(__name__)
@@ -55,9 +56,34 @@ class SyncView:
         # files: {(peer_id, loop_id, currency): file}
         self.files = {}
 
+    def set_tzname(self):
+        """If the owner doesn't have a tzname yet, try to set it."""
+        request = self.request
+        owner = self.owner
+
+        if not owner.tzname:
+            try:
+                params = self.request.json
+            except Exception:
+                params = {}
+            tzname = params.get('tzname', '').strip()
+            if tzname and tzname in pytz.all_timezones:
+                owner.tzname = tzname
+                request.dbsession.add(OwnerLog(
+                    owner_id=owner.id,
+                    event_type='init_tzname',
+                    remote_addr=request.remote_addr,
+                    user_agent=request.user_agent,
+                    content={
+                        'tzname': tzname,
+                    },
+                ))
+
     def __call__(self):
         request = self.request
         owner = self.owner
+
+        self.set_tzname()
 
         if owner.first_sync_ts is None:
             # Start a new sync. Download transfers created or changed

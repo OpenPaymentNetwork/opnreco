@@ -6,6 +6,7 @@ import { connect } from 'react-redux';
 import { fOPN } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { switchProfile } from '../../reducer/login';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -48,6 +49,8 @@ class ProfileSelector extends React.Component {
     dispatch: PropTypes.func.isRequired,
     selectable: PropTypes.object,
     profileId: PropTypes.string,
+    perOwner: PropTypes.bool,
+    history: PropTypes.object.isRequired,
   };
 
   constructor(props) {
@@ -59,7 +62,7 @@ class ProfileSelector extends React.Component {
   }
 
   handleSelect(event) {
-    const {dispatch} = this.props;
+    const {dispatch, perOwner, history} = this.props;
 
     const profileId = event.target.value;
     this.setState({selectingId: profileId});
@@ -67,10 +70,20 @@ class ProfileSelector extends React.Component {
     const action1 = fOPN.fetchPath('/token/select/' + profileId);
     dispatch(action1).then(tokenInfo => {
       const token = tokenInfo.access_token;
+      // Suspend fetchcache while switching so we don't fetch things while
+      // in a transitional state.
+      dispatch(fetchcache.suspend());
       dispatch(switchProfile(token, profileId));
       dispatch(clearMost());
       dispatch(triggerResync());
       dispatch(closeDrawer());
+      if (perOwner) {
+        // This page is owner-specific and the new owner is not likely
+        // to be allowed to see this page. Redirect.
+        history.push('/');
+      }
+      // Resume fetchcache.
+      dispatch(fetchcache.resume());
     }).finally(() => {
       this.setState({selectingId: null});
     });
@@ -127,10 +140,12 @@ function mapStateToProps(state) {
     selectableURL,
     selectable: fetchcache.get(state, selectableURL),
     profileId: state.login.id,
+    perOwner: state.app.layout.perOwner,
   };
 }
 
 export default compose(
   withStyles(styles),
+  withRouter,
   connect(mapStateToProps),
 )(ProfileSelector);

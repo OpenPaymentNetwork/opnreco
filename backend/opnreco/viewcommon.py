@@ -1,12 +1,12 @@
 
 from decimal import Decimal
-from opnreport.models.db import AccountEntry
-from opnreport.models.db import File
-from opnreport.models.db import Loop
-from opnreport.models.db import Movement
-from opnreport.models.db import now_func
-from opnreport.models.db import Peer
-from opnreport.util import check_requests_response
+from opnreco.models.db import AccountEntry
+from opnreco.models.db import File
+from opnreco.models.db import Loop
+from opnreco.models.db import Movement
+from opnreco.models.db import now_func
+from opnreco.models.db import Peer
+from opnreco.util import check_requests_response
 from sqlalchemy import and_
 from sqlalchemy import func
 import datetime
@@ -131,7 +131,6 @@ def get_peer_map(request, need_peer_ids, final):
             Peer.title,
             Peer.username,
             Peer.is_dfi_account,
-            Peer.is_circ,
         )
         .filter(
             Peer.owner_id == owner_id,
@@ -142,7 +141,6 @@ def get_peer_map(request, need_peer_ids, final):
         'title': row.title,
         'username': row.username,
         'is_dfi_account': row.is_dfi_account,
-        'is_circ': row.is_circ,
     } for row in peer_rows}
 
     peers[owner_id] = {
