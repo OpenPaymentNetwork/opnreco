@@ -32,8 +32,8 @@ class DBSessionFixture:
             def tearDown(self):
                 self.close_session()
 
-    This pattern lets test methods share the temporary database schema for
-    speed.
+    This pattern lets test methods share the temporary database schema
+    to reduce the number of times the schema needs to be created.
     """
 
     @reify

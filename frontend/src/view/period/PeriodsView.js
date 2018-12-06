@@ -113,13 +113,13 @@ const styles = {
     textAlign: 'right',
     padding: '4px 8px',
   },
-  fileRow: {
+  periodRow: {
     cursor: 'pointer',
     '&:hover': {
       backgroundColor: '#eee',
     },
   },
-  fileSelectedRow: {
+  periodSelectedRow: {
     backgroundColor: '#ffe',
   },
   checkbox: {
@@ -129,7 +129,7 @@ const styles = {
 };
 
 
-class FilesView extends React.Component {
+class PeriodsView extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -140,7 +140,7 @@ class FilesView extends React.Component {
     ploop: PropTypes.object,
     pagerName: PropTypes.string.isRequired,
     initialRowsPerPage: PropTypes.number.isRequired,
-    file: PropTypes.object,
+    period: PropTypes.object,
   };
 
   constructor(props) {
@@ -149,8 +149,8 @@ class FilesView extends React.Component {
     this.binder1 = binder1(this);
   }
 
-  handleClickFile(fileId) {
-    this.props.history.push('/file/' + fileId);
+  handleClickPeriod(periodId) {
+    this.props.history.push('/period/' + periodId);
   }
 
   renderTableBody(showCirc) {
@@ -158,7 +158,7 @@ class FilesView extends React.Component {
       classes,
       content,
       ploop,
-      file: selectedFile,
+      period: selectedPeriod,
     } = this.props;
 
     const cfmt = new getCurrencyFormatter(ploop.currency);
@@ -173,54 +173,54 @@ class FilesView extends React.Component {
     const ccClosed = `${classes.cell} ${classes.center}`;
     const cCheckbox = classes.checkbox;
 
-    content.files.forEach(file => {
-      let rowClass = classes.fileRow;
-      if (selectedFile && file.file_id === selectedFile.file_id) {
-        rowClass += ' ' + classes.fileSelectedRow;
+    content.periods.forEach(period => {
+      let rowClass = classes.periodRow;
+      if (selectedPeriod && period.period_id === selectedPeriod.period_id) {
+        rowClass += ' ' + classes.periodSelectedRow;
       }
 
       rows.push(
         <tr
-          key={file.file_id}
-          data-file-id={file.file_id}
+          key={period.period_id}
+          data-period-id={period.period_id}
           className={rowClass}
-          onClick={this.binder1(this.handleClickFile, file.file_id)}
+          onClick={this.binder1(this.handleClickPeriod, period.period_id)}
         >
           <td className={ccStartDate} width="14%">
-            {file.start_date ?
-              <FormattedDate value={file.start_date}
+            {period.start_date ?
+              <FormattedDate value={period.start_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
               : 'Initial'}
           </td>
           <td className={ccEndDate} width="14%">
-            {file.end_date ?
-              <FormattedDate value={file.end_date}
+            {period.end_date ?
+              <FormattedDate value={period.end_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
               : 'In progress'}
           </td>
           {showCirc ?
             <td className={ccStartCirc} width="12%">
-              {cfmt(file.start_circ)}
+              {cfmt(period.start_circ)}
             </td>
             : null}
           {showCirc ?
             <td className={ccEndCirc} width="12%">
-              {cfmt(file.end_circ)}
+              {cfmt(period.end_circ)}
             </td>
             : null}
           <td className={ccStartCombined} width="12%">
-            {cfmt(file.start_combined)}
+            {cfmt(period.start_combined)}
           </td>
           <td className={ccEndCombined} width="12%">
-            {file.end_combined ? cfmt(file.end_combined) : 'In progress'}
+            {period.end_combined ? cfmt(period.end_combined) : 'In progress'}
           </td>
           <td className={ccStatements} width="12%" title="Statements">
-            {file.statement_count}
+            {period.statement_count}
           </td>
           <td className={ccClosed} width="12%">
-            {file.closed ?
+            {period.closed ?
               <CheckBox className={cCheckbox}/> :
               <CheckBoxOutlineBlank className={cCheckbox} />}
           </td>
@@ -288,7 +288,7 @@ class FilesView extends React.Component {
           <thead>
             <tr>
               <th className={classes.titleCell} colSpan={columnCount}>
-                {ploop.peer_title} Reconciliation Files
+                {ploop.peer_title} Reconciliation Periods
                 <div>
                   {currency}
                   {' '}{loop_id === '0' ? 'Open Loop' : ploop.loop_title}
@@ -347,7 +347,7 @@ class FilesView extends React.Component {
 
     return (
       <Typography className={classes.root} component="div">
-        <LayoutConfig title="Files" />
+        <LayoutConfig title="Periods" />
         <Require fetcher={fOPNReco} urls={[contentURL]} />
         <Paper className={classes.pagerPaper}>
           <Pager
@@ -364,7 +364,7 @@ class FilesView extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const pagerName = 'fileList';
+  const pagerName = 'PeriodsView';
   const {ploop} = ownProps;
   const {
     rowsPerPage,
@@ -374,7 +374,7 @@ function mapStateToProps(state, ownProps) {
 
   if (ploop) {
     const contentURL = fOPNReco.pathToURL(
-      `/files?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
+      `/periods?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
       `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
     const content = fetchcache.get(state, contentURL);
@@ -401,4 +401,4 @@ export default compose(
   withStyles(styles),
   withRouter,
   connect(mapStateToProps),
-)(FilesView);
+)(PeriodsView);

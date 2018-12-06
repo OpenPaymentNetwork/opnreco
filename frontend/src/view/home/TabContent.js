@@ -1,6 +1,6 @@
 import { binder } from '../../util/binder';
 import Button from '@material-ui/core/Button';
-import FilesView from '../file/FilesView';
+import PeriodsView from '../period/PeriodsView';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -12,7 +12,7 @@ import TransferSummary from '../report/TransferSummary';
 export default class TabContent extends React.Component {
   static propTypes = {
     ploop: PropTypes.object,
-    file: PropTypes.object,
+    period: PropTypes.object,
     tab: PropTypes.string,
   };
 
@@ -26,12 +26,12 @@ export default class TabContent extends React.Component {
 
   componentDidCatch(error, info) {
     /* eslint {"no-console": 0} */
-    const {ploop, file, tab} = this.props;
+    const {ploop, period, tab} = this.props;
 
     if (typeof console !== 'undefined') {
       console.error(
         'TabContent render error',
-        {error, info, ploop, file, tab});
+        {error, info, ploop, period, tab});
     }
     this.setState({errorTab: this.props.tab});
   }
@@ -67,18 +67,18 @@ export default class TabContent extends React.Component {
       );
     }
 
-    const {ploop, file, tab} = this.props;
+    const {ploop, period, tab} = this.props;
     switch(tab) {
     case 'reco':
-      return <RecoReport ploop={ploop} file={file} />;
+      return <RecoReport ploop={ploop} period={period} />;
     case 'transactions':
-      return <TransactionReport ploop={ploop} file={file} />;
+      return <TransactionReport ploop={ploop} period={period} />;
     case 'liabilities':
       return this.renderLiabilitiesTab();
     case 't':
-      return <TransferSummary ploop={ploop} file={file} />;
-    case 'file':
-      return <FilesView ploop={ploop} file={file} />;
+      return <TransferSummary ploop={ploop} period={period} />;
+    case 'period':
+      return <PeriodsView ploop={ploop} period={period} />;
     default:
       return null;
     }

@@ -3,12 +3,12 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
-import { getPloopAndFile } from '../../util/ploopfile';
+import { getPloopAndPeriod } from '../../util/period';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import FileSelector from '../report/FileSelector';
+import PeriodSelector from './PeriodSelector';
 import Hidden from '@material-ui/core/Hidden';
 import IconButton from '@material-ui/core/IconButton';
 import MenuIcon from '@material-ui/icons/Menu';
@@ -33,7 +33,7 @@ const styles = theme => ({
     minHeight: '94px',
     position: 'relative',
   },
-  fileSelectorBox: {
+  periodSelectorBox: {
     padding: 16,
   },
   tabs: {
@@ -59,7 +59,7 @@ class Home extends React.Component {
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
     ploop: PropTypes.object,
-    file: PropTypes.object,
+    period: PropTypes.object,
     transferId: PropTypes.string,
     ploopsLoaded: PropTypes.bool,
     syncing: PropTypes.bool,
@@ -91,7 +91,7 @@ class Home extends React.Component {
   render() {
     const {
       classes,
-      file,
+      period,
       match,
       ploop,
       transferId,
@@ -116,21 +116,21 @@ class Home extends React.Component {
           onClick={this.binder(this.handleTabClick)} />
         <Tab value="t" label="Transfer" href={transferPath}
           onClick={this.binder(this.handleTabClick)} />
-        <Tab value="file" label="Files" href="/file"
+        <Tab value="period" label="Periods" href="/period"
           onClick={this.binder(this.handleTabClick)} />
       </Tabs>
     );
 
     const filterBox = (
-      <div className={classes.fileSelectorBox}>
-        <FileSelector ploop={ploop} file={file} />
+      <div className={classes.periodSelectorBox}>
+        <PeriodSelector ploop={ploop} period={period} />
       </div>
     );
 
     let tabContent;
 
     if (ploop) {
-      tabContent = <TabContent tab={tab} ploop={ploop} file={file} />;
+      tabContent = <TabContent tab={tab} ploop={ploop} period={period} />;
     } else if (!ploopsLoaded || syncing) {
       tabContent = (
         <div className={classes.waitContainer}>
@@ -175,11 +175,11 @@ class Home extends React.Component {
 }
 
 function mapStateToProps(state) {
-  const {ploop, file} = getPloopAndFile(state);
+  const {ploop, period} = getPloopAndPeriod(state);
 
   return {
     ploop,
-    file,
+    period,
     transferId: state.app.transferId,
     ploopsLoaded: !!fetchcache.get(state, fOPNReco.pathToURL('/ploops')),
     syncing: state.app.syncProgress !== null,

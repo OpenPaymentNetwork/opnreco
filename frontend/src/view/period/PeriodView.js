@@ -17,12 +17,7 @@ import Require from '../../util/Require';
 import Paper from '@material-ui/core/Paper';
 import TextField from '@material-ui/core/TextField';
 import FormGroup from '@material-ui/core/FormGroup';
-import FormControl from '@material-ui/core/FormControl';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Select from '@material-ui/core/Select';
-import InputLabel from '@material-ui/core/InputLabel';
-import Input from '@material-ui/core/Input';
-import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox';
 
@@ -48,7 +43,7 @@ const styles = {
 };
 
 
-class FileView extends React.Component {
+class PeriodView extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -76,7 +71,7 @@ class FileView extends React.Component {
     const {result} = this.props;
     if (!this.state.initialized && result) {
       this.setState({
-        form: result.file,
+        form: result.period,
         initialized: true,
       });
     }
@@ -110,7 +105,7 @@ class FileView extends React.Component {
       form,
     } = this.state;
 
-    const closed = result.file.closed;
+    const closed = result.period.closed;
 
     let buttons;
     if (!closed) {
@@ -246,7 +241,7 @@ class FileView extends React.Component {
 
     if (result) {
       let peerType;
-      if (result.file.peer_id === 'c') {
+      if (result.period.peer_id === 'c') {
         peerType = 'Circulation';
       } else if (result.peer.is_dfi_account) {
         peerType = 'DFI Account';
@@ -254,24 +249,24 @@ class FileView extends React.Component {
         peerType = 'Wallet';
       }
 
-      titleParts.push('File:');
-      titleParts.push(renderReportDateString(result.file, result.now, intl));
+      titleParts.push('Period:');
+      titleParts.push(renderReportDateString(result.period, result.now, intl));
       titleParts.push('-');
       titleParts.push(result.peer.title);
       titleParts.push(`(${peerType})`);
       titleParts.push('-');
-      titleParts.push(result.file.currency);
+      titleParts.push(result.period.currency);
       titleParts.push(
-        result.file.loop_id === '0' ? 'Open Loop' : result.loop.title);
+        result.period.loop_id === '0' ? 'Open Loop' : result.loop.title);
       content = this.renderContent();
     } else if (loading) {
-      titleParts.push('File');
+      titleParts.push('Period');
       content = (
         <div style={{textAlign: 'center'}}>
           <CircularProgress style={{padding: '16px'}} />
         </div>);
     } else {
-      titleParts.push('File not found');
+      titleParts.push('Period not found');
     }
 
     return (
@@ -293,7 +288,7 @@ class FileView extends React.Component {
 function mapStateToProps(state, ownProps) {
   const {match} = ownProps;
   const queryURL = fOPNReco.pathToURL(
-    `/file?file_id=${encodeURIComponent(match.params.file_id)}`);
+    `/period?period_id=${encodeURIComponent(match.params.period_id)}`);
   const result = fetchcache.get(state, queryURL);
   const loading = fetchcache.fetching(state, queryURL);
 
@@ -310,4 +305,4 @@ export default compose(
   withRouter,
   injectIntl,
   connect(mapStateToProps),
-)(FileView);
+)(PeriodView);

@@ -3,7 +3,7 @@ from decimal import Decimal
 from opnreco.models.db import Movement
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
-from opnreco.param import get_request_file
+from opnreco.param import get_request_period
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from pyramid.httpexceptions import HTTPBadRequest
@@ -28,15 +28,15 @@ def transfer_record_final_view(context, request):
 def transfer_record_view(context, request, final=False):
     """Prepare all the info for displaying a transfer record.
 
-    Requires peer_key, file_id, and transfer_id in the query string.
-    Note that the file specified is used only to identify which
+    Requires peer_key, period_id, and transfer_id in the query string.
+    Note that the period specified is used only to identify which
     reconciliation records to show.
 
     To optimize for performance, this view should not fetch peer and
     loop titles by default. It should fetch updates when accessed
     as 'transfer-record-final'.
     """
-    file, peer, loop = get_request_file(request)
+    period, peer, loop = get_request_period(request)
 
     transfer_id_input = request.params.get('transfer_id')
     if not transfer_id_input:
@@ -46,8 +46,8 @@ def transfer_record_view(context, request, final=False):
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
-    file_peer_id = file.peer_id
-    is_circ = file_peer_id == 'c'
+    period_peer_id = period.peer_id
+    is_circ = period_peer_id == 'c'
 
     record = (
         dbsession.query(TransferRecord)
@@ -141,10 +141,10 @@ def transfer_record_view(context, request, final=False):
         vault_delta = movement.vault_delta
         wallet_delta = movement.wallet_delta
 
-        if is_circ or orig_peer_id == file_peer_id:
+        if is_circ or orig_peer_id == period_peer_id:
             reco_applicable = not not (wallet_delta or vault_delta)
         else:
-            # This file does not reconcile this movement.
+            # The selected peer loop does not reconcile this movement.
             reco_applicable = False
 
         reco_id = movement.reco_id
@@ -203,7 +203,7 @@ def transfer_record_view(context, request, final=False):
     peer_order = [y for x, y in peer_ordering]
     peer_index = {x: i for (i, x) in enumerate(peer_order)}
 
-    self_id = owner_id if is_circ else file.peer_id
+    self_id = owner_id if is_circ else period.peer_id
 
     delta_totals_json = [{
         'currency': currency1,

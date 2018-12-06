@@ -105,7 +105,7 @@ class TransactionReport extends React.Component {
     reportURL: PropTypes.string,
     report: PropTypes.object,
     loading: PropTypes.bool,
-    file: PropTypes.object,
+    period: PropTypes.object,
     ploop: PropTypes.object,
     pagerName: PropTypes.string.isRequired,
     initialRowsPerPage: PropTypes.number.isRequired,
@@ -374,21 +374,21 @@ class TransactionReport extends React.Component {
       reportURL,
       report,
       loading,
-      file,
+      period,
       ploop,
       pagerName,
       initialRowsPerPage,
     } = this.props;
 
-    if (!reportURL || !file) {
-      // No peer loop or file selected.
+    if (!reportURL || !period) {
+      // No peer loop or period selected.
       return null;
     }
 
     let content, rowcount;
 
     if (report) {
-      const reportDate = renderReportDate(file, report.now);
+      const reportDate = renderReportDate(period, report.now);
 
       rowcount = report.rowcount;
       content = (
@@ -452,8 +452,8 @@ class TransactionReport extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const pagerName = 'transactionReport';
-  const {ploop, file} = ownProps;
+  const pagerName = 'TransactionReport';
+  const {ploop, period} = ownProps;
 
   const {
     rowsPerPage,
@@ -464,7 +464,7 @@ function mapStateToProps(state, ownProps) {
   if (ploop) {
     const reportURL = fOPNReco.pathToURL(
       `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
-      `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
+      `&period_id=${encodeURIComponent(period ? period.period_id : 'current')}` +
       `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
       `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
     const report = fetchcache.get(state, reportURL);

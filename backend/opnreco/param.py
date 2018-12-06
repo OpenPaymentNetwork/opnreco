@@ -1,7 +1,7 @@
 
 from decimal import Decimal
 from decimal import InvalidOperation
-from opnreco.models.db import File
+from opnreco.models.db import Period
 from opnreco.models.db import Loop
 from opnreco.models.db import Peer
 from pyramid.httpexceptions import HTTPBadRequest
@@ -30,47 +30,47 @@ def parse_ploop_key(ploop_key):
     return (peer_id, loop_id, currency)
 
 
-def get_request_file(request):
-    """Get the file, peer, and loop specified in the request params.
+def get_request_period(request):
+    """Get the period, peer, and loop specified in the request params.
 
     Raise HTTPBadRequest or HTTPNotFound as needed.
 
     The subpath must contain a ploop_key (peer_id-loop_id-currency)
-    and file_id, where file_id may be 'current'.
+    and period_id, where period_id may be 'current'.
     """
     params = request.params
     peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
-    file_id_str = params.get('file_id', 'current')
+    period_id_str = params.get('period_id', 'current')
 
     owner = request.owner
     owner_id = owner.id
     dbsession = request.dbsession
 
-    if file_id_str == 'current':
-        file_id_filter = File.current
+    if period_id_str == 'current':
+        period_id_filter = Period.current
     else:
         try:
-            file_id = int(file_id_str)
+            period_id = int(period_id_str)
         except ValueError:
             raise HTTPBadRequest(
-                json_body={'error': 'bad_file_id'})
-        file_id_filter = (File.id == file_id)
+                json_body={'error': 'bad_period_id'})
+        period_id_filter = (Period.id == period_id)
 
     row = (
-        dbsession.query(File, Peer, Loop)
+        dbsession.query(Period, Peer, Loop)
         .join(Peer, and_(
             Peer.owner_id == owner_id,
-            Peer.peer_id == File.peer_id))
+            Peer.peer_id == Period.peer_id))
         .outerjoin(Loop, and_(
             Loop.owner_id == owner_id,
-            Loop.loop_id == File.loop_id,
+            Loop.loop_id == Period.loop_id,
             Loop.loop_id != '0'))
         .filter(
-            File.owner_id == owner_id,
-            File.peer_id == peer_id,
-            File.loop_id == loop_id,
-            File.currency == currency,
-            file_id_filter)
+            Period.owner_id == owner_id,
+            Period.peer_id == peer_id,
+            Period.loop_id == loop_id,
+            Period.currency == currency,
+            period_id_filter)
         .first())
 
     if row is None:

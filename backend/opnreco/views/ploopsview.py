@@ -1,5 +1,5 @@
 
-from opnreco.models.db import File
+from opnreco.models.db import Period
 from opnreco.models.db import Loop
 from opnreco.models.db import Peer
 from opnreco.models.site import API
@@ -17,7 +17,7 @@ import datetime
     permission='use_app',
     renderer='json')
 def ploops_view(request):
-    """Return the owner profile's list of peer loops ('ploops') and files.
+    """Return the owner profile's list of peer loops ('ploops') and periods.
 
     Returns {
         'ploops': {ploop_key: {
@@ -30,13 +30,13 @@ def ploops_view(request):
             'peer_is_dfi_account',
             'peer_is_own_dfi_account',
             'loop_title',
-            'files': {file_id: {
-                'file_id',
+            'periods': {period_id: {
+                'period_id',
                 'current',
                 'start_date',
                 'end_date',
             }},
-            'file_order': [file_id],
+            'period_order': [period_id],
         }},
         'ploop_order': [ploop_key],
         'default_ploop': ploop_key,
@@ -50,22 +50,22 @@ def ploops_view(request):
 
     # ploop_cte prepares the list of peer loops the owner profile should see.
     ploop_cte = (
-        dbsession.query(File.peer_id, File.loop_id, File.currency)
+        dbsession.query(Period.peer_id, Period.loop_id, Period.currency)
         .join(Peer, and_(
             Peer.owner_id == owner_id,
-            Peer.peer_id == File.peer_id))
+            Peer.peer_id == Period.peer_id))
         .filter(
-            File.owner_id == owner_id,
+            Period.owner_id == owner_id,
             or_(
                 # The owner can reconcile any peer loop associated with their
                 # own DFI account.
                 Peer.is_own_dfi_account,
                 # The owner can also reconcile any 'c' peer loop that has
                 # seen movements to/from a vault, indicating the owner is
-                # an issuer (of cash in the file's currency and loop).
+                # an issuer (of cash in the period's currency and loop).
                 and_(
-                    File.peer_id == 'c',
-                    File.has_vault,
+                    Period.peer_id == 'c',
+                    Period.has_vault,
                 ),
                 # If we let the owner see all possible peer loops for their
                 # profile, they can reconcile with other wallets!
@@ -94,40 +94,40 @@ def ploops_view(request):
         )
         .all())
 
-    # Now list some of the files in each visible peer loop.
-    # Get up to 10 files per peer loop, plus the selected file, if any.
-    # (To access more of the files, the user should select the file
-    # using the Files tab.)
+    # Now list some of the periods in each visible peer loop.
+    # Get up to 10 periods per peer loop, plus the selected period, if any.
+    # (To access more of the periods, the user should select the period
+    # using the Periods tab.)
     subq = (
         dbsession.query(
-            File,
+            Period,
             func.row_number().over(
                 partition_by=(
-                    File.peer_id,
-                    File.loop_id,
-                    File.currency,
+                    Period.peer_id,
+                    Period.loop_id,
+                    Period.currency,
                 ),
-                order_by=func.coalesce(File.start_date, future).desc(),
+                order_by=func.coalesce(Period.start_date, future).desc(),
             ).label('rownum'),
         )
         .join(ploop_cte, and_(
-            File.peer_id == ploop_cte.c.peer_id,
-            File.loop_id == ploop_cte.c.loop_id,
-            File.currency == ploop_cte.c.currency,
+            Period.peer_id == ploop_cte.c.peer_id,
+            Period.loop_id == ploop_cte.c.loop_id,
+            Period.currency == ploop_cte.c.currency,
         ))
-        .filter(File.owner_id == owner_id)
+        .filter(Period.owner_id == owner_id)
         .subquery('subq'))
 
-    file_alias = aliased(File, subq)
-    file_filters = [subq.c.rownum <= 10]
-    # if selected_file_id:
-    #     file_filters.append(subq.c.id == selected_file_id)
-    file_rows_query = (
-        dbsession.query(file_alias)
-        .filter(or_(*file_filters)))
-    file_rows = file_rows_query.all()
+    period_alias = aliased(Period, subq)
+    period_filters = [subq.c.rownum <= 10]
+    # if selected_period_id:
+    #     period_filters.append(subq.c.id == selected_period_id)
+    period_rows_query = (
+        dbsession.query(period_alias)
+        .filter(or_(*period_filters)))
+    period_rows = period_rows_query.all()
 
-    # ploops: {peer_id-loop_id-currency: {files, file_order, ...}}
+    # ploops: {peer_id-loop_id-currency: {periods, period_order, ...}}
     ploops = {}
 
     for peer, loop_id, currency, loop_title in ploop_rows:
@@ -146,21 +146,21 @@ def ploops_view(request):
             'peer_is_dfi_account': peer.is_dfi_account,
             'peer_is_own_dfi_account': peer.is_own_dfi_account,
             'loop_title': loop_title,
-            'files': {},
-            'file_order': [],
+            'periods': {},
+            'period_order': [],
         }
 
-    for file in file_rows:
-        ploop_key = '-'.join([file.peer_id, file.loop_id, file.currency])
+    for period in period_rows:
+        ploop_key = '-'.join([period.peer_id, period.loop_id, period.currency])
         ploop = ploops[ploop_key]
-        file_id_str = str(file.id)
-        ploop['files'][file_id_str] = {
-            'file_id': file_id_str,
-            'current': file.current,
-            'start_date': file.start_date,
-            'end_date': file.end_date,
+        period_id_str = str(period.id)
+        ploop['periods'][period_id_str] = {
+            'period_id': period_id_str,
+            'current': period.current,
+            'start_date': period.start_date,
+            'end_date': period.end_date,
         }
-        ploop['file_order'].append(file_id_str)
+        ploop['period_order'].append(period_id_str)
 
     # Determine the ordering of the ploops.
 
@@ -187,7 +187,7 @@ def ploops_view(request):
         )
         ploop_ordering.append((sort_key, ploop_key))
 
-        # Prefer to show circulation files over other types of files.
+        # Prefer to show circulation ploops over other types of ploops.
         default_key = (
             0 if peer_id == 'c' else 1,
             0 if loop_id == '0' else 1,

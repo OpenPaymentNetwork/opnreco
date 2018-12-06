@@ -5,8 +5,8 @@ from opnreco.models.db import now_func
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
-from opnreco.param import get_request_file
-from opnreco.viewcommon import compute_file_totals
+from opnreco.param import get_request_period
+from opnreco.viewcommon import compute_period_totals
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -23,9 +23,9 @@ zero = Decimal()
     permission='use_app',
     renderer='json')
 def reco_report_view(request):
-    file, peer, loop = get_request_file(request)
+    period, peer, loop = get_request_period(request)
 
-    file_id = file.id
+    period_id = period.id
     dbsession = request.dbsession
     owner_id = request.owner.id
 
@@ -33,7 +33,7 @@ def reco_report_view(request):
 
     movement_filter = and_(
         Movement.owner_id == owner_id,
-        Movement.file_id == file_id,
+        Movement.period_id == period_id,
         Movement.transfer_record_id == TransferRecord.id,
         movement_delta != 0,
     )
@@ -41,7 +41,7 @@ def reco_report_view(request):
     now = dbsession.query(now_func).scalar()
 
     # workflow_type_rows lists the workflow types of movements
-    # involved in this file. Derive the list from the unreconciled
+    # involved in this period. Derive the list from the unreconciled
     # movements and reconciled movements that require an account entry,
     # but not from the internally reconciled movements.
     workflow_type_rows = (
@@ -124,7 +124,7 @@ def reco_report_view(request):
     #     )
     #     .filter(
     #         AccountEntry.owner_id == owner_id,
-    #         AccountEntry.file_id == file_id,
+    #         AccountEntry.period_id == period_id,
     #         AccountEntry.reco_id == null,
     #         AccountEntry.delta != zero,
     #     )
@@ -161,10 +161,10 @@ def reco_report_view(request):
             'combined': str(td) if td else '0',
         }
 
-    totals = compute_file_totals(
+    totals = compute_period_totals(
         dbsession=dbsession,
         owner_id=owner_id,
-        file_ids=[file_id])[file_id]
+        period_ids=[period_id])[period_id]
 
     return {
         'now': now,

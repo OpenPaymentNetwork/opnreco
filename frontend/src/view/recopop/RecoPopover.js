@@ -5,7 +5,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
-import { getPloopAndFile } from '../../util/ploopfile';
+import { getPloopAndPeriod } from '../../util/period';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
 import AccountEntryTableBody from './AccountEntryTableBody';
@@ -102,7 +102,7 @@ class RecoPopover extends React.Component {
     close: PropTypes.func.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
-    fileId: PropTypes.string,
+    periodId: PropTypes.string,
     ploopKey: PropTypes.string,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
@@ -389,7 +389,7 @@ class RecoPopover extends React.Component {
   handleSave() {
     const {
       ploopKey,
-      fileId,
+      periodId,
       recoId,
       dispatch,
     } = this.props;
@@ -398,7 +398,7 @@ class RecoPopover extends React.Component {
 
     const url = fOPNReco.pathToURL('/reco-save' +
       `?ploop_key=${encodeURIComponent(ploopKey)}` +
-      `&file_id=${encodeURIComponent(fileId)}`);
+      `&period_id=${encodeURIComponent(periodId)}`);
     const data = {
       reco,
       reco_id: recoId,
@@ -423,7 +423,7 @@ class RecoPopover extends React.Component {
     const {
       dispatch,
       classes,
-      fileId,
+      periodId,
       ploopKey,
       recoURL,
       recoId,
@@ -452,7 +452,7 @@ class RecoPopover extends React.Component {
     const tableBodyProps = {
       close: close,
       dispatch: dispatch,
-      fileId: fileId,
+      periodId: periodId,
       ploopKey: ploopKey,
       recoId: recoId,
       resetCount: resetCount,
@@ -558,7 +558,7 @@ class RecoPopover extends React.Component {
                 onChange={this.binder(this.handleRecoType)}
               >
                 <MenuItem value="standard">Standard Reconciliation</MenuItem>
-                <MenuItem value="wallet_only">Wallet Income/Expense</MenuItem>
+                <MenuItem value="wallet_only">Wallet In/Out</MenuItem>
                 <MenuItem value="account_only">Account Credit/Debit</MenuItem>
               </Select>
             </FormControl>
@@ -666,15 +666,15 @@ FadeDrag2.propTypes = {
 
 
 function mapStateToProps(state, ownProps) {
-  const {ploop, file} = getPloopAndFile(state);
+  const {ploop, period} = getPloopAndPeriod(state);
   const ploopKey = ploop ? ploop.ploop_key : '';
-  const fileId = file ? file.file_id : 'current';
+  const periodId = period ? period.period_id : 'current';
   let recoURL, recoFinalURL, reco;
 
   if (ploop) {
     const query = (
       `ploop_key=${encodeURIComponent(ploopKey)}` +
-      `&file_id=${encodeURIComponent(fileId)}` +
+      `&period_id=${encodeURIComponent(periodId)}` +
       `&movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
       `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
       `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`);
@@ -693,7 +693,7 @@ function mapStateToProps(state, ownProps) {
     recoFinalURL,
     reco,
     ploopKey,
-    fileId,
+    periodId,
   };
 }
 

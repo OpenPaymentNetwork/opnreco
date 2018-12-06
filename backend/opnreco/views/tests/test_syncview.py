@@ -177,8 +177,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_file',
-            'add_file',
+            'add_period',
+            'add_period',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.owner_id)
@@ -216,15 +216,15 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('', peers[1].username)
         self.assertEqual(True, peers[1].is_dfi_account)
 
-        files = (
-            self.dbsession.query(db.File)
-            .order_by(db.File.peer_id).all())
-        self.assertEqual(2, len(files))
-        file = files[0]
-        self.assertEqual('11', file.owner_id)
-        self.assertEqual('1102', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        periods = (
+            self.dbsession.query(db.Period)
+            .order_by(db.Period.peer_id).all())
+        self.assertEqual(2, len(periods))
+        period = periods[0]
+        self.assertEqual('11', period.owner_id)
+        self.assertEqual('1102', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -343,16 +343,16 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('1102', record.recipient_id)
         self.assertEqual('wingcash:1102', record.recipient_uid)
 
-        files = (
-            self.dbsession.query(db.File)
+        periods = (
+            self.dbsession.query(db.Period)
             .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(files))
-        file = files[0]
-        self.assertEqual('19', file.owner_id)
-        self.assertEqual('c', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('19', period.owner_id)
+        self.assertEqual('c', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         all_movements = (
             self.dbsession.query(db.Movement)
@@ -465,8 +465,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_file',
-            'add_file',
+            'add_period',
+            'add_period',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.owner_id)
@@ -505,15 +505,15 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(None, peers[1].username)
         self.assertEqual(False, peers[1].is_dfi_account)
 
-        files = (
-            self.dbsession.query(db.File)
-            .order_by(db.File.peer_id).all())
-        self.assertEqual(2, len(files))
-        file = files[0]
-        self.assertEqual('11', file.owner_id)
-        self.assertEqual('19', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        periods = (
+            self.dbsession.query(db.Period)
+            .order_by(db.Period.peer_id).all())
+        self.assertEqual(2, len(periods))
+        period = periods[0]
+        self.assertEqual('11', period.owner_id)
+        self.assertEqual('19', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -631,9 +631,9 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_file',
-            'add_file',
-            'add_file',
+            'add_period',
+            'add_period',
+            'add_period',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('19', event.owner_id)
@@ -656,16 +656,16 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('11', record.recipient_id)
         self.assertEqual('wingcash:11', record.recipient_uid)
 
-        files = (
-            self.dbsession.query(db.File)
+        periods = (
+            self.dbsession.query(db.Period)
             .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(files))
-        file = files[0]
-        self.assertEqual('19', file.owner_id)
-        self.assertEqual('c', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('19', period.owner_id)
+        self.assertEqual('c', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -772,8 +772,8 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual('1102', record.recipient_id)
         self.assertEqual('wingcash:1102', record.recipient_uid)
 
-        files = self.dbsession.query(db.File).all()
-        self.assertEqual(0, len(files))
+        periods = self.dbsession.query(db.Period).all()
+        self.assertEqual(0, len(periods))
 
         ms = self.dbsession.query(db.Movement).all()
         self.assertEqual(0, len(ms))
@@ -826,16 +826,16 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertFalse(records[0].canceled)
 
-        files = (
-            self.dbsession.query(db.File)
+        periods = (
+            self.dbsession.query(db.Period)
             .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(files))
-        file = files[0]
-        self.assertEqual('19', file.owner_id)
-        self.assertEqual('c', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('19', period.owner_id)
+        self.assertEqual('c', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -913,16 +913,16 @@ class TestDownloadView(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertTrue(records[0].canceled)
 
-        files = (
-            self.dbsession.query(db.File)
+        periods = (
+            self.dbsession.query(db.Period)
             .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(files))
-        file = files[0]
-        self.assertEqual('19', file.owner_id)
-        self.assertEqual('c', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('19', period.owner_id)
+        self.assertEqual('c', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -985,8 +985,8 @@ class TestDownloadView(unittest.TestCase):
             obj = self._make(owner_id='19')
             obj()
 
-        files = self.dbsession.query(db.File).all()
-        self.assertEqual(0, len(files))
+        periods = self.dbsession.query(db.Period).all()
+        self.assertEqual(0, len(periods))
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -1069,16 +1069,16 @@ class TestDownloadView(unittest.TestCase):
             obj = self._make(owner_id='19')
             obj()
 
-        files = (
-            self.dbsession.query(db.File)
+        periods = (
+            self.dbsession.query(db.Period)
             .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(files))
-        file = files[0]
-        self.assertEqual('19', file.owner_id)
-        self.assertEqual('c', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('19', period.owner_id)
+        self.assertEqual('c', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)
@@ -1164,16 +1164,16 @@ class TestDownloadView(unittest.TestCase):
             obj = self._make(owner_id='19')
             obj()
 
-        files = (
-            self.dbsession.query(db.File)
+        periods = (
+            self.dbsession.query(db.Period)
             .filter_by(peer_id='c')
             .all())
-        self.assertEqual(1, len(files))
-        file = files[0]
-        self.assertEqual('19', file.owner_id)
-        self.assertEqual('c', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('19', period.owner_id)
+        self.assertEqual('c', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         mss = self.dbsession.query(db.Movement).all()
         self.assertEqual(2, len(mss))
@@ -1217,8 +1217,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_file',
-            'add_file',
+            'add_period',
+            'add_period',
             'opn_sync',
             'update_peer',
         ], [e.event_type for e in events])
@@ -1374,8 +1374,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_file',
-            'add_file',
+            'add_period',
+            'add_period',
         ], [e.event_type for e in events])
 
         event = events[0]
@@ -1384,8 +1384,8 @@ class TestDownloadView(unittest.TestCase):
             {'sync_ts', 'progress_percent', 'transfers'},
             set(event.content.keys()))
 
-        file = (
-            self.dbsession.query(db.File).filter_by(
+        period = (
+            self.dbsession.query(db.Period).filter_by(
                 peer_id='19').one())
 
         mss = (
@@ -1430,8 +1430,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_file',
-            'add_file',
+            'add_period',
+            'add_period',
             'opn_sync',
         ], [e.event_type for e in events])
         event = events[-1]
@@ -1448,15 +1448,15 @@ class TestDownloadView(unittest.TestCase):
         self.assertFalse(record.canceled)
         self.assertEqual('502', record.transfer_id)
 
-        files = (
-            self.dbsession.query(db.File)
-            .order_by(db.File.peer_id).all())
-        self.assertEqual(2, len(files))
-        file = files[0]
-        self.assertEqual('11', file.owner_id)
-        self.assertEqual('19', file.peer_id)
-        self.assertEqual('0', file.loop_id)
-        self.assertEqual('USD', file.currency)
+        periods = (
+            self.dbsession.query(db.Period)
+            .order_by(db.Period.peer_id).all())
+        self.assertEqual(2, len(periods))
+        period = periods[0]
+        self.assertEqual('11', period.owner_id)
+        self.assertEqual('19', period.peer_id)
+        self.assertEqual('0', period.loop_id)
+        self.assertEqual('USD', period.currency)
 
         movements = (
             self.dbsession.query(db.Movement)

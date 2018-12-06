@@ -104,7 +104,7 @@ class RecoTableBody extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    fileId: PropTypes.string,
+    periodId: PropTypes.string,
     ploopKey: PropTypes.string,
     updatePopoverPosition: PropTypes.func.isRequired,
     items: PropTypes.array,
@@ -255,7 +255,7 @@ class RecoTableBody extends React.Component {
       }
     });
     if (hasQuery) {
-      const {ploopKey, fileId, items, recoId} = this.props;
+      const {ploopKey, periodId, items, recoId} = this.props;
       const seen_ids = [];
       if (items) {
         items.forEach(item => {
@@ -266,7 +266,7 @@ class RecoTableBody extends React.Component {
       }
       const url = fOPNReco.pathToURL(searchCallPath +
         `?ploop_key=${encodeURIComponent(ploopKey)}` +
-        `&file_id=${encodeURIComponent(fileId)}`);
+        `&period_id=${encodeURIComponent(periodId)}`);
       const data = {
         tzoffset: new Date().getTimezoneOffset(),
         seen_ids,

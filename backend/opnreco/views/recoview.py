@@ -17,7 +17,7 @@ from opnreco.models.db import OwnerLog
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
-from opnreco.param import get_request_file
+from opnreco.param import get_request_period
 from opnreco.param import parse_amount
 from opnreco.viewcommon import get_loop_map
 from pyramid.httpexceptions import HTTPBadRequest
@@ -104,7 +104,7 @@ def reco_final_view(context, request):
 def reco_view(context, request, final=False):
     """Return the state of a reco or a movement proposed for a reco."""
 
-    file, _peer, _loop = get_request_file(request)
+    period, _peer, _loop = get_request_period(request)
 
     reco_id_input = request.params.get('reco_id')
     movement_id_input = request.params.get('movement_id')
@@ -189,7 +189,7 @@ def reco_view(context, request, final=False):
         movement_rows = account_entry_rows = ()
 
     need_loop_ids = set()
-    show_vault = file.peer_id == 'c'
+    show_vault = period.peer_id == 'c'
     for row in movement_rows:
         if row.vault_delta:
             show_vault = True
@@ -221,7 +221,7 @@ def reco_view(context, request, final=False):
 def reco_search_movement_view(context, request, final=False):
     """Search for movements that haven't been reconciled."""
 
-    file, _peer, _loop = get_request_file(request)
+    period, _peer, _loop = get_request_period(request)
 
     params = request.json
     amount_input = str(params.get('amount', ''))
@@ -329,11 +329,11 @@ def reco_search_movement_view(context, request, final=False):
     movement_rows = (
         start_movement_query(dbsession=dbsession, owner_id=owner_id)
         .filter(
-            # Note: don't filter by file_id, otherwise, users won't be able
-            # to reconcile entries across files.
-            Movement.peer_id == file.peer_id,
-            Movement.currency == file.currency,
-            Movement.loop_id == file.loop_id,
+            # Note: don't filter by period_id, otherwise, users won't be able
+            # to reconcile entries across periods.
+            Movement.peer_id == period.peer_id,
+            Movement.currency == period.currency,
+            Movement.loop_id == period.loop_id,
             or_(
                 Movement.reco_id == null,
                 Movement.reco_id == reco_id,
@@ -366,7 +366,7 @@ def reco_search_movement_view(context, request, final=False):
 def reco_search_account_entries(context, request, final=False):
     """Search for account entries that haven't been reconciled."""
 
-    file, _peer, _loop = get_request_file(request)
+    period, _peer, _loop = get_request_period(request)
 
     params = request.json
     delta_input = str(params.get('delta', ''))
@@ -436,11 +436,11 @@ def reco_search_account_entries(context, request, final=False):
         dbsession.query(AccountEntry)
         .filter(
             AccountEntry.owner_id == owner_id,
-            # Note: don't filter by file_id, otherwise, users won't be able
-            # to reconcile entries across files.
-            AccountEntry.peer_id == file.peer_id,
-            AccountEntry.currency == file.currency,
-            AccountEntry.loop_id == file.loop_id,
+            # Note: don't filter by period_id, otherwise, users won't be able
+            # to reconcile entries across periods.
+            AccountEntry.peer_id == period.peer_id,
+            AccountEntry.currency == period.currency,
+            AccountEntry.loop_id == period.loop_id,
             or_(
                 AccountEntry.reco_id == null,
                 AccountEntry.reco_id == reco_id,
@@ -540,7 +540,7 @@ class RecoSave:
     def __call__(self):
         """Save changes to a reco."""
         request = self.request
-        file, _peer, _loop = get_request_file(request)
+        period, _peer, _loop = get_request_period(request)
         try:
             self.params = params = RecoSaveSchema().deserialize(request.json)
         except Invalid as e:
@@ -551,7 +551,7 @@ class RecoSave:
                     for (k, v) in sorted(e.asdict().items())),
             })
 
-        self.file = file
+        self.period = period
         self.reco_id = params['reco_id']
         self.reco_type = reco_type = params['reco']['reco_type']
 
@@ -601,16 +601,16 @@ class RecoSave:
         dbsession = request.dbsession
         owner = request.owner
         owner_id = owner.id
-        file = self.file
+        period = self.period
 
         new_movements = (
             dbsession.query(Movement)
             .filter(
                 Movement.owner_id == owner_id,
                 Movement.id.in_(new_movement_ids),
-                Movement.peer_id == file.peer_id,
-                Movement.currency == file.currency,
-                Movement.loop_id == file.loop_id,
+                Movement.peer_id == period.peer_id,
+                Movement.currency == period.currency,
+                Movement.loop_id == period.loop_id,
                 or_(
                     Movement.reco_id == null,
                     Movement.reco_id == self.reco_id,
@@ -647,7 +647,7 @@ class RecoSave:
 
     def create_account_entry(self, inputs):
         """Create a new AccountEntry from the inputs."""
-        file = self.file
+        period = self.period
         delta_input = inputs['delta']
         if not delta_input:
             raise HTTPBadRequest(json_body={
@@ -668,11 +668,11 @@ class RecoSave:
         match = re.search(r'[A-Z]+', delta_input, re.I)
         if match is not None:
             currency = match.group(0).upper()
-            if currency != file.currency:
+            if currency != period.currency:
                 raise HTTPBadRequest(json_body={
                     'error': 'currency_mismatch',
                     'error_description': (
-                        "Currency should be %s" % self.file.currency)
+                        "Currency should be %s" % self.period.currency)
                 })
 
         date_input = inputs['entry_date']
@@ -694,11 +694,11 @@ class RecoSave:
 
         entry = AccountEntry(
             owner_id=self.request.owner.id,
-            peer_id=file.peer_id,
-            file_id=file.id,
+            peer_id=period.peer_id,
+            period_id=period.id,
             entry_date=entry_date,
-            loop_id=file.loop_id,
-            currency=file.currency,
+            loop_id=period.loop_id,
+            currency=period.currency,
             delta=delta,
             desc=inputs['desc'] or '',
         )
@@ -721,16 +721,16 @@ class RecoSave:
             dbsession = request.dbsession
             owner = request.owner
             owner_id = owner.id
-            file = self.file
+            period = self.period
 
             reusing_entries = (
                 dbsession.query(AccountEntry)
                 .filter(
                     AccountEntry.owner_id == owner_id,
                     AccountEntry.id.in_(reusing_ids),
-                    AccountEntry.peer_id == file.peer_id,
-                    AccountEntry.currency == file.currency,
-                    AccountEntry.loop_id == file.loop_id,
+                    AccountEntry.peer_id == period.peer_id,
+                    AccountEntry.currency == period.currency,
+                    AccountEntry.loop_id == period.loop_id,
                     or_(
                         AccountEntry.reco_id == null,
                         AccountEntry.reco_id == self.reco_id,
@@ -794,7 +794,7 @@ class RecoSave:
                 if m.vault_delta:
                     raise HTTPBadRequest(json_body={
                         'error': 'wallet_only_excludes_vault',
-                        'error_description': "Wallet Income/Expense "
+                        'error_description': "Wallet In/Out "
                         "reconciliation can include wallet changes only, "
                         "not vault changes.",
                     })
@@ -862,16 +862,16 @@ class RecoSave:
         comment = params['reco']['comment']
 
         if new_account_entries:
-            # Get the file_id from the first account entry.
+            # Get the period_id from the first account entry.
             by_date = sorted(
                 new_account_entries, key=lambda x: (x.entry_date, x.id))
-            file_id = by_date[0].file_id
+            period_id = by_date[0].period_id
         elif new_movements:
-            # Get the file_id from the first movement.
+            # Get the period_id from the first movement.
             by_ts = sorted(new_movements, key=lambda x: (x.ts, x.number, x.id))
-            file_id = by_ts[0].file_id
+            period_id = by_ts[0].period_id
         else:
-            file_id = self.file.id
+            period_id = self.period.id
 
         if reco is None:
             added = True
@@ -879,7 +879,7 @@ class RecoSave:
                 owner_id=owner_id,
                 reco_type=reco_type,
                 internal=internal,
-                file_id=file_id,
+                period_id=period_id,
                 comment=comment)
             dbsession.add(reco)
             dbsession.flush()  # Assign reco.id
@@ -888,14 +888,15 @@ class RecoSave:
             reco_id = reco.id
             reco.reco_type = reco_type
             reco.internal = internal
-            reco.file_id = file_id
+            reco.period_id = period_id
             reco.comment = comment
             added = False
 
         for m in new_movements:
             m.reco_id = reco_id
-            # TODO: verify the movement's current file is not closed.
-            m.file_id = file_id  # Reassign the movement to the reco's file
+            # TODO: verify the movement's current period is not closed.
+            # Reassign the movement to the reco's period.
+            m.period_id = period_id
             if reco_type == 'wallet_only':
                 # Wallet-only reconciliations should have no effect on
                 # the surplus amount.
@@ -908,8 +909,9 @@ class RecoSave:
         created_account_entries = []
         for entry in new_account_entries:
             entry.reco_id = reco_id
-            # TODO: verify the entry's current file is not closed.
-            entry.file_id = file_id  # Reassign the entry to the reco's file
+            # TODO: verify the entry's current period is not closed.
+            # Reassign the entry to the reco's period
+            entry.period_id = period_id
             if entry.id is None:
                 dbsession.add(entry)
                 created_account_entries.append(entry)
@@ -929,14 +931,14 @@ class RecoSave:
                 'created_account_entries': [{
                     'id': e.id,
                     'owner_id': e.owner_id,
-                    'file_id': e.file_id,
+                    'period_id': e.period_id,
                     'entry_date': e.entry_date,
                     'currency': e.currency,
                     'loop_id': e.loop_id,
                     'delta': e.delta,
                     'desc': e.desc,
                 } for e in created_account_entries],
-                'file_id': file_id,
+                'period_id': period_id,
             },
         ))
         dbsession.flush()

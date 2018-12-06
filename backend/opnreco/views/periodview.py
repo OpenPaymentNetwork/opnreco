@@ -1,12 +1,12 @@
 
-from opnreco.models.db import File
 from opnreco.models.db import now_func
+from opnreco.models.db import Period
 from opnreco.models.db import Statement
 from opnreco.models.site import API
 from opnreco.param import get_offset_limit
 from opnreco.param import parse_ploop_key
-from opnreco.serialize import serialize_file
-from opnreco.viewcommon import compute_file_totals
+from opnreco.serialize import serialize_period
+from opnreco.viewcommon import compute_period_totals
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from pyramid.httpexceptions import HTTPBadRequest
@@ -16,12 +16,12 @@ import datetime
 
 
 @view_config(
-    name='files',
+    name='periods',
     context=API,
     permission='use_app',
     renderer='json')
-def files_view(request):
-    """Return a page of files for a ploop.
+def periods_view(request):
+    """Return a page of periods for a ploop.
     """
     params = request.params
     peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
@@ -34,14 +34,14 @@ def files_view(request):
     future = datetime.datetime.utcnow() + datetime.timedelta(days=366 * 100)
 
     query = (
-        dbsession.query(File)
+        dbsession.query(Period)
         .filter(
-            File.owner_id == owner_id,
-            File.peer_id == peer_id,
-            File.loop_id == loop_id,
-            File.currency == currency,
+            Period.owner_id == owner_id,
+            Period.peer_id == peer_id,
+            Period.loop_id == loop_id,
+            Period.currency == currency,
         )
-        .order_by(func.coalesce(File.start_date, future).desc())
+        .order_by(func.coalesce(Period.start_date, future).desc())
     )
 
     totals_row = (
@@ -54,69 +54,70 @@ def files_view(request):
     list_query = query.offset(offset)
     if limit is not None:
         list_query = list_query.limit(limit)
-    file_rows = list_query.all()
+    period_rows = list_query.all()
 
-    all_file_ids = [file.id for file in file_rows]
+    all_period_ids = [period.id for period in period_rows]
 
     statement_rows = (
         dbsession.query(
-            Statement.file_id,
+            Statement.period_id,
             func.count(1).label('count'),
         )
         .filter(
             Statement.owner_id == owner_id,
-            Statement.file_id.in_(all_file_ids),
+            Statement.period_id.in_(all_period_ids),
         )
-        .group_by(Statement.file_id)
+        .group_by(Statement.period_id)
         .all())
 
-    # Compute the end_circ and end_surplus for files that haven't computed
+    # Compute the end_circ and end_surplus for periods that haven't computed
     # them yet.
     partial_ids = [
-        file.id for file in file_rows
-        if file.end_circ is None or file.end_surplus is None]
+        period.id for period in period_rows
+        if period.end_circ is None or period.end_surplus is None]
     if partial_ids:
-        totals = compute_file_totals(
+        totals = compute_period_totals(
             dbsession=dbsession,
             owner_id=owner_id,
-            file_ids=partial_ids)
+            period_ids=partial_ids)
 
         end_amounts_map = {
-            file_id: {
+            period_id: {
                 'circ': total['end']['circ'],
                 'surplus': total['end']['surplus'],
-            } for (file_id, total) in totals.items()}
+            } for (period_id, total) in totals.items()}
 
     else:
         end_amounts_map = {}
 
-    statement_map = {row.file_id: row.count for row in statement_rows}
+    statement_map = {row.period_id: row.count for row in statement_rows}
 
-    files = []
-    for f in file_rows:
-        file_id = f.id
-        file_state = serialize_file(f, end_amounts=end_amounts_map.get(f.id))
-        file_state['statement_count'] = statement_map.get(file_id, 0)
-        files.append(file_state)
+    periods = []
+    for p in period_rows:
+        period_id = p.id
+        period_state = serialize_period(
+            p, end_amounts=end_amounts_map.get(p.id))
+        period_state['statement_count'] = statement_map.get(period_id, 0)
+        periods.append(period_state)
 
     return {
-        'files': files,
+        'periods': periods,
         'rowcount': totals_row.rowcount,
     }
 
 
 @view_config(
-    name='file',
+    name='period',
     context=API,
     permission='use_app',
     renderer='json')
-def file_view(request):
-    """Return info about a file, its peer, and its loop."""
+def period_view(request):
+    """Return info about a period, its peer, and its loop."""
     try:
-        file_id = int(request.params['file_id'])
+        period_id = int(request.params['period_id'])
     except Exception:
         raise HTTPBadRequest(json_body={
-            'error': 'bad_file_id',
+            'error': 'bad_period_id',
         })
 
     dbsession = request.dbsession
@@ -125,24 +126,25 @@ def file_view(request):
 
     now = dbsession.query(now_func).scalar()
 
-    file = (
-        dbsession.query(File)
+    period = (
+        dbsession.query(Period)
         .filter(
-            File.owner_id == owner_id,
-            File.id == file_id,
+            Period.owner_id == owner_id,
+            Period.id == period_id,
         )
         .first())
-    if file is None:
+    if period is None:
         raise HTTPBadRequest(json_body={
-            'error': 'file_not_found',
+            'error': 'period_not_found',
             'error_description': (
-                "No file found for your profile with file ID %s" % file_id),
+                "No period found for your profile with period ID %s"
+                % period_id),
         })
 
-    totals = compute_file_totals(
+    totals = compute_period_totals(
         dbsession=dbsession,
         owner_id=owner_id,
-        file_ids=[file.id])[file_id]
+        period_ids=[period.id])[period_id]
 
     end_amounts = {
         'circ': totals['end']['circ'],
@@ -150,19 +152,19 @@ def file_view(request):
     }
 
     peers = get_peer_map(
-        request=request, need_peer_ids=set([file.peer_id]), final=True)
+        request=request, need_peer_ids=set([period.peer_id]), final=True)
 
-    if file.loop_id != '0':
+    if period.loop_id != '0':
         loops = get_loop_map(
-            request=request, need_loop_ids=set([file.loop_id]), final=True)
+            request=request, need_loop_ids=set([period.loop_id]), final=True)
     else:
         loops = {}
 
     res = {
         'now': now,
-        'file': serialize_file(file, end_amounts=end_amounts),
-        'peer': peers.get(file.peer_id),
-        'loop': loops.get(file.loop_id),
+        'period': serialize_period(period, end_amounts=end_amounts),
+        'peer': peers.get(period.peer_id),
+        'loop': loops.get(period.loop_id),
         'totals': totals,
     }
 

@@ -3,7 +3,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { setPloopKey, setFileId } from '../../reducer/report';
+import { setPloopKey, setPeriodId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -34,7 +34,7 @@ const styles = theme => ({
       width: 400,
     },
   },
-  fileSelect: {
+  periodSelect: {
   },
   selectRoot: {
     fontSize: '0.9rem',
@@ -44,11 +44,11 @@ const styles = theme => ({
 const ploopsURL = fOPNReco.pathToURL('/ploops');
 
 
-class FileSelector extends React.Component {
+class PeriodSelector extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    file: PropTypes.object,
+    period: PropTypes.object,
     ploop: PropTypes.object,
     ploops: PropTypes.object,
     ploopOrder: PropTypes.array,
@@ -66,8 +66,8 @@ class FileSelector extends React.Component {
     this.props.dispatch(setPloopKey(event.target.value));
   }
 
-  handleFileChange(event) {
-    this.props.dispatch(setFileId(event.target.value));
+  handlePeriodChange(event) {
+    this.props.dispatch(setPeriodId(event.target.value));
   }
 
   renderPloopSelections() {
@@ -124,21 +124,21 @@ class FileSelector extends React.Component {
     }
   }
 
-  renderFileSelections() {
+  renderPeriodSelections() {
     const {
       ploop,
     } = this.props;
 
-    if (ploop && ploop.file_order && ploop.file_order.length) {
-      return ploop.file_order.map(fileId => {
-        const file = ploop.files[fileId];
+    if (ploop && ploop.period_order && ploop.period_order.length) {
+      return ploop.period_order.map(periodId => {
+        const period = ploop.periods[periodId];
         let title;
-        if (file.current) {
-          title = 'Current File';
+        if (period.current) {
+          title = 'Current Period';
         } else {
-          title = file.end_date;
+          title = period.end_date;
         }
-        return <MenuItem value={fileId} key={fileId}>{title}</MenuItem>;
+        return <MenuItem value={periodId} key={periodId}>{title}</MenuItem>;
       });
     } else {
       return [];
@@ -150,11 +150,11 @@ class FileSelector extends React.Component {
       classes,
       ploop,
       ploopOrder,
-      file,
+      period,
     } = this.props;
 
     const ploopSelections = this.renderPloopSelections();
-    const fileSelections = this.renderFileSelections();
+    const periodSelections = this.renderPeriodSelections();
 
     let ploopValue;
     if (ploop) {
@@ -165,13 +165,13 @@ class FileSelector extends React.Component {
       ploopValue = '#error';
     }
 
-    let fileValue;
-    if (file) {
-      fileValue = file.file_id;
-    } else if (ploop && ploop.file_order && ploop.file_order.length) {
-      fileValue = ploop.file_order[0];
+    let periodValue;
+    if (period) {
+      periodValue = period.period_id;
+    } else if (ploop && ploop.period_order && ploop.period_order.length) {
+      periodValue = ploop.period_order[0];
     } else {
-      fileValue = '';
+      periodValue = '';
     }
 
     return (
@@ -195,15 +195,15 @@ class FileSelector extends React.Component {
         <div className={classes.controlBox}>
           <FormControl>
             <Select
-              className={classes.fileSelect}
+              className={classes.periodSelect}
               classes={{root: classes.selectRoot}}
-              value={fileValue}
-              onChange={this.binder(this.handleFileChange)}
+              value={periodValue}
+              onChange={this.binder(this.handlePeriodChange)}
               inputProps={{
-                id: 'filter-file',
+                id: 'filter-period',
               }}
             >
-              {fileSelections}
+              {periodSelections}
             </Select>
           </FormControl>
         </div>
@@ -231,4 +231,4 @@ function mapStateToProps(state) {
 export default compose(
   withStyles(styles, {withTheme: true}),
   connect(mapStateToProps),
-)(FileSelector);
+)(PeriodSelector);

@@ -1,12 +1,12 @@
 
 from decimal import Decimal
-from opnreco.models.db import File
 from opnreco.models.db import Movement
 from opnreco.models.db import MovementLog
 from opnreco.models.db import now_func
 from opnreco.models.db import OPNDownload
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
+from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferDownloadRecord
 from opnreco.models.db import TransferRecord
@@ -53,8 +53,8 @@ class SyncView:
         # cash_designs is a cache of {loop_id: CashDesign}.
         self.cash_designs = {}
 
-        # files: {(peer_id, loop_id, currency): file}
-        self.files = {}
+        # periods: {(peer_id, loop_id, currency): Period}
+        self.periods = {}
 
     def set_tzname(self):
         """If the owner doesn't have a tzname yet, try to set it."""
@@ -462,7 +462,7 @@ class SyncView:
                 peer_id, orig_peer_id, loop_id, currency, issuer_id = peer_key
 
                 for amount_index, effect in enumerate(delta_list):
-                    amount, wallet_delta, vault_delta, file_id = effect
+                    amount, wallet_delta, vault_delta, period_id = effect
                     row_key = (number, amount_index) + peer_key
                     old_movement = movement_dict.get(row_key)
 
@@ -501,7 +501,7 @@ class SyncView:
                         ts=ts,
                         wallet_delta=wallet_delta,
                         vault_delta=vault_delta,
-                        file_id=file_id,
+                        period_id=period_id,
                         reco_wallet_delta=wallet_delta,
                     )
                     dbsession.add(movement)
@@ -528,7 +528,7 @@ class SyncView:
 
         Return {
             (peer_id, orig_peer_id, loop_id, currency, issuer_id):
-            [(amount, wallet_delta, vault_delta, file_id)],
+            [(amount, wallet_delta, vault_delta, period_id)],
         }, where peer_id can be 'c', but orig_peer_id can not.
         """
         number = movement['number']
@@ -543,7 +543,7 @@ class SyncView:
         owner_id = self.owner_id
         # by_peer: {
         #     (peer_id, orig_peer_id, loop_id, currency, issuer_id): [
-        #         (amount, wallet_delta, vault_delta, file_id)]}
+        #         (amount, wallet_delta, vault_delta, period_id)]}
         by_peer = collections.defaultdict(list)
 
         for loop in movement['loops']:
@@ -585,17 +585,17 @@ class SyncView:
 
             # Add to the 'c' (circulation) movements.
             c_key = ('c', peer_id, loop_id, currency, issuer_id)
-            c_file = self.prepare_file('c', loop_id, currency)
-            if vault_delta and not c_file.has_vault:
-                c_file.has_vault = True
+            c_period = self.prepare_period('c', loop_id, currency)
+            if vault_delta and not c_period.has_vault:
+                c_period.has_vault = True
             by_peer[c_key].append(
-                (amount, wallet_delta, vault_delta, c_file.id))
+                (amount, wallet_delta, vault_delta, c_period.id))
 
             # Add to the wallet-specific or account-specific movements.
             peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
-            peer_file = self.prepare_file(peer_id, loop_id, currency)
+            peer_period = self.prepare_period(peer_id, loop_id, currency)
             by_peer[peer_key].append(
-                (amount, wallet_delta, vault_delta, peer_file.id))
+                (amount, wallet_delta, vault_delta, peer_period.id))
 
         return by_peer
 
@@ -643,52 +643,52 @@ class SyncView:
                     wallet_delta,
                     vault_delta))
 
-    def prepare_file(self, peer_id, loop_id, currency):
-        """Prepare the current file for (peer_id, loop_id, currency).
+    def prepare_period(self, peer_id, loop_id, currency):
+        """Prepare the current period for (peer_id, loop_id, currency).
         """
         key = (peer_id, loop_id, currency)
-        file = self.files.get(key)
-        if file is not None:
-            return file
+        period = self.periods.get(key)
+        if period is not None:
+            return period
 
         dbsession = self.request.dbsession
         owner_id = self.owner_id
-        file = (
-            dbsession.query(File)
+        period = (
+            dbsession.query(Period)
             .filter(
-                File.owner_id == owner_id,
-                File.peer_id == peer_id,
-                File.loop_id == loop_id,
-                File.currency == currency,
-                File.current)
+                Period.owner_id == owner_id,
+                Period.peer_id == peer_id,
+                Period.loop_id == loop_id,
+                Period.currency == currency,
+                Period.current)
             .first())
 
-        if file is not None:
-            self.files[key] = file
+        if period is not None:
+            self.periods[key] = period
 
         else:
-            file = File(
+            period = Period(
                 owner_id=owner_id,
                 peer_id=peer_id,
                 loop_id=loop_id,
                 currency=currency,
                 current=True)
-            dbsession.add(file)
-            dbsession.flush()  # Assign file.id
+            dbsession.add(period)
+            dbsession.flush()  # Assign period.id
 
-            self.files[key] = file
+            self.periods[key] = period
 
             dbsession.add(OwnerLog(
                 owner_id=self.owner_id,
-                event_type='add_file',
+                event_type='add_period',
                 content={
-                    'file_id': file.id,
+                    'period_id': period.id,
                     'peer_id': peer_id,
                     'loop_id': loop_id,
                     'currency': currency,
                 }))
 
-        return file
+        return period
 
     def autoreco(self, record, movements, new_record):
         """Auto-reconcile some of the movements in a TransferRecord.
@@ -742,7 +742,7 @@ class SyncView:
 
             reco = Reco(
                 owner_id=self.owner_id,
-                file_id=mvlist[0].file_id,
+                period_id=mvlist[0].period_id,
                 reco_type='standard',
                 internal=True)
             dbsession.add(reco)

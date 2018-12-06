@@ -385,14 +385,14 @@ class TransferSummary extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {ploop, file, match} = ownProps;
+  const {ploop, period, match} = ownProps;
   const transferId = match.params.transferId;
   const profileId = state.login.id;
 
   if (ploop && transferId) {
     const query = (
       `ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
-      `&file_id=${encodeURIComponent(file ? file.file_id : 'current')}` +
+      `&period_id=${encodeURIComponent(period ? period.period_id : 'current')}` +
       `&transfer_id=${encodeURIComponent(transferId)}`);
     const recordURL = fOPNReco.pathToURL(`/transfer-record?${query}`);
     const recordFinalURL = fOPNReco.pathToURL(

@@ -25,10 +25,9 @@ const actionHandlers = {
 export default createReducer(initialState, actionHandlers);
 
 
-// Make the tree nodes visible to redux-devtools.
-
 /* global process */
 if (process.env.NODE_ENV !== 'production' && !Map.prototype.toJSON) {
+  // Make the tree nodes visible to redux-devtools.
   /* eslint {"no-extend-native": 0} */
   Map.prototype.toJSON = function() {
     var obj = {};

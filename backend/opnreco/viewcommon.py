@@ -1,13 +1,12 @@
 
 from decimal import Decimal
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import File
+from opnreco.models.db import Period
 from opnreco.models.db import Loop
 from opnreco.models.db import Movement
 from opnreco.models.db import now_func
 from opnreco.models.db import Peer
 from opnreco.util import check_requests_response
-from sqlalchemy import and_
 from sqlalchemy import func
 import datetime
 import os
@@ -259,8 +258,8 @@ def get_loop_map(request, need_loop_ids, final=False):
     return loops
 
 
-def compute_file_totals(dbsession, owner_id, file_ids):
-    """Compute the balances and deltas for a set of files.
+def compute_period_totals(dbsession, owner_id, period_ids):
+    """Compute the balances and deltas for a set of periods.
 
     Gets the start balances (circ, surplus, and combined) and computes:
     - reconciled_delta
@@ -269,7 +268,7 @@ def compute_file_totals(dbsession, owner_id, file_ids):
     - end
 
     Return:
-    {file_id: {
+    {period_id: {
         'start': {'circ', 'surplus', 'combined'},
         'reconciled_delta': {'circ', 'surplus', 'combined'},
         'reconciled_total': {'circ', 'surplus', 'combined'},
@@ -280,16 +279,16 @@ def compute_file_totals(dbsession, owner_id, file_ids):
     res = {}
     zero = Decimal('0')
 
-    # Get the file start balances.
+    # Get the period start balances.
     rows = (
         dbsession.query(
-            File.id,
-            File.start_circ.label('circ'),
-            File.start_surplus.label('surplus'),
+            Period.id,
+            Period.start_circ.label('circ'),
+            Period.start_surplus.label('surplus'),
         )
         .filter(
-            File.owner_id == owner_id,
-            File.id.in_(file_ids),
+            Period.owner_id == owner_id,
+            Period.id.in_(period_ids),
         )
         .all())
     for row in rows:
@@ -324,18 +323,18 @@ def compute_file_totals(dbsession, owner_id, file_ids):
     # Gather the circulation amounts from reconciled movements.
     rows = (
         dbsession.query(
-            Movement.file_id,
+            Movement.period_id,
             func.sum(-Movement.vault_delta).label('circ'),
         )
         .filter(
             Movement.owner_id == owner_id,
             Movement.reco_id != null,
-            Movement.file_id.in_(file_ids),
+            Movement.period_id.in_(period_ids),
         )
-        .group_by(Movement.file_id)
+        .group_by(Movement.period_id)
         .all())
     for row in rows:
-        m = res[row.file_id]['reconciled_delta']
+        m = res[row.period_id]['reconciled_delta']
         m['circ'] = row.circ
         # Generate initial surplus and combined values. These apply
         # only if there are no reconciled account entries.
@@ -347,37 +346,37 @@ def compute_file_totals(dbsession, owner_id, file_ids):
     # account entries and the reconciled movements.
     rows = (
         dbsession.query(
-            AccountEntry.file_id,
+            AccountEntry.period_id,
             func.sum(AccountEntry.delta).label('combined'),
         )
         .filter(
             AccountEntry.owner_id == owner_id,
             AccountEntry.reco_id != null,
-            AccountEntry.file_id.in_(file_ids),
+            AccountEntry.period_id.in_(period_ids),
         )
-        .group_by(AccountEntry.file_id)
+        .group_by(AccountEntry.period_id)
         .all())
     for row in rows:
-        m = res[row.file_id]['reconciled_delta']
+        m = res[row.period_id]['reconciled_delta']
         m['surplus'] = row.combined - m['circ']
         m['combined'] = row.combined
 
     # Gather the amounts from unreconciled movements.
     rows = (
         dbsession.query(
-            Movement.file_id,
+            Movement.period_id,
             func.sum(-Movement.vault_delta).label('circ'),
             func.sum(-Movement.reco_wallet_delta).label('surplus'),
         )
         .filter(
             Movement.owner_id == owner_id,
             Movement.reco_id == null,
-            Movement.file_id.in_(file_ids),
+            Movement.period_id.in_(period_ids),
         )
-        .group_by(Movement.file_id)
+        .group_by(Movement.period_id)
         .all())
     for row in rows:
-        m = res[row.file_id]['outstanding_delta']
+        m = res[row.period_id]['outstanding_delta']
         m['circ'] = row.circ
         m['surplus'] = row.surplus
         m['combined'] = row.circ + row.surplus

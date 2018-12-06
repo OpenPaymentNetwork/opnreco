@@ -5,12 +5,12 @@ import { fOPNReco } from './fetcher';
 const ploopsURL = fOPNReco.pathToURL('/ploops');
 
 
-// Get the current ploop and file objects from the Redux state.
+// Get the current ploop and period objects from the Redux state.
 // They may be null.
 
-export const getPloopAndFile = (state) => {
+export const getPloopAndPeriod = (state) => {
 
-  const {ploopKey, fileId} = state.report;
+  const {ploopKey, periodId} = state.report;
   const fetched = fetchcache.get(state, ploopsURL) || {};
   const ploops = fetched.ploops || {};
   const ploopOrder = fetched.ploop_order;
@@ -30,17 +30,17 @@ export const getPloopAndFile = (state) => {
 
   const ploop = selectedPloopKey ? ploops[selectedPloopKey] : null;
 
-  let file = null;
-  if (ploop && ploop.files) {
-    if (fileId) {
-      file = ploop.files[fileId];
-    } else if (ploop.file_order && ploop.file_order.length) {
-      file = ploop.files[ploop.file_order[0]];
+  let period = null;
+  if (ploop && ploop.periods) {
+    if (periodId) {
+      period = ploop.periods[periodId];
+    } else if (ploop.period_order && ploop.period_order.length) {
+      period = ploop.periods[ploop.period_order[0]];
     }
   }
 
   return {
     ploop,
-    file,
+    period,
   };
 };

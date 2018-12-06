@@ -7,7 +7,7 @@ from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
 from opnreco.param import get_offset_limit
-from opnreco.param import get_request_file
+from opnreco.param import get_request_period
 from pyramid.view import view_config
 from sqlalchemy import BigInteger
 from sqlalchemy import case
@@ -49,7 +49,7 @@ def start_query(dbsession):
     permission='use_app',
     renderer='json')
 def transactions_view(request):
-    file, peer, loop = get_request_file(request)
+    period, peer, loop = get_request_period(request)
     params = request.params
     offset, limit = get_offset_limit(params)
 
@@ -100,7 +100,7 @@ def transactions_view(request):
         .label('reco_movement_delta')
     )
 
-    # List the reconciled entries in the file.
+    # List the reconciled entries in the period.
     # Since recos can contain any number of account entries and movements,
     # list just the reco IDs, delta totals, and dates. Get the reco-specific
     # account entries and movements after ordering and pagination.
@@ -119,7 +119,7 @@ def transactions_view(request):
         )
         .filter(
             Reco.owner_id == owner_id,
-            Reco.file_id == file.id,
+            Reco.period_id == period.id,
             ~Reco.internal,
         )
     )
@@ -140,7 +140,7 @@ def transactions_view(request):
         )
         .filter(
             AccountEntry.owner_id == owner_id,
-            AccountEntry.file_id == file.id,
+            AccountEntry.period_id == period.id,
             AccountEntry.delta != 0,
             AccountEntry.reco_id == null,
         ),
@@ -163,7 +163,7 @@ def transactions_view(request):
             TransferRecord.id == Movement.transfer_record_id)
         .filter(
             Movement.owner_id == owner_id,
-            Movement.file_id == file.id,
+            Movement.period_id == period.id,
             movement_delta != 0,
             Movement.reco_id == null,
         ),

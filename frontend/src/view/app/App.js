@@ -1,6 +1,6 @@
 
 import Settings from '../settings/Settings';
-import FileView from '../file/FileView';
+import PeriodView from '../period/PeriodView';
 import Home from '../home/Home';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
@@ -96,8 +96,8 @@ class App extends React.Component {
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/:tab(t)/:transferId" component={Home} />
-                <Route path="/file/:file_id" component={FileView} />
-                <Route path="/:tab(|reco|transactions|liabilities|t|file)" component={Home} />
+                <Route path="/period/:period_id" component={PeriodView} />
+                <Route path="/:tab(|reco|transactions|liabilities|t|period)" component={Home} />
                 <Route component={NotFound} />
               </Switch>
             </main>

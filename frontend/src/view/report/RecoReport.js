@@ -104,7 +104,7 @@ class RecoReport extends React.Component {
     recoReport: PropTypes.object,
     loading: PropTypes.bool,
     ploop: PropTypes.object,
-    file: PropTypes.object,
+    period: PropTypes.object,
     expanded: PropTypes.object,  // a Map or undefined
   };
 
@@ -264,7 +264,7 @@ class RecoReport extends React.Component {
       recoReport,
       loading,
       ploop,
-      file,
+      period,
     } = this.props;
     if (!recoReportURL || !ploop) {
       // No peer loop selected.
@@ -293,7 +293,7 @@ class RecoReport extends React.Component {
       return <div className={classes.root}>{require}</div>;
     }
 
-    const reportDate = renderReportDate(file, recoReport.now);
+    const reportDate = renderReportDate(period, recoReport.now);
 
     const cfmt = new getCurrencyFormatter(ploop.currency);
 
@@ -424,12 +424,12 @@ class RecoReport extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {ploop, file} = ownProps;
+  const {ploop, period} = ownProps;
   const expanded = state.tree.reco;
   if (ploop) {
     const recoReportURL = fOPNReco.pathToURL(
       `/reco-report?ploop_key=${encodeURIComponent(ploop.ploop_key)}&` +
-      `file_id=${encodeURIComponent(file ? file.file_id : 'current')}`);
+      `period_id=${encodeURIComponent(period ? period.period_id : 'current')}`);
     const recoReport = fetchcache.get(state, recoReportURL);
     const loading = fetchcache.fetching(state, recoReportURL);
     const loadError = !!fetchcache.getError(state, recoReportURL);
