@@ -139,7 +139,7 @@ class File(Base):
     start_surplus = Column(Numeric, nullable=False, default=0)
     end_surplus = Column(Numeric, nullable=True)
 
-    locked = Column(Boolean, nullable=False, default=False)
+    closed = Column(Boolean, nullable=False, default=False)
 
     owner = relationship(Owner)
 

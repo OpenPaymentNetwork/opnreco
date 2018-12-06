@@ -24,8 +24,6 @@ import InputLabel from '@material-ui/core/InputLabel';
 import Input from '@material-ui/core/Input';
 import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
-import Lock from '@material-ui/icons/Lock';
-import LockOpen from '@material-ui/icons/LockOpen';
 import Checkbox from '@material-ui/core/Checkbox';
 
 
@@ -46,14 +44,6 @@ const styles = {
   },
   saveButton: {
     margin: '16px 16px 16px 0',
-  },
-  lockSelection: {
-    display: 'flex',
-    alignItems: 'center',
-  },
-  lockSelectionText: {
-    display: 'block',
-    marginLeft: '8px',
   },
 };
 
@@ -98,17 +88,6 @@ class FileView extends React.Component {
         ...this.state.form,
         [fieldName]: event.target.value,
       },
-      changed: true,
-    });
-  }
-
-  handleChangeLocked(event) {
-    this.setState({
-      form: {
-        ...this.state.form,
-        locked: event.target.value === 'locked',
-      },
-      changed: true,
     });
   }
 
@@ -124,42 +103,52 @@ class FileView extends React.Component {
   renderForm() {
     const {
       classes,
+      result,
     } = this.props;
 
     const {
       form,
-      changed,
     } = this.state;
 
-    const locked = form.locked;
+    const closed = result.file.closed;
+
+    let buttons;
+    if (!closed) {
+      buttons = (
+        <FormGroup row>
+          <Button
+            className={classes.saveButton}
+            color="primary"
+            variant="contained"
+          >
+            Save
+          </Button>
+
+          <Button
+            className={classes.saveButton}
+            color="primary"
+            variant="contained"
+          >
+            Save and Close
+          </Button>
+        </FormGroup>
+      );
+    } else {
+      buttons = (
+        <FormGroup row>
+          <Button
+            className={classes.saveButton}
+            variant="contained"
+          >
+            Reopen
+          </Button>
+        </FormGroup>
+      );
+    }
 
     return (
       <Paper className={classes.paperContent}>
         <form className={classes.form} noValidate>
-          <FormGroup row>
-            <FormControl className={classes.field}>
-              <InputLabel htmlFor="locked-select">File State</InputLabel>
-              <Select
-                value={form.locked ? 'locked' : 'unlocked'}
-                onChange={this.binder(this.handleChangeLocked)}
-                input={<Input name="locked" id="locked-select" />}
-              >
-                <MenuItem value="unlocked">
-                  <div className={classes.lockSelection}>
-                    <LockOpen/>
-                    <span className={classes.lockSelectionText}>Unlocked</span>
-                  </div>
-                </MenuItem>
-                <MenuItem value="locked">
-                  <div className={classes.lockSelection}>
-                    <Lock />
-                    <span className={classes.lockSelectionText}>Locked</span>
-                  </div>
-                </MenuItem>
-              </Select>
-            </FormControl>
-
-          </FormGroup>
           <FormGroup row>
 
             <TextField
@@ -172,7 +161,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={locked}
+              disabled={closed}
             />
 
             <TextField
@@ -185,7 +174,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={locked}
+              disabled={closed}
             />
           </FormGroup>
 
@@ -199,7 +188,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={locked}
+              disabled={closed}
             />
 
             <TextField
@@ -211,7 +200,7 @@ class FileView extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={locked}
+              disabled={closed}
             />
           </FormGroup>
 
@@ -221,7 +210,7 @@ class FileView extends React.Component {
                 <Checkbox
                   checked={form.reassign}
                   onChange={this.binder(this.handleChangeReassign)}
-                  disabled={locked}
+                  disabled={closed}
                 />
               }
               label={
@@ -233,16 +222,7 @@ class FileView extends React.Component {
             />
           </FormGroup>
 
-          <FormGroup row>
-            <Button
-              className={classes.saveButton}
-              color="primary"
-              variant="contained"
-              disabled={!changed}
-            >
-              Save Changes
-            </Button>
-          </FormGroup>
+          {buttons}
         </form>
       </Paper>
     );

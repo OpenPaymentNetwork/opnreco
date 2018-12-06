@@ -894,7 +894,7 @@ class RecoSave:
 
         for m in new_movements:
             m.reco_id = reco_id
-            # TODO: verify the movement's current file is not locked.
+            # TODO: verify the movement's current file is not closed.
             m.file_id = file_id  # Reassign the movement to the reco's file
             if reco_type == 'wallet_only':
                 # Wallet-only reconciliations should have no effect on
@@ -908,7 +908,7 @@ class RecoSave:
         created_account_entries = []
         for entry in new_account_entries:
             entry.reco_id = reco_id
-            # TODO: verify the entry's current file is not locked.
+            # TODO: verify the entry's current file is not closed.
             entry.file_id = file_id  # Reassign the entry to the reco's file
             if entry.id is None:
                 dbsession.add(entry)

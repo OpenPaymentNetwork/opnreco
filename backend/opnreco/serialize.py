@@ -41,5 +41,5 @@ def serialize_file(file, end_amounts=None):
         'end_surplus': end_surplus,
         'start_combined': file.start_circ + file.start_surplus,
         'end_combined': end_combined,
-        'locked': file.locked,
+        'closed': file.closed,
     }

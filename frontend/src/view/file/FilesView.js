@@ -16,8 +16,8 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
-import Lock from '@material-ui/icons/Lock';
-import LockOpen from '@material-ui/icons/LockOpen';
+import CheckBox from '@material-ui/icons/CheckBox';
+import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
 
 
 const tableWidth = 800;
@@ -122,6 +122,10 @@ const styles = {
   fileSelectedRow: {
     backgroundColor: '#ffe',
   },
+  checkbox: {
+    display: 'block',
+    margin: '0 auto',
+  },
 };
 
 
@@ -166,7 +170,8 @@ class FilesView extends React.Component {
     const ccStartCombined = `${classes.cellLeft} ${classes.right}`;
     const ccEndCombined = `${classes.cellRight} ${classes.right}`;
     const ccStatements = `${classes.cellLeft} ${classes.right}`;
-    const ccState = `${classes.cell} ${classes.center}`;
+    const ccClosed = `${classes.cell} ${classes.center}`;
+    const cCheckbox = classes.checkbox;
 
     content.files.forEach(file => {
       let rowClass = classes.fileRow;
@@ -214,8 +219,10 @@ class FilesView extends React.Component {
           <td className={ccStatements} width="12%" title="Statements">
             {file.statement_count}
           </td>
-          <td className={ccState} width="12%" title={file.locked ? 'Locked' : 'Unlocked'}>
-            {file.locked ? <Lock/> : <LockOpen/>}
+          <td className={ccClosed} width="12%">
+            {file.closed ?
+              <CheckBox className={cCheckbox}/> :
+              <CheckBoxOutlineBlank className={cCheckbox} />}
           </td>
         </tr>
       );
@@ -259,7 +266,7 @@ class FilesView extends React.Component {
         {circHead0}
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Balance</td>
         <td className={`${classes.headCellLeft} ${classes.center}`}>Statements</td>
-        <td className={`${classes.headCell} ${classes.center}`}>State</td>
+        <td className={`${classes.headCell} ${classes.center}`}>Closed</td>
       </tr>
     );
 
