@@ -1,16 +1,19 @@
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { fetchcache } from '../../reducer/fetchcache';
+import { fOPNReco } from '../../util/fetcher';
 import { getPloopAndFile } from '../../util/ploopfile';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import FileSelector from '../report/FileSelector';
 import Hidden from '@material-ui/core/Hidden';
 import IconButton from '@material-ui/core/IconButton';
 import MenuIcon from '@material-ui/icons/Menu';
 import PropTypes from 'prop-types';
 import React from 'react';
-import FileSelector from '../report/FileSelector';
 import Tab from '@material-ui/core/Tab';
 import TabContent from './TabContent';
 import Tabs from '@material-ui/core/Tabs';
@@ -42,6 +45,10 @@ const styles = theme => ({
     top: 0,
     color: '#fff',
   },
+  waitContainer: {
+    padding: '16px',
+    textAlign: 'center',
+  },
 });
 
 
@@ -54,6 +61,8 @@ class Home extends React.Component {
     ploop: PropTypes.object,
     file: PropTypes.object,
     transferId: PropTypes.string,
+    ploopsLoaded: PropTypes.bool,
+    syncing: PropTypes.bool,
   };
 
   constructor(props) {
@@ -86,6 +95,8 @@ class Home extends React.Component {
       match,
       ploop,
       transferId,
+      ploopsLoaded,
+      syncing,
     } = this.props;
 
     const tab = match.params.tab || 'reco';
@@ -116,6 +127,21 @@ class Home extends React.Component {
       </div>
     );
 
+    let tabContent;
+
+    if (ploop) {
+      tabContent = <TabContent tab={tab} ploop={ploop} file={file} />;
+    } else if (!ploopsLoaded || syncing) {
+      tabContent = (
+        <div className={classes.waitContainer}>
+          <CircularProgress size={24} className={classes.waitSpinner}/>
+        </div>
+      );
+    } else {
+      // Not syncing and no accounts are available for the profile owner.
+      tabContent = null;
+    }
+
     return (
       <div className={classes.root}>
 
@@ -142,7 +168,7 @@ class Home extends React.Component {
 
         </div>
 
-        <TabContent tab={tab} ploop={ploop} file={file} />
+        {tabContent}
       </div>
     );
   }
@@ -155,6 +181,8 @@ function mapStateToProps(state) {
     ploop,
     file,
     transferId: state.app.transferId,
+    ploopsLoaded: !!fetchcache.get(state, fOPNReco.pathToURL('/ploops')),
+    syncing: state.app.syncProgress !== null,
   };
 }
 

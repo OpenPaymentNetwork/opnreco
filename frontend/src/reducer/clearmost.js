@@ -1,15 +1,16 @@
 
-import { fOPN } from '../util/fetcher';
+import { fOPN, fOPNReco } from '../util/fetcher';
 import { fetchcache } from './fetchcache';
 
 
 /**
- * Clear most of the fetch cache except /token/selectable
+ * Clear most of the fetch cache except /token/selectable and /ploops
  *  (which we'll re-fetch, but keep the data while waiting.)
  */
 export function clearMost() {
   const selectableURL = fOPN.pathToURL('/token/selectable');
-  const keep = (url) => (url === selectableURL);
+  const ploopsURL = fOPNReco.pathToURL('/ploops');
+  const keep = (url) => (url === selectableURL || url === ploopsURL);
   return fetchcache.invalidate(keep);
 }
 
