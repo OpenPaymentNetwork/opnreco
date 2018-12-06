@@ -1,4 +1,5 @@
 
+from sqlalchemy import and_
 from sqlalchemy import BigInteger
 from sqlalchemy import Boolean
 from sqlalchemy import CheckConstraint
@@ -35,6 +36,7 @@ metadata = MetaData(naming_convention=NAMING_CONVENTION)
 Base = declarative_base(metadata=metadata)
 
 now_func = func.timezone('UTC', func.current_timestamp())
+null = None
 
 
 class Owner(Base):
@@ -122,8 +124,7 @@ class Period(Base):
     peer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
-    # New recos are added to the 'current' period.
-    current = Column(Boolean, nullable=False, default=True)
+
     # has_vault becomes true if money ever moves in or out of the
     # vault connected with this period. (has_vault is an attr of Period rather
     # than Peer because an issuer might hold notes of multiple
@@ -143,14 +144,37 @@ class Period(Base):
 
     owner = relationship(Owner)
 
+    __table_args__ = (
+        CheckConstraint(or_(
+            ~closed,
+            and_(
+                closed,
+                start_date != null,
+                end_date != null,
+                end_circ != null,
+                end_surplus != null,
+            ),
+        ), name='closed_requires_values'),
+        {})
+
 
 Index(
-    'ix_period_current_unique',
+    'ix_period_single_null_start_date',
     Period.owner_id,
     Period.peer_id,
     Period.loop_id,
     Period.currency,
-    postgresql_where=Period.current,
+    postgresql_where=(Period.start_date == null),
+    unique=True)
+
+
+Index(
+    'ix_period_single_null_end_date',
+    Period.owner_id,
+    Period.peer_id,
+    Period.loop_id,
+    Period.currency,
+    postgresql_where=(Period.end_date == null),
     unique=True)
 
 

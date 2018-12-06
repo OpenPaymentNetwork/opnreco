@@ -53,8 +53,11 @@ class SyncView:
         # cash_designs is a cache of {loop_id: CashDesign}.
         self.cash_designs = {}
 
-        # periods: {(peer_id, loop_id, currency): Period}
+        # periods: {(peer_id, loop_id, currency, date): Period}
         self.periods = {}
+
+        # period_lists: {(peer_id, loop_id, currency): [Period]}
+        self.period_lists = collections.defaultdict(list)
 
     def set_tzname(self):
         """If the owner doesn't have a tzname yet, try to set it."""
@@ -78,6 +81,17 @@ class SyncView:
                         'tzname': tzname,
                     },
                 ))
+
+    @reify
+    def timezone(self):
+        """Get the pytz time zone for the owner.
+
+        Default to the America/New_York time zone.
+        """
+        try:
+            return pytz.timezone(self.owner.tzname or 'America/New_York')
+        except Exception:
+            return pytz.timezone('America/New_York')
 
     def __call__(self):
         request = self.request
@@ -454,16 +468,16 @@ class SyncView:
             from_id = movement['from_id']
             to_id = movement['to_id']
 
-            by_peer = self.summarize_movement(
-                movement, transfer_id=transfer_id)
+            by_ploop = self.summarize_movement(
+                movement=movement, transfer_id=transfer_id, ts=ts)
 
-            # Add movement records based on the by_peer dict.
-            for peer_key, delta_list in sorted(by_peer.items()):
-                peer_id, orig_peer_id, loop_id, currency, issuer_id = peer_key
+            # Add movement records based on the by_ploop dict.
+            for plkey, delta_list in sorted(by_ploop.items()):
+                peer_id, orig_peer_id, loop_id, currency, issuer_id = plkey
 
                 for amount_index, effect in enumerate(delta_list):
                     amount, wallet_delta, vault_delta, period_id = effect
-                    row_key = (number, amount_index) + peer_key
+                    row_key = (number, amount_index) + plkey
                     old_movement = movement_dict.get(row_key)
 
                     if old_movement is not None:
@@ -523,7 +537,7 @@ class SyncView:
             movements=movement_dict.values(),
             new_record=new_record)
 
-    def summarize_movement(self, movement, transfer_id):
+    def summarize_movement(self, movement, transfer_id, ts):
         """Summarize a movement.
 
         Return {
@@ -540,11 +554,12 @@ class SyncView:
                 "Movement %s in transfer %s has no to_id"
                 % (number, transfer_id))
 
+        date = ts.astimezone(self.timezone).date()
         owner_id = self.owner_id
-        # by_peer: {
+        # by_ploop: {
         #     (peer_id, orig_peer_id, loop_id, currency, issuer_id): [
         #         (amount, wallet_delta, vault_delta, period_id)]}
-        by_peer = collections.defaultdict(list)
+        by_ploop = collections.defaultdict(list)
 
         for loop in movement['loops']:
             loop_id = loop['loop_id']
@@ -585,19 +600,21 @@ class SyncView:
 
             # Add to the 'c' (circulation) movements.
             c_key = ('c', peer_id, loop_id, currency, issuer_id)
-            c_period = self.prepare_period('c', loop_id, currency)
+            c_period = self.get_open_period(
+                'c', loop_id, currency, date=date)
             if vault_delta and not c_period.has_vault:
                 c_period.has_vault = True
-            by_peer[c_key].append(
+            by_ploop[c_key].append(
                 (amount, wallet_delta, vault_delta, c_period.id))
 
             # Add to the wallet-specific or account-specific movements.
-            peer_key = (peer_id, peer_id, loop_id, currency, issuer_id)
-            peer_period = self.prepare_period(peer_id, loop_id, currency)
-            by_peer[peer_key].append(
+            plkey = (peer_id, peer_id, loop_id, currency, issuer_id)
+            peer_period = self.get_open_period(
+                peer_id, loop_id, currency, date=date)
+            by_ploop[plkey].append(
                 (amount, wallet_delta, vault_delta, peer_period.id))
 
-        return by_peer
+        return by_ploop
 
     def verify_old_movement(
             self, old_movement, transfer_id, number,
@@ -643,13 +660,35 @@ class SyncView:
                     wallet_delta,
                     vault_delta))
 
-    def prepare_period(self, peer_id, loop_id, currency):
-        """Prepare the current period for (peer_id, loop_id, currency).
+    def get_open_period(self, peer_id, loop_id, currency, date):
+        """Get an open Period for (peer_id, loop_id, currency, movement_date).
         """
-        key = (peer_id, loop_id, currency)
+        key = (peer_id, loop_id, currency, date)
         period = self.periods.get(key)
         if period is not None:
             return period
+
+        listkey = (peer_id, loop_id, currency)
+        period_list = self.period_lists[listkey]
+        for p in period_list:
+            start_date = p.start_date
+            end_date = p.end_date
+            if start_date is not None:
+                if end_date is not None:
+                    if start_date <= date and date <= end_date:
+                        period = p
+                        break
+                elif start_date <= date:
+                    period = p
+                    break
+            else:
+                if end_date is not None:
+                    if date <= end_date:
+                        period = p
+                        break
+                else:
+                    period = p
+                    break
 
         dbsession = self.request.dbsession
         owner_id = self.owner_id
