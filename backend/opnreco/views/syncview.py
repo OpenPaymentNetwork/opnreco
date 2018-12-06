@@ -554,7 +554,7 @@ class SyncView:
                 "Movement %s in transfer %s has no to_id"
                 % (number, transfer_id))
 
-        date = ts.astimezone(self.timezone).date()
+        date = ts.replace(tzinfo=pytz.utc).astimezone(self.timezone).date()
         owner_id = self.owner_id
         # by_ploop: {
         #     (peer_id, orig_peer_id, loop_id, currency, issuer_id): [
