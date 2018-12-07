@@ -57,7 +57,7 @@ class SyncView:
         self.periods = {}
 
         # period_lists: {(peer_id, loop_id, currency): [Period]}
-        self.period_lists = collections.defaultdict(list)
+        self.period_lists = {}
 
     def set_tzname(self):
         """If the owner doesn't have a tzname yet, try to set it."""
@@ -663,69 +663,109 @@ class SyncView:
     def get_open_period(self, peer_id, loop_id, currency, date):
         """Get an open Period for (peer_id, loop_id, currency, movement_date).
         """
-        key = (peer_id, loop_id, currency, date)
-        period = self.periods.get(key)
+        period_key = (peer_id, loop_id, currency, date)
+        period = self.periods.get(period_key)
         if period is not None:
             return period
 
-        listkey = (peer_id, loop_id, currency)
-        period_list = self.period_lists[listkey]
+        list_key = (peer_id, loop_id, currency)
+        dbsession = self.request.dbsession
+        owner_id = self.owner_id
+        period_list = self.period_lists.get(list_key)
+
+        if not period_list:
+            # Get the list of matching open Periods that already exist.
+            period_list = (
+                dbsession.query(Period)
+                .filter(
+                    Period.owner_id == owner_id,
+                    Period.peer_id == peer_id,
+                    Period.loop_id == loop_id,
+                    Period.currency == currency,
+                    ~Period.closed)
+                .all())
+            self.period_lists[list_key] = period_list
+
+        # See if any of the existing periods match.
         for p in period_list:
             start_date = p.start_date
             end_date = p.end_date
             if start_date is not None:
                 if end_date is not None:
+                    # Fully bounded period
                     if start_date <= date and date <= end_date:
                         period = p
                         break
-                elif start_date <= date:
-                    period = p
-                    break
+                else:
+                    # The period has a start_date but no end_date.
+                    if start_date <= date:
+                        period = p
+                        break
             else:
                 if end_date is not None:
+                    # The period has an end_date but no start_date.
                     if date <= end_date:
                         period = p
                         break
                 else:
+                    # The period has no start_date or end_date.
                     period = p
                     break
 
-        dbsession = self.request.dbsession
-        owner_id = self.owner_id
-        period = (
+        if period is not None:
+            # Found a matching open period.
+            self.periods[period_key] = period
+            return period
+
+        # Add a new period.
+        # Base it on the end date and end balances of the previous period.
+        prev = (
             dbsession.query(Period)
             .filter(
                 Period.owner_id == owner_id,
                 Period.peer_id == peer_id,
                 Period.loop_id == loop_id,
                 Period.currency == currency,
-                Period.current)
+                Period.end_date != null,
+            )
+            .order_by(Period.end_date.desc())
             .first())
 
-        if period is not None:
-            self.periods[key] = period
-
+        if prev is not None:
+            next_start_date = prev.end_date + datetime.timedelta(days=1)
+            next_start_circ = prev.end_circ
+            next_start_surplus = prev.end_surplus
         else:
-            period = Period(
-                owner_id=owner_id,
-                peer_id=peer_id,
-                loop_id=loop_id,
-                currency=currency,
-                current=True)
-            dbsession.add(period)
-            dbsession.flush()  # Assign period.id
+            next_start_date = None
+            next_start_circ = zero
+            next_start_surplus = zero
 
-            self.periods[key] = period
+        period = Period(
+            owner_id=owner_id,
+            peer_id=peer_id,
+            loop_id=loop_id,
+            currency=currency,
+            start_date=next_start_date,
+            start_circ=next_start_circ,
+            start_surplus=next_start_surplus)
+        dbsession.add(period)
+        dbsession.flush()  # Assign period.id
 
-            dbsession.add(OwnerLog(
-                owner_id=self.owner_id,
-                event_type='add_period',
-                content={
-                    'period_id': period.id,
-                    'peer_id': peer_id,
-                    'loop_id': loop_id,
-                    'currency': currency,
-                }))
+        dbsession.add(OwnerLog(
+            owner_id=self.owner_id,
+            event_type='add_period_for_sync',
+            content={
+                'period_id': period.id,
+                'peer_id': peer_id,
+                'loop_id': loop_id,
+                'currency': currency,
+                'start_date': next_start_date,
+                'start_circ': next_start_circ,
+                'start_surplus': next_start_surplus,
+            }))
+
+        self.period_lists[list_key] = list(period_list) + [period]
+        self.periods[period_key] = period
 
         return period
 

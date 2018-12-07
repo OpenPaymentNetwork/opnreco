@@ -32,7 +32,6 @@ def ploops_view(request):
             'loop_title',
             'periods': {period_id: {
                 'period_id',
-                'current',
                 'start_date',
                 'end_date',
             }},
@@ -156,7 +155,6 @@ def ploops_view(request):
         period_id_str = str(period.id)
         ploop['periods'][period_id_str] = {
             'period_id': period_id_str,
-            'current': period.current,
             'start_date': period.start_date,
             'end_date': period.end_date,
         }

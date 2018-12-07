@@ -10,6 +10,9 @@ from sqlalchemy import and_
 import re
 
 
+null = None
+
+
 def parse_ploop_key(ploop_key):
     """Parse the ploop_key param. Return (peer_id, loop_id, currency).
 
@@ -47,7 +50,7 @@ def get_request_period(request):
     dbsession = request.dbsession
 
     if period_id_str == 'current':
-        period_id_filter = Period.current
+        period_id_filter = (Period.end_date == null)
     else:
         try:
             period_id = int(period_id_str)

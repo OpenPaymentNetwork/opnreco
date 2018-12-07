@@ -31,7 +31,6 @@ def serialize_period(period, end_amounts=None):
         'peer_id': period.peer_id,
         'loop_id': period.loop_id,
         'currency': period.currency,
-        'current': period.current,
         'has_vault': period.has_vault,
         'start_date': period.start_date,
         'end_date': period.end_date,

@@ -133,7 +133,7 @@ class PeriodSelector extends React.Component {
       return ploop.period_order.map(periodId => {
         const period = ploop.periods[periodId];
         let title;
-        if (period.current) {
+        if (!period.end_date) {
           title = 'Current Period';
         } else {
           title = period.end_date;

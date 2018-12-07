@@ -177,8 +177,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_period',
-            'add_period',
+            'add_period_for_sync',
+            'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.owner_id)
@@ -465,8 +465,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_period',
-            'add_period',
+            'add_period_for_sync',
+            'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.owner_id)
@@ -631,9 +631,9 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_period',
-            'add_period',
-            'add_period',
+            'add_period_for_sync',
+            'add_period_for_sync',
+            'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('19', event.owner_id)
@@ -1217,8 +1217,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_period',
-            'add_period',
+            'add_period_for_sync',
+            'add_period_for_sync',
             'opn_sync',
             'update_peer',
         ], [e.event_type for e in events])
@@ -1374,8 +1374,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_period',
-            'add_period',
+            'add_period_for_sync',
+            'add_period_for_sync',
         ], [e.event_type for e in events])
 
         event = events[0]
@@ -1430,8 +1430,8 @@ class TestDownloadView(unittest.TestCase):
             'add_peer',
             'add_peer',
             'add_peer',
-            'add_period',
-            'add_period',
+            'add_period_for_sync',
+            'add_period_for_sync',
             'opn_sync',
         ], [e.event_type for e in events])
         event = events[-1]
