@@ -1,5 +1,5 @@
 import { binder } from '../../util/binder';
-import { clearMost } from '../../reducer/clearmost';
+import { clearWithPloops } from '../../reducer/clearmost';
 import { closeDrawer, triggerResync } from '../../reducer/app';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -74,7 +74,7 @@ class ProfileSelector extends React.Component {
       // in a transitional state.
       dispatch(fetchcache.suspend());
       dispatch(switchProfile(token, profileId));
-      dispatch(clearMost());
+      dispatch(clearWithPloops());
       dispatch(triggerResync());
       dispatch(closeDrawer());
       if (perOwner) {
