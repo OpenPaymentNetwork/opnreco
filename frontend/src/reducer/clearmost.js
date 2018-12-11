@@ -5,12 +5,22 @@ import { fetchcache } from './fetchcache';
 
 /**
  * Clear most of the fetch cache except /token/selectable and /ploops
- *  (which we'll re-fetch, but keep the data while waiting.)
+ * (which we'll re-fetch, but keep the data while waiting.)
  */
 export function clearMost() {
   const selectableURL = fOPN.pathToURL('/token/selectable');
   const ploopsURL = fOPNReco.pathToURL('/ploops');
   const keep = (url) => (url === selectableURL || url === ploopsURL);
+  return fetchcache.invalidate(keep);
+}
+
+/**
+ * Clear most of the fetch cache except /token/selectable.
+ * /ploops must be cleared.
+ */
+export function clearWithPloops() {
+  const selectableURL = fOPN.pathToURL('/token/selectable');
+  const keep = (url) => (url === selectableURL);
   return fetchcache.invalidate(keep);
 }
 

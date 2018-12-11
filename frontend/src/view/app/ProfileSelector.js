@@ -83,7 +83,9 @@ class ProfileSelector extends React.Component {
         history.push('/');
       }
       // Resume fetchcache.
-      dispatch(fetchcache.resume());
+      window.setTimeout(() => {
+        dispatch(fetchcache.resume());
+      }, 0);
     }).finally(() => {
       this.setState({selectingId: null});
     });

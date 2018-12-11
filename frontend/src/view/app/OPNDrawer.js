@@ -1,6 +1,6 @@
 import { FormattedRelative } from 'react-intl';
 import { binder } from '../../util/binder';
-import { clearMost } from '../../reducer/clearmost';
+import { clearWithPloops } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -158,7 +158,7 @@ class OPNDrawer extends React.Component {
         } else {
           // Done.
           dispatch(setSyncProgress(null, new Date()));
-          dispatch(clearMost());
+          dispatch(clearWithPloops());
           this.setState({autoSyncOk: true});
         }
       }).catch(() => {
