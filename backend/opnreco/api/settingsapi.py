@@ -21,7 +21,7 @@ def get_tznames():
     context=API,
     permission='use_app',
     renderer='json')
-def settings_view(request):
+def settings_api(request):
     """Return the current settings for the user."""
     owner = request.owner
 

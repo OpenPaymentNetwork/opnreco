@@ -48,7 +48,7 @@ def start_query(dbsession):
     context=API,
     permission='use_app',
     renderer='json')
-def transactions_view(request):
+def transactions_api(request):
     period, peer, loop = get_request_period(request)
     params = request.params
     offset, limit = get_offset_limit(params)

@@ -16,8 +16,8 @@ import collections
     context=API,
     permission='use_app',
     renderer='json')
-def transfer_record_final_view(context, request):
-    return transfer_record_view(context, request, final=True)
+def transfer_record_final_api(context, request):
+    return transfer_record_api(context, request, final=True)
 
 
 @view_config(
@@ -25,7 +25,7 @@ def transfer_record_final_view(context, request):
     context=API,
     permission='use_app',
     renderer='json')
-def transfer_record_view(context, request, final=False):
+def transfer_record_api(context, request, final=False):
     """Prepare all the info for displaying a transfer record.
 
     Requires peer_key, period_id, and transfer_id in the query string.

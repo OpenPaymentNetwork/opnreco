@@ -1,11 +1,12 @@
 
 from decimal import Decimal
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Period
 from opnreco.models.db import Loop
 from opnreco.models.db import Movement
 from opnreco.models.db import now_func
+from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
+from opnreco.models.db import Period
 from opnreco.util import check_requests_response
 from sqlalchemy import func
 import datetime
@@ -396,3 +397,88 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             m['end'][k] = reconciled_total + m['outstanding_delta'][k]
 
     return res
+
+
+def get_period_for_day(period_list, day):
+    """Identify which open period in a list matches a day."""
+    end_period = None
+    for p in period_list:
+        start_date = p.start_date
+        end_date = p.end_date
+        if end_date is None:
+            end_period = p
+        if start_date is not None:
+            if end_date is not None:
+                # Fully bounded period
+                if start_date <= day and day <= end_date:
+                    return p
+            else:
+                # The period has a start_date but no end_date.
+                if start_date <= day:
+                    return p
+        else:
+            if end_date is not None:
+                # The period has an end_date but no start_date.
+                if day <= end_date:
+                    return p
+            else:
+                # The period has no start_date or end_date.
+                return p
+
+    # Fall back to the period with no end date, or None.
+    return end_period
+
+
+def add_open_period(
+        dbsession, owner_id, peer_id, loop_id, currency, event_type):
+    """Add a new period.
+
+    Base it on the end date and end balances of the period with the
+    newest end date.
+    """
+    prev = (
+        dbsession.query(Period)
+        .filter(
+            Period.owner_id == owner_id,
+            Period.peer_id == peer_id,
+            Period.loop_id == loop_id,
+            Period.currency == currency,
+            Period.end_date != null,
+        )
+        .order_by(Period.end_date.desc())
+        .first())
+
+    if prev is not None:
+        next_start_date = prev.end_date + datetime.timedelta(days=1)
+        next_start_circ = prev.end_circ
+        next_start_surplus = prev.end_surplus
+    else:
+        next_start_date = None
+        next_start_circ = 0
+        next_start_surplus = 0
+
+    period = Period(
+        owner_id=owner_id,
+        peer_id=peer_id,
+        loop_id=loop_id,
+        currency=currency,
+        start_date=next_start_date,
+        start_circ=next_start_circ,
+        start_surplus=next_start_surplus)
+    dbsession.add(period)
+    dbsession.flush()  # Assign period.id
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type=event_type,
+        content={
+            'period_id': period.id,
+            'peer_id': peer_id,
+            'loop_id': loop_id,
+            'currency': currency,
+            'start_date': next_start_date,
+            'start_circ': next_start_circ,
+            'start_surplus': next_start_surplus,
+        }))
+
+    return period

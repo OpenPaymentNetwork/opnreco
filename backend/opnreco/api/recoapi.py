@@ -92,8 +92,8 @@ def render_account_entry_rows(account_entry_rows):
     context=API,
     permission='use_app',
     renderer='json')
-def reco_final_view(context, request):
-    return reco_view(context, request, final=True)
+def reco_final_api(context, request):
+    return reco_api(context, request, final=True)
 
 
 @view_config(
@@ -101,7 +101,7 @@ def reco_final_view(context, request):
     context=API,
     permission='use_app',
     renderer='json')
-def reco_view(context, request, final=False):
+def reco_api(context, request, final=False):
     """Return the state of a reco or a movement proposed for a reco."""
 
     period, _peer, _loop = get_request_period(request)
@@ -218,7 +218,7 @@ def reco_view(context, request, final=False):
     context=API,
     permission='use_app',
     renderer='json')
-def reco_search_movement_view(context, request, final=False):
+def reco_search_movement(context, request, final=False):
     """Search for movements that haven't been reconciled."""
 
     period, _peer, _loop = get_request_period(request)
@@ -255,7 +255,7 @@ def reco_search_movement_view(context, request, final=False):
             vault_sign_filters = ((Movement.vault_delta > 0),)
             wallet_sign_filters = ((Movement.wallet_delta > 0),)
 
-        if '.' in amount_parsed.str_value:
+        if '.' in amount_parsed.amount_input:
             # Exact amount.
             filters.append(or_(
                 and_(
@@ -395,7 +395,7 @@ def reco_search_account_entries(context, request, final=False):
         elif delta_parsed.sign > 0:
             sign_filters = ((AccountEntry.delta > 0),)
 
-        if '.' in delta_parsed.str_value:
+        if '.' in delta_parsed.amount_input:
             # Exact amount.
             filters.append(and_(
                 func.abs(AccountEntry.delta) == delta_abs,

@@ -16,7 +16,7 @@ import datetime
     context=API,
     permission='use_app',
     renderer='json')
-def ploops_view(request):
+def ploops_api(request):
     """Return the owner profile's list of peer loops ('ploops') and periods.
 
     Returns {

@@ -1,55 +1,54 @@
 
 import React from 'react';
 
+
+const numFmt0 = new Intl.NumberFormat('en-US', {'minimumFractionDigits': 0});
+const numFmt2 = new Intl.NumberFormat('en-US', {'minimumFractionDigits': 2});
+const numFmt3 = new Intl.NumberFormat('en-US', {'minimumFractionDigits': 3});
+
+
 // Most currencies use 2 subunit digits. These are the exceptions.
-const currencySubunitDigits = {
-  'BHD': 3,
-  'BYR': 0,
-  'CLP': 0,
-  'CVE': 0,
-  'DJF': 0,
-  'GNF': 0,
-  'HUF': 0,
-  'IDR': 0,
-  'IQD': 3,
-  'IRR': 0,
-  'ISK': 0,
-  'JOD': 3,
-  'JPY': 0,
-  'KHR': 0,
-  'KMF': 0,
-  'KRW': 0,
-  'KWD': 3,
-  'LBP': 0,
-  'LYD': 3,
-  'MGA': 0,
-  'MRO': 0,
-  'OMR': 3,
-  'PYG': 0,
-  'RWF': 0,
-  'TND': 3,
-  'UGX': 0,
-  'VND': 0,
-  'VUV': 0,
-  'XAF': 0,
-  'XOF': 0,
-  'XPF': 0,
+const numFmts = {
+  'BHD': numFmt3,
+  'BYR': numFmt0,
+  'CLP': numFmt0,
+  'CVE': numFmt0,
+  'DJF': numFmt0,
+  'GNF': numFmt0,
+  'HUF': numFmt0,
+  'IDR': numFmt0,
+  'IQD': numFmt3,
+  'IRR': numFmt0,
+  'ISK': numFmt0,
+  'JOD': numFmt3,
+  'JPY': numFmt0,
+  'KHR': numFmt0,
+  'KMF': numFmt0,
+  'KRW': numFmt0,
+  'KWD': numFmt3,
+  'LBP': numFmt0,
+  'LYD': numFmt3,
+  'MGA': numFmt0,
+  'MRO': numFmt0,
+  'OMR': numFmt3,
+  'PYG': numFmt0,
+  'RWF': numFmt0,
+  'TND': numFmt3,
+  'UGX': numFmt0,
+  'VND': numFmt0,
+  'VUV': numFmt0,
+  'XAF': numFmt0,
+  'XOF': numFmt0,
+  'XPF': numFmt0,
 };
 
 
 // Note: Don't use the currency feature of NumberFormat. It formats poorly.
-const numFmts = {
-  0: new Intl.NumberFormat('en-US', {'minimumFractionDigits': 0}),
-  2: new Intl.NumberFormat('en-US', {'minimumFractionDigits': 2}),
-  3: new Intl.NumberFormat('en-US', {'minimumFractionDigits': 3}),
-};
 
 
 export function getCurrencyFormatter(currency) {
   // Show parens for negative.
-  const digits0 = currencySubunitDigits[currency];
-  const digits1 = (digits0 === undefined ? 2 : digits0);
-  const numFmt = numFmts[digits1];
+  const numFmt = numFmts[currency] || numFmt2;
   return value => {
     if (typeof value === 'string' && value.startsWith('-')) {
       return `(${numFmt.format(value.substr(1))})`;
@@ -64,9 +63,7 @@ export function getCurrencyFormatter(currency) {
 export function getCurrencyDeltaFormatter(currency) {
   // Show + or - for every value except 0. Use the 'minus' entity (\u2212)
   // to keep alignment with plus signs.
-  const digits0 = currencySubunitDigits[currency];
-  const digits1 = (digits0 === undefined ? 2 : digits0);
-  const numFmt = numFmts[digits1];
+  const numFmt = numFmts[currency] || numFmt2;
   return value => {
     if (typeof value === 'string') {
       if (value.startsWith('-')) {

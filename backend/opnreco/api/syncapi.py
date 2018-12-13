@@ -13,6 +13,8 @@ from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
 from opnreco.util import check_requests_response
 from opnreco.util import to_datetime
+from opnreco.viewcommon import get_period_for_day
+from opnreco.viewcommon import add_open_period
 from pyramid.decorator import reify
 from pyramid.view import view_config
 import collections
@@ -36,7 +38,7 @@ class SyncError(Exception):
     context=API,
     permission='use_app',
     renderer='json')
-class SyncView:
+class SyncAPI:
     """Sync with OPN.
 
     This view downloads all transfers and movements since the last sync.
@@ -554,7 +556,7 @@ class SyncView:
                 "Movement %s in transfer %s has no to_id"
                 % (number, transfer_id))
 
-        date = ts.replace(tzinfo=pytz.utc).astimezone(self.timezone).date()
+        day = ts.replace(tzinfo=pytz.utc).astimezone(self.timezone).date()
         owner_id = self.owner_id
         # by_ploop: {
         #     (peer_id, orig_peer_id, loop_id, currency, issuer_id): [
@@ -601,7 +603,7 @@ class SyncView:
             # Add to the 'c' (circulation) movements.
             c_key = ('c', peer_id, loop_id, currency, issuer_id)
             c_period = self.get_open_period(
-                'c', loop_id, currency, date=date)
+                'c', loop_id, currency, day=day)
             if vault_delta and not c_period.has_vault:
                 c_period.has_vault = True
             by_ploop[c_key].append(
@@ -610,7 +612,7 @@ class SyncView:
             # Add to the wallet-specific or account-specific movements.
             plkey = (peer_id, peer_id, loop_id, currency, issuer_id)
             peer_period = self.get_open_period(
-                peer_id, loop_id, currency, date=date)
+                peer_id, loop_id, currency, day=day)
             by_ploop[plkey].append(
                 (amount, wallet_delta, vault_delta, peer_period.id))
 
@@ -660,10 +662,10 @@ class SyncView:
                     wallet_delta,
                     vault_delta))
 
-    def get_open_period(self, peer_id, loop_id, currency, date):
+    def get_open_period(self, peer_id, loop_id, currency, day):
         """Get an open Period for (peer_id, loop_id, currency, movement_date).
         """
-        period_key = (peer_id, loop_id, currency, date)
+        period_key = (peer_id, loop_id, currency, day)
         period = self.periods.get(period_key)
         if period is not None:
             return period
@@ -687,82 +689,20 @@ class SyncView:
             self.period_lists[list_key] = period_list
 
         # See if any of the existing periods match.
-        for p in period_list:
-            start_date = p.start_date
-            end_date = p.end_date
-            if start_date is not None:
-                if end_date is not None:
-                    # Fully bounded period
-                    if start_date <= date and date <= end_date:
-                        period = p
-                        break
-                else:
-                    # The period has a start_date but no end_date.
-                    if start_date <= date:
-                        period = p
-                        break
-            else:
-                if end_date is not None:
-                    # The period has an end_date but no start_date.
-                    if date <= end_date:
-                        period = p
-                        break
-                else:
-                    # The period has no start_date or end_date.
-                    period = p
-                    break
-
+        period = get_period_for_day(period_list, day)
         if period is not None:
             # Found a matching open period.
             self.periods[period_key] = period
             return period
 
-        # Add a new period.
-        # Base it on the end date and end balances of the previous period.
-        prev = (
-            dbsession.query(Period)
-            .filter(
-                Period.owner_id == owner_id,
-                Period.peer_id == peer_id,
-                Period.loop_id == loop_id,
-                Period.currency == currency,
-                Period.end_date != null,
-            )
-            .order_by(Period.end_date.desc())
-            .first())
-
-        if prev is not None:
-            next_start_date = prev.end_date + datetime.timedelta(days=1)
-            next_start_circ = prev.end_circ
-            next_start_surplus = prev.end_surplus
-        else:
-            next_start_date = None
-            next_start_circ = zero
-            next_start_surplus = zero
-
-        period = Period(
+        # Create a new open period.
+        period = add_open_period(
+            dbsession=dbsession,
             owner_id=owner_id,
             peer_id=peer_id,
             loop_id=loop_id,
             currency=currency,
-            start_date=next_start_date,
-            start_circ=next_start_circ,
-            start_surplus=next_start_surplus)
-        dbsession.add(period)
-        dbsession.flush()  # Assign period.id
-
-        dbsession.add(OwnerLog(
-            owner_id=self.owner_id,
-            event_type='add_period_for_sync',
-            content={
-                'period_id': period.id,
-                'peer_id': peer_id,
-                'loop_id': loop_id,
-                'currency': currency,
-                'start_date': next_start_date,
-                'start_circ': next_start_circ,
-                'start_surplus': next_start_surplus,
-            }))
+            event_type='add_period_for_sync')
 
         self.period_lists[list_key] = list(period_list) + [period]
         self.periods[period_key] = period

@@ -137,7 +137,7 @@ def main(global_config, **settings):
     config.include('pyramid_retry')
     config.include('pyramid_tm')
     config.include('opnreco.models.dbmeta')
-    config.scan('opnreco.views', ignore='opnreco.views.tests')
+    config.scan('opnreco.api', ignore='opnreco.api.tests')
 
     # config.add_translation_dirs('opnreco:locale/')
     config.add_translation_dirs('colander:locale/')

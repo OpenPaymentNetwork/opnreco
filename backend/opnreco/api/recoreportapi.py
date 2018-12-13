@@ -22,7 +22,7 @@ zero = Decimal()
     context=API,
     permission='use_app',
     renderer='json')
-def reco_report_view(request):
+def reco_report_api(request):
     period, peer, loop = get_request_period(request)
 
     period_id = period.id

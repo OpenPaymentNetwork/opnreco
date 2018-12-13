@@ -159,7 +159,7 @@ class Period(Base):
 
 
 Index(
-    'ix_period_single_null_start_date',
+    'ix_period_single_unbounded_start_date',
     Period.owner_id,
     Period.peer_id,
     Period.loop_id,
@@ -169,7 +169,7 @@ Index(
 
 
 Index(
-    'ix_period_single_null_end_date',
+    'ix_period_single_unbounded_end_date',
     Period.owner_id,
     Period.peer_id,
     Period.loop_id,

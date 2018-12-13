@@ -19,7 +19,7 @@ def teardown_module():
     dbsession_fixture.close()
 
 
-class TestDownloadView(unittest.TestCase):
+class TestSyncAPI(unittest.TestCase):
 
     def setUp(self):
         os.environ['opn_api_url'] = 'https://opn.example.com:9999'
@@ -32,8 +32,8 @@ class TestDownloadView(unittest.TestCase):
 
     @property
     def _class(self):
-        from ..syncview import SyncView
-        return SyncView
+        from ..syncapi import SyncAPI
+        return SyncAPI
 
     def _make(self, owner_id='11'):
         from opnreco.models.db import Owner
@@ -1229,7 +1229,7 @@ class TestDownloadView(unittest.TestCase):
         }, events[-1].content)
 
     def test_sync_error(self):
-        from opnreco.views.syncview import SyncError
+        from ..syncapi import SyncError
 
         def _make_transfer_result():
             return {
@@ -1493,7 +1493,7 @@ class TestDownloadView(unittest.TestCase):
 class Test_find_internal_movements(unittest.TestCase):
 
     def _call(self, *args, **kw):
-        from ..syncview import find_internal_movements
+        from ..syncapi import find_internal_movements
         return find_internal_movements(*args, **kw)
 
     def _make_movements(self, spec):

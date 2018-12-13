@@ -1,5 +1,6 @@
 
 import { binder, binder1 } from '../../util/binder';
+import { clearWithPloops } from '../../util/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -40,6 +41,9 @@ const styles = {
   saveButton: {
     margin: '16px 16px 16px 0',
   },
+  progress: {
+    marginLeft: '16px',
+  },
 };
 
 
@@ -50,6 +54,7 @@ class PeriodView extends React.Component {
     history: PropTypes.object.isRequired,
     intl: intlShape.isRequired,
     loading: PropTypes.bool,
+    periodId: PropTypes.string,
     queryURL: PropTypes.string.isRequired,
     result: PropTypes.object,
   };
@@ -86,12 +91,52 @@ class PeriodView extends React.Component {
     });
   }
 
-  handleChangeReassign(event) {
+  handleChangePull(event) {
     this.setState({
       form: {
         ...this.state.form,
-        reassign: event.target.checked,
+        pull: event.target.checked,
       },
+    });
+  }
+
+  handleSave() {
+    this.save('/period-save', false);
+  }
+
+  handleSaveClose() {
+    this.save('/period-save', true);
+  }
+
+  handleReopen() {
+    this.save('/period-reopen', false);
+  }
+
+  save(path, close) {
+    const {
+      periodId,
+      dispatch,
+    } = this.props;
+
+    const url = fOPNReco.pathToURL(
+      path + `?period_id=${encodeURIComponent(periodId)}`);
+    const data = {
+      ...this.state.form,
+      close,
+    };
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({saving: true});
+    promise.then((response) => {
+      this.setState({
+        form: {
+          ...response.period,
+          pull: false,
+        },
+        saving: false,
+      });
+      dispatch(clearWithPloops());
+    }).catch(() => {
+      this.setState({saving: false});
     });
   }
 
@@ -103,9 +148,15 @@ class PeriodView extends React.Component {
 
     const {
       form,
+      saving,
     } = this.state;
 
     const closed = result.period.closed;
+
+    let spinner = null;
+    if (saving) {
+      spinner = <CircularProgress size="24px" className={classes.progress} />;
+    }
 
     let buttons;
     if (!closed) {
@@ -115,6 +166,7 @@ class PeriodView extends React.Component {
             className={classes.saveButton}
             color="primary"
             variant="contained"
+            onClick={this.binder(this.handleSave)}
           >
             Save
           </Button>
@@ -123,9 +175,12 @@ class PeriodView extends React.Component {
             className={classes.saveButton}
             color="primary"
             variant="contained"
+            onClick={this.binder(this.handleSaveClose)}
           >
             Save and Close
           </Button>
+
+          {spinner}
         </FormGroup>
       );
     } else {
@@ -134,9 +189,12 @@ class PeriodView extends React.Component {
           <Button
             className={classes.saveButton}
             variant="contained"
+            onClick={this.binder(this.handleReopen)}
           >
             Reopen
           </Button>
+
+          {spinner}
         </FormGroup>
       );
     }
@@ -203,15 +261,15 @@ class PeriodView extends React.Component {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={form.reassign}
-                  onChange={this.binder(this.handleChangeReassign)}
+                  checked={form.pull}
+                  onChange={this.binder(this.handleChangePull)}
                   disabled={closed}
                 />
               }
               label={
                 <div>
-                  Reassign account entries and movements based on
-                  the new date range.
+                  Pull account entries and movements in the specified
+                  date range into this period.
                 </div>
               }
             />
@@ -286,9 +344,9 @@ class PeriodView extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {match} = ownProps;
+  const periodId = ownProps.match.params.period_id;
   const queryURL = fOPNReco.pathToURL(
-    `/period?period_id=${encodeURIComponent(match.params.period_id)}`);
+    `/period?period_id=${encodeURIComponent(periodId)}`);
   const result = fetchcache.get(state, queryURL);
   const loading = fetchcache.fetching(state, queryURL);
 
@@ -296,6 +354,7 @@ function mapStateToProps(state, ownProps) {
     result,
     queryURL,
     loading,
+    periodId,
   };
 }
 
