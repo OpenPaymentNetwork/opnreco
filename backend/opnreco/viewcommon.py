@@ -454,8 +454,17 @@ def add_open_period(
 
     if prev is not None:
         next_start_date = prev.end_date + datetime.timedelta(days=1)
-        next_start_circ = prev.end_circ
-        next_start_surplus = prev.end_surplus
+        if prev.closed:
+            next_start_circ = prev.end_circ
+            next_start_surplus = prev.end_surplus
+        else:
+            # Compute the previous end_circ and end_surplus.
+            totals = compute_period_totals(
+                dbsession=dbsession,
+                owner_id=owner_id,
+                period_ids=[prev.id])[prev.id]
+            next_start_circ = totals['end']['circ']
+            next_start_surplus = totals['end']['surplus']
     else:
         next_start_date = None
         next_start_circ = 0

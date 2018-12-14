@@ -234,7 +234,7 @@ class RecoReport extends React.Component {
               <tr className={transferRowCN} key={movement.movement_id}
                   onClick={handleClick}>
                 <td className={movementCellCN}>
-                  <a href={`/t/${tid}`} onClick={handleClick}>
+                  <a href={`/t/${tid}`}>
                     Transfer {tid} (
                     <span title={movement.ts}>
                       <FormattedDate
