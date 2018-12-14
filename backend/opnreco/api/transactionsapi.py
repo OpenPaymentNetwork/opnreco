@@ -200,11 +200,17 @@ def transactions_api(request):
         'reco_movement_delta': totals_row.dec_reco_movement_delta or zero,
     }
 
-    main_rows_query = query.order_by(
-        AccountEntry.entry_date,
-        Movement.ts,
-        Movement.id,
-    ).offset(offset)
+    subq = query.subquery('subq')
+    main_rows_query = (
+        dbsession.query(subq)
+        .order_by(
+            subq.c.entry_date,
+            subq.c.ts,
+            subq.c.account_entry_id,
+            subq.c.movement_id,
+        )
+        .offset(offset)
+    )
     if limit is not None:
         main_rows_query = main_rows_query.limit(limit)
     main_rows = main_rows_query.all()

@@ -399,14 +399,19 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     return res
 
 
-def get_period_for_day(period_list, day):
-    """Identify which open period in a list matches a day."""
-    end_period = None
+def get_period_for_day(period_list, day, default='in_progress'):
+    """Identify which open period in a list matches a day.
+
+    Return None if none of them match.
+    """
+    default_period = None
+
     for p in period_list:
         start_date = p.start_date
         end_date = p.end_date
-        if end_date is None:
-            end_period = p
+        if end_date is None and default == 'in_progress':
+            # Fall back to the period with no end date.
+            default_period = p
         if start_date is not None:
             if end_date is not None:
                 # Fully bounded period
@@ -425,8 +430,7 @@ def get_period_for_day(period_list, day):
                 # The period has no start_date or end_date.
                 return p
 
-    # Fall back to the period with no end date, or None.
-    return end_period
+    return default_period
 
 
 def add_open_period(

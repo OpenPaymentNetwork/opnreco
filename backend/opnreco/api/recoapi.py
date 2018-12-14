@@ -243,7 +243,7 @@ def reco_search_movement(context, request, final=False):
     owner_id = owner.id
     filters = []
 
-    amount_parsed = parse_amount(amount_input)
+    amount_parsed = parse_amount(amount_input, currency=period.currency)
     if amount_parsed is not None:
         amount_abs = abs(amount_parsed)
         vault_sign_filters = ()
@@ -385,7 +385,7 @@ def reco_search_account_entries(context, request, final=False):
     owner_id = owner.id
     filters = []
 
-    delta_parsed = parse_amount(delta_input)
+    delta_parsed = parse_amount(delta_input, currency=period.currency)
     if delta_parsed is not None:
         delta_abs = abs(delta_parsed)
 
@@ -657,7 +657,7 @@ class RecoSave:
             })
 
         try:
-            delta = parse_amount(delta_input)
+            delta = parse_amount(delta_input, currency=period.currency)
         except Exception as e:
             raise HTTPBadRequest(json_body={
                 'error': 'amount_parse_error',

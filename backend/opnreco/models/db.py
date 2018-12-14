@@ -289,7 +289,7 @@ class Movement(Base):
     # peer_id is either an OPN profile ID or 'c' (for 'common' or
     # 'circulation'). The 'c' row is the doubled row.
     peer_id = Column(String, nullable=False)
-    # orig_peer_id is never 'c'.
+    # orig_peer_id is an OPN profile ID, never 'c'.
     orig_peer_id = Column(
         String, CheckConstraint(
             "orig_peer_id != 'c'", name='orig_peer_id_not_c'),

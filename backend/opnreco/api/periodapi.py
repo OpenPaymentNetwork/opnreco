@@ -1,15 +1,10 @@
 
-from colander import Boolean
-from colander import Date
-from colander import Invalid
-from colander import Schema
-from colander import SchemaNode
-from colander import SchemaType
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import now_func
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
+from opnreco.models.db import Reco
 from opnreco.models.db import Statement
 from opnreco.models.site import API
 from opnreco.param import get_offset_limit
@@ -25,6 +20,7 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import BigInteger
+from sqlalchemy import Date
 from sqlalchemy import cast
 from sqlalchemy import func
 from sqlalchemy import literal
@@ -208,7 +204,7 @@ def period_api(request):
     return res
 
 
-class CurrencyInput(SchemaType):
+class CurrencyInput(colander.SchemaType):
     def serialize(self, node, appstruct):
         if appstruct is colander.null:
             return colander.null
@@ -221,17 +217,18 @@ class CurrencyInput(SchemaType):
         currency = node.bindings['currency']
         value = parse_amount(cstruct, currency)
         if value is None:
-            raise Invalid(node, '"%s" is not a number' % cstruct)
+            raise colander.Invalid(node, '"%s" is not a number' % cstruct)
 
         return value
 
 
-class PeriodSaveSchema(Schema):
-    start_date = SchemaNode(Date(), missing=None)
-    end_date = SchemaNode(Date(), missing=None)
-    start_circ = SchemaNode(CurrencyInput())
-    start_surplus = SchemaNode(CurrencyInput())
-    reassign = SchemaNode(Boolean(), missing=False)
+class PeriodSaveSchema(colander.Schema):
+    start_date = colander.SchemaNode(colander.Date(), missing=None)
+    end_date = colander.SchemaNode(colander.Date(), missing=None)
+    start_circ = colander.SchemaNode(CurrencyInput())
+    start_surplus = colander.SchemaNode(CurrencyInput())
+    pull = colander.SchemaNode(colander.Boolean(), missing=False)
+    close = colander.SchemaNode(colander.Boolean(), missing=False)
 
 
 def day_intersects(day, range_start, range_end, is_start):
@@ -340,7 +337,7 @@ def detect_date_conflict(dbsession, period, new_start_date, new_end_date):
     context=API,
     permission='use_app',
     renderer='json')
-def period_save(context, request, close=False):
+def period_save(context, request):
     period = get_period(request)
 
     if period.closed:
@@ -358,7 +355,7 @@ def period_save(context, request, close=False):
     schema = PeriodSaveSchema().bind(currency=period.currency)
     try:
         appstruct = schema.deserialize(request.json)
-    except Invalid as e:
+    except colander.Invalid as e:
         raise HTTPBadRequest(json_body={
             'error': 'invalid',
             'error_description': '; '.join(
@@ -369,8 +366,9 @@ def period_save(context, request, close=False):
     start_date = appstruct['start_date']
     end_date = appstruct['end_date']
     start_circ = appstruct['start_circ']
-    end_circ = appstruct['end_circ']
+    start_surplus = appstruct['start_surplus']
     pull = appstruct['pull']
+    close = appstruct['close']
 
     if (start_date is not None
             and end_date is not None
@@ -394,13 +392,30 @@ def period_save(context, request, close=False):
     period.start_date = start_date
     period.end_date = end_date
     period.start_circ = start_circ
-    period.end_circ = end_circ
+    period.start_surplus = start_surplus
+
+    move_counts = {}
 
     if close:
-        push_unreconciled(request=request, period=period)
+        # Push unreconciled movements and account entries in this period
+        # to other open periods of the same peer loop.
+        move_counts['push_unreco_movements'] = (
+            push_unreco_movements(request=request, period=period))
+        move_counts['push_unreco_account_entries'] = (
+            push_unreco_account_entries(request=request, period=period))
 
     if pull:
-        pull_into(request=request, period=period, close=close)
+        # Pull movements, account entries, and recos from other open
+        # periods of the same peer loop and assign them to this period
+        # if the date range fits. (Don't pull unreconciled movements
+        # and account entries when closing.)
+        if not close:
+            move_counts['pull_unreco_movements'] = (
+                pull_unreco_movements(request=request, period=period))
+            move_counts['pull_unreco_account_entries'] = (
+                pull_unreco_account_entries(request=request, period=period))
+        move_counts['pull_recos'] = (
+            pull_recos(request=request, period=period))
 
     totals = compute_period_totals(
         dbsession=dbsession,
@@ -430,11 +445,70 @@ def period_save(context, request, close=False):
             'pull': pull,
         }))
 
-    return serialize_period(period)
+    return {
+        'period': serialize_period(period),
+        'move_counts': move_counts,
+    }
 
 
-def push_unreconciled(request, period):
-    """Push unreconciled movements and entries to the next open period.
+def make_day_period_cte(days, period_list, default_period='in_progress'):
+    """Create a CTE that maps a date to a period ID.
+
+    Provide a list of days to include in the CTE and the candidate periods.
+
+    Return a tuple:
+    - day_periods: [(day, period_id)]
+    - day_period_cte
+    - missing_periods, a boolean that is true when some of the days
+      don't map to any period.
+    """
+    # Choose a period for the movements, entries, or recos on a given date.
+    day_periods = []  # [(date, period_id)]
+    missing_period = False
+    for day in days:
+        period = get_period_for_day(period_list, day, default=default_period)
+        if period is None:
+            missing_period = True
+        else:
+            day_periods.append((day, period.id))
+
+    if day_periods:
+        # Turn day_periods into day_period_cte, a common table expression
+        # that contains a simple mapping of date to period ID.
+        # See: https://stackoverflow.com/questions/44140632
+
+        # Optimization to reduce the size of the statement:
+        # Make type cast only for first row;
+        # for other rows the database will infer.
+        stmts = [
+            select([
+                cast(literal(d), Date).label('day'),
+                cast(literal(pid), BigInteger).label('period_id'),
+            ])
+            for (d, pid) in day_periods[:1]]
+        stmts.extend(
+            select([literal(d), literal(pid)])
+            for (d, pid) in day_periods[1:])
+        day_period_cte = union_all(*stmts).cte(name='day_period_cte')
+
+    else:
+        # There are no periods for any of the days.
+        # Use a table with zero rows as day_period_cte.
+        day_period_cte = (
+            select([
+                cast(literal(None), Date).label('day'),
+                cast(literal(None), BigInteger).label('period_id'),
+            ]).where(literal(1) == literal(0)).cte(name='day_period_cte'))
+
+    return day_periods, day_period_cte, missing_period
+
+
+def get_tzname(owner):
+    return owner.tzname or 'America/New_York'
+
+
+def push_unreco_movements(request, period):
+    """Push unreconciled movements to the next open period.
 
     Create a new period if necessary.
     """
@@ -443,32 +517,29 @@ def push_unreconciled(request, period):
     owner_id = owner.id
     assert period.owner_id == owner_id
 
+    movement_date_c = func.date(func.timezone(
+        get_tzname(owner),
+        func.timezone('UTC', Movement.ts)
+    ))
+
     # List the dates of all unreconciled movements and entries in the period.
-    date_query = (
+    unreco_query = (
         dbsession.query(
-            cast(Date, func.timezone(
-                owner.tzname, func.timezone('UTC', Movement.ts)))).label('day')
-        .filter(
+            movement_date_c.label('day'),
+            Movement.id.label('movement_id'),
+        ).filter(
             Movement.owner_id == owner_id,
             Movement.period_id == period.id,
             Movement.reco_id == null,
         )
-    ).union(
-        dbsession.query(AccountEntry.entry_date).label('day')
-        .filter(
-            AccountEntry.owner_id == owner_id,
-            AccountEntry.period_id == period.id,
-            AccountEntry.reco_id == null,
-        )
     )
+    unreco_rows = unreco_query.all()
 
-    day_rows = date_query.distinct().all()
+    if not unreco_rows:
+        # There are no unreconciled movements in the period.
+        return 0
 
-    if not day_rows:
-        # There are no unreconciled entries in the period.
-        return
-
-    # List the other existing periods for the peer.
+    # List the other open periods for the peer.
     period_list = (
         dbsession.query(Period)
         .filter(
@@ -480,84 +551,491 @@ def push_unreconciled(request, period):
             Period.id != period.id)
         .all())
 
-    # Choose a new period for all movements and entries with a given date.
-    date_rows = []  # [(date, period_id)]
-    need_new = False
-    for (day,) in day_rows:
-        period = get_period_for_day(period_list, day)
-        if period is None:
-            need_new = True
-        else:
-            date_rows.append((day, period.id))
+    # List the movements to reassign.
+    days = set()
+    movement_ids = []
+    for day, movement_id in unreco_rows:
+        days.add(day)
+        if movement_id is not None:
+            movement_ids.append(movement_id)
 
-    # Turn date_rows into date_cte.
-    # See: https://stackoverflow.com/questions/44140632
+    # Map the days to periods.
+    day_periods, day_period_cte, missing_period = make_day_period_cte(
+        days=sorted(days),
+        period_list=period_list)
 
-    # Optimization to reduce the size of the statement:
-    # Make type cast only for first row;
-    # for other rows the database will infer.
-    stmts = [
-        select([
-            cast(literal(d), Date).label('day'),
-            cast(literal(pid), BigInteger).label('period_id'),
-        ])
-        for (d, pid) in date_rows[:1]]
-    stmts.extend(
-        select([literal(d), literal(pid)])
-        for (d, pid) in date_rows[1:])
-    date_cte = union_all(*stmts).cte(name='date_cte')
-
-    # If no period is available for some of the movements and entries,
+    # If no period is available for some of the movements,
     # create a new period.
-    if need_new:
+    if missing_period:
         new_period = add_open_period(
             dbsession=dbsession,
             owner_id=owner_id,
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
-            event_type='add_period_for_push_unreconciled')
+            event_type='add_period_for_push_unreco_movements')
         new_period_id = new_period.id
     else:
-        new_period_id
+        new_period_id = None
 
     # Reassign the unreconciled movements.
     subq = (
-        dbsession.query(date_cte.c.period_id)
-        .filter(
-            date_cte.c.day == cast(Date, func.timezone(
-                owner.tzname, func.timezone('UTC', Movement.ts))))
-        .scalar())
-    movement_results = (
-        dbsession.query(Movement)
+        dbsession.query(day_period_cte.c.period_id)
+        .filter(day_period_cte.c.day == movement_date_c)
+        .as_scalar())
+    (dbsession.query(Movement)
         .filter(
             Movement.owner_id == owner_id,
             Movement.period_id == period.id,
             Movement.reco_id == null,
         )
-        .update({'period_id': func.coalesce(subq, new_period_id)}))
+        .update(
+            {'period_id': func.coalesce(subq, new_period_id)},
+            synchronize_session=False))
 
-    # Reassign the unreconciled account entries.
-    subq = (
-        dbsession.query(date_cte.c.period_id)
-        .filter(date_cte.c.day == AccountEntry.entry_date)
-        .scalar())
-    entry_results = (
-        dbsession.query(AccountEntry)
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='push_unreco_movements',
+        content={
+            'period_id': period.id,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+            'movement_ids': movement_ids,
+            'day_periods': day_periods,
+            'new_period_id': new_period_id,
+        }))
+
+    return len(movement_ids)
+
+
+def push_unreco_account_entries(request, period):
+    """Push unreconciled account entries to the next open period.
+
+    Create a new period if necessary.
+    """
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    assert period.owner_id == owner_id
+
+    # List the dates of all unreconciled movements and entries in the period.
+    unreco_query = (
+        dbsession.query(
+            AccountEntry.entry_date.label('day'),
+            AccountEntry.id.label('account_entry_id'),
+        )
         .filter(
             AccountEntry.owner_id == owner_id,
             AccountEntry.period_id == period.id,
             AccountEntry.reco_id == null,
         )
-        .update({'period_id': func.coalesce(subq, new_period_id)}))
+    )
 
-    log.debug(
-        "push_unreconciled results: %s, %s",
-        movement_results, entry_results)
+    unreco_rows = unreco_query.all()
+
+    if not unreco_rows:
+        # There are no unreconciled account entries in the period.
+        return 0
+
+    # List the other open periods for the peer.
+    period_list = (
+        dbsession.query(Period)
+        .filter(
+            Period.owner_id == owner_id,
+            Period.peer_id == period.peer_id,
+            Period.loop_id == period.loop_id,
+            Period.currency == period.currency,
+            ~Period.closed,
+            Period.id != period.id)
+        .all())
+
+    # List the account entries to reassign.
+    days = set()
+    account_entry_ids = []
+    for day, account_entry_id in unreco_rows:
+        days.add(day)
+        if account_entry_id is not None:
+            account_entry_ids.append(account_entry_id)
+
+    # Map the days to periods.
+    day_periods, day_period_cte, missing_period = make_day_period_cte(
+        days=sorted(days),
+        period_list=period_list)
+
+    # If no period is available for some of the entries,
+    # create a new period.
+    if missing_period:
+        new_period = add_open_period(
+            dbsession=dbsession,
+            owner_id=owner_id,
+            peer_id=period.peer_id,
+            loop_id=period.loop_id,
+            currency=period.currency,
+            event_type='add_period_for_push_unreco_account_entries')
+        new_period_id = new_period.id
+    else:
+        new_period_id = None
+
+    # Reassign the unreconciled account entries.
+    subq = (
+        dbsession.query(day_period_cte.c.period_id)
+        .filter(day_period_cte.c.day == AccountEntry.entry_date)
+        .as_scalar())
+    (dbsession.query(AccountEntry)
+        .filter(
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.period_id == period.id,
+            AccountEntry.reco_id == null,
+        )
+        .update(
+            {'period_id': func.coalesce(subq, new_period_id)},
+            synchronize_session=False))
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='push_unreco_account_entries',
+        content={
+            'period_id': period.id,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+            'account_entry_ids': account_entry_ids,
+            'day_periods': day_periods,
+            'new_period_id': new_period_id,
+        }))
+
+    return len(account_entry_ids)
 
 
-def pull_into(request, period, close):
-    """Pull recos (and unreconciled movements / account entries if open)
-    from other open periods into this period.
+def pull_unreco_movements(request, period):
+    """Pull unreconciled movements from other open periods into this period.
     """
-    pass
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    assert period.owner_id == owner_id
+
+    movement_filter = and_(
+        Movement.owner_id == owner_id,
+        Movement.peer_id == period.peer_id,
+        Movement.currency == period.currency,
+        Movement.loop_id == period.loop_id,
+        Movement.period_id != period.id,
+        Movement.reco_id == null,
+        ~Period.closed,
+    )
+
+    movement_date_c = func.date(func.timezone(
+        get_tzname(owner),
+        func.timezone('UTC', Movement.ts)
+    ))
+
+    # List the dates of all unreconciled movements in other open periods
+    # for the same peer loop.
+    day_rows = (
+        dbsession.query(movement_date_c)
+        .join(Period, Period.id == Movement.period_id)
+        .filter(movement_filter)
+        .distinct().all()
+    )
+
+    if not day_rows:
+        # There are no movements to pull in.
+        return 0
+
+    # List the dates of the movements to pull in.
+    reassign_days = []
+    period_list = [period]
+    for (day,) in day_rows:
+        if get_period_for_day(period_list, day, default=None) is period:
+            reassign_days.append(day)
+
+    if not reassign_days:
+        # None of the movements found should be pulled in to this period.
+        return 0
+
+    # Map the reassignable movements to this period.
+    day_periods, day_period_cte, missing_period = make_day_period_cte(
+        days=sorted(reassign_days),
+        period_list=period_list,
+        default_period=None)
+
+    # Make a subquery that lists the movements to reassign.
+    ids_query = (
+        select([Movement.id])
+        .select_from(
+            Movement.__table__
+            .join(Period, Period.id == Movement.period_id)
+            .join(day_period_cte, day_period_cte.c.day == movement_date_c)
+        )
+        .where(movement_filter)
+    )
+
+    movement_ids = [
+        movement_id for (movement_id,) in dbsession.execute(ids_query)]
+
+    # Reassign movements.
+    (dbsession.query(Movement)
+        .filter(Movement.id.in_(ids_query))
+        .update(
+            {'period_id': period.id},
+            synchronize_session=False))
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='pull_unreco_movements',
+        content={
+            'period_id': period.id,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+            'movement_ids': movement_ids,
+            'day_periods': day_periods,
+        }))
+
+    return len(movement_ids)
+
+
+def pull_unreco_account_entries(request, period):
+    """Pull unreconciled account entries into this period.
+    """
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    assert period.owner_id == owner_id
+
+    entry_filter = and_(
+        AccountEntry.owner_id == owner_id,
+        AccountEntry.peer_id == period.peer_id,
+        AccountEntry.currency == period.currency,
+        AccountEntry.loop_id == period.loop_id,
+        AccountEntry.period_id != period.id,
+        AccountEntry.reco_id == null,
+        ~Period.closed,
+    )
+
+    # List the dates of all unreconciled account entries in other open periods
+    # for the same peer loop.
+    day_rows = (
+        dbsession.query(AccountEntry.entry_date)
+        .join(Period, Period.id == AccountEntry.period_id)
+        .filter(entry_filter)
+        .distinct().all()
+    )
+
+    if not day_rows:
+        # There are no entries to pull in.
+        return 0
+
+    # List the dates of the entries to pull in.
+    reassign_days = []
+    period_list = [period]
+    for (day,) in day_rows:
+        if get_period_for_day(period_list, day, default=None) is period:
+            reassign_days.append(day)
+
+    if not reassign_days:
+        # None of the entries found should be pulled in to this period.
+        return 0
+
+    # Map the reassignable entries to this period.
+    day_periods, day_period_cte, missing_period = make_day_period_cte(
+        days=sorted(reassign_days),
+        period_list=period_list,
+        default_period=None)
+
+    # Make a subquery that lists the entries to reassign.
+    ids_query = (
+        select([AccountEntry.id])
+        .select_from(
+            AccountEntry.__table__
+            .join(Period, Period.id == AccountEntry.period_id)
+            .join(
+                day_period_cte,
+                day_period_cte.c.day == AccountEntry.entry_date)
+        )
+        .where(entry_filter)
+    )
+
+    account_entry_ids = [
+        account_entry_id for (account_entry_id,)
+        in dbsession.execute(ids_query)]
+
+    # Reassign entries.
+    (dbsession.query(AccountEntry)
+        .filter(AccountEntry.id.in_(ids_query.subquery('subq').c.id))
+        .update(
+            {'period_id': period.id},
+            synchronize_session=False))
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='pull_unreco_account_entries',
+        content={
+            'period_id': period.id,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+            'account_entry_ids': account_entry_ids,
+            'day_periods': day_periods,
+        }))
+
+    return len(account_entry_ids)
+
+
+def pull_recos(request, period):
+    """Pull recos from other open periods into this period.
+    """
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    assert period.owner_id == owner_id
+
+    reco_filter = and_(
+        Reco.owner_id == owner_id,
+        Reco.period_id != period.id,
+        Period.peer_id == period.peer_id,
+        Period.currency == period.currency,
+        Period.loop_id == period.loop_id,
+        ~Period.closed,
+    )
+
+    entry_date_c = (
+        dbsession.query(func.min(AccountEntry.entry_date))
+        .filter(AccountEntry.reco_id == Reco.id)
+        .as_scalar()
+    )
+
+    movement_date_c = (
+        dbsession.query(
+            func.date(func.timezone(
+                get_tzname(owner),
+                func.timezone('UTC', func.min(Movement.ts))
+            ))
+        )
+        .filter(Movement.reco_id == Reco.id)
+        .as_scalar()
+    )
+
+    reco_date_c = func.coalesce(entry_date_c, movement_date_c)
+
+    # List the dates of all recos in other open periods
+    # for the same peer loop.
+    day_rows = (
+        dbsession.query(reco_date_c)
+        .select_from(Reco)
+        .join(Period, Period.id == Reco.period_id)
+        .filter(reco_filter)
+        .distinct().all()
+    )
+
+    if not day_rows:
+        # There are no recos to pull in.
+        return 0
+
+    # List the dates of the recos to pull in.
+    reassign_days = []
+    period_list = [period]
+    for (day,) in day_rows:
+        if get_period_for_day(period_list, day, default=None) is period:
+            reassign_days.append(day)
+
+    if not reassign_days:
+        # None of the recos found should be pulled in to this period.
+        return 0
+
+    # Map the reassignable recos to this period.
+    day_periods, day_period_cte, missing_period = make_day_period_cte(
+        days=sorted(reassign_days),
+        period_list=period_list,
+        default_period=None)
+
+    # Make a subquery that lists the recos to reassign.
+    ids_query = (
+        select([Reco.id])
+        .select_from(
+            Reco.__table__
+            .join(Period, Period.id == Reco.period_id)
+            .join(day_period_cte, day_period_cte.c.day == reco_date_c)
+        )
+        .where(reco_filter)
+    )
+
+    reco_ids = [reco_id for (reco_id,) in dbsession.execute(ids_query)]
+
+    # Reassign recos.
+    (dbsession.query(Reco)
+        .filter(Reco.id.in_(ids_query))
+        .update(
+            {'period_id': period.id},
+            synchronize_session=False))
+
+    # Reassign the period_id of affected movements.
+    (dbsession.query(Movement)
+        .filter(Movement.reco_id.in_(ids_query))
+        .update(
+            {'period_id': period.id},
+            synchronize_session=False))
+
+    # Reassign the period_id of affected account entries.
+    (dbsession.query(AccountEntry)
+        .filter(AccountEntry.reco_id.in_(ids_query))
+        .update(
+            {'period_id': period.id},
+            synchronize_session=False))
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='pull_recos',
+        content={
+            'period_id': period.id,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+            'reco_ids': reco_ids,
+            'day_periods': day_periods,
+        }))
+
+    return len(reco_ids)
+
+
+@view_config(
+    name='period-reopen',
+    context=API,
+    permission='use_app',
+    renderer='json')
+def period_reopen(context, request):
+    period = get_period(request)
+
+    if not period.closed:
+        raise HTTPBadRequest(json_body={
+            'error': 'period_open',
+            'error_description': "This period is already open.",
+        })
+
+    period.closed = False
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='period-reopen',
+        content={
+            'period_id': period.id,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+            'start_date': period.start_date,
+            'start_circ': period.start_circ,
+            'start_surplus': period.start_surplus,
+            'end_date': period.end_date,
+            'end_circ': period.end_circ,
+            'end_surplus': period.end_surplus,
+        }))
+
+    return {
+        'period': serialize_period(period),
+    }
