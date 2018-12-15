@@ -232,6 +232,8 @@ Index(
 
 class OPNDownload(Base):
     """A record of OPN data downloaded for an owner.
+
+    This may be used to verify the correctness of the movement table.
     """
     __tablename__ = 'opn_download'
     id = Column(BigInteger, nullable=False, primary_key=True)
