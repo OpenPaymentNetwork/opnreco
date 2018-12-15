@@ -34,6 +34,7 @@ def ploops_api(request):
                 'period_id',
                 'start_date',
                 'end_date',
+                'closed',
             }},
             'period_order': [period_id],
         }},
@@ -157,6 +158,7 @@ def ploops_api(request):
             'period_id': period_id_str,
             'start_date': period.start_date,
             'end_date': period.end_date,
+            'closed': period.closed,
         }
         ploop['period_order'].append(period_id_str)
 

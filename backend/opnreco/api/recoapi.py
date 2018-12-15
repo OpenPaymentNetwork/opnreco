@@ -14,6 +14,7 @@ from decimal import Decimal
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
+from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
@@ -57,34 +58,28 @@ def start_movement_query(dbsession, owner_id):
         ))
 
 
-def render_movement_rows(movement_rows):
-    res = []
-    for row in movement_rows:
-        res.append({
-            'id': str(row.id),
-            'ts': row.ts,
-            'loop_id': row.loop_id,
-            'currency': row.currency,
-            'vault_delta': row.vault_delta,
-            'wallet_delta': row.wallet_delta,
-            'transfer_id': row.transfer_id,
-            'number': row.number,
-        })
-    return res
+def serialize_movement_rows(movement_rows):
+    return [{
+        'id': str(row.id),
+        'ts': row.ts,
+        'loop_id': row.loop_id,
+        'currency': row.currency,
+        'vault_delta': row.vault_delta,
+        'wallet_delta': row.wallet_delta,
+        'transfer_id': row.transfer_id,
+        'number': row.number,
+    } for row in movement_rows]
 
 
-def render_account_entry_rows(account_entry_rows):
-    res = []
-    for row in account_entry_rows:
-        res.append({
-            'id': str(row.id),
-            'entry_date': row.entry_date,
-            'loop_id': row.loop_id,
-            'currency': row.currency,
-            'delta': row.delta,
-            'desc': row.desc,
-        })
-    return res
+def serialize_account_entry_rows(account_entry_rows):
+    return [{
+        'id': str(row.id),
+        'entry_date': row.entry_date,
+        'loop_id': row.loop_id,
+        'currency': row.currency,
+        'delta': row.delta,
+        'desc': row.desc,
+    } for row in account_entry_rows]
 
 
 @view_config(
@@ -102,7 +97,8 @@ def reco_final_api(context, request):
     permission='use_app',
     renderer='json')
 def reco_api(context, request, final=False):
-    """Return the state of a reco or a movement proposed for a reco."""
+    """Return the state of a reco or proposed reco based on a movement/entry.
+    """
 
     period, _peer, _loop = get_request_period(request)
 
@@ -124,6 +120,34 @@ def reco_api(context, request, final=False):
     owner_id = owner.id
     comment = ''
     reco_type = 'standard'
+    movement_rows = ()
+    account_entry_rows = ()
+
+    if reco_id is None:
+        if movement_id is not None:
+            movement_rows = (
+                start_movement_query(dbsession=dbsession, owner_id=owner_id)
+                .filter(
+                    Movement.id == movement_id,
+                )
+                .all())
+            for row in movement_rows:
+                if row.reco_id is not None:
+                    # Found the reco for the specified movement.
+                    reco_id = row.reco_id
+
+        elif account_entry_id is not None:
+            account_entry_rows = (
+                dbsession.query(AccountEntry)
+                .filter(
+                    AccountEntry.owner_id == owner_id,
+                    AccountEntry.id == account_entry_id,
+                )
+                .all())
+            for row in account_entry_rows:
+                if row.reco_id is not None:
+                    # Found the reco for the specified account entry.
+                    reco_id = row.reco_id
 
     if reco_id is not None:
         movement_rows = (
@@ -155,38 +179,20 @@ def reco_api(context, request, final=False):
             )
             .all())
 
-        reco = (
-            dbsession.query(Reco)
+        reco_period_row = (
+            dbsession.query(Reco, Period)
+            .join(Period, Period.id == Reco.period_id)
             .filter(
                 Reco.owner_id == owner_id,
                 Reco.id == reco_id)
             .first())
 
-        if reco is not None:
+        if reco_period_row is not None:
+            # Note: Intentionally replace the 'period'
+            # variable in order to show the period the reco belongs to.
+            reco, period = reco_period_row
             comment = reco.comment or ''
             reco_type = reco.reco_type
-
-    elif movement_id is not None:
-        account_entry_rows = ()
-        movement_rows = (
-            start_movement_query(dbsession=dbsession, owner_id=owner_id)
-            .filter(
-                Movement.id == movement_id,
-            )
-            .all())
-
-    elif account_entry_id is not None:
-        movement_rows = ()
-        account_entry_rows = (
-            dbsession.query(AccountEntry)
-            .filter(
-                AccountEntry.owner_id == owner_id,
-                AccountEntry.id == account_entry_id,
-            )
-            .all())
-
-    else:
-        movement_rows = account_entry_rows = ()
 
     need_loop_ids = set()
     show_vault = period.peer_id == 'c'
@@ -195,13 +201,15 @@ def reco_api(context, request, final=False):
             show_vault = True
         need_loop_ids.add(row.loop_id)
 
-    movements_json = render_movement_rows(movement_rows)
-    account_entries_json = render_account_entry_rows(account_entry_rows)
+    movements_json = serialize_movement_rows(movement_rows)
+    account_entries_json = serialize_account_entry_rows(account_entry_rows)
 
     loops = get_loop_map(
         request=request,
         need_loop_ids=need_loop_ids,
         final=final)
+
+    ploop_key = '-'.join([period.peer_id, period.loop_id, period.currency])
 
     return {
         'reco_type': reco_type,
@@ -210,6 +218,9 @@ def reco_api(context, request, final=False):
         'account_entries': account_entries_json,
         'loops': loops,
         'show_vault': show_vault,
+        'ploop_key': ploop_key,
+        'period_id': period.id,
+        'closed': period.closed,
     }
 
 
@@ -328,6 +339,7 @@ def reco_search_movement(context, request, final=False):
 
     movement_rows = (
         start_movement_query(dbsession=dbsession, owner_id=owner_id)
+        .join(Period, Period.id == Movement.period_id)
         .filter(
             # Note: don't filter by period_id, otherwise, users won't be able
             # to reconcile entries across periods.
@@ -338,6 +350,8 @@ def reco_search_movement(context, request, final=False):
                 Movement.reco_id == null,
                 Movement.reco_id == reco_id,
             ),
+            # Movements assigned to closed periods are not eligible.
+            ~Period.closed,
             *filters
         )
         .order_by(
@@ -353,7 +367,7 @@ def reco_search_movement(context, request, final=False):
         .limit(5)
         .all())
 
-    movements_json = render_movement_rows(movement_rows)
+    movements_json = serialize_movement_rows(movement_rows)
 
     return movements_json
 
@@ -434,6 +448,7 @@ def reco_search_account_entries(context, request, final=False):
 
     rows = (
         dbsession.query(AccountEntry)
+        .join(Period, Period.id == AccountEntry.period_id)
         .filter(
             AccountEntry.owner_id == owner_id,
             # Note: don't filter by period_id, otherwise, users won't be able
@@ -445,6 +460,8 @@ def reco_search_account_entries(context, request, final=False):
                 AccountEntry.reco_id == null,
                 AccountEntry.reco_id == reco_id,
             ),
+            # Entries assigned to closed periods are not eligible.
+            ~Period.closed,
             *filters
         )
         .order_by(
@@ -455,7 +472,7 @@ def reco_search_account_entries(context, request, final=False):
         .limit(5)
         .all())
 
-    entries_json = render_account_entry_rows(rows)
+    entries_json = serialize_account_entry_rows(rows)
 
     return entries_json
 
@@ -513,6 +530,7 @@ class RecoSchema(Schema):
         AccountEntrySchema(),
         missing=(),
         validator=Length(max=100))
+    period_id = SchemaNode(Integer(), missing=None)
 
 
 class RecoSaveSchema(Schema):
@@ -540,7 +558,7 @@ class RecoSave:
     def __call__(self):
         """Save changes to a reco."""
         request = self.request
-        period, _peer, _loop = get_request_period(request)
+        period, _peer, _loop = get_request_period(request, for_write=True)
         try:
             self.params = params = RecoSaveSchema().deserialize(request.json)
         except Invalid as e:
@@ -568,8 +586,9 @@ class RecoSave:
             new_account_entries = self.get_new_account_entries(
                 params['reco']['account_entries'])
 
-        reco = self.get_old_reco()
-        self.final_check(
+        self.check_period_id()
+        reco = self.get_old_reco()  # May set reco == None or raise an error
+        self.check_type_and_balance(
             new_movements=new_movements,
             new_account_entries=new_account_entries)
 
@@ -605,6 +624,7 @@ class RecoSave:
 
         new_movements = (
             dbsession.query(Movement)
+            .join(Period, Period.id == Movement.period_id)
             .filter(
                 Movement.owner_id == owner_id,
                 Movement.id.in_(new_movement_ids),
@@ -619,6 +639,8 @@ class RecoSave:
                     Movement.wallet_delta != zero,
                     Movement.vault_delta != zero,
                 ),
+                # Movements assigned to closed periods are not eligible.
+                ~Period.closed,
             )
             .all())
 
@@ -725,6 +747,7 @@ class RecoSave:
 
             reusing_entries = (
                 dbsession.query(AccountEntry)
+                .join(Period, Period.id == AccountEntry.period_id)
                 .filter(
                     AccountEntry.owner_id == owner_id,
                     AccountEntry.id.in_(reusing_ids),
@@ -736,6 +759,8 @@ class RecoSave:
                         AccountEntry.reco_id == self.reco_id,
                     ),
                     AccountEntry.delta != zero,
+                    # Entries assigned to closed periods are not eligible.
+                    ~Period.closed,
                 )
                 .all())
 
@@ -752,6 +777,35 @@ class RecoSave:
             res.extend(reusing_entries)
 
         return res
+
+    def check_period_id(self):
+        old_period = self.period
+        new_period_id = self.params['reco']['period_id']
+        if new_period_id is None or new_period_id == old_period.id:
+            return
+
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+        owner_id = owner.id
+
+        new_period = (
+            dbsession.query(Period)
+            .filter(
+                Period.owner_id == owner_id,
+                Period.peer_id == old_period.peer_id,
+                Period.currency == old_period.currency,
+                Period.loop_id == old_period.loop_id,
+                ~Period.closed,
+                Period.id == new_period_id,
+            )
+            .first())
+        if new_period is None:
+            raise HTTPBadRequest(json_body={
+                'error': 'invalid_period_id',
+                'error_description': (
+                    "The selected period is closed or not available."),
+            })
 
     def get_old_reco(self):
         reco_id = self.reco_id
@@ -775,7 +829,7 @@ class RecoSave:
 
         return reco
 
-    def final_check(self, new_movements, new_account_entries):
+    def check_type_and_balance(self, new_movements, new_account_entries):
         reco_type = self.reco_type
         if reco_type == 'standard':
             wallet_sum = sum(m.wallet_delta for m in new_movements)
@@ -804,7 +858,7 @@ class RecoSave:
                 'error': 'comment_required',
                 'error_description': (
                     "An explanatory comment is required "
-                    "for nonstandard reconciliations."),
+                    "for nonstandard reconciliation."),
             })
 
     def remove_old_movements(self, new_movements):
@@ -861,17 +915,20 @@ class RecoSave:
         internal = (reco_type == 'standard' and not new_account_entries)
         comment = params['reco']['comment']
 
-        if new_account_entries:
-            # Get the period_id from the first account entry.
-            by_date = sorted(
-                new_account_entries, key=lambda x: (x.entry_date, x.id))
-            period_id = by_date[0].period_id
-        elif new_movements:
-            # Get the period_id from the first movement.
-            by_ts = sorted(new_movements, key=lambda x: (x.ts, x.number, x.id))
-            period_id = by_ts[0].period_id
-        else:
-            period_id = self.period.id
+        period_id = params['reco']['period_id']
+        if period_id is None:
+            if new_account_entries:
+                # Get the period_id from the first account entry.
+                by_date = sorted(
+                    new_account_entries, key=lambda x: (x.entry_date, x.id))
+                period_id = by_date[0].period_id
+            elif new_movements:
+                # Get the period_id from the first movement.
+                by_ts = sorted(
+                    new_movements, key=lambda x: (x.ts, x.number, x.id))
+                period_id = by_ts[0].period_id
+            else:
+                period_id = self.period.id
 
         if reco is None:
             added = True
@@ -894,7 +951,6 @@ class RecoSave:
 
         for m in new_movements:
             m.reco_id = reco_id
-            # TODO: verify the movement's current period is not closed.
             # Reassign the movement to the reco's period.
             m.period_id = period_id
             if reco_type == 'wallet_only':
@@ -909,7 +965,6 @@ class RecoSave:
         created_account_entries = []
         for entry in new_account_entries:
             entry.reco_id = reco_id
-            # TODO: verify the entry's current period is not closed.
             # Reassign the entry to the reco's period
             entry.period_id = period_id
             if entry.id is None:

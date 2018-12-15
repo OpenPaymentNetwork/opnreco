@@ -148,6 +148,8 @@ class Period(Base):
         CheckConstraint(or_(
             ~closed,
             and_(
+                # The dates and end values must be assigned when the
+                # period is closed.
                 closed,
                 start_date != null,
                 end_date != null,

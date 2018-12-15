@@ -33,13 +33,16 @@ def parse_ploop_key(ploop_key):
     return (peer_id, loop_id, currency)
 
 
-def get_request_period(request):
+def get_request_period(request, for_write=False):
     """Get the period, peer, and loop specified in the request params.
 
     Raise HTTPBadRequest or HTTPNotFound as needed.
 
     The subpath must contain a ploop_key (peer_id-loop_id-currency)
     and period_id, where period_id may be 'current'.
+
+    If for_write is true, this function raises HTTPBadRequest if
+    the period is closed.
     """
     params = request.params
     peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
@@ -78,6 +81,16 @@ def get_request_period(request):
 
     if row is None:
         raise HTTPNotFound()
+
+    if for_write:
+        period, _, _ = row
+        if period.closed:
+            raise HTTPBadRequest(json_body={
+                'error': 'readonly',
+                'error_description': "The period from %s to %s is closed." % (
+                    period.start_date.isoformat(),
+                    period.end_date.isoformat()),
+            })
 
     return row
 
