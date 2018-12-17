@@ -87,7 +87,10 @@ def get_request_period(request, for_write=False):
         if period.closed:
             raise HTTPBadRequest(json_body={
                 'error': 'readonly',
-                'error_description': "The period from %s to %s is closed." % (
+                'error_description':
+                    "The period from %s to %s is closed. "
+                    "No changes are permitted unless the period "
+                    "is reopened." % (
                     period.start_date.isoformat(),
                     period.end_date.isoformat()),
             })

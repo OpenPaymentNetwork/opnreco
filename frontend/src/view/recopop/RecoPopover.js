@@ -137,15 +137,21 @@ class RecoPopover extends React.Component {
     }
 
     if (!reco && this.props.reco) {
-      // Initialize the reco state. Add one 'creating' entry.
-      const account_entries = [
-        ...(this.props.reco.account_entries || []),
-        this.makeCreatingEntry(),
-      ];
-      reco = {
-        ...this.props.reco,
-        account_entries,
-      };
+      // Initialize the reco state.
+      if (this.props.reco.closed) {
+        // Show the reco state as-is.
+        reco = this.props.reco;
+      } else {
+        // Add one 'creating' entry.
+        const account_entries = [
+          ...(this.props.reco.account_entries || []),
+          this.makeCreatingEntry(),
+        ];
+        reco = {
+          ...this.props.reco,
+          account_entries,
+        };
+      }
       initializing = true;
     }
 
@@ -458,6 +464,7 @@ class RecoPopover extends React.Component {
       resetCount: resetCount,
       showVault: showVault,
       updatePopoverPosition: this.binder(this.updatePopoverPosition),
+      disabled: reco.closed,
     };
 
     let accountEntryTableBody = null;
@@ -517,6 +524,8 @@ class RecoPopover extends React.Component {
       saving,
     } = this.state;
 
+    const disabled = reco ? reco.closed : false;
+
     let require = null;
     if (recoURL && open) {
       require = (
@@ -556,6 +565,7 @@ class RecoPopover extends React.Component {
                 value={reco ? reco.reco_type : 'standard'}
                 displayEmpty
                 onChange={this.binder(this.handleRecoType)}
+                disabled={disabled}
               >
                 <MenuItem value="standard">Standard Reconciliation</MenuItem>
                 <MenuItem value="wallet_only">Wallet In/Out</MenuItem>
@@ -570,6 +580,7 @@ class RecoPopover extends React.Component {
                 value={comment}
                 onChange={this.binder(this.handleComment)}
                 multiline
+                disabled={disabled}
               />
             </FormControl>
 
@@ -578,13 +589,13 @@ class RecoPopover extends React.Component {
           <div className={classes.actionBox}>
             <div className={classes.actionLeftButtons}>
               <IconButton
-                disabled={!undoLog.length}
+                disabled={!undoLog.length || disabled}
                 onClick={this.binder(this.handleUndo)}
               >
                 <Undo/>
               </IconButton>
               <IconButton
-                disabled={!redoLog.length}
+                disabled={!redoLog.length || disabled}
                 onClick={this.binder(this.handleRedo)}
               >
                 <Redo/>
@@ -592,7 +603,7 @@ class RecoPopover extends React.Component {
             </div>
             <Button
               color="primary"
-              disabled={saving}
+              disabled={saving || disabled}
               onClick={this.binder(this.handleSave)}>Save</Button>
           </div>
         </Typography>

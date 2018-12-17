@@ -120,6 +120,7 @@ class RecoTableBody extends React.Component {
     emptyMessage: PropTypes.string.isRequired,
     createInputs: PropTypes.object,
     handleCreateInput: PropTypes.func,
+    disabled: PropTypes.bool,
   };
 
   constructor(props) {
@@ -310,7 +311,7 @@ class RecoTableBody extends React.Component {
   }
 
   renderRow(item, addCandidate) {
-    const {classes, renderItemCells, searchFields} = this.props;
+    const {classes, renderItemCells, searchFields, disabled} = this.props;
     const {removing} = this.state;
 
     const itemId = item.id;
@@ -352,7 +353,9 @@ class RecoTableBody extends React.Component {
     }
 
     let icon;
-    if (addCandidate) {
+    if (disabled) {
+      icon = null;
+    } else if (addCandidate) {
       icon = (
         <AddCircle
           className={classes.addRemoveIcon}
@@ -382,6 +385,7 @@ class RecoTableBody extends React.Component {
       columnHeadRow,
       searchFields,
       showVault,
+      disabled,
     } = this.props;
 
     const {
@@ -437,29 +441,31 @@ class RecoTableBody extends React.Component {
         </tr>);
     }
 
-    rows.push(
-      <tr key="searchInput">
-        <td className={classes.searchHeadCell}>
-          {hasQuery ?
-            <Close
-              className={classes.searchCloseIcon}
-              onClick={this.binder(this.closeSearch)} />
-            : <Search className={classes.searchIcon} />}
-        </td>
-        {searchFields.map(field => (
-          <td key={field.name} className={classes.searchCell}
-              colSpan={field.colSpan || 1}>
-            <Input
-              classes={{input: classes.searchInput}}
-              disableUnderline
-              value={searchInputs[field.name] || ''}
-              onChange={this.binder1(this.handleSearchInput, field.name)}
-              fullWidth
-            />
+    if (!disabled) {
+      rows.push(
+        <tr key="searchInput">
+          <td className={classes.searchHeadCell}>
+            {hasQuery ?
+              <Close
+                className={classes.searchCloseIcon}
+                onClick={this.binder(this.closeSearch)} />
+              : <Search className={classes.searchIcon} />}
           </td>
-        ))}
-      </tr>
-    );
+          {searchFields.map(field => (
+            <td key={field.name} className={classes.searchCell}
+                colSpan={field.colSpan || 1}>
+              <Input
+                classes={{input: classes.searchInput}}
+                disableUnderline
+                value={searchInputs[field.name] || ''}
+                onChange={this.binder1(this.handleSearchInput, field.name)}
+                fullWidth
+              />
+            </td>
+          ))}
+        </tr>
+      );
+    }
 
     return <tbody>{rows}</tbody>;
   }
