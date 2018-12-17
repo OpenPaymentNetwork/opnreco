@@ -101,21 +101,22 @@ class PeriodView extends React.Component {
   }
 
   handleSave() {
-    this.save('/period-save', false);
+    this.save('/period-save', false, true);
   }
 
   handleSaveClose() {
-    this.save('/period-save', true);
+    this.save('/period-save', true, true);
   }
 
   handleReopen() {
-    this.save('/period-reopen', false);
+    this.save('/period-reopen', false, false);
   }
 
-  save(path, close) {
+  save(path, close, redirect) {
     const {
       periodId,
       dispatch,
+      history,
     } = this.props;
 
     const url = fOPNReco.pathToURL(
@@ -135,6 +136,9 @@ class PeriodView extends React.Component {
         saving: false,
       });
       dispatch(clearWithPloops());
+      if (redirect) {
+        history.push('/period');
+      }
     }).catch(() => {
       this.setState({saving: false});
     });

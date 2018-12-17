@@ -465,7 +465,7 @@ def period_save(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
-        event_type='period-save',
+        event_type='period_save',
         content={
             'period_id': period.id,
             'peer_id': period.peer_id,
@@ -481,10 +481,53 @@ def period_save(context, request):
             'pull': pull,
         }))
 
+    update_next_period(request=request, prev_period=period, totals=totals)
+
     return {
         'period': serialize_period(period),
         'move_counts': move_counts,
     }
+
+
+def update_next_period(request, prev_period, totals):
+    """If the next period is still open, update its start balances."""
+    if prev_period.end_date is None:
+        # No period can exist after prev_period until end_date is set.
+        return
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    assert owner_id == prev_period.owner_id
+
+    next_period = (
+        dbsession.query(Period)
+        .filter(
+            Period.owner_id == owner_id,
+            Period.peer_id == prev_period.peer_id,
+            Period.loop_id == prev_period.loop_id,
+            Period.currency == prev_period.currency,
+            Period.start_date > prev_period.end_date,
+        )
+        .order_by(Period.start_date)
+        .first())
+
+    if next_period is not None and not next_period.closed:
+        next_period.start_circ = totals['end']['circ']
+        next_period.start_surplus = totals['end']['surplus']
+        dbsession.add(OwnerLog(
+            owner_id=owner_id,
+            event_type='update_next_period',
+            content={
+                'prev_period_id': prev_period.id,
+                'period_id': next_period.id,
+                'peer_id': next_period.peer_id,
+                'loop_id': next_period.loop_id,
+                'currency': next_period.currency,
+                'start_circ': next_period.start_circ,
+                'start_surplus': next_period.start_surplus,
+            },
+        ))
 
 
 def make_day_period_cte(days, period_list, default_period='in_progress'):
@@ -900,7 +943,7 @@ def period_reopen(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
-        event_type='period-reopen',
+        event_type='period_reopen',
         content={
             'period_id': period.id,
             'peer_id': period.peer_id,
