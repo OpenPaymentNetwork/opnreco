@@ -3,6 +3,8 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import { injectIntl, intlShape } from 'react-intl';
+import { renderPeriodDateString } from '../../util/reportrender';
 import { setPloopKey, setPeriodId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
@@ -48,6 +50,7 @@ class PeriodSelector extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
+    intl: intlShape.isRequired,
     period: PropTypes.object,
     ploop: PropTypes.object,
     ploops: PropTypes.object,
@@ -127,18 +130,16 @@ class PeriodSelector extends React.Component {
   renderPeriodSelections() {
     const {
       ploop,
+      intl,
     } = this.props;
 
     if (ploop && ploop.period_order && ploop.period_order.length) {
       return ploop.period_order.map(periodId => {
         const period = ploop.periods[periodId];
-        let title;
-        if (!period.end_date) {
-          title = 'Current Period';
-        } else {
-          title = period.end_date;
-        }
-        return <MenuItem value={periodId} key={periodId}>{title}</MenuItem>;
+        return (
+          <MenuItem value={periodId} key={periodId}>
+            {period ? renderPeriodDateString(period, intl) : null}
+          </MenuItem>);
       });
     } else {
       return [];
@@ -230,5 +231,6 @@ function mapStateToProps(state) {
 
 export default compose(
   withStyles(styles, {withTheme: true}),
+  injectIntl,
   connect(mapStateToProps),
 )(PeriodSelector);

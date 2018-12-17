@@ -60,10 +60,34 @@ export function renderReportDateString(period, now, intl) {
       return `${intl.formatDate(period.end_date, dateOptions)}`;
     }
   } else if (period.start_date) {
+    const startStr = intl.formatDate(period.start_date, dateOptions);
+    const endStr = intl.formatDate(
+      now, {...dateOptions, timeZone: undefined});
+    return `${startStr} to ${endStr}`;
+  } else {
+    return 'Initial';
+  }
+}
+
+
+export function renderPeriodDateString(period, intl) {
+  const dateOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  };
+  if (period.end_date && period.start_date) {
+    if (period.end_date !== period.start_date) {
       const startStr = intl.formatDate(period.start_date, dateOptions);
-      const endStr = intl.formatDate(
-        now, {...dateOptions, timeZone: undefined});
+      const endStr = intl.formatDate(period.end_date, dateOptions);
       return `${startStr} to ${endStr}`;
+    } else {
+      return `${intl.formatDate(period.end_date, dateOptions)}`;
+    }
+  } else if (period.start_date) {
+    const startStr = intl.formatDate(period.start_date, dateOptions);
+    return `${startStr} (in progress)`;
   } else {
     return 'Initial';
   }

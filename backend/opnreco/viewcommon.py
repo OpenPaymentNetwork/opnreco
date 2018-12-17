@@ -184,7 +184,7 @@ def fetch_loops(request, input_loops):
     stale_time = now - stale_delta
     res = {}  # {loop_id: loop_info}
 
-    for loop_id in sorted(input_loops.items()):
+    for loop_id in sorted(input_loops.keys()):
         loop_row = loop_row_map.get(loop_id)
         if loop_row is not None:
             if loop_row.last_update >= stale_time:
@@ -217,7 +217,7 @@ def fetch_loops(request, input_loops):
             }
             stmt = (
                 sqlalchemy.dialects.postgresql.insert(
-                    Peer.__table__, bind=dbsession).values(**values)
+                    Loop.__table__, bind=dbsession).values(**values)
                 .on_conflict_do_nothing())
             dbsession.execute(stmt)
 
@@ -236,8 +236,9 @@ def get_loop_map(request, need_loop_ids, final=False):
 
     Update old loops from OPN if the 'final' param is true.
     """
+    need_loop_ids = set(need_loop_ids)
+
     if '0' in need_loop_ids:
-        need_loop_ids = set(need_loop_ids)
         need_loop_ids.discard('0')
 
     owner_id = request.owner.id
@@ -251,6 +252,11 @@ def get_loop_map(request, need_loop_ids, final=False):
         ).all())
 
     loops = {row.loop_id: {'title': row.title} for row in loop_rows}
+
+    for loop_id in need_loop_ids.difference(loops):
+        loops[loop_id] = {
+            'title': '[Cash Design %s]' % loop_id,
+        }
 
     if final and loops:
         # Update all of the loops involved in this transfer.
