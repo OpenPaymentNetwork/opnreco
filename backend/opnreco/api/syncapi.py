@@ -1,7 +1,6 @@
 
 from decimal import Decimal
 from opnreco.models.db import Movement
-from opnreco.models.db import MovementLog
 from opnreco.models.db import now_func
 from opnreco.models.db import OPNDownload
 from opnreco.models.db import OwnerLog
@@ -17,6 +16,7 @@ from opnreco.viewcommon import get_period_for_day
 from opnreco.viewcommon import add_open_period
 from pyramid.decorator import reify
 from pyramid.view import view_config
+from sqlalchemy import func
 import collections
 import datetime
 import logging
@@ -457,6 +457,10 @@ class SyncAPI:
             )
             movement_dict[row_key] = movement
 
+        dbsession.query(
+            func.set_config('opnreco.movement.event_type', 'download', True),
+        ).one()
+
         movements_added = []  # [Movement]
 
         for movement in item['movements']:
@@ -524,15 +528,10 @@ class SyncAPI:
                     movement_dict[row_key] = movement
                     movements_added.append(movement)
 
-        dbsession.flush()  # Assign the movement IDs
-        for movement in movements_added:
-            dbsession.add(MovementLog(
-                movement_id=movement.id,
-                event_type='download',
-                # Only the immutable attributes changed.
-                # There were no changes to mutable attributes.
-                changes={},
-            ))
+        dbsession.flush()  # Assign the movement IDs and log the movements
+
+        dbsession.query(func.set_config(
+            'opnreco.movement.event_type', 'autoreco', True)).all()
 
         self.autoreco(
             record=record,
@@ -771,11 +770,6 @@ class SyncAPI:
 
             for movement in mvlist:
                 movement.reco_id = reco_id
-                dbsession.add(MovementLog(
-                    movement_id=movement.id,
-                    event_type='autoreco',
-                    changes={'reco_id': reco_id},
-                ))
 
         if added:
             dbsession.flush()

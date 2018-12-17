@@ -63,7 +63,7 @@ class AccountEntryTableBody extends React.Component {
             timeZone="UTC" title={entry.entry_date} />
         </td>
         <td className={txtCell}>
-          {entry.desc}
+          {entry.description}
         </td>
       </React.Fragment>
     );
@@ -107,7 +107,7 @@ class AccountEntryTableBody extends React.Component {
         searchFields={[
           {name: 'delta', colSpan: showVault ? 2 : 1},
           {name: 'entry_date'},
-          {name: 'desc'},
+          {name: 'description'},
         ]}
         searchCallPath="/reco-search-account-entries"
         tableTitle="Account Entries"

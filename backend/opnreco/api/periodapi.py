@@ -404,33 +404,52 @@ def period_save(context, request):
 
     move_counts = {}
 
-    config_movements = MovementReassignConfig(owner=owner)
-    config_account_entries = AccountEntryReassignConfig()
+    movement_op = MovementReassignOp(owner=owner)
+    account_entry_op = AccountEntryReassignOp()
 
     if close:
+        dbsession.query(
+            func.set_config(
+                'opnreco.movement.event_type', 'push_unreco', True),
+            func.set_config(
+                'opnreco.account_entry.event_type', 'push_unreco', True),
+        ).one()
+
         # Push unreconciled movements and account entries in this period
         # to other open periods of the same peer loop.
         move_counts['push_unreco_movements'] = push_unreco(
-            request=request, period=period, config=config_movements)
+            request=request, period=period, op=movement_op)
         move_counts['push_unreco_account_entries'] = push_unreco(
-            request=request, period=period, config=config_account_entries)
+            request=request, period=period, op=account_entry_op)
 
     if pull:
         # Pull movements, account entries, and recos from other open
         # periods of the same peer loop into this period
         # if the date range fits. (Don't pull unreconciled movements
         # and account entries when closing.)
+
         if not close:
+            dbsession.query(
+                func.set_config(
+                    'opnreco.movement.event_type', 'pull_unreco', True),
+                func.set_config(
+                    'opnreco.account_entry.event_type', 'pull_unreco', True),
+            ).one()
+
             move_counts['pull_unreco_movements'] = (
                 pull_unreco_and_ineligible(
-                    request=request,
-                    period=period,
-                    config=config_movements))
+                    request=request, period=period, op=movement_op))
             move_counts['pull_unreco_account_entries'] = (
                 pull_unreco_and_ineligible(
-                    request=request,
-                    period=period,
-                    config=config_account_entries))
+                    request=request, period=period, op=account_entry_op))
+
+        dbsession.query(
+            func.set_config(
+                'opnreco.movement.event_type', 'pull_recos', True),
+            func.set_config(
+                'opnreco.account_entry.event_type', 'pull_recos', True),
+        ).one()
+
         move_counts['pull_recos'] = (
             pull_recos(request=request, period=period))
 
@@ -524,8 +543,8 @@ def get_tzname(owner):
     return owner.tzname or 'America/New_York'
 
 
-class MovementReassignConfig:
-    """Configuration for (push|pull)_unreco to reassign movements.
+class MovementReassignOp:
+    """Operation config for (push|pull)_unreco to reassign movements.
     """
     def __init__(self, owner):
         self.table = Movement
@@ -538,8 +557,8 @@ class MovementReassignConfig:
             Movement.vault_delta != 0, Movement.wallet_delta != 0)
 
 
-class AccountEntryReassignConfig:
-    """Configuration for (push|pull)_unreco to reassign account entries.
+class AccountEntryReassignOp:
+    """Operation config for (push|pull)_unreco to reassign account entries.
     """
     def __init__(self):
         self.table = AccountEntry
@@ -548,7 +567,7 @@ class AccountEntryReassignConfig:
         self.nonzero_filter = AccountEntry.delta != 0
 
 
-def push_unreco(request, period, config):
+def push_unreco(request, period, op):
     """Push unreconciled movements or entries to the next open period.
 
     Create a new period if necessary.
@@ -563,19 +582,19 @@ def push_unreco(request, period, config):
     assert period.owner_id == owner_id
 
     item_filter = and_(
-        config.table.owner_id == owner_id,
-        config.table.period_id == period.id,
-        config.table.reco_id == null,
+        op.table.owner_id == owner_id,
+        op.table.period_id == period.id,
+        op.table.reco_id == null,
         # Zero-value items (such as note issuance) are ineligible for
         # reconciliation, so treat them as reconciled and don't push them.
-        config.nonzero_filter,
+        op.nonzero_filter,
     )
 
     # List the dates of all unreconciled items in the period.
     unreco_query = (
         dbsession.query(
-            config.date_c.label('day'),
-            config.table.id.label('item_id'),
+            op.date_c.label('day'),
+            op.table.id.label('item_id'),
         )
         .filter(item_filter)
     )
@@ -619,7 +638,7 @@ def push_unreco(request, period, config):
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
-            event_type='add_period_for_push_unreco_%s' % config.plural)
+            event_type='add_period_for_push_unreco_%s' % op.plural)
         new_period_id = new_period.id
     else:
         new_period_id = None
@@ -627,9 +646,9 @@ def push_unreco(request, period, config):
     # Reassign the unreconciled items.
     subq = (
         dbsession.query(day_period_cte.c.period_id)
-        .filter(day_period_cte.c.day == config.date_c)
+        .filter(day_period_cte.c.day == op.date_c)
         .as_scalar())
-    (dbsession.query(config.table)
+    (dbsession.query(op.table)
         .filter(item_filter)
         .update(
             {'period_id': func.coalesce(subq, new_period_id)},
@@ -637,7 +656,7 @@ def push_unreco(request, period, config):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
-        event_type='push_unreco_%s' % config.plural,
+        event_type='push_unreco_%s' % op.plural,
         content={
             'period_id': period.id,
             'peer_id': period.peer_id,
@@ -651,7 +670,7 @@ def push_unreco(request, period, config):
     return len(item_ids)
 
 
-def pull_unreco_and_ineligible(request, period, config):
+def pull_unreco_and_ineligible(request, period, op):
     """Pull unreconciled items from other open periods into this period.
 
     Items ineligible for reconciliation should be treated
@@ -664,12 +683,12 @@ def pull_unreco_and_ineligible(request, period, config):
     assert period.owner_id == owner_id
 
     item_filter = and_(
-        config.table.owner_id == owner_id,
-        config.table.peer_id == period.peer_id,
-        config.table.currency == period.currency,
-        config.table.loop_id == period.loop_id,
-        config.table.period_id != period.id,
-        config.table.reco_id == null,
+        op.table.owner_id == owner_id,
+        op.table.peer_id == period.peer_id,
+        op.table.currency == period.currency,
+        op.table.loop_id == period.loop_id,
+        op.table.period_id != period.id,
+        op.table.reco_id == null,
         ~Period.closed,
         # Note: don't use nonzero_filter here because we need to
         # include items ineligible for reconciliation in the pull.
@@ -678,8 +697,8 @@ def pull_unreco_and_ineligible(request, period, config):
     # List the dates of all unreconciled items in other open periods
     # for the same peer loop.
     day_rows = (
-        dbsession.query(config.date_c)
-        .join(Period, Period.id == config.table.period_id)
+        dbsession.query(op.date_c)
+        .join(Period, Period.id == op.table.period_id)
         .filter(item_filter)
         .distinct().all()
     )
@@ -707,11 +726,11 @@ def pull_unreco_and_ineligible(request, period, config):
 
     # Make a subquery that lists the items to reassign.
     ids_query = (
-        select([config.table.id])
+        select([op.table.id])
         .select_from(
-            config.table.__table__
-            .join(Period, Period.id == config.table.period_id)
-            .join(day_period_cte, day_period_cte.c.day == config.date_c)
+            op.table.__table__
+            .join(Period, Period.id == op.table.period_id)
+            .join(day_period_cte, day_period_cte.c.day == op.date_c)
         )
         .where(item_filter)
     )
@@ -719,15 +738,15 @@ def pull_unreco_and_ineligible(request, period, config):
     item_ids = [item_id for (item_id,) in dbsession.execute(ids_query)]
 
     # Reassign items.
-    (dbsession.query(config.table)
-        .filter(config.table.id.in_(ids_query))
+    (dbsession.query(op.table)
+        .filter(op.table.id.in_(ids_query))
         .update(
             {'period_id': period.id},
             synchronize_session='fetch'))
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
-        event_type='pull_unreco_%s' % config.plural,
+        event_type='pull_unreco_%s' % op.plural,
         content={
             'period_id': period.id,
             'peer_id': period.peer_id,

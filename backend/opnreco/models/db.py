@@ -6,6 +6,8 @@ from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import Date
 from sqlalchemy import DateTime
+from sqlalchemy import DDL
+from sqlalchemy import event
 from sqlalchemy import ForeignKey
 from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import func
@@ -62,7 +64,11 @@ class Owner(Base):
 
 
 class OwnerLog(Base):
-    """Log of an event related to an owner"""
+    """Log of an event related to an owner.
+
+    Logging is done by the application rather than triggers because
+    we often want only one log entry for a change to several tables.
+    """
     __tablename__ = 'owner_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
@@ -359,7 +365,11 @@ Index(
 
 
 class MovementLog(Base):
-    """Log of changes to a movement, including a comment."""
+    """Log of changes to a movement.
+
+    Logging is done by a trigger because we want exhaustive logs for
+    movement changes.
+    """
     __tablename__ = 'movement_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
@@ -368,10 +378,46 @@ class MovementLog(Base):
         nullable=False, index=True)
     event_type = Column(String, nullable=False)
 
-    # changes is a dict.
-    changes = Column(JSONB, nullable=False)
+    # Mutable fields of movement rows
+    period_id = Column(BigInteger, nullable=False, index=True)
+    reco_id = Column(BigInteger, nullable=True, index=True)
+    reco_wallet_delta = Column(Numeric, nullable=False)
 
     movement = relationship(Movement)
+
+
+# See: https://stackoverflow.com/questions/1295795 (trigger format)
+# Also: https://stackoverflow.com/questions/7888846/trigger-in-sqlachemy
+movement_log_ddl = DDL("""
+create or replace function movement_log_process() returns trigger
+as $triggerbody$
+begin
+    if (TG_OP = 'DELETE') then
+        insert into movement_log (
+            movement_id, event_type, period_id, reco_id, reco_wallet_delta)
+        select
+            old.id,
+            current_setting('opnreco.movement.event_type'),
+            old.period_id, old.reco_id, old.reco_wallet_delta;
+        return old;
+    elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
+        insert into movement_log (
+            movement_id, event_type, period_id, reco_id, reco_wallet_delta)
+        select
+            new.id,
+            current_setting('opnreco.movement.event_type'),
+            new.period_id, new.reco_id, new.reco_wallet_delta;
+        return new;
+    end if;
+    return null;
+end;
+$triggerbody$ language plpgsql;
+
+create trigger movement_log_trigger
+after insert or update or delete on movement
+    for each row execute procedure movement_log_process();
+""")
+event.listen(Movement.__table__, 'after_create', movement_log_ddl)
 
 
 class Statement(Base):
@@ -430,8 +476,8 @@ class AccountEntry(Base):
     # increase and decrease have well-understood meanings.
     delta = Column(Numeric, nullable=False)
 
-    # desc contains descriptive info provided by the bank.
-    desc = Column(JSONB, nullable=False)
+    # description contains descriptive info provided by the bank.
+    description = Column(JSONB, nullable=False)
 
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
@@ -450,7 +496,11 @@ class AccountEntry(Base):
 
 
 class AccountEntryLog(Base):
-    """Log of changes to an account entry, including a comment."""
+    """Log of changes to an account entry.
+
+    Logging is done by a trigger because we want exhaustive logs for
+    account entry changes.
+    """
     __tablename__ = 'account_entry_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
@@ -459,10 +509,81 @@ class AccountEntryLog(Base):
         nullable=False, index=True)
     event_type = Column(String, nullable=False)
 
-    # changes is a dict.
-    changes = Column(JSONB, nullable=False)
+    # Mutable fields of AccountEntry
+
+    period_id = Column(BigInteger, nullable=False, index=True)
+    statement_id = Column(BigInteger, nullable=True, index=True)
+    statement_page = Column(String, nullable=True)
+    statement_line = Column(String, nullable=True)
+    entry_date = Column(Date, nullable=False)
+    delta = Column(Numeric, nullable=False)
+    description = Column(JSONB, nullable=False)
+    reco_id = Column(BigInteger, nullable=True, index=True)
 
     account_entry = relationship(AccountEntry)
+
+
+account_entry_log_ddl = DDL("""
+create or replace function account_entry_log_process() returns trigger
+as $triggerbody$
+begin
+    if (TG_OP = 'DELETE') then
+        insert into account_entry_log (
+            account_entry_id, event_type,
+            period_id,
+            statement_id,
+            statement_page,
+            statement_line,
+            entry_date,
+            delta,
+            description,
+            reco_id
+        )
+        select old.id,
+            current_setting('opnreco.account_entry.event_type'),
+            old.period_id,
+            old.statement_id,
+            old.statement_page,
+            old.statement_line,
+            old.entry_date,
+            old.delta,
+            old.description,
+            old.reco_id;
+        return old;
+    elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
+        insert into account_entry_log (
+            account_entry_id,
+            event_type,
+            period_id,
+            statement_id,
+            statement_page,
+            statement_line,
+            entry_date,
+            delta,
+            description,
+            reco_id
+        )
+        select new.id,
+            current_setting('opnreco.account_entry.event_type'),
+            new.period_id,
+            new.statement_id,
+            new.statement_page,
+            new.statement_line,
+            new.entry_date,
+            new.delta,
+            new.description,
+            new.reco_id;
+        return new;
+    end if;
+    return null;
+end;
+$triggerbody$ language plpgsql;
+
+create trigger account_entry_log_trigger
+after insert or update or delete on account_entry
+    for each row execute procedure account_entry_log_process();
+""")
+event.listen(AccountEntry.__table__, 'after_create', account_entry_log_ddl)
 
 
 class Reco(Base):

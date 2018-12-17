@@ -78,7 +78,7 @@ def serialize_account_entry_rows(account_entry_rows):
         'loop_id': row.loop_id,
         'currency': row.currency,
         'delta': row.delta,
-        'desc': row.desc,
+        'description': row.description,
     } for row in account_entry_rows]
 
 
@@ -385,7 +385,7 @@ def reco_search_account_entries(context, request, final=False):
     params = request.json
     delta_input = str(params.get('delta', ''))
     entry_date_input = str(params.get('entry_date', ''))
-    desc_input = str(params.get('desc', ''))
+    description_input = str(params.get('description', ''))
     seen_ids = set(int(x) for x in params.get('seen_ids', ()))
     reco_id_input = params.get('reco_id')
 
@@ -436,9 +436,9 @@ def reco_search_account_entries(context, request, final=False):
             if parsed is not None:
                 filters.append(AccountEntry.entry_date == parsed)
 
-    if desc_input:
-        filters.append(AccountEntry.desc.ilike(
-            func.concat('%', desc_input, '%')))
+    if description_input:
+        filters.append(AccountEntry.description.ilike(
+            func.concat('%', description_input, '%')))
 
     if not filters:
         return []
@@ -466,7 +466,7 @@ def reco_search_account_entries(context, request, final=False):
         )
         .order_by(
             AccountEntry.entry_date,
-            AccountEntry.desc,
+            AccountEntry.description,
             AccountEntry.id,
         )
         .limit(5)
@@ -506,7 +506,7 @@ class AccountEntrySchema(Schema):
         ColanderString(),
         missing='',
         validator=Length(max=100))
-    desc = SchemaNode(
+    description = SchemaNode(
         ColanderString(),
         missing='',
         validator=Length(max=1000))
@@ -593,6 +593,13 @@ class RecoSave:
             new_account_entries=new_account_entries)
 
         # Everything checks out. Save the changes.
+
+        request.dbsession.query(
+            func.set_config(
+                'opnreco.movement.event_type', 'single_reco', True),
+            func.set_config(
+                'opnreco.account_entry.event_type', 'single_reco', True),
+        ).one()
 
         if self.reco_id is not None:
             self.remove_old_movements(new_movements=new_movements)
@@ -722,7 +729,7 @@ class RecoSave:
             loop_id=period.loop_id,
             currency=period.currency,
             delta=delta,
-            desc=inputs['desc'] or '',
+            description=inputs['description'] or '',
         )
         return entry
 
@@ -732,7 +739,8 @@ class RecoSave:
 
         for entry in new_entries:
             if entry['creating']:
-                if entry['delta'] or entry['entry_date'] or entry['desc']:
+                if (entry['delta'] or entry['entry_date'] or
+                        entry['description']):
                     res.append(self.create_account_entry(entry))
                 # else it's a blank input row; ignore it.
             else:
@@ -983,6 +991,8 @@ class RecoSave:
                 'reco_id': reco_id,
                 'reco': params['reco'],
                 'internal': internal,
+                'movement_ids': [m.id for m in new_movements],
+                'account_entry_ids': [e.id for e in new_account_entries],
                 'created_account_entries': [{
                     'id': e.id,
                     'owner_id': e.owner_id,
@@ -991,7 +1001,7 @@ class RecoSave:
                     'currency': e.currency,
                     'loop_id': e.loop_id,
                     'delta': e.delta,
-                    'desc': e.desc,
+                    'description': e.description,
                 } for e in created_account_entries],
                 'period_id': period_id,
             },
