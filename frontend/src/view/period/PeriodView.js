@@ -6,7 +6,7 @@ import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { injectIntl, intlShape } from 'react-intl';
-import { renderReportDateString } from '../../util/reportrender';
+import { renderPeriodDateString } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import LayoutConfig from '../app/LayoutConfig';
@@ -312,7 +312,7 @@ class PeriodView extends React.Component {
       }
 
       titleParts.push('Period:');
-      titleParts.push(renderReportDateString(result.period, result.now, intl));
+      titleParts.push(renderPeriodDateString(result.period, intl));
       titleParts.push('-');
       titleParts.push(result.peer.title);
       titleParts.push(`(${peerType})`);
