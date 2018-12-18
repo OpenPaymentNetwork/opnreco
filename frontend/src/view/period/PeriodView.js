@@ -265,7 +265,7 @@ class PeriodView extends React.Component {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={form.pull}
+                  checked={form.pull || false}
                   onChange={this.binder(this.handleChangePull)}
                   disabled={closed}
                 />

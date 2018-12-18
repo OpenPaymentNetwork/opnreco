@@ -6,6 +6,8 @@ import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
 import { getPloopAndPeriod } from '../../util/period';
+import { injectIntl, intlShape } from 'react-intl';
+import { renderPeriodDateString } from '../../util/reportrender';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
 import AccountEntryTableBody from './AccountEntryTableBody';
@@ -14,6 +16,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import Close from '@material-ui/icons/Close';
 import Draggable from 'react-draggable';
 import Fade from '@material-ui/core/Fade';
+import InputLabel from '@material-ui/core/InputLabel';
 import FormControl from '@material-ui/core/FormControl';
 import IconButton from '@material-ui/core/IconButton';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -99,9 +102,11 @@ class RecoPopover extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    close: PropTypes.func.isRequired,
+    closeDialog: PropTypes.func.isRequired,
+    intl: intlShape.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
+    periods: PropTypes.array,
     periodId: PropTypes.string,
     ploopKey: PropTypes.string,
     recoId: PropTypes.string,
@@ -138,7 +143,7 @@ class RecoPopover extends React.Component {
 
     if (!reco && this.props.reco) {
       // Initialize the reco state.
-      if (this.props.reco.closed) {
+      if (this.props.periodClosed) {
         // Show the reco state as-is.
         reco = this.props.reco;
       } else {
@@ -283,10 +288,10 @@ class RecoPopover extends React.Component {
     const newRedoLog = redoLog.slice();
     newRedoLog.push(reco);
 
-    const len1 = undoLog.length - 1;
+    const newLength = undoLog.length - 1;
     this.setState({
-      reco: undoLog[len1],
-      undoLog: undoLog.slice(0, len1),
+      reco: undoLog[newLength],
+      undoLog: undoLog.slice(0, newLength),
       redoLog: newRedoLog,
       // Search results can contain the same items as restored rows,
       // so close any active searches by incrementing resetCount.
@@ -311,10 +316,10 @@ class RecoPopover extends React.Component {
     const newUndoLog = undoLog.slice();
     newUndoLog.push(reco);
 
-    const len1 = redoLog.length - 1;
+    const newLength = redoLog.length - 1;
     this.setState({
-      reco: redoLog[len1],
-      redoLog: redoLog.slice(0, len1),
+      reco: redoLog[newLength],
+      redoLog: redoLog.slice(0, newLength),
       undoLog: newUndoLog,
       // Search results can contain the same items as restored rows,
       // so close any active searches by incrementing resetCount.
@@ -325,39 +330,36 @@ class RecoPopover extends React.Component {
   }
 
   /**
-   * Accept a change to the reco's movement list.
+   * Change the reco and add to the undo list. Clear the redo list.
    */
-  changeMovements(movements) {
+  changeWithUndo(changes) {
     const {reco, undoLog} = this.state;
     this.setState({
-      reco: {...reco, movements},
+      reco: {...reco, ...changes},
       undoLog: [...undoLog, reco],
       redoLog: [],
     });
+  }
+
+  /**
+   * Accept a change to the reco's movement list.
+   */
+  changeMovements(movements) {
+    this.changeWithUndo({movements});
   }
 
   /**
    * Accept a change to the reco's account_entries list.
    */
   changeAccountEntries(account_entries) {
-    const {reco, undoLog} = this.state;
-    this.setState({
-      reco: {...reco, account_entries},
-      undoLog: [...undoLog, reco],
-      redoLog: [],
-    });
+    this.changeWithUndo({account_entries});
   }
 
   /**
    * Accept a change to the reco_type.
    */
   handleRecoType(event) {
-    const {reco, undoLog} = this.state;
-    this.setState({
-      reco: {...reco, reco_type: event.target.value},
-      undoLog: [...undoLog, reco],
-      redoLog: [],
-    });
+    this.changeWithUndo({reco_type: event.target.value});
     this.updatePopoverPosition();
   }
 
@@ -378,6 +380,11 @@ class RecoPopover extends React.Component {
       redoLog: [],
     });
     this.getCommitThrottler()();
+  }
+
+  handlePeriodChange(event) {
+    this.changeWithUndo({period_id: event.target.value});
+    this.updatePopoverPosition();
   }
 
   getCommitThrottler() {
@@ -414,7 +421,7 @@ class RecoPopover extends React.Component {
     this.setState({saving: true});
     promise.then(() => {
       this.setState({saving: false});
-      this.props.close();
+      this.props.closeDialog();
       dispatch(clearMost());
     }).catch(() => {
       this.setState({saving: false});
@@ -433,7 +440,9 @@ class RecoPopover extends React.Component {
       ploopKey,
       recoURL,
       recoId,
-      close,
+      closeDialog,
+      showVault,
+      periodClosed,
     } = this.props;
 
     const {
@@ -451,12 +460,11 @@ class RecoPopover extends React.Component {
       return <CircularProgress />;
     }
 
-    const showVault = reco.show_vault;
     const recoType = reco.reco_type;
     const colCount = showVault ? 5 : 4;
 
     const tableBodyProps = {
-      close: close,
+      closeDialog: closeDialog,
       dispatch: dispatch,
       periodId: periodId,
       ploopKey: ploopKey,
@@ -464,7 +472,7 @@ class RecoPopover extends React.Component {
       resetCount: resetCount,
       showVault: showVault,
       updatePopoverPosition: this.binder(this.updatePopoverPosition),
-      disabled: reco.closed,
+      disabled: periodClosed,
     };
 
     let accountEntryTableBody = null;
@@ -511,9 +519,12 @@ class RecoPopover extends React.Component {
       classes,
       open,
       anchorEl,
+      intl,
       recoId,
       recoURL,
       recoFinalURL,
+      periodClosed,
+      periods,
     } = this.props;
 
     const {
@@ -524,7 +535,7 @@ class RecoPopover extends React.Component {
       saving,
     } = this.state;
 
-    const disabled = reco ? reco.closed : false;
+    const disabled = periodClosed;
 
     let require = null;
     if (recoURL && open) {
@@ -551,28 +562,52 @@ class RecoPopover extends React.Component {
           <span className={classes.popoverTitle}>Reconciliation {recoId}</span>
           <IconButton
             className={classes.closeButton}
-            onClick={this.props.close}
+            onClick={this.props.closeDialog}
           >
             <Close />
           </IconButton>
         </Typography>
         <Typography className={classes.content} component="div">
-          <div className={classes.metadataBox}>
 
-            <FormControl className={classes.typeControl}>
+          <div className={classes.metadataBox}>
+            <FormControl className={classes.typeControl} disabled={disabled}>
+              <InputLabel shrink htmlFor="reco_reco_type">
+                Type
+              </InputLabel>
               <Select
+                id="reco_reco_type"
                 name="reco_type"
                 value={reco ? reco.reco_type : 'standard'}
                 displayEmpty
                 onChange={this.binder(this.handleRecoType)}
-                disabled={disabled}
               >
                 <MenuItem value="standard">Standard Reconciliation</MenuItem>
                 <MenuItem value="wallet_only">Wallet In/Out</MenuItem>
                 <MenuItem value="account_only">Account Credit/Debit</MenuItem>
               </Select>
             </FormControl>
+            <FormControl className={classes.periodControl} disabled={disabled}>
+              <InputLabel shrink htmlFor="reco_period_id">
+                Period
+              </InputLabel>
+              <Select
+                id="reco_period_id"
+                name="period_id"
+                value={reco ? reco.period_id : ''}
+                displayEmpty
+                onChange={this.binder(this.handlePeriodChange)}
+              >
+                {(periods || []).map(period => (
+                  <MenuItem key={period.period_id} value={period.period_id}>
+                    {renderPeriodDateString(period, intl)}
+                    {period.closed ? ' (closed)' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
 
+          <div className={classes.metadataBox}>
             <FormControl className={classes.commentControl}>
               <TextField
                 name="comment"
@@ -583,8 +618,8 @@ class RecoPopover extends React.Component {
                 disabled={disabled}
               />
             </FormControl>
-
           </div>
+
           {this.renderTable()}
           <div className={classes.actionBox}>
             <div className={classes.actionLeftButtons}>
@@ -615,7 +650,7 @@ class RecoPopover extends React.Component {
         id="reco-popover"
         open={open}
         anchorEl={anchorEl}
-        onClose={this.props.close}
+        onClose={this.props.closeDialog}
         anchorOrigin={{
           vertical: 'top',
           horizontal: 'left',
@@ -680,7 +715,7 @@ function mapStateToProps(state, ownProps) {
   const {ploop, period} = getPloopAndPeriod(state);
   const ploopKey = ploop ? ploop.ploop_key : '';
   const periodId = period ? period.period_id : 'current';
-  let recoURL, recoFinalURL, reco;
+  let recoURL, recoFinalURL, content;
 
   if (ploop) {
     const query = (
@@ -691,13 +726,21 @@ function mapStateToProps(state, ownProps) {
       `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`);
     recoURL = fOPNReco.pathToURL(`/reco?${query}`);
     recoFinalURL = fOPNReco.pathToURL(`/reco-final?${query}`);
-    reco = fetchcache.get(state, recoURL);
+    content = fetchcache.get(state, recoURL) || {};
 
   } else {
     recoURL = '';
     recoFinalURL = '';
-    reco = null;
+    content = {};
   }
+
+  const {
+    reco,
+    loops,
+    show_vault: showVault,
+    period_closed: periodClosed,
+    periods,
+  } = content;
 
   return {
     recoURL,
@@ -705,11 +748,16 @@ function mapStateToProps(state, ownProps) {
     reco,
     ploopKey,
     periodId,
+    periods,
+    loops,
+    showVault,
+    periodClosed,
   };
 }
 
 
 export default compose(
   withStyles(styles, {withTheme: true}),
+  injectIntl,
   connect(mapStateToProps),
 )(RecoPopover);

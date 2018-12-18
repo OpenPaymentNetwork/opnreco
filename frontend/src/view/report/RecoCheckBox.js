@@ -45,7 +45,7 @@ class RecoCheckBox extends React.Component {
     });
   }
 
-  handleClose() {
+  handleCloseDialog() {
     this.setState({
       open: false,
     });
@@ -81,10 +81,10 @@ class RecoCheckBox extends React.Component {
         accountEntryId,
       } = this.props;
 
-      let closeBound = this.handleCloseBound;
-      if (!closeBound) {
-        closeBound = this.handleClose.bind(this);
-        this.handleCloseBound = closeBound;
+      let closeDialogBound = this.handleCloseDialogBound;
+      if (!closeDialogBound) {
+        closeDialogBound = this.handleCloseDialog.bind(this);
+        this.handleCloseDialogBound = closeDialogBound;
       }
 
       popup = (
@@ -94,7 +94,7 @@ class RecoCheckBox extends React.Component {
           accountEntryId={accountEntryId}
           anchorEl={anchorEl}
           open={open}
-          close={closeBound}
+          closeDialog={closeDialogBound}
         />
       );
     }

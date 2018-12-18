@@ -37,7 +37,7 @@ const styles = {
 class MovementTableBody extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    close: PropTypes.func.isRequired,
+    closeDialog: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     movements: PropTypes.array,
@@ -54,7 +54,7 @@ class MovementTableBody extends React.Component {
   handleClickTransfer(tid, event) {
     if (event.button === 0) {
       event.preventDefault();
-      this.props.close();
+      this.props.closeDialog();
       this.props.history.push(`/t/${tid}`);
     }
   }

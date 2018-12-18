@@ -8,7 +8,6 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
-import datetime
 
 
 @view_config(
@@ -45,8 +44,6 @@ def ploops_api(request):
     owner = request.owner
     owner_id = owner.id
     dbsession = request.dbsession
-
-    future = datetime.datetime.utcnow() + datetime.timedelta(days=366 * 100)
 
     # ploop_cte prepares the list of peer loops the owner profile should see.
     ploop_cte = (
@@ -107,7 +104,7 @@ def ploops_api(request):
                     Period.loop_id,
                     Period.currency,
                 ),
-                order_by=func.coalesce(Period.start_date, future).desc(),
+                order_by=Period.start_date.desc(),
             ).label('rownum'),
         )
         .join(ploop_cte, and_(

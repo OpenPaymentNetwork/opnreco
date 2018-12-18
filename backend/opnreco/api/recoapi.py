@@ -209,18 +209,43 @@ def reco_api(context, request, final=False):
         need_loop_ids=need_loop_ids,
         final=final)
 
-    ploop_key = '-'.join([period.peer_id, period.loop_id, period.currency])
+    if period.closed:
+        # The reco is readonly, so don't bother showing other periods.
+        period_rows = [period]
+    else:
+        # The reco is editable, so show all open periods.
+        period_rows = (
+            dbsession.query(Period)
+            .filter(
+                Period.owner_id == owner_id,
+                Period.peer_id == period.peer_id,
+                Period.currency == period.currency,
+                Period.loop_id == period.loop_id,
+                ~Period.closed,
+            )
+            .order_by(Period.start_date.desc())
+            .all())
+
+    # periods is the list of periods the reco can belong to.
+    periods = [{
+        'period_id': str(p.id),
+        'start_date': p.start_date,
+        'end_date': p.end_date,
+        'closed': p.closed,
+    } for p in period_rows]
 
     return {
-        'reco_type': reco_type,
-        'comment': comment,
-        'movements': movements_json,
-        'account_entries': account_entries_json,
+        'reco': {
+            'reco_type': reco_type,
+            'comment': comment,
+            'movements': movements_json,
+            'account_entries': account_entries_json,
+            'period_id': period.id,
+        },
         'loops': loops,
         'show_vault': show_vault,
-        'ploop_key': ploop_key,
-        'period_id': period.id,
-        'closed': period.closed,
+        'periods': periods,
+        'period_closed': period.closed,
     }
 
 
@@ -596,9 +621,9 @@ class RecoSave:
 
         request.dbsession.query(
             func.set_config(
-                'opnreco.movement.event_type', 'single_reco', True),
+                'opnreco.movement.event_type', 'reco_save', True),
             func.set_config(
-                'opnreco.account_entry.event_type', 'single_reco', True),
+                'opnreco.account_entry.event_type', 'reco_save', True),
         ).one()
 
         if self.reco_id is not None:
