@@ -2,8 +2,8 @@
 from decimal import Decimal
 from opnreco.models.db import Movement
 from opnreco.models.db import TransferRecord
-from opnreco.models.site import API
-from opnreco.param import get_request_period
+from opnreco.models import perms
+from opnreco.models.site import PeriodResource
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from pyramid.httpexceptions import HTTPBadRequest
@@ -13,8 +13,8 @@ import collections
 
 @view_config(
     name='transfer-record-final',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
 def transfer_record_final_api(context, request):
     return transfer_record_api(context, request, final=True)
@@ -22,8 +22,8 @@ def transfer_record_final_api(context, request):
 
 @view_config(
     name='transfer-record',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
 def transfer_record_api(context, request, final=False):
     """Prepare all the info for displaying a transfer record.
@@ -36,8 +36,6 @@ def transfer_record_api(context, request, final=False):
     loop titles by default. It should fetch updates when accessed
     as 'transfer-record-final'.
     """
-    period, peer, loop = get_request_period(request)
-
     transfer_id_input = request.params.get('transfer_id')
     if not transfer_id_input:
         raise HTTPBadRequest(json_body={'error': 'transfer_id required'})
@@ -46,6 +44,7 @@ def transfer_record_api(context, request, final=False):
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
+    period = context.period
     period_peer_id = period.peer_id
     is_circ = period_peer_id == 'c'
 

@@ -1,4 +1,5 @@
 
+from opnreco.models import perms
 from opnreco.models.db import Period
 from opnreco.models.db import Loop
 from opnreco.models.db import Peer
@@ -13,7 +14,7 @@ from sqlalchemy.orm import aliased
 @view_config(
     name='ploops',
     context=API,
-    permission='use_app',
+    permission=perms.use_app,
     renderer='json')
 def ploops_api(request):
     """Return the owner profile's list of peer loops ('ploops') and periods.

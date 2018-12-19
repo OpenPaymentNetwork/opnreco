@@ -424,25 +424,20 @@ class RecoReport extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {ploop, period} = ownProps;
+  const {period} = ownProps;
   const expanded = state.tree.reco;
-  if (ploop) {
-    const recoReportURL = fOPNReco.pathToURL(
-      `/reco-report?ploop_key=${encodeURIComponent(ploop.ploop_key)}&` +
-      `period_id=${encodeURIComponent(period ? period.period_id : 'current')}`);
-    const recoReport = fetchcache.get(state, recoReportURL);
-    const loading = fetchcache.fetching(state, recoReportURL);
-    const loadError = !!fetchcache.getError(state, recoReportURL);
-    return {
-      recoReportURL,
-      recoReport,
-      loading,
-      loadError,
-      expanded,
-    };
-  } else {
-    return {expanded};
-  }
+  const recoReportURL = fOPNReco.pathToURL(
+    `/period/${encodeURIComponent(period.period_id)}/reco-report`);
+  const recoReport = fetchcache.get(state, recoReportURL);
+  const loading = fetchcache.fetching(state, recoReportURL);
+  const loadError = !!fetchcache.getError(state, recoReportURL);
+  return {
+    recoReportURL,
+    recoReport,
+    loading,
+    loadError,
+    expanded,
+  };
 }
 
 

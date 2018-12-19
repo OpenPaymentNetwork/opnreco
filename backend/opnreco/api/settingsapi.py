@@ -1,5 +1,6 @@
 
 from opnreco.models.db import OwnerLog
+from opnreco.models import perms
 from opnreco.models.site import API
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
@@ -19,7 +20,7 @@ def get_tznames():
 @view_config(
     name='settings',
     context=API,
-    permission='use_app',
+    permission=perms.use_app,
     renderer='json')
 def settings_api(request):
     """Return the current settings for the user."""
@@ -36,7 +37,7 @@ def settings_api(request):
 @view_config(
     name='set-tzname',
     context=API,
-    permission='use_app',
+    permission=perms.use_app,
     renderer='json')
 def set_tzname(request):
     tzname = request.json.get('tzname')

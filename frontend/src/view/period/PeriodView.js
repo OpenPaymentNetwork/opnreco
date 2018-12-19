@@ -120,7 +120,7 @@ class PeriodView extends React.Component {
     } = this.props;
 
     const url = fOPNReco.pathToURL(
-      path + `?period_id=${encodeURIComponent(periodId)}`);
+      `/period/${encodeURIComponent(periodId)}/save`);
     const data = {
       ...this.state.form,
       close,
@@ -350,7 +350,7 @@ class PeriodView extends React.Component {
 function mapStateToProps(state, ownProps) {
   const periodId = ownProps.match.params.period_id;
   const queryURL = fOPNReco.pathToURL(
-    `/period?period_id=${encodeURIComponent(periodId)}`);
+    `/period/${encodeURIComponent(periodId)}/state`);
   const result = fetchcache.get(state, queryURL);
   const loading = fetchcache.fetching(state, queryURL);
 

@@ -1,8 +1,10 @@
 
+from opnreco.models import perms
+from opnreco.models.db import Period
 from pyramid.decorator import reify
 from pyramid.security import Allow
-from pyramid.security import DENY_ALL
 from pyramid.security import Authenticated
+from pyramid.security import DENY_ALL
 from weakref import ref
 import re
 
@@ -12,7 +14,7 @@ webpack_file_re = re.compile(
     r'|favicon\.ico|humans\.txt|robots\.txt$')
 
 
-class Site(object):
+class Site:
     __parent__ = None
     __name__ = None
 
@@ -21,7 +23,7 @@ class Site(object):
         self.request_ref = ref(request)
 
     __acl__ = (
-        (Allow, Authenticated, 'use_app'),
+        (Allow, Authenticated, perms.use_app),
         DENY_ALL,
     )
 
@@ -37,15 +39,82 @@ class Site(object):
         return API(self)
 
 
-class WebpackFile(object):
+class WebpackFile:
     def __init__(self, site, name):
         self.__parent__ = site
         self.__name__ = name
 
 
-class API(object):
+class API:
 
-    def __init__(self, site):
-        self.__parent__ = site
+    def __init__(self, parent):
+        self.__parent__ = parent
         self.__name__ = 'api'
-        self.request_ref = site.request_ref
+        self.request_ref = parent.request_ref
+
+    def __getitem__(self, name):
+        if name == 'period':
+            return self.periods
+        raise KeyError(name)
+
+    @reify
+    def periods(self):
+        return PeriodCollection(self, 'period')
+
+
+class PeriodCollection:
+    def __init__(self, parent, name):
+        self.__parent__ = parent
+        self.__name__ = name
+        self.request_ref = parent.request_ref
+        self.items = {}  # {period_id: PeriodResource}
+
+    def __getitem__(self, name):
+        try:
+            period_id = int(name)
+        except ValueError:
+            raise KeyError(name)
+
+        period = self.items.get(period_id)
+        if period is not None:
+            return period
+
+        dbsession = self.request_ref().dbsession
+        period = (
+            dbsession.query(Period)
+            .filter(Period.id == period_id)
+            .first()
+        )
+        if period is None:
+            raise KeyError(name)
+
+        pr = PeriodResource(self, str(period.id), period)
+        self.items[period.id] = pr
+        return pr
+
+
+class PeriodResource:
+    def __init__(self, parent, name, period):
+        self.__parent__ = parent
+        self.__name__ = name
+        self.period = period
+
+    @reify
+    def __acl__(self):
+        period = self.period
+        if period.closed:
+            return [
+                (Allow, self.period.owner_id, (
+                    perms.view_period,
+                    perms.reopen_period,
+                )),
+                DENY_ALL,
+            ]
+        else:
+            return [
+                (Allow, self.period.owner_id, (
+                    perms.view_period,
+                    perms.edit_period,
+                )),
+                DENY_ALL,
+            ]

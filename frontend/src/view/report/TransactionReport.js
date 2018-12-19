@@ -453,7 +453,7 @@ class TransactionReport extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const pagerName = 'TransactionReport';
-  const {ploop, period} = ownProps;
+  const {period} = ownProps;
 
   const {
     rowsPerPage,
@@ -461,30 +461,22 @@ function mapStateToProps(state, ownProps) {
     initialRowsPerPage,
   } = getPagerState(state, pagerName, 100);
 
-  if (ploop) {
-    const reportURL = fOPNReco.pathToURL(
-      `/transactions?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
-      `&period_id=${encodeURIComponent(period ? period.period_id : 'current')}` +
-      `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
-      `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
-    const report = fetchcache.get(state, reportURL);
-    const loading = fetchcache.fetching(state, reportURL);
-    const loadError = !!fetchcache.getError(state, reportURL);
+  const reportURL = fOPNReco.pathToURL(
+    `/period/${encodeURIComponent(period.period_id)}/transactions` +
+    `?offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
+    `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
+  const report = fetchcache.get(state, reportURL);
+  const loading = fetchcache.fetching(state, reportURL);
+  const loadError = !!fetchcache.getError(state, reportURL);
 
-    return {
-      reportURL,
-      report,
-      loading,
-      loadError,
-      pagerName,
-      initialRowsPerPage,
-    };
-  } else {
-    return {
-      pagerName,
-      initialRowsPerPage,
-    };
-  }
+  return {
+    reportURL,
+    report,
+    loading,
+    loadError,
+    pagerName,
+    initialRowsPerPage,
+  };
 }
 
 

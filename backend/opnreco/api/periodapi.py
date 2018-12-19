@@ -1,4 +1,5 @@
 
+from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import now_func
@@ -7,6 +8,7 @@ from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import Statement
 from opnreco.models.site import API
+from opnreco.models.site import PeriodResource
 from opnreco.param import get_offset_limit
 from opnreco.param import parse_amount
 from opnreco.param import parse_ploop_key
@@ -38,11 +40,11 @@ null = None
 
 
 @view_config(
-    name='periods',
+    name='period-list',
     context=API,
-    permission='use_app',
+    permission=perms.use_app,
     renderer='json')
-def periods_api(request):
+def period_list_api(request):
     """Return a page of periods for a ploop.
     """
     params = request.params
@@ -128,44 +130,14 @@ def periods_api(request):
     }
 
 
-def get_period(request):
-    try:
-        period_id = int(request.params['period_id'])
-    except Exception:
-        raise HTTPBadRequest(json_body={
-            'error': 'bad_period_id',
-        })
-
-    dbsession = request.dbsession
-    owner = request.owner
-    owner_id = owner.id
-
-    period = (
-        dbsession.query(Period)
-        .filter(
-            Period.owner_id == owner_id,
-            Period.id == period_id,
-        )
-        .first())
-    if period is None:
-        raise HTTPBadRequest(json_body={
-            'error': 'period_not_found',
-            'error_description': (
-                "No period found for your profile with period ID %s"
-                % period_id),
-        })
-
-    return period
-
-
 @view_config(
-    name='period',
-    context=API,
-    permission='use_app',
+    name='state',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
-def period_api(request):
-    """Return info about a period, its peer, and its loop."""
-    period = get_period(request)
+def period_state_api(context, request):
+    """Return info about the period, its peer, and its loop."""
+    period = context.period
 
     dbsession = request.dbsession
     owner = request.owner
@@ -281,7 +253,7 @@ def detect_date_conflict(dbsession, period, new_start_date, new_end_date):
     """
 
     def has_conflict():
-        """Make a SQL expr that checks whether the new range intersects
+        """Make a SQL expression that checks whether the new range intersects
         with an existing range.
         """
         new_start_date1 = (
@@ -333,20 +305,14 @@ def detect_date_conflict(dbsession, period, new_start_date, new_end_date):
 
 
 @view_config(
-    name='period-save',
-    context=API,
-    permission='use_app',
+    name='save',
+    context=PeriodResource,
+    permission=perms.edit_period,
     renderer='json')
 def period_save(context, request):
-    period = get_period(request)
+    """Change the period."""
 
-    if period.closed:
-        raise HTTPBadRequest(json_body={
-            'error': 'period_closed',
-            'error_description': (
-                "This period is closed. Reopen it if you need to change it."),
-        })
-
+    period = context.period
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
@@ -919,21 +885,15 @@ def pull_recos(request, period):
 
 
 @view_config(
-    name='period-reopen',
-    context=API,
-    permission='use_app',
+    name='reopen',
+    context=PeriodResource,
+    permission=perms.reopen_period,
     renderer='json')
 def period_reopen(context, request):
-    period = get_period(request)
-
-    if not period.closed:
-        raise HTTPBadRequest(json_body={
-            'error': 'period_open',
-            'error_description': "This period is already open.",
-        })
+    period = context.period
 
     period.closed = False
-    # Recompute the end_circ and end_surplus amounts.
+    # Force recomputation of the end_circ and end_surplus amounts.
     period.end_circ = None
     period.end_surplus = None
 

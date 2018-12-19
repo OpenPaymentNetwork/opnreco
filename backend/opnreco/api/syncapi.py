@@ -1,5 +1,6 @@
 
 from decimal import Decimal
+from opnreco.models import perms
 from opnreco.models.db import Movement
 from opnreco.models.db import now_func
 from opnreco.models.db import OPNDownload
@@ -36,7 +37,7 @@ class SyncError(Exception):
 @view_config(
     name='sync',
     context=API,
-    permission='use_app',
+    permission=perms.use_app,
     renderer='json')
 class SyncAPI:
     """Sync with OPN.

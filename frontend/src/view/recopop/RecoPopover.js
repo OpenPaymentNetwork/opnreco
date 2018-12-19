@@ -108,7 +108,6 @@ class RecoPopover extends React.Component {
     anchorEl: PropTypes.object,
     periods: PropTypes.array,
     periodId: PropTypes.string,
-    ploopKey: PropTypes.string,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
     recoFinalURL: PropTypes.string,
@@ -401,7 +400,6 @@ class RecoPopover extends React.Component {
    */
   handleSave() {
     const {
-      ploopKey,
       periodId,
       recoId,
       dispatch,
@@ -409,9 +407,8 @@ class RecoPopover extends React.Component {
 
     const reco = this.commit();
 
-    const url = fOPNReco.pathToURL('/reco-save' +
-      `?ploop_key=${encodeURIComponent(ploopKey)}` +
-      `&period_id=${encodeURIComponent(periodId)}`);
+    const url = fOPNReco.pathToURL(
+      `/period/${encodeURIComponent(periodId)}/reco-save`);
     const data = {
       reco,
       reco_id: recoId,
@@ -437,7 +434,6 @@ class RecoPopover extends React.Component {
       dispatch,
       classes,
       periodId,
-      ploopKey,
       recoURL,
       recoId,
       closeDialog,
@@ -467,7 +463,6 @@ class RecoPopover extends React.Component {
       closeDialog: closeDialog,
       dispatch: dispatch,
       periodId: periodId,
-      ploopKey: ploopKey,
       recoId: recoId,
       resetCount: resetCount,
       showVault: showVault,
@@ -712,20 +707,21 @@ FadeDrag2.propTypes = {
 
 
 function mapStateToProps(state, ownProps) {
-  const {ploop, period} = getPloopAndPeriod(state);
-  const ploopKey = ploop ? ploop.ploop_key : '';
-  const periodId = period ? period.period_id : 'current';
+  const {period} = getPloopAndPeriod(state);
+  const periodId = period ? period.period_id : 'no_period_selected';
   let recoURL, recoFinalURL, content;
 
-  if (ploop) {
+  if (period) {
+    const encPeriodId = encodeURIComponent(periodId);
     const query = (
-      `ploop_key=${encodeURIComponent(ploopKey)}` +
-      `&period_id=${encodeURIComponent(periodId)}` +
-      `&movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
+      `movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
       `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
-      `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`);
-    recoURL = fOPNReco.pathToURL(`/reco?${query}`);
-    recoFinalURL = fOPNReco.pathToURL(`/reco-final?${query}`);
+      `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`
+    );
+    recoURL = fOPNReco.pathToURL(
+      `/period/${encPeriodId}/reco?${query}`);
+    recoFinalURL = fOPNReco.pathToURL(
+      `/period/${encPeriodId}/reco-final?${query}`);
     content = fetchcache.get(state, recoURL) || {};
 
   } else {
@@ -746,7 +742,6 @@ function mapStateToProps(state, ownProps) {
     recoURL,
     recoFinalURL,
     reco,
-    ploopKey,
     periodId,
     periods,
     loops,

@@ -11,14 +11,14 @@ from colander import SchemaNode
 from colander import Sequence
 from colander import String as ColanderString
 from decimal import Decimal
+from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
-from opnreco.models.site import API
-from opnreco.param import get_request_period
+from opnreco.models.site import PeriodResource
 from opnreco.param import parse_amount
 from opnreco.viewcommon import get_loop_map
 from pyramid.httpexceptions import HTTPBadRequest
@@ -84,8 +84,8 @@ def serialize_account_entry_rows(account_entry_rows):
 
 @view_config(
     name='reco-final',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
 def reco_final_api(context, request):
     return reco_api(context, request, final=True)
@@ -93,14 +93,13 @@ def reco_final_api(context, request):
 
 @view_config(
     name='reco',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
 def reco_api(context, request, final=False):
     """Return the state of a reco or proposed reco based on a movement/entry.
     """
-
-    period, _peer, _loop = get_request_period(request)
+    period = context.period
 
     reco_id_input = request.params.get('reco_id')
     movement_id_input = request.params.get('movement_id')
@@ -251,14 +250,12 @@ def reco_api(context, request, final=False):
 
 @view_config(
     name='reco-search-movement',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
 def reco_search_movement(context, request, final=False):
     """Search for movements that haven't been reconciled."""
-
-    period, _peer, _loop = get_request_period(request)
-
+    period = context.period
     params = request.json
     amount_input = str(params.get('amount', ''))
     date_input = str(params.get('date', ''))
@@ -399,14 +396,12 @@ def reco_search_movement(context, request, final=False):
 
 @view_config(
     name='reco-search-account-entries',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
 def reco_search_account_entries(context, request, final=False):
     """Search for account entries that haven't been reconciled."""
-
-    period, _peer, _loop = get_request_period(request)
-
+    period = context.period
     params = request.json
     delta_input = str(params.get('delta', ''))
     entry_date_input = str(params.get('entry_date', ''))
@@ -573,17 +568,17 @@ movement_matches_required = (
 
 @view_config(
     name='reco-save',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.edit_period,
     renderer='json')
 class RecoSave:
     def __init__(self, context, request):
+        self.period = context.period
         self.request = request
 
     def __call__(self):
         """Save changes to a reco."""
         request = self.request
-        period, _peer, _loop = get_request_period(request, for_write=True)
         try:
             self.params = params = RecoSaveSchema().deserialize(request.json)
         except Invalid as e:
@@ -594,7 +589,6 @@ class RecoSave:
                     for (k, v) in sorted(e.asdict().items())),
             })
 
-        self.period = period
         self.reco_id = params['reco_id']
         self.reco_type = reco_type = params['reco']['reco_type']
 

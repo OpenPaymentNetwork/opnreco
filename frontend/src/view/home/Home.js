@@ -129,7 +129,7 @@ class Home extends React.Component {
 
     let tabContent;
 
-    if (ploop) {
+    if (ploop && period) {
       tabContent = <TabContent tab={tab} ploop={ploop} period={period} />;
     } else if (!ploopsLoaded || syncing) {
       tabContent = (

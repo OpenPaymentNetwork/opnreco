@@ -1,13 +1,13 @@
 
 from decimal import Decimal
+from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import now_func
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
-from opnreco.models.site import API
+from opnreco.models.site import PeriodResource
 from opnreco.param import get_offset_limit
-from opnreco.param import get_request_period
 from pyramid.view import view_config
 from sqlalchemy import BigInteger
 from sqlalchemy import case
@@ -45,11 +45,11 @@ def start_query(dbsession):
 
 @view_config(
     name='transactions',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
-def transactions_api(request):
-    period, peer, loop = get_request_period(request)
+def transactions_api(context, request):
+    period_id = context.period.id
     params = request.params
     offset, limit = get_offset_limit(params)
 
@@ -119,7 +119,7 @@ def transactions_api(request):
         )
         .filter(
             Reco.owner_id == owner_id,
-            Reco.period_id == period.id,
+            Reco.period_id == period_id,
             ~Reco.internal,
         )
     )
@@ -140,7 +140,7 @@ def transactions_api(request):
         )
         .filter(
             AccountEntry.owner_id == owner_id,
-            AccountEntry.period_id == period.id,
+            AccountEntry.period_id == period_id,
             AccountEntry.delta != 0,
             AccountEntry.reco_id == null,
         ),
@@ -163,7 +163,7 @@ def transactions_api(request):
             TransferRecord.id == Movement.transfer_record_id)
         .filter(
             Movement.owner_id == owner_id,
-            Movement.period_id == period.id,
+            Movement.period_id == period_id,
             movement_delta != 0,
             Movement.reco_id == null,
         ),

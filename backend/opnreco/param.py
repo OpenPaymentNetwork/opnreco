@@ -1,12 +1,7 @@
 
 from decimal import Decimal
 from decimal import InvalidOperation
-from opnreco.models.db import Period
-from opnreco.models.db import Loop
-from opnreco.models.db import Peer
 from pyramid.httpexceptions import HTTPBadRequest
-from pyramid.httpexceptions import HTTPNotFound
-from sqlalchemy import and_
 import re
 
 
@@ -31,71 +26,6 @@ def parse_ploop_key(ploop_key):
             json_body={'error': 'invalid_ploop_key'})
     peer_id, loop_id, currency = match.groups()
     return (peer_id, loop_id, currency)
-
-
-def get_request_period(request, for_write=False):
-    """Get the period, peer, and loop specified in the request params.
-
-    Raise HTTPBadRequest or HTTPNotFound as needed.
-
-    The subpath must contain a ploop_key (peer_id-loop_id-currency)
-    and period_id, where period_id may be 'current'.
-
-    If for_write is true, this function raises HTTPBadRequest if
-    the period is closed.
-    """
-    params = request.params
-    peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
-    period_id_str = params.get('period_id', 'current')
-
-    owner = request.owner
-    owner_id = owner.id
-    dbsession = request.dbsession
-
-    if period_id_str == 'current':
-        period_id_filter = (Period.end_date == null)
-    else:
-        try:
-            period_id = int(period_id_str)
-        except ValueError:
-            raise HTTPBadRequest(
-                json_body={'error': 'bad_period_id'})
-        period_id_filter = (Period.id == period_id)
-
-    row = (
-        dbsession.query(Period, Peer, Loop)
-        .join(Peer, and_(
-            Peer.owner_id == owner_id,
-            Peer.peer_id == Period.peer_id))
-        .outerjoin(Loop, and_(
-            Loop.owner_id == owner_id,
-            Loop.loop_id == Period.loop_id,
-            Loop.loop_id != '0'))
-        .filter(
-            Period.owner_id == owner_id,
-            Period.peer_id == peer_id,
-            Period.loop_id == loop_id,
-            Period.currency == currency,
-            period_id_filter)
-        .first())
-
-    if row is None:
-        raise HTTPNotFound()
-
-    if for_write:
-        period, _, _ = row
-        if period.closed:
-            raise HTTPBadRequest(json_body={
-                'error': 'readonly',
-                'error_description':
-                    "The period from %s to %s is closed. "
-                    "No changes are permitted unless the period "
-                    "is reopened." % (
-                    period.start_date.isoformat(),
-                    period.end_date.isoformat()),
-            })
-
-    return row
 
 
 def get_offset_limit(params):

@@ -4,8 +4,8 @@ from opnreco.models.db import Movement
 from opnreco.models.db import now_func
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
-from opnreco.models.site import API
-from opnreco.param import get_request_period
+from opnreco.models import perms
+from opnreco.models.site import PeriodResource
 from opnreco.viewcommon import compute_period_totals
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -19,13 +19,11 @@ zero = Decimal()
 
 @view_config(
     name='reco-report',
-    context=API,
-    permission='use_app',
+    context=PeriodResource,
+    permission=perms.view_period,
     renderer='json')
-def reco_report_api(request):
-    period, peer, loop = get_request_period(request)
-
-    period_id = period.id
+def reco_report_api(context, request):
+    period_id = context.period.id
     dbsession = request.dbsession
     owner_id = request.owner.id
 

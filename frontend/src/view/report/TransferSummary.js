@@ -385,18 +385,17 @@ class TransferSummary extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {ploop, period, match} = ownProps;
+  const {period, match} = ownProps;
   const transferId = match.params.transferId;
   const profileId = state.login.id;
 
-  if (ploop && transferId) {
-    const query = (
-      `ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
-      `&period_id=${encodeURIComponent(period ? period.period_id : 'current')}` +
-      `&transfer_id=${encodeURIComponent(transferId)}`);
-    const recordURL = fOPNReco.pathToURL(`/transfer-record?${query}`);
+  if (transferId) {
+    const encPeriodId = encodeURIComponent(period.period_id);
+    const query = `transfer_id=${encodeURIComponent(transferId)}`;
+    const recordURL = fOPNReco.pathToURL(
+      `/period/${encPeriodId}/transfer-record?${query}`);
     const recordFinalURL = fOPNReco.pathToURL(
-      `/transfer-record-final?${query}`);
+      `/period/${encPeriodId}/transfer-record-final?${query}`);
     let record = fetchcache.get(state, recordURL);
     const loading = fetchcache.fetching(state, recordURL);
     const loadError = fetchcache.getError(state, recordURL);

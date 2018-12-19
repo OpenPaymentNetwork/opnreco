@@ -374,7 +374,7 @@ function mapStateToProps(state, ownProps) {
 
   if (ploop) {
     const contentURL = fOPNReco.pathToURL(
-      `/periods?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
+      `/period-list?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
       `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
       `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
     const content = fetchcache.get(state, contentURL);
