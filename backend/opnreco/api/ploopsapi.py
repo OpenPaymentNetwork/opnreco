@@ -1,9 +1,9 @@
 
 from opnreco.models import perms
 from opnreco.models.db import Period
-from opnreco.models.db import Loop
 from opnreco.models.db import Peer
 from opnreco.models.site import API
+from opnreco.viewcommon import get_loop_map
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -84,13 +84,8 @@ def ploops_api(request):
         dbsession.query(
             Peer,
             ploop_cte.c.loop_id,
-            ploop_cte.c.currency,
-            Loop.title.label('loop_title'))
+            ploop_cte.c.currency)
         .join(ploop_cte, ploop_cte.c.peer_id == Peer.peer_id)
-        .outerjoin(Loop, and_(
-            Loop.owner_id == owner_id,
-            Loop.loop_id == ploop_cte.c.loop_id,
-            Loop.loop_id != '0'))
         .filter(
             Peer.owner_id == owner_id,
         )
@@ -132,12 +127,21 @@ def ploops_api(request):
     # ploops: {peer_id-loop_id-currency: {periods, period_order, ...}}
     ploops = {}
 
-    for peer, loop_id, currency, loop_title in ploop_rows:
+    need_loop_ids = set()
+    for peer, loop_id, currency in ploop_rows:
+        need_loop_ids.add(loop_id)
+
+    loop_map = get_loop_map(
+        request=request,
+        need_loop_ids=need_loop_ids,
+        final=bool(selected_period_id))
+
+    for peer, loop_id, currency in ploop_rows:
         ploop_key = '-'.join([peer.peer_id, loop_id, currency])
         if loop_id == '0':
             loop_title = ''
-        elif not loop_title:
-            loop_title = '[Cash Design %s]' % loop_id
+        else:
+            loop_title = loop_map[loop_id]['title']
         ploops[ploop_key] = {
             'ploop_key': ploop_key,
             'peer_id': peer.peer_id,

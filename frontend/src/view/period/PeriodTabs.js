@@ -1,14 +1,18 @@
+
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
-import { fOPNReco } from '../../util/fetcher';
+import { fOPNReco, ploopsURL } from '../../util/fetcher';
+import { injectIntl, intlShape } from 'react-intl';
+import { renderPeriodDateString } from '../../util/reportrender';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Hidden from '@material-ui/core/Hidden';
 import IconButton from '@material-ui/core/IconButton';
+import LayoutConfig from '../app/LayoutConfig';
 import MenuIcon from '@material-ui/icons/Menu';
 import PeriodSelector from './PeriodSelector';
 import PeriodTabContent from './PeriodTabContent';
@@ -52,21 +56,24 @@ const styles = theme => ({
 });
 
 
-const ploopsURL = fOPNReco.pathToURL('/ploops');
-
-
 class PeriodTabs extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    defaultPloop: PropTypes.string,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
+    intl: intlShape.isRequired,
     match: PropTypes.object.isRequired,
-    ploop: PropTypes.object,
     period: PropTypes.object,
-    periodId: PropTypes.string.isRequired,
+    periodId: PropTypes.string,
+    ploop: PropTypes.object,
+    ploops: PropTypes.object,
+    ploopOrder: PropTypes.array,
+    ploopsURLMod: PropTypes.string.isRequired,
+    loading: PropTypes.bool,
+    loadError: PropTypes.bool,
+    syncProgress: PropTypes.any,
     transferId: PropTypes.string,
-    ploopsLoaded: PropTypes.bool,
-    syncing: PropTypes.bool,
   };
 
   constructor(props) {
@@ -74,12 +81,78 @@ class PeriodTabs extends React.Component {
     this.binder = binder(this);
   }
 
+  componentDidMount() {
+    this.fixURL();
+  }
+
+  componentDidUpdate() {
+    this.fixURL();
+  }
+
   handleToggleDrawer() {
     this.props.dispatch(toggleDrawer());
   }
 
-  getTabs() {
-    const {periodId, transferId} = this.props;
+  fixURL() {
+    let {period, ploop} = this.props;
+    if (period && ploop) {
+      // The URL is good.
+      return;
+    }
+
+    const {
+      ploopOrder,
+      defaultPloop,
+      ploops,
+    } = this.props;
+
+    if (!ploopOrder || !ploopOrder.length) {
+      // The ploops aren't loaded yet or the owner has no available ploops.
+      return;
+    }
+
+    if (!ploop) {
+      // Fall back to the default ploop.
+      if (defaultPloop) {
+        ploop = ploops[defaultPloop];
+      }
+    }
+
+    if (ploop.period_order && ploop.period_order.length) {
+      period = ploop.periods[ploop.period_order[0]];
+    }
+
+    if (period) {
+      // Found a default period.
+      // Redirect to the current tab in the default period.
+      this.redirectToPeriod(period.id);
+    }
+  }
+
+  redirectToPeriod(periodId) {
+    const {match} = this.props;
+    const {tab} = match.params;
+    const tabs = this.getTabs(periodId);
+    let path = null;
+    tabs.forEach(tabinfo => {
+      if (tab === tabinfo.value) {
+        path = tabinfo.path;
+      }
+    });
+    if (!path) {
+      path = tabs[0].path;
+    }
+    window.setTimeout(() => {
+      this.props.history.push(path);
+    }, 0);
+  }
+
+  getTabs(periodId) {
+    if (!periodId) {
+      periodId = this.props.periodId;
+    }
+
+    const {transferId} = this.props;
     const encPeriodId = encodeURIComponent(periodId);
     const transferPath = (transferId ?
       `/period/${encPeriodId}/t/${encodeURIComponent(transferId)}` :
@@ -100,11 +173,13 @@ class PeriodTabs extends React.Component {
         value: 't',
         label: 'Transfer',
         path: transferPath,
+        titlePart: transferId ? 'Transfer ' + transferId : 'Transfer',
       },
       {
         value: 'overview',
         label: 'Period',
         path: `/period/${encPeriodId}/overview`,
+        titlePart: 'Period Overview',
       },
     ];
   }
@@ -129,12 +204,18 @@ class PeriodTabs extends React.Component {
       period,
       match,
       ploop,
-      ploopsLoaded,
-      syncing,
+      ploops,
+      ploopsURLMod,
+      ploopOrder,
+      loading,
+      loadError,
+      syncProgress,
+      intl,
     } = this.props;
 
     const tab = match.params.tab || 'reco';
     const handleTabClick = this.binder(this.handleTabClick);
+    const titleParts = [];
 
     const tabs = (
       <Tabs
@@ -144,19 +225,34 @@ class PeriodTabs extends React.Component {
         scrollButtons="auto"
         onChange={this.binder(this.handleTabChange)}
       >
-        {this.getTabs().map(tabinfo => (
-          <Tab
-            key={tabinfo.value}
-            value={tabinfo.value}
-            label={tabinfo.label}
-            href={tabinfo.path}
-            onClick={handleTabClick} />))}
+        {this.getTabs().map(tabinfo => {
+          if (tabinfo.value === tab) {
+            titleParts.push(tabinfo.titlePart || tabinfo.label);
+          }
+          return (
+            <Tab
+              key={tabinfo.value}
+              value={tabinfo.value}
+              label={tabinfo.label}
+              href={tabinfo.path}
+              onClick={handleTabClick} />
+          );
+        })}
       </Tabs>
     );
 
-    const filterBox = (
+    const selectorBox = (
       <div className={classes.periodSelectorBox}>
-        <PeriodSelector ploop={ploop} period={period} path={match.path} />
+        <PeriodSelector
+          period={period}
+          ploop={ploop}
+          ploops={ploops}
+          ploopOrder={ploopOrder}
+          loading={loading}
+          loadError={loadError}
+          syncProgress={syncProgress}
+          redirectToPeriod={this.binder(this.redirectToPeriod)}
+          />
       </div>
     );
 
@@ -164,7 +260,27 @@ class PeriodTabs extends React.Component {
 
     if (ploop && period) {
       tabContent = <PeriodTabContent tab={tab} ploop={ploop} period={period} />;
-    } else if (!ploopsLoaded || syncing) {
+
+      let peerType;
+      if (ploop.peer_id === 'c') {
+        peerType = 'Circulation';
+      } else if (ploop.peer_is_dfi_account) {
+        peerType = 'DFI Account';
+      } else {
+        peerType = 'Wallet';
+      }
+
+      titleParts.push('-');
+      titleParts.push(renderPeriodDateString(period, intl));
+      titleParts.push('-');
+      titleParts.push(ploop.peer_title);
+      titleParts.push(`(${peerType})`);
+      titleParts.push('-');
+      titleParts.push(ploop.currency);
+      titleParts.push(
+        ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title);
+
+    } else if (loading || syncProgress !== null) {
       tabContent = (
         <div className={classes.waitContainer}>
           <CircularProgress size={24} className={classes.waitSpinner}/>
@@ -177,7 +293,8 @@ class PeriodTabs extends React.Component {
 
     return (
       <div className={classes.root}>
-        <Require fetcher={fOPNReco} urls={[ploopsURL]} />
+        <Require fetcher={fOPNReco} urls={[ploopsURL, ploopsURLMod]} />
+        <LayoutConfig title={titleParts.join(' ')} />
 
         <div className={classes.topLine}>
 
@@ -191,13 +308,13 @@ class PeriodTabs extends React.Component {
           </IconButton>
 
           <Hidden mdUp>
-            {filterBox}
+            {selectorBox}
             {tabs}
           </Hidden>
 
           <Hidden smDown>
             {tabs}
-            {filterBox}
+            {selectorBox}
           </Hidden>
 
         </div>
@@ -212,10 +329,15 @@ class PeriodTabs extends React.Component {
 function mapStateToProps(state, ownProps) {
   let ploop = null;
   let period = null;
-  let periodId = ownProps.match.params.periodId;
+  const periodId = ownProps.match.params.periodId;
+  const ploopsURLMod = (
+    ploopsURL + `?period_id=${encodeURIComponent(periodId)}`);
 
-  const fetched = fetchcache.get(state, ploopsURL);
-  if (fetched && fetched.ploop_order.length) {
+  const fetched = (
+    fetchcache.get(state, ploopsURLMod) ||
+    fetchcache.get(state, ploopsURL) ||
+    {});
+  if (fetched.ploop_order && fetched.ploop_order.length) {
     let ploopKey;
     ploopKey = fetched.ploop_keys[periodId];
     if (ploopKey) {
@@ -224,29 +346,22 @@ function mapStateToProps(state, ownProps) {
         period = ploop.periods[periodId];
       }
     }
-    if (!ploop) {
-      // Fall back to the default ploop.
-      if (fetched.default_ploop) {
-        ploop = fetched.ploops[fetched.default_ploop];
-      }
-    }
-
-    if (!period && ploop.period_order && ploop.period_order.length) {
-      period = ploop.periods[ploop.period_order[0]];
-    }
-
-    if (period) {
-      periodId = period.id;
-    }
   }
+  const loading = fetchcache.fetching(state, ploopsURL);
+  const loadError = !!fetchcache.getError(state, ploopsURL);
 
   return {
     periodId,
+    ploopsURLMod,
+    ploops: fetched.ploops,
+    ploopOrder: fetched.ploop_order,
+    defaultPloop: fetched.default_ploop,
     ploop,
     period,
     transferId: state.app.transferId,
-    ploopsLoaded: !!fetchcache.get(state, ploopsURL),
-    syncing: state.app.syncProgress !== null,
+    syncProgress: state.app.syncProgress,
+    loading,
+    loadError,
   };
 }
 
@@ -254,5 +369,6 @@ function mapStateToProps(state, ownProps) {
 export default compose(
   withStyles(styles, {withTheme: true}),
   withRouter,
+  injectIntl,
   connect(mapStateToProps),
 )(PeriodTabs);

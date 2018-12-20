@@ -70,6 +70,7 @@ export class FetchCache {
   require(componentId, urls, options = {}) {
     return (dispatch, getState) => {
       const state = getState();
+      const newReqsObj = {};
       const newReqsList = [];
       const toFetch = {};
       const oldReqsObj = {};
@@ -99,26 +100,30 @@ export class FetchCache {
 
       urls.forEach((url) => {
         if (url) {
-          newReqsList.push(url);
-          // Decide whether to fetch this URL now.
-          let ignoreExpiration;
-          if (options && options.keepFresh) {
-            // When keepFresh is specified, re-fetch the content
-            // when it expires. Note that in order to keep the content
-            // fresh, callers must still arrange to call this method on
-            // user activity.
-            ignoreExpiration = false;
-          } else {
-            // Otherwise, only refresh content when a newly mounted
-            // component wants it. We do this by following this rule:
-            // If the URL requirement was specified previously by this
-            // component, load new objects, but don't reload expired objects.
-            const isNew = !oldReqsObj[url];
-            ignoreExpiration = !isNew;
-          }
-          if (this.shouldFetch(state, url, options, ignoreExpiration)) {
-            toFetch[url] = true;
-          }
+          newReqsObj[url] = true;
+        }
+      });
+
+      Object.keys(newReqsObj).forEach((url) => {
+        newReqsList.push(url);
+        // Decide whether to fetch this URL now.
+        let ignoreExpiration;
+        if (options && options.keepFresh) {
+          // When keepFresh is specified, re-fetch the content
+          // when it expires. Note that in order to keep the content
+          // fresh, callers must still arrange to call this method on
+          // user activity.
+          ignoreExpiration = false;
+        } else {
+          // Otherwise, only refresh content when a newly mounted
+          // component wants it. We do this by following this rule:
+          // If the URL requirement was specified previously by this
+          // component, load new objects, but don't reload expired objects.
+          const isNew = !oldReqsObj[url];
+          ignoreExpiration = !isNew;
+        }
+        if (this.shouldFetch(state, url, options, ignoreExpiration)) {
+          toFetch[url] = true;
         }
       });
       newReqsList.sort();

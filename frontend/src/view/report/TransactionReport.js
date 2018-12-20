@@ -10,7 +10,6 @@ import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import LayoutConfig from '../app/LayoutConfig';
 import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -440,7 +439,6 @@ class TransactionReport extends React.Component {
 
     return (
       <Typography className={classes.root} component="div">
-        <LayoutConfig title="Transactions Report" />
         <Require fetcher={fOPNReco} urls={[reportURL]} />
         <Paper className={classes.pagerPaper}>
           <Pager

@@ -9,7 +9,6 @@ import { toggleNode } from '../../reducer/tree';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import LayoutConfig from '../app/LayoutConfig';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -277,7 +276,6 @@ class RecoReport extends React.Component {
 
     const require = (
       <div>
-        <LayoutConfig title="Reconciliation Report" />
         <Require fetcher={fOPNReco} urls={[recoReportURL]} />
       </div>);
 

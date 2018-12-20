@@ -1,18 +1,13 @@
 import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
-import { connect } from 'react-redux';
-import { fOPNReco } from '../../util/fetcher';
-import { fetchcache } from '../../reducer/fetchcache';
 import { injectIntl, intlShape } from 'react-intl';
 import { renderPeriodDateString } from '../../util/reportrender';
-import { setPloopKey, setPeriodId } from '../../reducer/report';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
 import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
-import Require from '../../util/Require';
 import Select from '@material-ui/core/Select';
 
 
@@ -43,13 +38,10 @@ const styles = theme => ({
   },
 });
 
-const ploopsURL = fOPNReco.pathToURL('/ploops');
-
 
 class PeriodSelector extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    dispatch: PropTypes.func.isRequired,
     intl: intlShape.isRequired,
     period: PropTypes.object,
     ploop: PropTypes.object,
@@ -58,6 +50,7 @@ class PeriodSelector extends React.Component {
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
+    redirectToPeriod: PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -66,11 +59,20 @@ class PeriodSelector extends React.Component {
   }
 
   handlePloopChange(event) {
-    this.props.dispatch(setPloopKey(event.target.value));
+    const {
+      redirectToPeriod,
+      ploops,
+    } = this.props;
+
+    const ploopKey = event.target.value;
+    const periodId = ploops[ploopKey].period_order[0];
+    redirectToPeriod(periodId);
   }
 
   handlePeriodChange(event) {
-    this.props.dispatch(setPeriodId(event.target.value));
+    const {redirectToPeriod} = this.props;
+    const periodId = event.target.value;
+    redirectToPeriod(periodId);
   }
 
   renderPloopSelections() {
@@ -177,7 +179,6 @@ class PeriodSelector extends React.Component {
 
     return (
       <Paper className={classes.root}>
-        <Require fetcher={fOPNReco} urls={[ploopsURL]} />
         <div className={classes.controlBox}>
           <FormControl>
             <Select
@@ -214,23 +215,7 @@ class PeriodSelector extends React.Component {
 }
 
 
-function mapStateToProps(state) {
-  const fetched = fetchcache.get(state, ploopsURL) || {};
-  const loading = fetchcache.fetching(state, ploopsURL);
-  const loadError = !!fetchcache.getError(state, ploopsURL);
-  return {
-    ploopsURL,
-    ploops: fetched.ploops || {},
-    ploopOrder: fetched.ploop_order || [],
-    loading,
-    loadError,
-    syncProgress: state.app.syncProgress,
-  };
-}
-
-
 export default compose(
   withStyles(styles, {withTheme: true}),
   injectIntl,
-  connect(mapStateToProps),
 )(PeriodSelector);

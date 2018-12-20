@@ -1,5 +1,5 @@
 
-import { fOPN, fOPNReco } from '../util/fetcher';
+import { ploopsURL, selectableURL } from '../util/fetcher';
 import { fetchcache } from './fetchcache';
 
 
@@ -8,9 +8,8 @@ import { fetchcache } from './fetchcache';
  * (which we'll re-fetch, but keep the data while waiting.)
  */
 export function clearMost() {
-  const selectableURL = fOPN.pathToURL('/token/selectable');
-  const ploopsURL = fOPNReco.pathToURL('/ploops');
-  const keep = (url) => (url === selectableURL || url === ploopsURL);
+  const keep = (url) => (
+    url === selectableURL || (url && url.startsWith(ploopsURL)));
   return fetchcache.invalidate(keep);
 }
 
@@ -19,7 +18,6 @@ export function clearMost() {
  * /ploops must be cleared.
  */
 export function clearWithPloops() {
-  const selectableURL = fOPN.pathToURL('/token/selectable');
   const keep = (url) => (url === selectableURL);
   return fetchcache.invalidate(keep);
 }

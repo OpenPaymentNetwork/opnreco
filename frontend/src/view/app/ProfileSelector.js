@@ -3,7 +3,7 @@ import { clearWithPloops } from '../../reducer/clearmost';
 import { closeDrawer, triggerResync } from '../../reducer/app';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPN } from '../../util/fetcher';
+import { fOPN, selectableURL } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { switchProfile } from '../../reducer/login';
 import { withRouter } from 'react-router';
@@ -39,9 +39,6 @@ const styles = {
     paddingRight: '16px',
   },
 };
-
-const selectableURL = fOPN.pathToURL('/token/selectable');
-
 
 class ProfileSelector extends React.Component {
   static propTypes = {

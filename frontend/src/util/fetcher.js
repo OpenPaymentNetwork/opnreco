@@ -170,3 +170,10 @@ export const fOPN = new OPNFetcher(
 
 export const fOPNReco = new OPNFetcher(
   process.env.REACT_APP_OPNRECO_API_URL, {useToken: true});
+
+
+/* Commonly used API URLs */
+
+export const selectableURL = fOPN.pathToURL('/token/selectable');
+
+export const ploopsURL = fOPNReco.pathToURL('/ploops');

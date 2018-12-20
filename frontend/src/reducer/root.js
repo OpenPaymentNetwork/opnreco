@@ -4,7 +4,6 @@ import deviceuuid from './deviceuuid';
 import fetchcache from './fetchcache';
 import login from './login';
 import pager from './pager';
-import report from './report';
 import tree from './tree';
 
 export default combineReducers({
@@ -13,6 +12,5 @@ export default combineReducers({
   login,
   fetchcache,
   pager,
-  report,
   tree,
 });

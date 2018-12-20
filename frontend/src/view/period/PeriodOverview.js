@@ -9,7 +9,6 @@ import { injectIntl, intlShape } from 'react-intl';
 import { renderPeriodDateString } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
-import LayoutConfig from '../app/LayoutConfig';
 import PropTypes from 'prop-types';
 import React from 'react';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -328,7 +327,6 @@ class PeriodOverview extends React.Component {
 
     return (
       <div className={classes.root}>
-        <LayoutConfig title={titleParts.join(' ')} perOwner />
         <Require fetcher={fOPNReco} urls={[queryURL]} />
 
         <div className={classes.content}>
