@@ -19,7 +19,9 @@ from sqlalchemy.orm import aliased
 def ploops_api(request):
     """Return the owner profile's list of peer loops ('ploops') and periods.
 
-    Returns {
+    Normally limits the results to 10 periods per peer loop.
+
+    Return {
         'ploops': {ploop_key: {
             'ploop_key',
             'peer_id',
@@ -31,7 +33,7 @@ def ploops_api(request):
             'peer_is_own_dfi_account',
             'loop_title',
             'periods': {period_id: {
-                'period_id',
+                'id',
                 'start_date',
                 'end_date',
                 'closed',
@@ -40,11 +42,13 @@ def ploops_api(request):
         }},
         'ploop_order': [ploop_key],
         'default_ploop': ploop_key,
-    }.
+        'ploop_keys': {period_id: ploop_key},
+    }
     """
     owner = request.owner
     owner_id = owner.id
     dbsession = request.dbsession
+    selected_period_id = request.params.get('period_id')
 
     # ploop_cte prepares the list of peer loops the owner profile should see.
     ploop_cte = (
@@ -118,12 +122,12 @@ def ploops_api(request):
 
     period_alias = aliased(Period, subq)
     period_filters = [subq.c.rownum <= 10]
-    # if selected_period_id:
-    #     period_filters.append(subq.c.id == selected_period_id)
-    period_rows_query = (
+    if selected_period_id:
+        period_filters.append(subq.c.id == selected_period_id)
+    period_rows = (
         dbsession.query(period_alias)
-        .filter(or_(*period_filters)))
-    period_rows = period_rows_query.all()
+        .filter(or_(*period_filters))
+        .all())
 
     # ploops: {peer_id-loop_id-currency: {periods, period_order, ...}}
     ploops = {}
@@ -148,17 +152,20 @@ def ploops_api(request):
             'period_order': [],
         }
 
+    ploop_keys = {}  # {period_id: ploop_key}
+
     for period in period_rows:
         ploop_key = '-'.join([period.peer_id, period.loop_id, period.currency])
         ploop = ploops[ploop_key]
         period_id_str = str(period.id)
         ploop['periods'][period_id_str] = {
-            'period_id': period_id_str,
+            'id': period_id_str,
             'start_date': period.start_date,
             'end_date': period.end_date,
             'closed': period.closed,
         }
         ploop['period_order'].append(period_id_str)
+        ploop_keys[period_id_str] = ploop_key
 
     # Determine the ordering of the ploops.
 
@@ -203,4 +210,5 @@ def ploops_api(request):
         'ploops': ploops,
         'ploop_order': ploop_order,
         'default_ploop': default_ploop,
+        'ploop_keys': ploop_keys,
     }

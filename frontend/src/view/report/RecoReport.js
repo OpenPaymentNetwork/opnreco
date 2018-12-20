@@ -118,19 +118,20 @@ class RecoReport extends React.Component {
     this.props.dispatch(toggleNode('reco', expandKey));
   }
 
-  handleClickTransfer(tid, event) {
+  handleClickTransfer(path, event) {
     if (event.button === 0) {
       event.preventDefault();
-      this.props.history.push(`/t/${tid}`);
+      this.props.history.push(path);
     }
   }
 
   renderOutstanding(sign, cfmt) {
-    const {classes, recoReport, expanded, ploop} = this.props;
+    const {classes, recoReport, expanded, ploop, period} = this.props;
     const {workflow_types, outstanding_map} = recoReport;
 
     const wfTypes = workflow_types[sign] || {};
     const showCirc = (ploop.peer_id === 'c');
+    const encPeriodId = encodeURIComponent(period.id);
 
     const sortable = [];
     Object.keys(wfTypes).forEach(wfType => {
@@ -216,6 +217,8 @@ class RecoReport extends React.Component {
         if (outstandingList) {
           outstandingList.forEach(movement => {
             const tid = dashed(movement.transfer_id);
+            const transferPath = (
+              `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
             let movementCircColumns = null;
             if (showCirc) {
               movementCircColumns = (
@@ -229,12 +232,13 @@ class RecoReport extends React.Component {
                 </React.Fragment>
               );
             }
-            const handleClick = this.binder1(this.handleClickTransfer, tid);
+            const handleClick = this.binder1(
+              this.handleClickTransfer, transferPath);
             res.push(
               <tr className={transferRowCN} key={movement.movement_id}
                   onClick={handleClick}>
                 <td className={movementCellCN}>
-                  <a href={`/t/${tid}`}>
+                  <a href={transferPath}>
                     Transfer {tid} (
                     <span title={movement.ts}>
                       <FormattedDate
@@ -427,7 +431,7 @@ function mapStateToProps(state, ownProps) {
   const {period} = ownProps;
   const expanded = state.tree.reco;
   const recoReportURL = fOPNReco.pathToURL(
-    `/period/${encodeURIComponent(period.period_id)}/reco-report`);
+    `/period/${encodeURIComponent(period.id)}/reco-report`);
   const recoReport = fetchcache.get(state, recoReportURL);
   const loading = fetchcache.fetching(state, recoReportURL);
   const loadError = !!fetchcache.getError(state, recoReportURL);

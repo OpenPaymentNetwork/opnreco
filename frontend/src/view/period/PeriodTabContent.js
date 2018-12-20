@@ -1,6 +1,6 @@
 import { binder } from '../../util/binder';
 import Button from '@material-ui/core/Button';
-import PeriodsView from '../period/PeriodsView';
+import PeriodOverview from './PeriodOverview';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -77,8 +77,8 @@ export default class TabContent extends React.Component {
       return this.renderLiabilitiesTab();
     case 't':
       return <TransferSummary ploop={ploop} period={period} />;
-    case 'period':
-      return <PeriodsView ploop={ploop} period={period} />;
+    case 'overview':
+      return <PeriodOverview ploop={ploop} period={period} />;
     default:
       return null;
     }

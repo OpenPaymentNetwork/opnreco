@@ -227,7 +227,7 @@ def reco_api(context, request, final=False):
 
     # periods is the list of periods the reco can belong to.
     periods = [{
-        'period_id': str(p.id),
+        'id': str(p.id),
         'start_date': p.start_date,
         'end_date': p.end_date,
         'closed': p.closed,

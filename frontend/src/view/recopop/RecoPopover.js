@@ -5,7 +5,6 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
-import { getPloopAndPeriod } from '../../util/period';
 import { injectIntl, intlShape } from 'react-intl';
 import { renderPeriodDateString } from '../../util/reportrender';
 import { throttler } from '../../util/throttler';
@@ -107,11 +106,11 @@ class RecoPopover extends React.Component {
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
     periods: PropTypes.array,
-    periodId: PropTypes.string,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
     recoFinalURL: PropTypes.string,
     reco: PropTypes.object,
+    windowPeriodId: PropTypes.string,
   };
 
   constructor(props) {
@@ -400,7 +399,7 @@ class RecoPopover extends React.Component {
    */
   handleSave() {
     const {
-      periodId,
+      windowPeriodId,
       recoId,
       dispatch,
     } = this.props;
@@ -408,7 +407,7 @@ class RecoPopover extends React.Component {
     const reco = this.commit();
 
     const url = fOPNReco.pathToURL(
-      `/period/${encodeURIComponent(periodId)}/reco-save`);
+      `/period/${encodeURIComponent(windowPeriodId)}/reco-save`);
     const data = {
       reco,
       reco_id: recoId,
@@ -433,7 +432,7 @@ class RecoPopover extends React.Component {
     const {
       dispatch,
       classes,
-      periodId,
+      windowPeriodId,
       recoURL,
       recoId,
       closeDialog,
@@ -462,7 +461,7 @@ class RecoPopover extends React.Component {
     const tableBodyProps = {
       closeDialog: closeDialog,
       dispatch: dispatch,
-      periodId: periodId,
+      windowPeriodId: windowPeriodId,
       recoId: recoId,
       resetCount: resetCount,
       showVault: showVault,
@@ -593,7 +592,7 @@ class RecoPopover extends React.Component {
                 onChange={this.binder(this.handlePeriodChange)}
               >
                 {(periods || []).map(period => (
-                  <MenuItem key={period.period_id} value={period.period_id}>
+                  <MenuItem key={period.id} value={period.id}>
                     {renderPeriodDateString(period, intl)}
                     {period.closed ? ' (closed)' : ''}
                   </MenuItem>
@@ -707,28 +706,19 @@ FadeDrag2.propTypes = {
 
 
 function mapStateToProps(state, ownProps) {
-  const {period} = getPloopAndPeriod(state);
-  const periodId = period ? period.period_id : 'no_period_selected';
   let recoURL, recoFinalURL, content;
 
-  if (period) {
-    const encPeriodId = encodeURIComponent(periodId);
-    const query = (
-      `movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
-      `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
-      `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`
-    );
-    recoURL = fOPNReco.pathToURL(
-      `/period/${encPeriodId}/reco?${query}`);
-    recoFinalURL = fOPNReco.pathToURL(
-      `/period/${encPeriodId}/reco-final?${query}`);
-    content = fetchcache.get(state, recoURL) || {};
-
-  } else {
-    recoURL = '';
-    recoFinalURL = '';
-    content = {};
-  }
+  const encPeriodId = encodeURIComponent(ownProps.windowPeriodId);
+  const query = (
+    `movement_id=${encodeURIComponent(ownProps.movementId || '')}` +
+    `&reco_id=${encodeURIComponent(ownProps.recoId || '')}` +
+    `&account_entry_id=${encodeURIComponent(ownProps.accountEntryId || '')}`
+  );
+  recoURL = fOPNReco.pathToURL(
+    `/period/${encPeriodId}/reco?${query}`);
+  recoFinalURL = fOPNReco.pathToURL(
+    `/period/${encPeriodId}/reco-final?${query}`);
+  content = fetchcache.get(state, recoURL) || {};
 
   const {
     reco,
@@ -742,7 +732,6 @@ function mapStateToProps(state, ownProps) {
     recoURL,
     recoFinalURL,
     reco,
-    periodId,
     periods,
     loops,
     showVault,

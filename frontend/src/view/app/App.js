@@ -1,7 +1,8 @@
 
 import Settings from '../settings/Settings';
-import PeriodView from '../period/PeriodView';
-import Home from '../home/Home';
+import PeriodsView from '../period/PeriodsView';
+import PeriodTabs from '../period/PeriodTabs';
+import AuthenticatedHome from '../home/AuthenticatedHome';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
 import LoginView from '../login/LoginView';
@@ -95,9 +96,11 @@ class App extends React.Component {
                 <Route path="/login" component={LoginView} />
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
-                <Route path="/:tab(t)/:transferId" component={Home} />
-                <Route path="/period/:period_id" component={PeriodView} />
-                <Route path="/:tab(|reco|transactions|liabilities|t|period)" component={Home} />
+                <Route path="/periods" component={PeriodsView} />
+                <Route path="/period/:periodId([0-9]+)/:tab(t)/:transferId" component={PeriodTabs} />
+                <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview)" component={PeriodTabs} />
+                <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
+                <Route path="/" component={AuthenticatedHome} />
                 <Route component={NotFound} />
               </Switch>
             </main>

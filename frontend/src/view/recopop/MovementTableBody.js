@@ -43,6 +43,7 @@ class MovementTableBody extends React.Component {
     movements: PropTypes.array,
     changeMovements: PropTypes.func.isRequired,
     showVault: PropTypes.bool,
+    windowPeriodId: PropTypes.string.isRequired,
   };
 
   constructor(props) {
@@ -51,17 +52,20 @@ class MovementTableBody extends React.Component {
     this.binder1 = binder1(this);
   }
 
-  handleClickTransfer(tid, event) {
+  handleClickTransfer(path, event) {
     if (event.button === 0) {
       event.preventDefault();
       this.props.closeDialog();
-      this.props.history.push(`/t/${tid}`);
+      this.props.history.push(path);
     }
   }
 
   renderItemCells(movement, addCandidate) {
-    const {classes, showVault} = this.props;
+    const {classes, showVault, windowPeriodId} = this.props;
+    const encPeriodId = encodeURIComponent(windowPeriodId);
     const tid = dashed(movement.transfer_id);
+    const transferPath = (
+      `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
     const cellClass = (
       addCandidate ? classes.candidateCell : classes.numberCell);
 
@@ -105,8 +109,8 @@ class MovementTableBody extends React.Component {
             hour="numeric" minute="2-digit" second="2-digit" />
         </td>
         <td className={cellClass}>
-          <a href={`/t/${tid}`}
-              onClick={this.binder1(this.handleClickTransfer, tid)}>
+          <a href={transferPath}
+              onClick={this.binder1(this.handleClickTransfer, transferPath)}>
             {tid} ({movement.number})
           </a>
         </td>

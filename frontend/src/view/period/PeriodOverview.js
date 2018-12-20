@@ -10,7 +10,6 @@ import { renderPeriodDateString } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import LayoutConfig from '../app/LayoutConfig';
-import OPNAppBar from '../app/OPNAppBar';
 import PropTypes from 'prop-types';
 import React from 'react';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -47,7 +46,7 @@ const styles = {
 };
 
 
-class PeriodView extends React.Component {
+class PeriodOverview extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -112,11 +111,10 @@ class PeriodView extends React.Component {
     this.save('/period-reopen', false, false);
   }
 
-  save(path, close, redirect) {
+  save(path, close) {
     const {
       periodId,
       dispatch,
-      history,
     } = this.props;
 
     const url = fOPNReco.pathToURL(
@@ -136,9 +134,6 @@ class PeriodView extends React.Component {
         saving: false,
       });
       dispatch(clearWithPloops());
-      if (redirect) {
-        history.push('/period');
-      }
     }).catch(() => {
       this.setState({saving: false});
     });
@@ -336,8 +331,6 @@ class PeriodView extends React.Component {
         <LayoutConfig title={titleParts.join(' ')} perOwner />
         <Require fetcher={fOPNReco} urls={[queryURL]} />
 
-        <OPNAppBar />
-
         <div className={classes.content}>
           {content}
           <div style={{height: 1}}></div>
@@ -348,7 +341,7 @@ class PeriodView extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const periodId = ownProps.match.params.period_id;
+  const periodId = ownProps.period.id;
   const queryURL = fOPNReco.pathToURL(
     `/period/${encodeURIComponent(periodId)}/state`);
   const result = fetchcache.get(state, queryURL);
@@ -368,4 +361,4 @@ export default compose(
   withRouter,
   injectIntl,
   connect(mapStateToProps),
-)(PeriodView);
+)(PeriodOverview);

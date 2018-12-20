@@ -26,7 +26,7 @@ def serialize_period(period, end_amounts=None):
         end_combined = None
 
     return {
-        'period_id': str(period.id),
+        'id': str(period.id),
         'owner_id': period.owner_id,
         'peer_id': period.peer_id,
         'loop_id': period.loop_id,

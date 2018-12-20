@@ -25,6 +25,7 @@ const styles = {
 class RecoCheckBox extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    periodId: PropTypes.string.isRequired,
     movementId: PropTypes.string,
     accountEntryId: PropTypes.string,
     recoId: PropTypes.string,
@@ -77,6 +78,7 @@ class RecoCheckBox extends React.Component {
 
     if (popupExists) {
       const {
+        periodId,
         movementId,
         accountEntryId,
       } = this.props;
@@ -95,6 +97,7 @@ class RecoCheckBox extends React.Component {
           anchorEl={anchorEl}
           open={open}
           closeDialog={closeDialogBound}
+          windowPeriodId={periodId}
         />
       );
     }

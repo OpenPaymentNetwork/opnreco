@@ -95,6 +95,7 @@ class TransferSummary extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
+    period: PropTypes.object.isRequired,
     profileId: PropTypes.string.isRequired,
     recordURL: PropTypes.string,
     record: PropTypes.object,
@@ -311,6 +312,7 @@ class TransferSummary extends React.Component {
       loading,
       loadError,
       transferId,
+      period,
     } = this.props;
 
     if (!recordURL) {
@@ -365,7 +367,7 @@ class TransferSummary extends React.Component {
             {this.renderSummaryTable()}
           </Paper>
           <Paper className={classes.tablePaper}>
-            <TransferMovementTable record={record} />
+            <TransferMovementTable record={record} periodId={period.id} />
           </Paper>
         </div>
       );
@@ -390,7 +392,7 @@ function mapStateToProps(state, ownProps) {
   const profileId = state.login.id;
 
   if (transferId) {
-    const encPeriodId = encodeURIComponent(period.period_id);
+    const encPeriodId = encodeURIComponent(period.id);
     const query = `transfer_id=${encodeURIComponent(transferId)}`;
     const recordURL = fOPNReco.pathToURL(
       `/period/${encPeriodId}/transfer-record?${query}`);

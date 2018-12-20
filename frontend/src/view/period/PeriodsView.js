@@ -175,16 +175,16 @@ class PeriodsView extends React.Component {
 
     content.periods.forEach(period => {
       let rowClass = classes.periodRow;
-      if (selectedPeriod && period.period_id === selectedPeriod.period_id) {
+      if (selectedPeriod && period.id === selectedPeriod.id) {
         rowClass += ' ' + classes.periodSelectedRow;
       }
 
       rows.push(
         <tr
-          key={period.period_id}
-          data-period-id={period.period_id}
+          key={period.id}
+          data-period-id={period.id}
           className={rowClass}
-          onClick={this.binder1(this.handleClickPeriod, period.period_id)}
+          onClick={this.binder1(this.handleClickPeriod, period.id)}
         >
           <td className={ccStartDate} width="14%">
             {period.start_date ?

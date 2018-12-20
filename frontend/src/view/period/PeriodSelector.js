@@ -168,7 +168,7 @@ class PeriodSelector extends React.Component {
 
     let periodValue;
     if (period) {
-      periodValue = period.period_id;
+      periodValue = period.id;
     } else if (ploop && ploop.period_order && ploop.period_order.length) {
       periodValue = ploop.period_order[0];
     } else {

@@ -105,10 +105,11 @@ const styles = {
 };
 
 
-class MovementTable extends React.Component {
+class TransferMovementTable extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
+    periodId: PropTypes.string.isRequired,
     record: PropTypes.object,
   };
 
@@ -448,6 +449,7 @@ class MovementTable extends React.Component {
       classes,
       record,
       dispatch,
+      periodId,
     } = this.props;
 
     const {
@@ -552,6 +554,7 @@ class MovementTable extends React.Component {
       if (reco_applicable) {
         recoContent = (
           <RecoCheckBox
+            periodId={periodId}
             movementId={movement_id}
             recoId={reco_id}
             dispatch={dispatch} />);
@@ -678,4 +681,4 @@ class MovementTable extends React.Component {
 export default compose(
   withStyles(styles),
   connect(),  // Provide the dispatch function
-)(MovementTable);
+)(TransferMovementTable);

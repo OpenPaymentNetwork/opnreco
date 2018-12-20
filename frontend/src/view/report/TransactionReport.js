@@ -117,16 +117,17 @@ class TransactionReport extends React.Component {
     this.binder1 = binder1(this);
   }
 
-  handleClickTransfer(tid, event) {
+  handleClickTransfer(path, event) {
     if (event.button === 0) {
       event.preventDefault();
-      this.props.history.push(`/t/${tid}`);
+      this.props.history.push(path);
     }
   }
 
   renderBody(records, totals, subtitle) {
     const {
       classes,
+      period,
       ploop,
       report: {all_shown},
       dispatch,
@@ -146,6 +147,7 @@ class TransactionReport extends React.Component {
     const numGroupEndCell = `${numCell} ${groupEndCell}`;
     const activityHeadCell = `${cell} ${classes.activityHeadCell}`;
     const fmt = getCurrencyFormatter(ploop.currency);
+    const encPeriodId = encodeURIComponent(period.id);
 
     const rows = [];
     if (!records || !records.length) {
@@ -217,10 +219,12 @@ class TransactionReport extends React.Component {
         if (!m.transfer_id) {
           return <span>&nbsp;</span>;
         }
-        const tid = m.transfer_id ? dashed(m.transfer_id) : null;
+        const tid = dashed(m.transfer_id);
+        const transferPath = (
+          `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
         return (
-          <a href={`/t/${m.transfer_id}`}
-            onClick={this.binder1(this.handleClickTransfer, tid)}
+          <a href={transferPath}
+            onClick={this.binder1(this.handleClickTransfer, transferPath)}
           >{tid}</a>
         );
       };
@@ -279,6 +283,7 @@ class TransactionReport extends React.Component {
             </td>
             <td className={chkCell}>
               <RecoCheckBox
+                periodId={period.id}
                 recoId={record.reco_id}
                 movementId={record.movement_id}
                 accountEntryId={record.account_entry_id}
@@ -462,7 +467,7 @@ function mapStateToProps(state, ownProps) {
   } = getPagerState(state, pagerName, 100);
 
   const reportURL = fOPNReco.pathToURL(
-    `/period/${encodeURIComponent(period.period_id)}/transactions` +
+    `/period/${encodeURIComponent(period.id)}/transactions` +
     `?offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
     `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
   const report = fetchcache.get(state, reportURL);
