@@ -154,7 +154,9 @@ class TransferSummary extends React.Component {
     const transferId = this.state.typingTransferId;
     if (transferId) {
       this.props.dispatch(setTransferId(transferId));
-      this.props.history.push(`/t/${transferId}`);
+      const encPeriodId = encodeURIComponent(this.props.period.id);
+      this.props.history.push(
+        `/period/${encPeriodId}/t/${encodeURIComponent(transferId)}`);
     }
   }
 
