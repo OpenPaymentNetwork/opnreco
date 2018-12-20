@@ -130,21 +130,34 @@ class PeriodTabs extends React.Component {
   }
 
   redirectToPeriod(periodId) {
-    const {match} = this.props;
-    const {tab} = match.params;
-    const tabs = this.getTabs(periodId);
     let path = null;
-    tabs.forEach(tabinfo => {
-      if (tab === tabinfo.value) {
-        path = tabinfo.path;
+
+    if (periodId === 'periods') {
+      // Redirect to the period list for the current ploop.
+      const {ploop} = this.props;
+      path = `/periods/${encodeURIComponent(ploop.ploop_key)}`;
+
+    } else {
+      // Redirect to the same tab in a different period.
+      const {match} = this.props;
+      const {tab} = match.params;
+      const tabs = this.getTabs(periodId);
+      for (const tabinfo of tabs) {
+        if (tab === tabinfo.value) {
+          path = tabinfo.path;
+          break;
+        }
       }
-    });
-    if (!path) {
-      path = tabs[0].path;
+      if (!path) {
+        path = tabs[0].path;
+      }
     }
-    window.setTimeout(() => {
-      this.props.history.push(path);
-    }, 0);
+
+    if (path) {
+      window.setTimeout(() => {
+        this.props.history.push(path);
+      }, 0);
+    }
   }
 
   getTabs(periodId) {
@@ -185,11 +198,11 @@ class PeriodTabs extends React.Component {
   }
 
   handleTabChange(event, value) {
-    this.getTabs().forEach(tabinfo => {
+    for (const tabinfo of this.getTabs()) {
       if (value === tabinfo.value) {
         this.props.history.push(tabinfo.path);
       }
-    });
+    }
   }
 
   handleTabClick(event) {
@@ -330,6 +343,9 @@ function mapStateToProps(state, ownProps) {
   let ploop = null;
   let period = null;
   const periodId = ownProps.match.params.periodId;
+
+  // Unlike ploopsURL, ploopsURLMod ensures the selected period is
+  // included in the period selector (if it's available.)
   const ploopsURLMod = (
     ploopsURL + `?period_id=${encodeURIComponent(periodId)}`);
 

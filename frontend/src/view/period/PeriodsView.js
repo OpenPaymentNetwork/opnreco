@@ -1,23 +1,25 @@
 import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReco } from '../../util/fetcher';
+import { fOPNReco, ploopsURL } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import CheckBox from '@material-ui/icons/CheckBox';
+import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import LayoutConfig from '../app/LayoutConfig';
+import OPNAppBar from '../app/OPNAppBar';
 import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
+import Link from '@material-ui/icons/Link';
 import Typography from '@material-ui/core/Typography';
-import CheckBox from '@material-ui/icons/CheckBox';
-import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
 
 
 const tableWidth = 800;
@@ -25,8 +27,9 @@ const tableWidth = 800;
 
 const styles = {
   root: {
+  },
+  content: {
     fontSize: '0.9rem',
-    padding: '0 16px',
   },
   pagerPaper: {
     margin: '16px auto',
@@ -114,15 +117,20 @@ const styles = {
     padding: '4px 8px',
   },
   periodRow: {
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#eee',
-    },
   },
   periodSelectedRow: {
     backgroundColor: '#ffe',
   },
-  checkbox: {
+  clickableCell: {
+    color: '#000',
+    display: 'block',
+    textAlign: 'center',
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: '#ddd',
+    },
+  },
+  cellIcon: {
     display: 'block',
     margin: '0 auto',
   },
@@ -149,8 +157,11 @@ class PeriodsView extends React.Component {
     this.binder1 = binder1(this);
   }
 
-  handleClickPeriod(periodId) {
-    this.props.history.push('/period/' + periodId);
+  handleClickAnchor(path, event) {
+    if (event.button === 0) {
+      event.preventDefault();
+      this.props.history.push(path);
+    }
   }
 
   renderTableBody(showCirc) {
@@ -170,8 +181,10 @@ class PeriodsView extends React.Component {
     const ccStartCombined = `${classes.cellLeft} ${classes.right}`;
     const ccEndCombined = `${classes.cellRight} ${classes.right}`;
     const ccStatements = `${classes.cellLeft} ${classes.right}`;
-    const ccClosed = `${classes.cell} ${classes.center}`;
-    const cCheckbox = classes.checkbox;
+    const ccReports = `${classes.cell} ${classes.right}`;
+    const ccClosed = `${classes.cell}`;
+    const clickableCell = classes.clickableCell;
+    const cIcon = classes.cellIcon;
 
     content.periods.forEach(period => {
       let rowClass = classes.periodRow;
@@ -179,12 +192,14 @@ class PeriodsView extends React.Component {
         rowClass += ' ' + classes.periodSelectedRow;
       }
 
+      const reportsPath = `/period/${encodeURIComponent(period.id)}/reco`;
+      const closedPath = `/period/${encodeURIComponent(period.id)}/overview`;
+
       rows.push(
         <tr
           key={period.id}
           data-period-id={period.id}
           className={rowClass}
-          onClick={this.binder1(this.handleClickPeriod, period.id)}
         >
           <td className={ccStartDate} width="14%">
             {period.start_date ?
@@ -201,28 +216,43 @@ class PeriodsView extends React.Component {
               : 'In progress'}
           </td>
           {showCirc ?
-            <td className={ccStartCirc} width="12%">
+            <td className={ccStartCirc} width="10%">
               {cfmt(period.start_circ)}
             </td>
             : null}
           {showCirc ?
-            <td className={ccEndCirc} width="12%">
+            <td className={ccEndCirc} width="10%">
               {cfmt(period.end_circ)}
             </td>
             : null}
-          <td className={ccStartCombined} width="12%">
+          <td className={ccStartCombined} width="10%">
             {cfmt(period.start_combined)}
           </td>
-          <td className={ccEndCombined} width="12%">
+          <td className={ccEndCombined} width="10%">
             {period.end_combined ? cfmt(period.end_combined) : 'In progress'}
           </td>
-          <td className={ccStatements} width="12%" title="Statements">
+          <td className={ccStatements} width="8%">
             {period.statement_count}
           </td>
-          <td className={ccClosed} width="12%">
-            {period.closed ?
-              <CheckBox className={cCheckbox}/> :
-              <CheckBoxOutlineBlank className={cCheckbox} />}
+          <td className={ccReports} width="8%">
+            <a
+              className={clickableCell}
+              href={reportsPath}
+              onClick={this.binder1(this.handleClickAnchor, reportsPath)}
+            >
+              <Link className={cIcon} />
+            </a>
+          </td>
+          <td className={ccClosed} width="8%">
+            <a
+              className={clickableCell}
+              href={closedPath}
+              onClick={this.binder1(this.handleClickAnchor, closedPath)}
+            >
+              {period.closed ?
+                <CheckBox className={cIcon}/> :
+                <CheckBoxOutlineBlank className={cIcon} />}
+            </a>
           </td>
         </tr>
       );
@@ -246,7 +276,7 @@ class PeriodsView extends React.Component {
     const showCirc = (ploop.peer_id === 'c');
 
     if (showCirc) {
-      columnCount = 8;
+      columnCount = 9;
       circHead0 = (
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Circulation</td>
       );
@@ -257,7 +287,7 @@ class PeriodsView extends React.Component {
         </React.Fragment>
       );
     } else {
-      columnCount = 6;
+      columnCount = 7;
     }
 
     const headRow0 = (
@@ -266,6 +296,7 @@ class PeriodsView extends React.Component {
         {circHead0}
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Balance</td>
         <td className={`${classes.headCellLeft} ${classes.center}`}>Statements</td>
+        <td className={`${classes.headCell} ${classes.center}`}>Reports</td>
         <td className={`${classes.headCell} ${classes.center}`}>Closed</td>
       </tr>
     );
@@ -278,7 +309,8 @@ class PeriodsView extends React.Component {
         <td className={`${classes.headCellLeft} ${classes.right}`}>Start</td>
         <td className={`${classes.headCellRight} ${classes.right}`}>End</td>
         <td className={`${classes.headCellLeft} ${classes.center}`}></td>
-        <td className={`${classes.headCell} ${classes.center}`}></td>
+        <td className={`${classes.headCell}`}></td>
+        <td className={`${classes.headCell}`}></td>
       </tr>
     );
 
@@ -346,54 +378,57 @@ class PeriodsView extends React.Component {
     }
 
     return (
-      <Typography className={classes.root} component="div">
-        <LayoutConfig title="Periods" />
-        <Require fetcher={fOPNReco} urls={[contentURL]} />
+      <div className={classes.root}>
+        <LayoutConfig title="Reconciliation Periods" />
+        <Require fetcher={fOPNReco} urls={[contentURL, ploopsURL]} />
+
+        <OPNAppBar />
+
         <Paper className={classes.pagerPaper}>
           <Pager
             name={pagerName}
             initialRowsPerPage={initialRowsPerPage}
             rowcount={rowcount} />
         </Paper>
-        {pageContent}
+        <Typography className={classes.content} component="div">
+          {pageContent}
+        </Typography>
         <div style={{height: 1}}></div>
-      </Typography>
+      </div>
     );
   }
 }
 
 
 function mapStateToProps(state, ownProps) {
+  const {ploopKey} = ownProps.match.params;
   const pagerName = 'PeriodsView';
-  const {ploop} = ownProps;
   const {
     rowsPerPage,
     pageIndex,
     initialRowsPerPage,
   } = getPagerState(state, pagerName, 10);
 
-  if (ploop) {
-    const contentURL = fOPNReco.pathToURL(
-      `/period-list?ploop_key=${encodeURIComponent(ploop.ploop_key)}` +
-      `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
-      `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
-    const content = fetchcache.get(state, contentURL);
-    const loading = fetchcache.fetching(state, contentURL);
-    const loadError = !!fetchcache.getError(state, contentURL);
-    return {
-      contentURL,
-      content,
-      loading,
-      loadError,
-      pagerName,
-      initialRowsPerPage,
-    };
-  } else {
-    return {
-      pagerName,
-      initialRowsPerPage,
-    };
-  }
+  const contentURL = fOPNReco.pathToURL(
+    `/period-list?ploop_key=${encodeURIComponent(ploopKey)}` +
+    `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
+    `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
+  const content = fetchcache.get(state, contentURL);
+  const loading = fetchcache.fetching(state, contentURL);
+  const loadError = !!fetchcache.getError(state, contentURL);
+
+  const ploops = (fetchcache.get(state, ploopsURL) || {}).ploops || {};
+  const ploop = ploops[ploopKey] || {};
+
+  return {
+    contentURL,
+    content,
+    loading,
+    loadError,
+    pagerName,
+    initialRowsPerPage,
+    ploop,
+  };
 }
 
 

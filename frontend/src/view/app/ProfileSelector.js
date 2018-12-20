@@ -46,7 +46,6 @@ class ProfileSelector extends React.Component {
     dispatch: PropTypes.func.isRequired,
     selectable: PropTypes.object,
     profileId: PropTypes.string,
-    perOwner: PropTypes.bool,
     history: PropTypes.object.isRequired,
   };
 
@@ -59,7 +58,7 @@ class ProfileSelector extends React.Component {
   }
 
   handleSelect(event) {
-    const {dispatch, perOwner, history} = this.props;
+    const {dispatch} = this.props;
 
     const profileId = event.target.value;
     this.setState({selectingId: profileId});
@@ -74,11 +73,6 @@ class ProfileSelector extends React.Component {
       dispatch(clearWithPloops());
       dispatch(triggerResync());
       dispatch(closeDrawer());
-      if (perOwner) {
-        // This page is owner-specific and the new owner is not likely
-        // to be allowed to see this page. Redirect.
-        history.push('/');
-      }
       // Resume fetchcache.
       window.setTimeout(() => {
         dispatch(fetchcache.resume());
@@ -139,7 +133,6 @@ function mapStateToProps(state) {
     selectableURL,
     selectable: fetchcache.get(state, selectableURL),
     profileId: state.login.id,
-    perOwner: state.app.layout.perOwner,
   };
 }
 

@@ -70,8 +70,8 @@ class PeriodSelector extends React.Component {
   }
 
   handlePeriodChange(event) {
-    const {redirectToPeriod} = this.props;
     const periodId = event.target.value;
+    const {redirectToPeriod} = this.props;
     redirectToPeriod(periodId);
   }
 
@@ -136,13 +136,19 @@ class PeriodSelector extends React.Component {
     } = this.props;
 
     if (ploop && ploop.period_order && ploop.period_order.length) {
-      return ploop.period_order.map(periodId => {
+      const res = ploop.period_order.map(periodId => {
         const period = ploop.periods[periodId];
         return (
           <MenuItem value={periodId} key={periodId}>
             {period ? renderPeriodDateString(period, intl) : null}
           </MenuItem>);
       });
+      res.push(
+        <MenuItem value='periods' key='periods'>
+          Period List&hellip;
+        </MenuItem>
+      );
+      return res;
     } else {
       return [];
     }

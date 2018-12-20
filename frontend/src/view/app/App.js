@@ -96,11 +96,11 @@ class App extends React.Component {
                 <Route path="/login" component={LoginView} />
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
-                <Route path="/periods" component={PeriodsView} />
                 <Route path="/period/:periodId([0-9]+)/:tab(t)/:transferId" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview)" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
-                <Route path="/" component={AuthenticatedHome} />
+                <Route path="/periods/:ploopKey([A-Za-z0-9-]+)" component={PeriodsView} />
+                <Route path="/" component={AuthenticatedHome} exact />
                 <Route component={NotFound} />
               </Switch>
             </main>

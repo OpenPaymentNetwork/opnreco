@@ -6,7 +6,6 @@ import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { injectIntl, intlShape } from 'react-intl';
-import { renderPeriodDateString } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
@@ -71,11 +70,11 @@ class PeriodOverview extends React.Component {
   }
 
   componentDidUpdate() {
-    const {result} = this.props;
-    if (!this.state.initialized && result) {
+    const {result, periodId} = this.props;
+    if (this.state.initialized !== periodId && result) {
       this.setState({
         form: result.period,
-        initialized: true,
+        initialized: periodId,
       });
     }
   }
@@ -289,40 +288,17 @@ class PeriodOverview extends React.Component {
       queryURL,
       result,
       loading,
-      intl,
     } = this.props;
 
-    const titleParts = [];
     let content = null;
 
     if (result) {
-      let peerType;
-      if (result.period.peer_id === 'c') {
-        peerType = 'Circulation';
-      } else if (result.peer.is_dfi_account) {
-        peerType = 'DFI Account';
-      } else {
-        peerType = 'Wallet';
-      }
-
-      titleParts.push('Period:');
-      titleParts.push(renderPeriodDateString(result.period, intl));
-      titleParts.push('-');
-      titleParts.push(result.peer.title);
-      titleParts.push(`(${peerType})`);
-      titleParts.push('-');
-      titleParts.push(result.period.currency);
-      titleParts.push(
-        result.period.loop_id === '0' ? 'Open Loop' : result.loop.title);
       content = this.renderContent();
     } else if (loading) {
-      titleParts.push('Period');
       content = (
         <div style={{textAlign: 'center'}}>
           <CircularProgress style={{padding: '16px'}} />
         </div>);
-    } else {
-      titleParts.push('Period not found');
     }
 
     return (
