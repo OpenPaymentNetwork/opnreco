@@ -100,25 +100,25 @@ class PeriodOverview extends React.Component {
   }
 
   handleSave() {
-    this.save('/period-save', false, true);
+    this.save('save', false);
   }
 
   handleSaveClose() {
-    this.save('/period-save', true, true);
+    this.save('save', true);
   }
 
   handleReopen() {
-    this.save('/period-reopen', false, false);
+    this.save('reopen', false);
   }
 
-  save(path, close) {
+  save(viewName, close) {
     const {
       periodId,
       dispatch,
     } = this.props;
 
     const url = fOPNReco.pathToURL(
-      `/period/${encodeURIComponent(periodId)}/save`);
+      `/period/${encodeURIComponent(periodId)}/${viewName}`);
     const data = {
       ...this.state.form,
       close,
