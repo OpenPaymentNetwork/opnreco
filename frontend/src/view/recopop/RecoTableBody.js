@@ -104,7 +104,7 @@ class RecoTableBody extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    periodId: PropTypes.string,
+    windowPeriodId: PropTypes.string,
     updatePopoverPosition: PropTypes.func.isRequired,
     items: PropTypes.array,
     changeItems: PropTypes.func.isRequired,
@@ -113,7 +113,7 @@ class RecoTableBody extends React.Component {
     recoId: PropTypes.string,
     renderItemCells: PropTypes.func.isRequired,
     searchFields: PropTypes.array.isRequired,
-    searchName: PropTypes.string.isRequired,
+    searchView: PropTypes.string.isRequired,
     tableTitle: PropTypes.string.isRequired,
     columnHeadRow: PropTypes.node.isRequired,
     emptyMessage: PropTypes.string.isRequired,
@@ -246,7 +246,7 @@ class RecoTableBody extends React.Component {
   }
 
   throttledSearch() {
-    const {searchFields, searchName} = this.props;
+    const {searchFields, searchView} = this.props;
     const {searchInputs} = this.state;
     let hasQuery = false;
     searchFields.forEach(field => {
@@ -255,7 +255,7 @@ class RecoTableBody extends React.Component {
       }
     });
     if (hasQuery) {
-      const {periodId, items, recoId} = this.props;
+      const {windowPeriodId, items, recoId} = this.props;
       const seen_ids = [];
       if (items) {
         items.forEach(item => {
@@ -265,7 +265,7 @@ class RecoTableBody extends React.Component {
         });
       }
       const url = fOPNReco.pathToURL(
-        `/period/${encodeURIComponent(periodId)}/${searchName}`);
+        `/period/${encodeURIComponent(windowPeriodId)}/${searchView}`);
       const data = {
         tzoffset: new Date().getTimezoneOffset(),
         seen_ids,

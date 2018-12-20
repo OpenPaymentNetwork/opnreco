@@ -109,7 +109,7 @@ class AccountEntryTableBody extends React.Component {
           {name: 'entry_date'},
           {name: 'description'},
         ]}
-        searchName="reco-search-account-entries"
+        searchView="reco-search-account-entries"
         tableTitle="Account Entries"
         columnHeadRow={columnHeadRow}
         emptyMessage="No eligible account entries found."

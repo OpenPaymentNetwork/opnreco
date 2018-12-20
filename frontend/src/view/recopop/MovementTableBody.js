@@ -161,7 +161,7 @@ class MovementTableBody extends React.Component {
           {name: 'date'},
           {name: 'transfer'},
         ]}
-        searchName="reco-search-movement"
+        searchView="reco-search-movement"
         tableTitle="Wallet Movements"
         columnHeadRow={columnHeadRow}
         emptyMessage="No eligible movements found."
