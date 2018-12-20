@@ -17,10 +17,12 @@ from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
+from opnreco.models.db import Statement
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import PeriodResource
 from opnreco.param import parse_amount
 from opnreco.viewcommon import get_loop_map
+from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -693,6 +695,43 @@ class RecoSave:
 
         return new_movements
 
+    @reify
+    def manual_statement(self):
+        """Get or create the manual statement for this period."""
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+        owner_id = owner.id
+        period = self.period
+
+        statement = (
+            dbsession.query(Statement)
+            .filter(
+                Statement.owner_id == owner_id,
+                Statement.peer_id == period.peer_id,
+                Statement.period_id == period.id,
+                Statement.loop_id == period.loop_id,
+                Statement.currency == period.currency,
+                Statement.source_id == 'manual',
+            )
+            .order_by(Statement.id)
+            .first()
+        )
+
+        if statement is None:
+            statement = Statement(
+                owner_id=owner_id,
+                peer_id=period.peer_id,
+                period_id=period.id,
+                loop_id=period.loop_id,
+                currency=period.currency,
+                source_id='manual',
+            )
+            dbsession.add(statement)
+            dbsession.flush()  # Assign statement.id
+
+        return statement
+
     def create_account_entry(self, inputs):
         """Create a new AccountEntry from the inputs."""
         period = self.period
@@ -744,6 +783,7 @@ class RecoSave:
             owner_id=self.request.owner.id,
             peer_id=period.peer_id,
             period_id=period.id,
+            statement_id=self.manual_statement.id,
             entry_date=entry_date,
             loop_id=period.loop_id,
             currency=period.currency,
@@ -753,8 +793,8 @@ class RecoSave:
         return entry
 
     def get_new_account_entries(self, new_entries):
-        res = []
-        reusing_ids = []
+        res = []  # [AccountEntry]
+        reusing_ids = []  # [account_entry_id]
 
         for entry in new_entries:
             if entry['creating']:

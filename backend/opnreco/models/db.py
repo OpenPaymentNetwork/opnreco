@@ -434,8 +434,8 @@ class Statement(Base):
     currency = Column(String, nullable=False)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
-    ext_name = Column(Unicode, nullable=True)
-    content = Column(JSONB, nullable=False)
+    source_id = Column(Unicode, nullable=True)  # 'manual' or some external ID
+    pages = Column(JSONB, nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -456,10 +456,9 @@ class AccountEntry(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
     peer_id = Column(String, nullable=False)
     period_id = Column(BigInteger, nullable=False, index=True)
-    # statement_id is null for manual account entries.
     statement_id = Column(
         BigInteger, ForeignKey('statement.id'),
-        nullable=True, index=True)
+        nullable=False, index=True)
     statement_page = Column(String, nullable=True)
     statement_line = Column(String, nullable=True)
 
