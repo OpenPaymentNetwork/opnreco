@@ -3,6 +3,7 @@ from decimal import Decimal
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Loop
 from opnreco.models.db import Movement
+from opnreco.models.db import Reco
 from opnreco.models.db import now_func
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
@@ -300,12 +301,23 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .all())
     for row in rows:
         res[row.id] = {
+            # phase: {circ, surplus, combined}
             'start': {
                 'circ': row.circ,
                 'surplus': row.surplus,
                 'combined': row.circ + row.surplus,
             },
-            'reconciled_delta': {
+            'internal_reconciled_delta': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+            'external_reconciled_delta': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+            'reconciled_delta': {  # sum of the internal and external
                 'circ': zero,
                 'surplus': zero,
                 'combined': zero,
@@ -331,22 +343,35 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     rows = (
         dbsession.query(
             Movement.period_id,
+            Reco.internal,
             func.sum(-Movement.vault_delta).label('circ'),
+            func.sum(-Movement.reco_wallet_delta).label('surplus'),
         )
+        .join(Reco, Reco.id == Movement.reco_id)
         .filter(
             Movement.owner_id == owner_id,
             Movement.reco_id != null,
             Movement.period_id.in_(period_ids),
         )
-        .group_by(Movement.period_id)
+        .group_by(Movement.period_id, Reco.internal)
         .all())
     for row in rows:
-        m = res[row.period_id]['reconciled_delta']
-        m['circ'] = row.circ
-        # Generate initial surplus and combined values. These apply
-        # only if there are no reconciled account entries.
-        m['surplus'] = -row.circ
-        m['combined'] = zero
+        if row.internal:
+            m = res[row.period_id]['internal_reconciled_delta']
+            m['circ'] = row.circ
+            m['surplus'] = row.surplus
+            m['combined'] = row.circ + row.surplus
+        else:
+            # Reconciled external movements contribute only to
+            # to the circulation amount. The account
+            # entries will contribute to the combined value;
+            # the surplus will be computed as the difference.
+            m = res[row.period_id]['external_reconciled_delta']
+            m['circ'] = row.circ
+            # Generate initial surplus and combined values. These apply
+            # only if there are no reconciled account entries.
+            m['surplus'] = -row.circ
+            m['combined'] = zero
 
     # Gather the combined amounts from reconciled account entries.
     # Compute the surplus as the difference between the reconciled
@@ -364,7 +389,7 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .group_by(AccountEntry.period_id)
         .all())
     for row in rows:
-        m = res[row.period_id]['reconciled_delta']
+        m = res[row.period_id]['external_reconciled_delta']
         m['surplus'] = row.combined - m['circ']
         m['combined'] = row.combined
 
@@ -398,7 +423,11 @@ def compute_period_totals(dbsession, owner_id, period_ids):
 
     for m in res.values():
         for k in 'circ', 'surplus', 'combined':
-            reconciled_total = m['start'][k] + m['reconciled_delta'][k]
+            internal_reconciled = m['internal_reconciled_delta'][k]
+            external_reconciled = m['external_reconciled_delta'][k]
+            reconciled_delta = internal_reconciled + external_reconciled
+            m['reconciled_delta'][k] = reconciled_delta
+            reconciled_total = m['start'][k] + reconciled_delta
             m['reconciled_total'][k] = reconciled_total
             m['end'][k] = reconciled_total + m['outstanding_delta'][k]
 

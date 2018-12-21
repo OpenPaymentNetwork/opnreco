@@ -22,8 +22,9 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
 from sqlalchemy import BigInteger
-from sqlalchemy import Date
+from sqlalchemy import case
 from sqlalchemy import cast
+from sqlalchemy import Date
 from sqlalchemy import func
 from sqlalchemy import literal
 from sqlalchemy import or_
@@ -156,6 +157,62 @@ def period_state_api(context, request):
         'surplus': totals['end']['surplus'],
     }
 
+    movement_counts = (
+        dbsession.query(
+            func.count(
+                case([
+                    (Reco.id == null, null),
+                    (Reco.internal, 1),
+                ], else_=null)).label('internal'),
+            func.count(
+                case([
+                    (Reco.id == null, null),
+                    (~Reco.internal, 1),
+                ], else_=null)).label('external'),
+            func.count(
+                case([
+                    (and_(
+                        # Ignore movements not eligible for reconciliation.
+                        Movement.vault_delta == 0,
+                        Movement.wallet_delta == 0,
+                    ), null),
+                    (Reco.id == null, 1),
+                ], else_=null)).label('unreconciled'),
+        )
+        .select_from(Movement)
+        .outerjoin(Reco, Reco.id == Movement.reco_id)
+        .filter(
+            Movement.owner_id == owner_id,
+            Movement.peer_id == period.peer_id,
+            Movement.loop_id == period.loop_id,
+            Movement.currency == period.currency,
+            Movement.period_id == period_id,
+        )
+        .one())
+
+    account_entry_counts = (
+        dbsession.query(
+            func.count(AccountEntry.reco_id).label('reconciled'),
+            func.count(1).label('all'),
+        )
+        .filter(
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.peer_id == period.peer_id,
+            AccountEntry.loop_id == period.loop_id,
+            AccountEntry.currency == period.currency,
+            AccountEntry.period_id == period_id,
+        )
+        .one())
+
+    counts = {
+        'internal_movements_reconciled': movement_counts.internal,
+        'external_movements_reconciled': movement_counts.external,
+        'movements_unreconciled': movement_counts.unreconciled,
+        'account_entries_reconciled': account_entry_counts.reconciled,
+        'account_entries_unreconciled': (
+            account_entry_counts.all - account_entry_counts.reconciled),
+    }
+
     peers = get_peer_map(
         request=request, need_peer_ids=set([period.peer_id]), final=True)
 
@@ -168,9 +225,10 @@ def period_state_api(context, request):
     res = {
         'now': now,
         'period': serialize_period(period, end_amounts=end_amounts),
-        'peer': peers.get(period.peer_id),
-        'loop': loops.get(period.loop_id),
+        'peer': peers[period.peer_id],
+        'loop': loops.get(period.loop_id),  # None for loop_id == '0'
         'totals': totals,
+        'counts': counts,
     }
 
     return res
