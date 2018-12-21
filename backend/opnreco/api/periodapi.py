@@ -646,7 +646,7 @@ def push_unreco(request, period, op):
 
     Create a new period if necessary.
 
-    Items that ineligible for reconciliation should be treated
+    Items that are ineligible for reconciliation should be treated
     as reconciled, and reconciled items should not be pushed when
     closing a file, so this function does not push them.
     """
