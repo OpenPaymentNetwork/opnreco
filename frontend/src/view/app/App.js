@@ -1,7 +1,7 @@
 
 import CssBaseline from '@material-ui/core/CssBaseline';
 import Settings from '../settings/Settings';
-import PeriodsView from '../period/PeriodsView';
+import PeriodList from '../period/PeriodList';
 import PeriodTabs from '../period/PeriodTabs';
 import AuthenticatedHome from '../home/AuthenticatedHome';
 import Linger from '../../util/Linger';
@@ -101,7 +101,7 @@ class App extends React.Component {
                 <Route path="/period/:periodId([0-9]+)/:tab(t)/:transferId" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview)" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
-                <Route path="/periods/:ploopKey([A-Za-z0-9-]+)" component={PeriodsView} />
+                <Route path="/periods/:ploopKey([A-Za-z0-9-]+)" component={PeriodList} />
                 <Route path="/" component={AuthenticatedHome} exact />
                 <Route component={NotFound} />
               </Switch>

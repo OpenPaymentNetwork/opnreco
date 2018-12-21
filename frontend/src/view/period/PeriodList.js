@@ -33,7 +33,7 @@ const styles = {
   },
   pagerPaper: {
     margin: '16px auto',
-    maxWidth: tableWidth - 16,
+    maxWidth: tableWidth,
     padding: '8px',
   },
   tablePaper: {
@@ -137,7 +137,7 @@ const styles = {
 };
 
 
-class PeriodsView extends React.Component {
+class PeriodList extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -436,4 +436,4 @@ export default compose(
   withStyles(styles),
   withRouter,
   connect(mapStateToProps),
-)(PeriodsView);
+)(PeriodList);
