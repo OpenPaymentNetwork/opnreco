@@ -162,7 +162,7 @@ class MovementTableBody extends React.Component {
           {name: 'transfer'},
         ]}
         searchView="reco-search-movement"
-        tableTitle="Wallet Movements"
+        tableTitle="Note Possession Changes (Movements)"
         columnHeadRow={columnHeadRow}
         emptyMessage="No eligible movements found."
         {...otherProps}

@@ -195,6 +195,7 @@ class PeriodSelector extends React.Component {
               inputProps={{
                 id: 'filter-ploop',
               }}
+              disableUnderline
             >
               {ploopSelections}
             </Select>
@@ -210,6 +211,7 @@ class PeriodSelector extends React.Component {
               inputProps={{
                 id: 'filter-period',
               }}
+              disableUnderline
             >
               {periodSelections}
             </Select>

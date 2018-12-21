@@ -1,4 +1,5 @@
 
+import CssBaseline from '@material-ui/core/CssBaseline';
 import Settings from '../settings/Settings';
 import PeriodsView from '../period/PeriodsView';
 import PeriodTabs from '../period/PeriodTabs';
@@ -88,6 +89,7 @@ class App extends React.Component {
 
     return (
       <MuiThemeProvider theme={customTheme}>
+        <CssBaseline />
         <div className={classes.root}>
           <div className={classes.belowAppBar}>
             <OPNDrawer />

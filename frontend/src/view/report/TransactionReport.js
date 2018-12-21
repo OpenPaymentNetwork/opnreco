@@ -31,7 +31,7 @@ const styles = {
   },
   pagerPaper: {
     margin: '16px auto',
-    maxWidth: tableWidth - 16,
+    maxWidth: tableWidth,
     padding: '8px',
   },
   tablePaper: {

@@ -404,7 +404,7 @@ class TransferMovementTable extends React.Component {
         <th className={`${classes.cell} ${classes.headCell}`}
           colSpan={2 + layout.columnsAfterGraphic}
         >
-          Movements
+          Note Possession Changes (Movements)
         </th>
       </tr>
     );
