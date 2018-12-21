@@ -187,7 +187,8 @@ Index(
 
 
 Index(
-    'ix_period_peer_unique',
+    # This index is needed for foreign keys.
+    'ix_period_peer_fk_lookup',
     Period.id,
     Period.peer_id,
     Period.loop_id,
@@ -341,6 +342,15 @@ class Movement(Base):
             ['period_id', 'peer_id', 'loop_id', 'currency'],
             ['period.id', 'period.peer_id', 'period.loop_id',
              'period.currency'],
+            name='match_period',
+        ),
+        ForeignKeyConstraint(
+            # This FK ensures the period_id matches the reco.
+            ['reco_id', 'period_id'],
+            ['reco.id', 'reco.period_id'],
+            name='match_reco',
+            deferrable=True,
+            initially='deferred',
         ),
         CheckConstraint(or_(
             reco_wallet_delta == wallet_delta,
@@ -434,7 +444,7 @@ class Statement(Base):
     currency = Column(String, nullable=False)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
-    source_id = Column(Unicode, nullable=True)  # 'manual' or some external ID
+    source = Column(Unicode, nullable=True)  # 'manual' or some external ID
     pages = Column(JSONB, nullable=True)
 
     __table_args__ = (
@@ -490,6 +500,15 @@ class AccountEntry(Base):
             ['period_id', 'peer_id', 'loop_id', 'currency'],
             ['period.id', 'period.peer_id', 'period.loop_id',
              'period.currency'],
+            name='match_period',
+        ),
+        ForeignKeyConstraint(
+            # This FK ensures the period_id matches the reco.
+            ['reco_id', 'period_id'],
+            ['reco.id', 'reco.period_id'],
+            name='match_reco',
+            deferrable=True,
+            initially='deferred',
         ),
         {})
 
@@ -615,6 +634,14 @@ class Reco(Base):
             'account_only',      # Account Credit/Debit
         ]), name='reco_type'),
         {})
+
+
+Index(
+    # This index is needed for foreign keys.
+    'ix_reco_fk_lookup',
+    Reco.id,
+    Reco.period_id,
+    unique=True)
 
 
 # all_metadata_defined must be at the end of this module. It signals that

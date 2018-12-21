@@ -213,6 +213,13 @@ def period_state_api(context, request):
             account_entry_counts.all - account_entry_counts.reconciled),
     }
 
+    # statement_rows = (
+    #     dbsession.query(
+    #         Statement.id,
+    #         Statement.source_id,
+    #         Statement.
+    # )
+
     peers = get_peer_map(
         request=request, need_peer_ids=set([period.peer_id]), final=True)
 
@@ -834,6 +841,7 @@ def pull_recos(request, period):
     owner_id = owner.id
     assert period.owner_id == owner_id
 
+    # reco_filter finds the recos that might need to be pulled.
     reco_filter = and_(
         Reco.owner_id == owner_id,
         Reco.period_id != period.id,
@@ -860,6 +868,7 @@ def pull_recos(request, period):
         .as_scalar()
     )
 
+    # reco_date_c provides the date of each reco.
     reco_date_c = func.coalesce(entry_date_c, movement_date_c)
 
     # List the dates of all recos in other open periods
@@ -888,41 +897,39 @@ def pull_recos(request, period):
         return 0
 
     # Map the reassignable recos to this period.
+    # (Recos for other periods will not be listed in day_period_cte.)
     day_periods, day_period_cte, missing_period = make_day_period_cte(
         days=sorted(reassign_days),
         period_list=period_list,
         default_period=None)
 
-    # Make a subquery that lists the recos to reassign.
-    ids_query = (
-        select([Reco.id])
-        .select_from(
-            Reco.__table__
-            .join(Period, Period.id == Reco.period_id)
-            .join(day_period_cte, day_period_cte.c.day == reco_date_c)
-        )
-        .where(reco_filter)
-    )
+    # List the recos to reassign.
+    reco_id_rows = (
+        dbsession.query(Reco.id)
+        .join(Period, Period.id == Reco.period_id)
+        .join(day_period_cte, day_period_cte.c.day == reco_date_c)
+        .filter(reco_filter)
+        .all())
 
-    reco_ids = [reco_id for (reco_id,) in dbsession.execute(ids_query)]
+    reco_ids = [reco_id for (reco_id,) in reco_id_rows]
 
     # Reassign recos.
     (dbsession.query(Reco)
-        .filter(Reco.id.in_(ids_query))
+        .filter(Reco.id.in_(reco_ids))
         .update(
             {'period_id': period.id},
             synchronize_session='fetch'))
 
     # Reassign the period_id of affected movements.
     (dbsession.query(Movement)
-        .filter(Movement.reco_id.in_(ids_query))
+        .filter(Movement.reco_id.in_(reco_ids))
         .update(
             {'period_id': period.id},
             synchronize_session='fetch'))
 
     # Reassign the period_id of affected account entries.
     (dbsession.query(AccountEntry)
-        .filter(AccountEntry.reco_id.in_(ids_query))
+        .filter(AccountEntry.reco_id.in_(reco_ids))
         .update(
             {'period_id': period.id},
             synchronize_session='fetch'))
