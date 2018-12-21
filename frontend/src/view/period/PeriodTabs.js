@@ -190,9 +190,8 @@ class PeriodTabs extends React.Component {
       },
       {
         value: 'overview',
-        label: 'Period',
+        label: 'Period Overview',
         path: `/period/${encPeriodId}/overview`,
-        titlePart: 'Period Overview',
       },
     ];
   }

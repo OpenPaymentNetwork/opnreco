@@ -696,16 +696,16 @@ class RecoSave:
         return new_movements
 
     @reify
-    def manual_statement(self):
-        """Get or create the manual statement for this period."""
+    def manual_statement_id(self):
+        """Get or create the manual statement ID for this period."""
         request = self.request
         dbsession = request.dbsession
         owner = request.owner
         owner_id = owner.id
         period = self.period
 
-        statement = (
-            dbsession.query(Statement)
+        statement_id = (
+            dbsession.query(Statement.id)
             .filter(
                 Statement.owner_id == owner_id,
                 Statement.peer_id == period.peer_id,
@@ -714,11 +714,11 @@ class RecoSave:
                 Statement.currency == period.currency,
                 Statement.source == 'manual',
             )
-            .order_by(Statement.id)
+            .order_by(Statement.start_date.desc(), Statement.id.desc())
             .first()
         )
 
-        if statement is None:
+        if statement_id is None:
             statement = Statement(
                 owner_id=owner_id,
                 peer_id=period.peer_id,
@@ -729,8 +729,9 @@ class RecoSave:
             )
             dbsession.add(statement)
             dbsession.flush()  # Assign statement.id
+            statement_id = statement.id
 
-        return statement
+        return statement_id
 
     def create_account_entry(self, inputs):
         """Create a new AccountEntry from the inputs."""
@@ -783,7 +784,7 @@ class RecoSave:
             owner_id=self.request.owner.id,
             peer_id=period.peer_id,
             period_id=period.id,
-            statement_id=self.manual_statement.id,
+            statement_id=self.manual_statement_id,
             entry_date=entry_date,
             loop_id=period.loop_id,
             currency=period.currency,

@@ -14,6 +14,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
 import Paper from '@material-ui/core/Paper';
+import PeriodStatementList from './PeriodStatementList';
 import PeriodSummary from './PeriodSummary';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -32,7 +33,7 @@ const styles = {
     margin: '0 auto',
     padding: '16px',
   },
-  summaryPaper: {
+  tablePaper: {
     maxWidth: tableWidth,
     margin: '16px auto',
     padding: 0,
@@ -294,8 +295,11 @@ class PeriodOverview extends React.Component {
     return (
       <div>
         {this.renderForm()}
-        <Paper className={classes.summaryPaper}>
+        <Paper className={classes.tablePaper}>
           <PeriodSummary result={result} />
+        </Paper>
+        <Paper className={classes.tablePaper}>
+          <PeriodStatementList result={result} />
         </Paper>
       </div>
     );

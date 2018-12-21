@@ -19,6 +19,7 @@ from sqlalchemy import String
 from sqlalchemy import Unicode
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import deferred
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import MetaData
 
@@ -445,7 +446,7 @@ class Statement(Base):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     source = Column(Unicode, nullable=True)  # 'manual' or some external ID
-    pages = Column(JSONB, nullable=True)
+    pages = deferred(Column(JSONB, nullable=True))
 
     __table_args__ = (
         ForeignKeyConstraint(
