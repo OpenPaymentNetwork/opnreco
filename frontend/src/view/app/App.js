@@ -1,9 +1,12 @@
 
-import CssBaseline from '@material-ui/core/CssBaseline';
-import Settings from '../settings/Settings';
-import PeriodList from '../period/PeriodList';
-import PeriodTabs from '../period/PeriodTabs';
+import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
+import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles';
+import { Switch, Route } from 'react-router';
+import { withRouter } from 'react-router';
+import { withStyles } from '@material-ui/core/styles';
 import AuthenticatedHome from '../home/AuthenticatedHome';
+import CssBaseline from '@material-ui/core/CssBaseline';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
 import LoginView from '../login/LoginView';
@@ -11,17 +14,14 @@ import LogoutDialog from './LogoutDialog';
 import NotFound from './NotFound';
 import OAuth2CallbackView from '../login/OAuth2CallbackView';
 import OPNDrawer from './OPNDrawer';
+import PeriodList from '../period/PeriodList';
+import PeriodTabs from '../period/PeriodTabs';
 import PropTypes from 'prop-types';
-import Redirecting from './Redirecting';
 import React from 'react';
+import Redirecting from './Redirecting';
 import ServerErrorDialog from './ServerErrorDialog';
+import Settings from '../settings/Settings';
 import TokenRefreshDialog from './TokenRefreshDialog';
-import { compose } from '../../util/functional';
-import { connect } from 'react-redux';
-import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles';
-import { Switch, Route } from 'react-router';
-import { withRouter } from 'react-router';
-import { withStyles } from '@material-ui/core/styles';
 
 
 /* Theme based on https://material.io/tools/color/#!/
@@ -99,7 +99,8 @@ class App extends React.Component {
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/period/:periodId([0-9]+)/:tab(t)/:transferId" component={PeriodTabs} />
-                <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview)" component={PeriodTabs} />
+                <Route path="/period/:periodId([0-9]+)/:tab(statement)/:statementId" component={PeriodTabs} />
+                <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview|statement)" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
                 <Route path="/periods/:ploopKey([A-Za-z0-9-]+)" component={PeriodList} />
                 <Route path="/" component={AuthenticatedHome} exact />

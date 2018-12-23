@@ -8,7 +8,9 @@ def serialize_period(period, end_amounts=None):
     """Serialize a Period object for JSON encoding.
 
     end_amounts is an optional dict of {'circ', 'surplus'} containing
-    the computed end_circ and end_surplus values.
+    the computed end_circ and end_surplus values. If end_amounts is not
+    provided and the end amounts are stored as null, The end amounts
+    will be None.
     """
     end_circ = period.end_circ
     if end_circ is None:

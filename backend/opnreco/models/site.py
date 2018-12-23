@@ -45,6 +45,11 @@ class WebpackFile:
         self.__name__ = name
 
 
+resource_collection_attrs = {
+    'period': 'periods',
+}
+
+
 class API:
 
     def __init__(self, parent):
@@ -53,8 +58,9 @@ class API:
         self.request_ref = parent.request_ref
 
     def __getitem__(self, name):
-        if name == 'period':
-            return self.periods
+        attr = resource_collection_attrs.get(name)
+        if attr is not None:
+            return getattr(self, attr)
         raise KeyError(name)
 
     @reify
@@ -62,35 +68,42 @@ class API:
         return PeriodCollection(self, 'period')
 
 
-class PeriodCollection:
+class ResourceCollection:
     def __init__(self, parent, name):
         self.__parent__ = parent
         self.__name__ = name
         self.request_ref = parent.request_ref
-        self.items = {}  # {period_id: PeriodResource}
+        self.resources = {}  # {resource_id: Resource}
 
     def __getitem__(self, name):
         try:
-            period_id = int(name)
+            resource_id = int(name)
         except ValueError:
             raise KeyError(name)
 
-        period = self.items.get(period_id)
-        if period is not None:
-            return period
+        resource = self.resources.get(resource_id)
+        if resource is not None:
+            return resource
 
-        dbsession = self.request_ref().dbsession
-        period = (
-            dbsession.query(Period)
-            .filter(Period.id == period_id)
-            .first()
-        )
-        if period is None:
+        resource = self.load(resource_id)
+        if resource is None:
             raise KeyError(name)
 
-        pr = PeriodResource(self, str(period.id), period)
-        self.items[period.id] = pr
-        return pr
+        self.resources[resource_id] = resource
+        return resource
+
+
+class PeriodCollection(ResourceCollection):
+    def load(self, resource_id):
+        dbsession = self.request_ref().dbsession
+        row = (
+            dbsession.query(Period)
+            .filter(Period.id == resource_id)
+            .first()
+        )
+        if row is None:
+            return None
+        return PeriodResource(self, str(resource_id), row)
 
 
 class PeriodResource:

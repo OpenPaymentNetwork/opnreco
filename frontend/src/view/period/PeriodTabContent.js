@@ -1,3 +1,4 @@
+
 import { binder } from '../../util/binder';
 import Button from '@material-ui/core/Button';
 import PeriodOverview from './PeriodOverview';
@@ -5,6 +6,7 @@ import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import RecoReport from '../report/RecoReport';
+import StatementView from './StatementView';
 import TransactionReport from '../report/TransactionReport';
 import TransferSummary from '../report/TransferSummary';
 
@@ -79,6 +81,8 @@ export default class TabContent extends React.Component {
       return <TransferSummary ploop={ploop} period={period} />;
     case 'overview':
       return <PeriodOverview ploop={ploop} period={period} />;
+    case 'statement':
+      return <StatementView ploop={ploop} period={period} />;
     default:
       return null;
     }

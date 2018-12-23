@@ -10,7 +10,6 @@ import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import Hidden from '@material-ui/core/Hidden';
 import IconButton from '@material-ui/core/IconButton';
 import LayoutConfig from '../app/LayoutConfig';
 import MenuIcon from '@material-ui/icons/Menu';
@@ -26,28 +25,29 @@ import Tabs from '@material-ui/core/Tabs';
 const styles = theme => ({
   root: {
   },
-  topLine: {
-    [theme.breakpoints.up('md')]: {
-      display: 'flex',
-      alignItems: 'flex-end',
-    },
+  appbar: {
     backgroundColor: theme.palette.primary.main,
     color: '#fff',
     paddingLeft: 32,
-    minHeight: '94px',
+    minHeight: '100px',
     position: 'relative',
   },
   periodSelectorBox: {
-    padding: 16,
-  },
-  tabs: {
-    flexGrow: '1',
+    position: 'absolute',
+    right: '16px',
+    top: '8px',
   },
   menuButton: {
     position: 'absolute',
     left: 0,
     top: 0,
     color: '#fff',
+  },
+  tabs: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    width: '100%',
   },
   waitContainer: {
     padding: '16px',
@@ -73,6 +73,7 @@ class PeriodTabs extends React.Component {
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
+    statementId: PropTypes.string,
     transferId: PropTypes.string,
   };
 
@@ -165,11 +166,17 @@ class PeriodTabs extends React.Component {
       periodId = this.props.periodId;
     }
 
-    const {transferId} = this.props;
     const encPeriodId = encodeURIComponent(periodId);
+
+    const {transferId} = this.props;
     const transferPath = (transferId ?
       `/period/${encPeriodId}/t/${encodeURIComponent(transferId)}` :
       `/period/${encPeriodId}/t`);
+
+    const {statementId} = this.props;
+    const statementPath = (statementId ?
+      `/period/${encPeriodId}/statement/${encodeURIComponent(statementId)}` :
+      `/period/${encPeriodId}/statement`);
 
     return [
       {
@@ -192,6 +199,11 @@ class PeriodTabs extends React.Component {
         value: 'overview',
         label: 'Period Overview',
         path: `/period/${encPeriodId}/overview`,
+      },
+      {
+        value: 'statement',
+        label: 'Statements',
+        path: statementPath,
       },
     ];
   }
@@ -308,7 +320,7 @@ class PeriodTabs extends React.Component {
         <Require fetcher={fOPNReco} urls={[ploopsURL, ploopsURLMod]} />
         <LayoutConfig title={titleParts.join(' ')} />
 
-        <div className={classes.topLine}>
+        <div className={classes.appbar}>
 
           <IconButton
             className={classes.menuButton}
@@ -319,15 +331,9 @@ class PeriodTabs extends React.Component {
             <MenuIcon />
           </IconButton>
 
-          <Hidden mdUp>
-            {selectorBox}
-            {tabs}
-          </Hidden>
+          {selectorBox}
 
-          <Hidden smDown>
-            {tabs}
-            {selectorBox}
-          </Hidden>
+          {tabs}
 
         </div>
 
@@ -373,6 +379,7 @@ function mapStateToProps(state, ownProps) {
     defaultPloop: fetched.default_ploop,
     ploop,
     period,
+    statementId: state.app.statementId,
     transferId: state.app.transferId,
     syncProgress: state.app.syncProgress,
     loading,

@@ -14,6 +14,7 @@ const TOKEN_REFRESH_SUCCESS = 'app/TOKEN_REFRESH_SUCCESS';
 const TOKEN_REFRESH_CANCEL = 'app/TOKEN_REFRESH_CANCEL';
 const SET_LOGGING_OUT = 'app/SET_LOGGING_OUT';
 const SET_TRANSFER_ID = 'app/SET_TRANSFER_ID';
+const SET_STATEMENT_ID = 'app/SET_STATEMENT_ID';
 
 const initialState = {
   // [{resolve, reject}]
@@ -24,6 +25,7 @@ const initialState = {
   refreshDeferreds: [],
   serverError: null,
   serverErrorOpen: false,
+  statementId: null,
   syncedAt: null,
   syncProgress: null,
   tokenRefresh: false,
@@ -89,6 +91,11 @@ export const setTransferId = (transferId) => ({
   payload: {transferId},
 });
 
+export const setStatementId = (statementId) => ({
+  type: SET_STATEMENT_ID,
+  payload: {statementId},
+});
+
 const actionHandlers = {
   [OPEN_DRAWER]: (state) => ({...state, drawerOpen: true}),
 
@@ -147,6 +154,11 @@ const actionHandlers = {
   [SET_TRANSFER_ID]: (state, {payload: {transferId}}) => ({
     ...state,
     transferId,
+  }),
+
+  [SET_STATEMENT_ID]: (state, {payload: {statementId}}) => ({
+    ...state,
+    statementId,
   }),
 };
 

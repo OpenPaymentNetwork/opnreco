@@ -38,7 +38,7 @@ def transfer_record_api(context, request, final=False):
     """
     transfer_id_input = request.params.get('transfer_id')
     if not transfer_id_input:
-        raise HTTPBadRequest(json_body={'error': 'transfer_id required'})
+        raise HTTPBadRequest(json_body={'error': 'transfer_id_required'})
 
     transfer_id = transfer_id_input.replace('-', '')
     dbsession = request.dbsession

@@ -11,32 +11,23 @@ import React from 'react';
 import Select from '@material-ui/core/Select';
 
 
-const styles = theme => ({
+const styles = {
   root: {
-    [theme.breakpoints.up('md')]: {
-      display: 'flex',
-      justifyContent: 'flex-end',
-      alignItems: 'flex-start',
-      flexWrap: 'wrap',
-    },
+    display: 'flex',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
   },
   controlBox: {
-    padding: 16,
+    padding: '4px 16px',
   },
   ploopSelect: {
-    [theme.breakpoints.up('md')]: {
-      width: 250,
-    },
-    [theme.breakpoints.up('lg')]: {
-      width: 400,
-    },
-  },
-  periodSelect: {
+    width: 400,
   },
   selectRoot: {
     fontSize: '0.9rem',
   },
-});
+};
 
 
 class PeriodSelector extends React.Component {
@@ -224,6 +215,6 @@ class PeriodSelector extends React.Component {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles),
   injectIntl,
 )(PeriodSelector);
