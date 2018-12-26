@@ -74,6 +74,7 @@ class PeriodTabs extends React.Component {
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
     statementId: PropTypes.string,
+    statementPeriodId: PropTypes.string,
     transferId: PropTypes.string,
   };
 
@@ -162,19 +163,25 @@ class PeriodTabs extends React.Component {
   }
 
   getTabs(periodId) {
+    const {statementPeriodId} = this.props;
+
     if (!periodId) {
       periodId = this.props.periodId;
     }
 
     const encPeriodId = encodeURIComponent(periodId);
 
+    // Use the transferId in the path whenever it is set. Transfers can
+    // be seen in any period.
     const {transferId} = this.props;
     const transferPath = (transferId ?
       `/period/${encPeriodId}/t/${encodeURIComponent(transferId)}` :
       `/period/${encPeriodId}/t`);
 
+    // Use the statementId in the path only when the statementId is set and
+    // the statement is for the right period.
     const {statementId} = this.props;
-    const statementPath = (statementId ?
+    const statementPath = (statementId && statementPeriodId === periodId ?
       `/period/${encPeriodId}/statement/${encodeURIComponent(statementId)}` :
       `/period/${encPeriodId}/statement`);
 
@@ -380,6 +387,7 @@ function mapStateToProps(state, ownProps) {
     ploop,
     period,
     statementId: state.app.statementId,
+    statementPeriodId: state.app.statementPeriodId,
     transferId: state.app.transferId,
     syncProgress: state.app.syncProgress,
     loading,

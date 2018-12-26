@@ -213,43 +213,6 @@ def period_state_api(context, request):
             account_entry_counts.all - account_entry_counts.reconciled),
     }
 
-    inc_case = case([(AccountEntry.delta > 0, AccountEntry.delta)], else_=None)
-    dec_case = case([(AccountEntry.delta < 0, AccountEntry.delta)], else_=None)
-    statement_rows = (
-        dbsession.query(
-            Statement.id,
-            Statement.source,
-            Statement.start_date,
-            Statement.end_date,
-            func.count(inc_case).label('inc_count'),
-            func.count(dec_case).label('dec_count'),
-            func.sum(inc_case).label('inc_total'),
-            func.sum(dec_case).label('dec_total'),
-        )
-        .join(AccountEntry, AccountEntry.statement_id == Statement.id)
-        .filter(
-            Statement.owner_id == owner_id,
-            Statement.peer_id == period.peer_id,
-            Statement.loop_id == period.loop_id,
-            Statement.currency == period.currency,
-            Statement.period_id == period_id,
-        )
-        .group_by(Statement.id)
-        .order_by(Statement.source, Statement.start_date, Statement.id)
-        .all()
-    )
-
-    statements = [{
-        'id': str(row.id),
-        'source': row.source,
-        'start_date': row.start_date,
-        'end_date': row.end_date,
-        'inc_count': row.inc_count,
-        'dec_count': row.dec_count,
-        'inc_total': row.inc_total,
-        'dec_total': row.dec_total,
-    } for row in statement_rows]
-
     peers = get_peer_map(
         request=request, need_peer_ids=set([period.peer_id]), final=True)
 
@@ -266,7 +229,6 @@ def period_state_api(context, request):
         'loop': loops.get(period.loop_id),  # None for loop_id == '0'
         'totals': totals,
         'counts': counts,
-        'statements': statements,
     }
 
     return res

@@ -36,7 +36,7 @@ def get_offset_limit(params):
     offset = max(int(offset_str), 0)
 
     limit_str = params.get('limit', '')
-    if limit_str == 'none':
+    if limit_str == 'all':
         limit = None
     else:
         if not re.match(r'^[0-9]{1,20}$', limit_str):

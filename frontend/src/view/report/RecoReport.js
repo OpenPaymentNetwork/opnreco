@@ -24,7 +24,7 @@ const styles = {
     padding: '0 16px',
   },
   tablePaper: {
-    margin: '32px auto',
+    margin: '16px auto',
     maxWidth: 800,
   },
   table: {

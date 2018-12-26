@@ -3,8 +3,10 @@ import { binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
+import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Typography from '@material-ui/core/Typography';
@@ -15,6 +17,12 @@ const styles = {
     borderCollapse: 'collapse',
     color: '#000',
     fontSize: '0.9rem',
+  },
+  clickableRow: {
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: '#eee',
+    },
   },
   headCell: {
     padding: '4px 8px',
@@ -44,11 +52,14 @@ const styles = {
 };
 
 
-class PeriodStatementList extends React.Component {
+class StatementsTable extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
-    result: PropTypes.object,
+    now: PropTypes.string,
+    period: PropTypes.object,
+    ploop: PropTypes.object,
+    statements: PropTypes.array,
   };
 
   constructor(props) {
@@ -66,30 +77,33 @@ class PeriodStatementList extends React.Component {
   render() {
     const {
       classes,
-      result: {
-        period,
-        statements,
-      },
+      now,
+      period,
+      ploop,
+      statements,
     } = this.props;
 
-    const cfmt = new getCurrencyFormatter(period.currency);
-    const colCount = 7;
-
+    const colCount = 8;
     let rows = null;
+    const encPeriodId = encodeURIComponent(period.id);
 
     if (statements && statements.length) {
+      const cfmt = new getCurrencyFormatter(period.currency);
       rows = statements.map(statement => {
-        const path = `/statement/${encodeURIComponent(statement.id)}`;
+        const path = (
+          `/period/${encPeriodId}` +
+          `/statement/${encodeURIComponent(statement.id)}`);
 
         return (
-          <tr key={statement.id}>
+          <tr key={statement.id}
+            onClick={this.binder1(this.handleClick, path)}
+            className={classes.clickableRow}
+          >
             <td className={classes.textCell}>
-              <a href={path}
-                className={classes.link}
-                onClick={this.binder1(this.handleClick, path)}
-              >
-                {statement.source}
-              </a>
+              {statement.id}
+            </td>
+            <td className={classes.textCell}>
+              {statement.source}
             </td>
             <td className={classes.textCell}>
               {statement.start_date ?
@@ -122,11 +136,22 @@ class PeriodStatementList extends React.Component {
       rows = (
         <tr>
           <td colSpan={colCount} className={classes.textCell}>
-            <em>This period has no account statements.</em>
+            <em>No account statements have been added to this period.</em>
+          </td>
+        </tr>
+      );
+    } else {
+      rows = (
+        <tr>
+          <td colSpan={colCount} className={classes.textCell}>
+            <CircularProgress size="24px" className={classes.progress} />
           </td>
         </tr>
       );
     }
+
+    const reportDate = now ? renderReportDate(period, now) : null;
+    const {peer_title, currency, loop_id, loop_title} = ploop;
 
     return (
       <Typography className={classes.root} component="div">
@@ -134,9 +159,18 @@ class PeriodStatementList extends React.Component {
           <thead>
             <tr>
               <th className={classes.headCell}
-                colSpan={colCount}>Account Statements</th>
+                colSpan={colCount}
+              >
+                {peer_title} Account Statements
+                <div>
+                  {currency}
+                  {' '}{loop_id === '0' ? 'Open Loop' : loop_title}
+                  {' - '}{reportDate}
+                </div>
+              </th>
             </tr>
             <tr>
+              <th className={classes.columnHeadCell}>ID</th>
               <th className={classes.columnHeadCell}>Source</th>
               <th className={classes.columnHeadCell}>Start Date</th>
               <th className={classes.columnHeadCell}>End Date</th>
@@ -158,4 +192,4 @@ class PeriodStatementList extends React.Component {
 export default compose(
   withStyles(styles),
   withRouter,
-)(PeriodStatementList);
+)(StatementsTable);

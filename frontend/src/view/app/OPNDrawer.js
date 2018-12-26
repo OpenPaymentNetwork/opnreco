@@ -35,7 +35,7 @@ const styles = theme => ({
   top: {
     backgroundColor: theme.palette.primary.main,
     color: '#fff',
-    height: '94px',
+    height: '100px',
   },
   appTitle: {
     fontWeight: 'bold',

@@ -140,11 +140,12 @@ def transfer_record_api(context, request, final=False):
         vault_delta = movement.vault_delta
         wallet_delta = movement.wallet_delta
 
-        if is_circ or orig_peer_id == period_peer_id:
-            reco_applicable = not not (wallet_delta or vault_delta)
-        else:
-            # The selected peer loop does not reconcile this movement.
-            reco_applicable = False
+        reco_applicable = False
+        if (movement.currency == period.currency and
+                movement.loop_id == period.loop_id and
+                (is_circ or orig_peer_id == period_peer_id) and
+                (wallet_delta or vault_delta)):
+            reco_applicable = True
 
         reco_id = movement.reco_id
         movements_json.append({

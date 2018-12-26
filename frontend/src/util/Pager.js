@@ -70,7 +70,7 @@ class Pager extends React.Component {
 
   handleChangeRowsPerPage(event) {
     const value = event.target.value;
-    const rowsPerPage = (value === 'none' ? null : parseInt(value, 10));
+    const rowsPerPage = parseInt(value, 10);
     this.props.dispatch(setRowsPerPage(this.props.name, rowsPerPage));
   }
 
@@ -142,7 +142,7 @@ class Pager extends React.Component {
         <FormControlLabel
           className={formControl}
           control={
-            <Select value={rowsPerPage ? String(rowsPerPage) : 'none'}
+            <Select value={String(rowsPerPage)}
               disableUnderline
               className={classes.rowsPerPage}
               classes={{select: classes.rowsPerPageSelect}}
@@ -152,7 +152,6 @@ class Pager extends React.Component {
               <MenuItem value="100">100</MenuItem>
               <MenuItem value="1000">1,000</MenuItem>
               <MenuItem value="10000">10,000</MenuItem>
-              <MenuItem value="none">All</MenuItem>
             </Select>
           }
           label={<span className={formLabel}>Rows per page:</span>}

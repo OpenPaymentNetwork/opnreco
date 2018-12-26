@@ -26,6 +26,7 @@ const initialState = {
   serverError: null,
   serverErrorOpen: false,
   statementId: null,
+  statementPeriodId: null,
   syncedAt: null,
   syncProgress: null,
   tokenRefresh: false,
@@ -91,9 +92,9 @@ export const setTransferId = (transferId) => ({
   payload: {transferId},
 });
 
-export const setStatementId = (statementId) => ({
+export const setStatementId = (statementId, statementPeriodId) => ({
   type: SET_STATEMENT_ID,
-  payload: {statementId},
+  payload: {statementId, statementPeriodId},
 });
 
 const actionHandlers = {
@@ -156,9 +157,11 @@ const actionHandlers = {
     transferId,
   }),
 
-  [SET_STATEMENT_ID]: (state, {payload: {statementId}}) => ({
+  [SET_STATEMENT_ID]: (state, {payload: {
+      statementId, statementPeriodId}}) => ({
     ...state,
     statementId,
+    statementPeriodId,
   }),
 };
 
