@@ -203,14 +203,14 @@ class PeriodTabs extends React.Component {
         titlePart: transferId ? 'Transfer ' + transferId : 'Transfer',
       },
       {
-        value: 'overview',
-        label: 'Period Overview',
-        path: `/period/${encPeriodId}/overview`,
-      },
-      {
         value: 'statement',
         label: 'Statements',
         path: statementPath,
+      },
+      {
+        value: 'overview',
+        label: 'Period Overview',
+        path: `/period/${encPeriodId}/overview`,
       },
     ];
   }

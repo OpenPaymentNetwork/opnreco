@@ -470,8 +470,8 @@ class AccountEntry(Base):
     statement_id = Column(
         BigInteger, ForeignKey('statement.id'),
         nullable=False, index=True)
-    statement_page = Column(String, nullable=True)
-    statement_line = Column(String, nullable=True)
+    page = Column(String, nullable=True)
+    line = Column(String, nullable=True)
 
     entry_date = Column(Date, nullable=False)
     loop_id = Column(String, nullable=False)
@@ -532,8 +532,8 @@ class AccountEntryLog(Base):
 
     period_id = Column(BigInteger, nullable=False, index=True)
     statement_id = Column(BigInteger, nullable=True, index=True)
-    statement_page = Column(String, nullable=True)
-    statement_line = Column(String, nullable=True)
+    page = Column(String, nullable=True)
+    line = Column(String, nullable=True)
     entry_date = Column(Date, nullable=False)
     delta = Column(Numeric, nullable=False)
     description = Column(JSONB, nullable=False)
@@ -551,8 +551,8 @@ begin
             account_entry_id, event_type,
             period_id,
             statement_id,
-            statement_page,
-            statement_line,
+            page,
+            line,
             entry_date,
             delta,
             description,
@@ -562,8 +562,8 @@ begin
             current_setting('opnreco.account_entry.event_type'),
             old.period_id,
             old.statement_id,
-            old.statement_page,
-            old.statement_line,
+            old.page,
+            old.line,
             old.entry_date,
             old.delta,
             old.description,
@@ -575,8 +575,8 @@ begin
             event_type,
             period_id,
             statement_id,
-            statement_page,
-            statement_line,
+            page,
+            line,
             entry_date,
             delta,
             description,
@@ -586,8 +586,8 @@ begin
             current_setting('opnreco.account_entry.event_type'),
             new.period_id,
             new.statement_id,
-            new.statement_page,
-            new.statement_line,
+            new.page,
+            new.line,
             new.entry_date,
             new.delta,
             new.description,

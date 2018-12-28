@@ -407,7 +407,7 @@ function mapStateToProps(state, ownProps) {
     rowsPerPage,
     pageIndex,
     initialRowsPerPage,
-  } = getPagerState(state, pagerName, 10);
+  } = getPagerState(state, pagerName, 100);
 
   const contentURL = fOPNReco.pathToURL(
     `/period-list?ploop_key=${encodeURIComponent(ploopKey)}` +

@@ -10,6 +10,7 @@ import { setStatementId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import IconButton from '@material-ui/core/IconButton';
 import Paper from '@material-ui/core/Paper';
 import RecoCheckBox from '../report/RecoCheckBox';
 import StatementsTable from './StatementsTable';
@@ -53,8 +54,8 @@ const styles = {
     border: '1px solid #bbb',
   },
   iconCell: {
-    textAlign: 'left',
-    padding: '4px 8px',
+    textAlign: 'center',
+    padding: '0',
     border: '1px solid #bbb',
   },
   checkboxCell: {
@@ -67,6 +68,9 @@ const styles = {
     textAlign: 'left',
     padding: '4px 8px',
     border: '1px solid #bbb',
+  },
+  iconButton: {
+    padding: '2px',
   },
 };
 
@@ -126,10 +130,10 @@ class StatementView extends React.Component {
           {cfmt(entry.delta)}
         </td>
         <td className={classes.amountCell}>
-          {entry.statement_page}
+          {entry.page}
         </td>
         <td className={classes.amountCell}>
-          {entry.statement_line}
+          {entry.line}
         </td>
         <td className={classes.textCell}>
           {entry.description}
@@ -203,14 +207,23 @@ class StatementView extends React.Component {
                   Statement {statementId}
                 </th>
               </tr>
+            </thead>
+            <thead>
               <tr>
-                <th className={classes.columnHeadCell}></th>
-                <th className={classes.columnHeadCell}>Date</th>
-                <th className={classes.columnHeadCell}>Amount</th>
-                <th className={classes.columnHeadCell}>Page</th>
-                <th className={classes.columnHeadCell}>Line</th>
-                <th className={classes.columnHeadCell}>Description</th>
-                <th className={classes.columnHeadCell}>Reconciled</th>
+                <th className={classes.headCell}
+                  colSpan={colCount}
+                >
+                  Account Entries
+                </th>
+              </tr>
+              <tr>
+                <th className={classes.columnHeadCell} width="5%"></th>
+                <th className={classes.columnHeadCell} width="15%">Date</th>
+                <th className={classes.columnHeadCell} width="10%">Amount</th>
+                <th className={classes.columnHeadCell} width="5%">Page</th>
+                <th className={classes.columnHeadCell} width="5%">Line</th>
+                <th className={classes.columnHeadCell} width="55%">Description</th>
+                <th className={classes.columnHeadCell} width="5%">Reconciled</th>
               </tr>
             </thead>
             <tbody>

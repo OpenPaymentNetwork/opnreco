@@ -120,22 +120,22 @@ def statement_api(context, request):
         )
         .order_by(
             AccountEntry.entry_date,
-            AccountEntry.statement_page,
-            AccountEntry.statement_line,
+            AccountEntry.page,
+            AccountEntry.line,
             AccountEntry.id)
         .all())
     entries = [{
         'id': str(row.id),
         'peer_id': row.peer_id,
         'period_id': str(row.period_id),
-        'statement_page': row.statement_page,
-        'statement_line': row.statement_line,
+        'page': row.page,
+        'line': row.line,
         'entry_date': row.entry_date,
         'loop_id': row.loop_id,
         'currency': row.currency,
         'delta': row.delta,
         'description': row.description,
-        'reco_id': str(row.reco_id),
+        'reco_id': None if row.reco_id is None else str(row.reco_id),
     } for row in entry_rows]
 
     return {
