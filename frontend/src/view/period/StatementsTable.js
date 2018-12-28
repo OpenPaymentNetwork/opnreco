@@ -1,7 +1,6 @@
 
 import { binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
-import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
@@ -106,16 +105,7 @@ class StatementsTable extends React.Component {
               {statement.source}
             </td>
             <td className={classes.textCell}>
-              {statement.start_date ?
-                <FormattedDate value={statement.start_date}
-                  day="numeric" month="short" year="numeric"
-                  timeZone="UTC" /> : null}
-            </td>
-            <td className={classes.textCell}>
-              {statement.end_date ?
-                <FormattedDate value={statement.end_date}
-                  day="numeric" month="short" year="numeric"
-                  timeZone="UTC" /> : null}
+              {statement.filename}
             </td>
             <td className={classes.amountCell}>
               {statement.inc_count}
@@ -172,8 +162,7 @@ class StatementsTable extends React.Component {
             <tr>
               <th className={classes.columnHeadCell}>ID</th>
               <th className={classes.columnHeadCell}>Source</th>
-              <th className={classes.columnHeadCell}>Start Date</th>
-              <th className={classes.columnHeadCell}>End Date</th>
+              <th className={classes.columnHeadCell}>File Name</th>
               <th className={classes.columnHeadCell}>Increases</th>
               <th className={classes.columnHeadCell}>Increases Total</th>
               <th className={classes.columnHeadCell}>Decreases</th>

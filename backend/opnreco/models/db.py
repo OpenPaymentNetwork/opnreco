@@ -13,6 +13,7 @@ from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import func
 from sqlalchemy import Index
 from sqlalchemy import Integer
+from sqlalchemy import LargeBinary
 from sqlalchemy import Numeric
 from sqlalchemy import or_
 from sqlalchemy import String
@@ -443,10 +444,13 @@ class Statement(Base):
     period_id = Column(BigInteger, nullable=False, index=True)
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
-    start_date = Column(Date, nullable=True)
-    end_date = Column(Date, nullable=True)
     source = Column(Unicode, nullable=True)  # 'manual' or some external ID
-    pages = deferred(Column(JSONB, nullable=True))
+
+    # upload_ts, filename, content_type, and content are set on upload.
+    upload_ts = Column(DateTime, nullable=True)
+    filename = Column(Unicode, nullable=True)
+    content_type = Column(String, nullable=True)
+    content = deferred(Column(LargeBinary, nullable=True))
 
     __table_args__ = (
         ForeignKeyConstraint(

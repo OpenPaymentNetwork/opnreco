@@ -52,6 +52,7 @@ const styles = theme => ({
   root: {
     position: 'relative',
     width: '100%',
+    minWidth: '768px',
   },
   belowAppBar: {
     flexGrow: 1,

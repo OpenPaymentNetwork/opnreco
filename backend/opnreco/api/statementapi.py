@@ -4,7 +4,7 @@ from opnreco.models.db import AccountEntry
 from opnreco.models.db import now_func
 from opnreco.models.db import Statement
 from opnreco.models.site import PeriodResource
-from opnreco.serialize import serialize_period
+from opnreco.viewcommon import list_assignable_periods
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import case
@@ -35,8 +35,7 @@ def statements_api(context, request):
         dbsession.query(
             Statement.id,
             Statement.source,
-            Statement.start_date,
-            Statement.end_date,
+            Statement.filename,
             func.count(inc_case).label('inc_count'),
             func.count(dec_case).label('dec_count'),
             func.sum(inc_case).label('inc_total'),
@@ -51,15 +50,14 @@ def statements_api(context, request):
             Statement.period_id == period.id,
         )
         .group_by(Statement.id)
-        .order_by(Statement.source, Statement.start_date, Statement.id)
+        .order_by(Statement.source, Statement.upload_ts, Statement.id)
         .all()
     )
 
     statements = [{
         'id': str(row.id),
         'source': row.source,
-        'start_date': row.start_date,
-        'end_date': row.end_date,
+        'filename': row.filename,
         'inc_count': row.inc_count,
         'dec_count': row.dec_count,
         'inc_total': row.inc_total,
@@ -138,6 +136,10 @@ def statement_api(context, request):
         'reco_id': None if row.reco_id is None else str(row.reco_id),
     } for row in entry_rows]
 
+    # periods is the list of periods the statement can be assigned to.
+    periods = list_assignable_periods(
+        dbsession=dbsession, owner_id=owner_id, period=period)
+
     return {
         'statement': {
             'id': str(statement.id),
@@ -146,10 +148,11 @@ def statement_api(context, request):
             'period_id': str(statement.period_id),
             'loop_id': statement.loop_id,
             'currency': statement.currency,
-            'start_date': statement.start_date,
-            'end_date': statement.end_date,
             'source': statement.source,
+            'upload_ts': statement.upload_ts,
+            'filename': statement.filename,
+            'content_type': statement.content_type,
         },
         'entries': entries,
-        'period': serialize_period(context.period),
+        'periods': periods,
     }

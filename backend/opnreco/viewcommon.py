@@ -530,3 +530,30 @@ def add_open_period(
         }))
 
     return period
+
+
+def list_assignable_periods(dbsession, owner_id, period):
+    """List the periods that a reco or statement can be assigned to."""
+    if period.closed:
+        # The item is readonly, so don't bother showing other periods.
+        period_rows = [period]
+    else:
+        # The item is editable, so show all open periods.
+        period_rows = (
+            dbsession.query(Period)
+            .filter(
+                Period.owner_id == owner_id,
+                Period.peer_id == period.peer_id,
+                Period.currency == period.currency,
+                Period.loop_id == period.loop_id,
+                ~Period.closed,
+            )
+            .order_by(Period.start_date.desc())
+            .all())
+
+    return [{
+        'id': str(p.id),
+        'start_date': p.start_date,
+        'end_date': p.end_date,
+        'closed': p.closed,
+    } for p in period_rows]

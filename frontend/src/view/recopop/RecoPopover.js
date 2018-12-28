@@ -5,8 +5,6 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
-import { injectIntl, intlShape } from 'react-intl';
-import { renderPeriodDateString } from '../../util/reportrender';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
 import AccountEntryTableBody from './AccountEntryTableBody';
@@ -20,6 +18,7 @@ import FormControl from '@material-ui/core/FormControl';
 import IconButton from '@material-ui/core/IconButton';
 import MenuItem from '@material-ui/core/MenuItem';
 import MovementTableBody from './MovementTableBody';
+import PeriodAssignSelect from '../period/PeriodAssignSelect';
 import Popover from '@material-ui/core/Popover';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -102,7 +101,6 @@ class RecoPopover extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     closeDialog: PropTypes.func.isRequired,
-    intl: intlShape.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
     periods: PropTypes.array,
@@ -513,7 +511,6 @@ class RecoPopover extends React.Component {
       classes,
       open,
       anchorEl,
-      intl,
       recoId,
       recoURL,
       recoFinalURL,
@@ -584,20 +581,14 @@ class RecoPopover extends React.Component {
               <InputLabel shrink htmlFor="reco_period_id">
                 Period
               </InputLabel>
-              <Select
+              <PeriodAssignSelect
                 id="reco_period_id"
                 name="period_id"
                 value={reco ? reco.period_id : ''}
                 displayEmpty
                 onChange={this.binder(this.handlePeriodChange)}
-              >
-                {(periods || []).map(period => (
-                  <MenuItem key={period.id} value={period.id}>
-                    {renderPeriodDateString(period, intl)}
-                    {period.closed ? ' (closed)' : ''}
-                  </MenuItem>
-                ))}
-              </Select>
+                periods={periods}
+              />
             </FormControl>
           </div>
 
@@ -742,6 +733,5 @@ function mapStateToProps(state, ownProps) {
 
 export default compose(
   withStyles(styles, {withTheme: true}),
-  injectIntl,
   connect(mapStateToProps),
 )(RecoPopover);

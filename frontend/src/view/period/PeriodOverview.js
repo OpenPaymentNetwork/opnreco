@@ -13,12 +13,15 @@ import Checkbox from '@material-ui/core/Checkbox';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
+import Lock from '@material-ui/icons/Lock';
+import LockOpen from '@material-ui/icons/LockOpen';
 import Paper from '@material-ui/core/Paper';
 import PeriodSummary from './PeriodSummary';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
 import TextField from '@material-ui/core/TextField';
+import Typography from '@material-ui/core/Typography';
 
 
 const tableWidth = '800px';
@@ -51,6 +54,16 @@ const styles = {
     padding: '4px 8px',
     fontWeight: 'normal',
     backgroundColor: '#ddd',
+  },
+  lockLine: {
+    position: 'relative',
+    paddingLeft: '32px',
+    lineHeight: '24px',
+  },
+  lockIcon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
 };
 
@@ -210,6 +223,20 @@ class PeriodOverview extends React.Component {
     return (
       <Paper className={classes.paperContent}>
         <form className={classes.form} noValidate>
+          <FormGroup row>
+            <Typography variant="body1" className={classes.lockLine}>
+              {closed ?
+                <div>
+                  <Lock className={classes.lockIcon} /> This
+                  period is closed.
+                </div> :
+                <div>
+                  <LockOpen className={classes.lockIcon} /> This
+                  period is open.
+                </div>
+              }
+            </Typography>
+          </FormGroup>
           <FormGroup row>
 
             <TextField

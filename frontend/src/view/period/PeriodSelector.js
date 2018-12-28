@@ -4,6 +4,8 @@ import { injectIntl, intlShape } from 'react-intl';
 import { renderPeriodDateString } from '../../util/reportrender';
 import { withStyles } from '@material-ui/core/styles';
 import FormControl from '@material-ui/core/FormControl';
+import Lock from '@material-ui/icons/Lock';
+import LockOpen from '@material-ui/icons/LockOpen';
 import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -26,6 +28,19 @@ const styles = {
   },
   selectRoot: {
     fontSize: '0.9rem',
+  },
+  periodMenuItem: {
+    paddingLeft: '24px',
+    position: 'relative',
+    height: '16px',
+    lineHeight: '16px',
+  },
+  selectIcon: {
+    width: '16px',
+    height: '16px',
+    position: 'absolute',
+    left: '0',
+    top: '0',
   },
 };
 
@@ -122,16 +137,32 @@ class PeriodSelector extends React.Component {
 
   renderPeriodSelections() {
     const {
+      classes,
       ploop,
       intl,
     } = this.props;
 
     if (ploop && ploop.period_order && ploop.period_order.length) {
+      const periodMenuItem = classes.periodMenuItem;
+      const selectIcon = classes.selectIcon;
       const res = ploop.period_order.map(periodId => {
         const period = ploop.periods[periodId];
+        if (!period) {
+          return null;
+        }
         return (
           <MenuItem value={periodId} key={periodId}>
-            {period ? renderPeriodDateString(period, intl) : null}
+            <div className={periodMenuItem}>
+              {period.closed ?
+                <span title="Closed Period">
+                  <Lock className={selectIcon} />
+                </span> :
+                <span title="Open Period">
+                  <LockOpen className={selectIcon} />
+                </span>
+              }
+              {renderPeriodDateString(period, intl)}
+            </div>
           </MenuItem>);
       });
       res.push(

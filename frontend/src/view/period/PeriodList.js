@@ -8,8 +8,8 @@ import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
-import CheckBox from '@material-ui/icons/CheckBox';
-import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
+import Lock from '@material-ui/icons/Lock';
+import LockOpen from '@material-ui/icons/LockOpen';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import LayoutConfig from '../app/LayoutConfig';
 import OPNAppBar from '../app/OPNAppBar';
@@ -250,8 +250,8 @@ class PeriodList extends React.Component {
               onClick={this.binder1(this.handleClickAnchor, closedPath)}
             >
               {period.closed ?
-                <CheckBox className={cIcon}/> :
-                <CheckBoxOutlineBlank className={cIcon} />}
+                <span title="Closed"><Lock className={cIcon}/></span> :
+                <span title="Open"><LockOpen className={cIcon} /></span>}
             </a>
           </td>
         </tr>

@@ -22,6 +22,7 @@ from opnreco.models.db import TransferRecord
 from opnreco.models.site import PeriodResource
 from opnreco.param import parse_amount
 from opnreco.viewcommon import get_loop_map
+from opnreco.viewcommon import list_assignable_periods
 from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
@@ -210,30 +211,9 @@ def reco_api(context, request, final=False):
         need_loop_ids=need_loop_ids,
         final=final)
 
-    if period.closed:
-        # The reco is readonly, so don't bother showing other periods.
-        period_rows = [period]
-    else:
-        # The reco is editable, so show all open periods.
-        period_rows = (
-            dbsession.query(Period)
-            .filter(
-                Period.owner_id == owner_id,
-                Period.peer_id == period.peer_id,
-                Period.currency == period.currency,
-                Period.loop_id == period.loop_id,
-                ~Period.closed,
-            )
-            .order_by(Period.start_date.desc())
-            .all())
-
-    # periods is the list of periods the reco can belong to.
-    periods = [{
-        'id': str(p.id),
-        'start_date': p.start_date,
-        'end_date': p.end_date,
-        'closed': p.closed,
-    } for p in period_rows]
+    # periods is the list of periods the reco can be assigned to.
+    periods = list_assignable_periods(
+        dbsession=dbsession, owner_id=owner_id, period=period)
 
     return {
         'reco': {
@@ -241,7 +221,7 @@ def reco_api(context, request, final=False):
             'comment': comment,
             'movements': movements_json,
             'account_entries': account_entries_json,
-            'period_id': period.id,
+            'period_id': str(period.id),
         },
         'loops': loops,
         'show_vault': show_vault,

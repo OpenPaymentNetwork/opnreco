@@ -1,5 +1,5 @@
 
-import { binder } from '../../util/binder';
+import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -10,13 +10,17 @@ import { setStatementId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import IconButton from '@material-ui/core/IconButton';
+import FormControl from '@material-ui/core/FormControl';
+import FormGroup from '@material-ui/core/FormGroup';
+import Input from '@material-ui/core/Input';
+import InputLabel from '@material-ui/core/InputLabel';
 import Paper from '@material-ui/core/Paper';
-import RecoCheckBox from '../report/RecoCheckBox';
-import StatementsTable from './StatementsTable';
+import PeriodAssignSelect from './PeriodAssignSelect';
 import PropTypes from 'prop-types';
 import React from 'react';
+import RecoCheckBox from '../report/RecoCheckBox';
 import Require from '../../util/Require';
+import StatementsTable from './StatementsTable';
 import Typography from '@material-ui/core/Typography';
 
 
@@ -25,6 +29,7 @@ const tableWidth = '800px';
 const styles = {
   root: {
     fontSize: '0.9rem',
+    padding: '0 16px',
   },
   tablePaper: {
     maxWidth: tableWidth,
@@ -43,6 +48,24 @@ const styles = {
     backgroundColor: '#ddd',
     border: '1px solid #bbb',
   },
+  formCell: {
+    padding: '4px 8px',
+    fontWeight: 'normal',
+    border: '1px solid #bbb',
+  },
+  statementForm: {
+    padding: '16px 0',
+  },
+  formLine: {
+    display: 'flex',
+    justifyContent: 'space-between',
+  },
+  sourceControl: {
+    minWidth: '250px',
+  },
+  periodControl: {
+    marginLeft: '16px',
+  },
   amountCell: {
     textAlign: 'right',
     padding: '4px 8px',
@@ -51,11 +74,6 @@ const styles = {
   textCell: {
     textAlign: 'left',
     padding: '4px 8px',
-    border: '1px solid #bbb',
-  },
-  iconCell: {
-    textAlign: 'center',
-    padding: '0',
     border: '1px solid #bbb',
   },
   checkboxCell: {
@@ -94,6 +112,11 @@ class StatementView extends React.Component {
   constructor(props) {
     super(props);
     this.binder = binder(this);
+    this.binder1 = binder1(this);
+    this.state = {
+      editingEntries: {},  // accountEntryId: true
+      form: {},
+    };
   }
 
   componentDidMount() {
@@ -101,6 +124,7 @@ class StatementView extends React.Component {
     if (statementId) {
       this.props.dispatch(setStatementId(statementId, period.id));
     }
+    this.initForm();
   }
 
   componentDidUpdate(prevProps) {
@@ -108,44 +132,87 @@ class StatementView extends React.Component {
     if (statementId && statementId !== prevProps.statementId) {
       this.props.dispatch(setStatementId(statementId, period.id));
     }
+    this.initForm();
   }
 
-  renderEntry(entry, cfmt) {
+  initForm() {
+    const {
+      statementId,
+      record,
+    } = this.props;
+
+    if (!statementId || !record) {
+      // The statement is not yet available.
+      return;
+    }
+
+    if (statementId === this.state.initializedForStatementId) {
+      // Already initialized.
+      return;
+    }
+
+    this.setState({
+      form: record.statement,
+      initializedForStatementId: statementId,
+    });
+  }
+
+  handleFormChange(fieldName, event) {
+    this.setState({
+      form: {
+        ...this.state.form,
+        [fieldName]: event.target.value,
+      }
+    });
+  }
+
+  renderStatementForm() {
     const {
       classes,
       period,
-      dispatch,
+      record,
     } = this.props;
 
+    const {
+      form,
+    } = this.state;
+
+    const disabled = period.closed;
+
     return (
-      <tr key={entry.id}>
-        <td className={classes.iconCell}>
-        </td>
-        <td className={classes.textCell}>
-          <FormattedDate value={entry.entry_date}
-            day="numeric" month="short" year="numeric"
-            timeZone="UTC" />
-        </td>
-        <td className={classes.amountCell}>
-          {cfmt(entry.delta)}
-        </td>
-        <td className={classes.amountCell}>
-          {entry.page}
-        </td>
-        <td className={classes.amountCell}>
-          {entry.line}
-        </td>
-        <td className={classes.textCell}>
-          {entry.description}
-        </td>
-        <td className={classes.checkboxCell}>
-          <RecoCheckBox
-            periodId={period.id}
-            recoId={entry.reco_id}
-            accountEntryId={entry.id}
-            dispatch={dispatch} />
-        </td>
-      </tr>);
+      <div className={classes.statementForm}>
+        <FormGroup row className={classes.formLine}>
+          <FormControl className={classes.sourceControl} disabled={disabled}>
+            <InputLabel shrink htmlFor="statement_source">
+              Source
+            </InputLabel>
+            <Input
+              name="source"
+              id="statement_source"
+              value={form.source || ''}
+              onChange={this.binder1(this.handleFormChange, 'source')}
+            />
+          </FormControl>
+
+          <FormControl className={classes.periodControl} disabled={disabled}>
+            <InputLabel shrink htmlFor="statement_period_id">
+              Period
+            </InputLabel>
+            <PeriodAssignSelect
+              id="statement_period_id"
+              name="period_id"
+              value={form.period_id || ''}
+              displayEmpty
+              onChange={this.binder1(this.handleFormChange, 'period_id')}
+              periods={record.periods}
+            />
+          </FormControl>
+
+        </FormGroup>
+        <FormGroup row>
+        </FormGroup>
+      </div>
+    );
   }
 
   renderStatement() {
@@ -187,7 +254,7 @@ class StatementView extends React.Component {
     }
 
     const rows = [];
-    const colCount = 7;
+    const colCount = 6;
 
     const cfmt = new getCurrencyFormatter(record.statement.currency);
 
@@ -195,9 +262,11 @@ class StatementView extends React.Component {
       rows.push(this.renderEntry(entry, cfmt));
     }
 
+    const form = this.renderStatementForm();
+
     return (
       <Paper className={classes.tablePaper}>
-        <Typography className={classes.root} component="div">
+        <Typography component="div">
           <table className={classes.table}>
             <thead>
               <tr>
@@ -208,6 +277,13 @@ class StatementView extends React.Component {
                 </th>
               </tr>
             </thead>
+            <tbody>
+              <tr>
+                <td colSpan={colCount} className={classes.formCell}>
+                  {form}
+                </td>
+              </tr>
+            </tbody>
             <thead>
               <tr>
                 <th className={classes.headCell}
@@ -217,13 +293,24 @@ class StatementView extends React.Component {
                 </th>
               </tr>
               <tr>
-                <th className={classes.columnHeadCell} width="5%"></th>
-                <th className={classes.columnHeadCell} width="15%">Date</th>
-                <th className={classes.columnHeadCell} width="10%">Amount</th>
-                <th className={classes.columnHeadCell} width="5%">Page</th>
-                <th className={classes.columnHeadCell} width="5%">Line</th>
-                <th className={classes.columnHeadCell} width="55%">Description</th>
-                <th className={classes.columnHeadCell} width="5%">Reconciled</th>
+                <th className={classes.columnHeadCell} width="15%">
+                  Date
+                </th>
+                <th className={classes.columnHeadCell} width="10%">
+                  Amount
+                </th>
+                <th className={classes.columnHeadCell} width="5%">
+                  Page
+                </th>
+                <th className={classes.columnHeadCell} width="5%">
+                  Line
+                </th>
+                <th className={classes.columnHeadCell} width="60%">
+                  Description
+                </th>
+                <th className={classes.columnHeadCell} width="5%">
+                  Reconciled
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -233,6 +320,42 @@ class StatementView extends React.Component {
         </Typography>
       </Paper>
     );
+  }
+
+  renderEntry(entry, cfmt) {
+    const {
+      classes,
+      period,
+      dispatch,
+    } = this.props;
+
+    return (
+      <tr key={entry.id}>
+        <td className={classes.textCell}>
+          <FormattedDate value={entry.entry_date}
+            day="numeric" month="short" year="numeric"
+            timeZone="UTC" />
+        </td>
+        <td className={classes.amountCell}>
+          {cfmt(entry.delta)}
+        </td>
+        <td className={classes.amountCell}>
+          {entry.page}
+        </td>
+        <td className={classes.amountCell}>
+          {entry.line}
+        </td>
+        <td className={classes.textCell}>
+          {entry.description}
+        </td>
+        <td className={classes.checkboxCell}>
+          <RecoCheckBox
+            periodId={period.id}
+            recoId={entry.reco_id}
+            accountEntryId={entry.id}
+            dispatch={dispatch} />
+        </td>
+      </tr>);
   }
 
   render() {
