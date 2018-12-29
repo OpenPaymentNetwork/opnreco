@@ -4,22 +4,16 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { FormattedDate } from 'react-intl';
-import { getCurrencyFormatter } from '../../util/currency';
 import { setStatementId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import AccountEntryTableContent from './AccountEntryTableContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import FormControl from '@material-ui/core/FormControl';
-import FormGroup from '@material-ui/core/FormGroup';
-import Input from '@material-ui/core/Input';
-import InputLabel from '@material-ui/core/InputLabel';
 import Paper from '@material-ui/core/Paper';
-import PeriodAssignSelect from './PeriodAssignSelect';
 import PropTypes from 'prop-types';
 import React from 'react';
-import RecoCheckBox from '../report/RecoCheckBox';
 import Require from '../../util/Require';
+import StatementForm from './StatementForm';
 import StatementsTable from './StatementsTable';
 import Typography from '@material-ui/core/Typography';
 
@@ -66,30 +60,6 @@ const styles = {
   periodControl: {
     marginLeft: '16px',
   },
-  amountCell: {
-    textAlign: 'right',
-    padding: '4px 8px',
-    border: '1px solid #bbb',
-  },
-  textCell: {
-    textAlign: 'left',
-    padding: '4px 8px',
-    border: '1px solid #bbb',
-  },
-  checkboxCell: {
-    textAlign: 'center',
-    padding: '0',
-    border: '1px solid #bbb',
-  },
-  columnHeadCell: {
-    fontWeight: 'normal',
-    textAlign: 'left',
-    padding: '4px 8px',
-    border: '1px solid #bbb',
-  },
-  iconButton: {
-    padding: '2px',
-  },
 };
 
 
@@ -113,10 +83,6 @@ class StatementView extends React.Component {
     super(props);
     this.binder = binder(this);
     this.binder1 = binder1(this);
-    this.state = {
-      editingEntries: {},  // accountEntryId: true
-      form: {},
-    };
   }
 
   componentDidMount() {
@@ -124,7 +90,6 @@ class StatementView extends React.Component {
     if (statementId) {
       this.props.dispatch(setStatementId(statementId, period.id));
     }
-    this.initForm();
   }
 
   componentDidUpdate(prevProps) {
@@ -132,94 +97,15 @@ class StatementView extends React.Component {
     if (statementId && statementId !== prevProps.statementId) {
       this.props.dispatch(setStatementId(statementId, period.id));
     }
-    this.initForm();
-  }
-
-  initForm() {
-    const {
-      statementId,
-      record,
-    } = this.props;
-
-    if (!statementId || !record) {
-      // The statement is not yet available.
-      return;
-    }
-
-    if (statementId === this.state.initializedForStatementId) {
-      // Already initialized.
-      return;
-    }
-
-    this.setState({
-      form: record.statement,
-      initializedForStatementId: statementId,
-    });
-  }
-
-  handleFormChange(fieldName, event) {
-    this.setState({
-      form: {
-        ...this.state.form,
-        [fieldName]: event.target.value,
-      }
-    });
-  }
-
-  renderStatementForm() {
-    const {
-      classes,
-      period,
-      record,
-    } = this.props;
-
-    const {
-      form,
-    } = this.state;
-
-    const disabled = period.closed;
-
-    return (
-      <div className={classes.statementForm}>
-        <FormGroup row className={classes.formLine}>
-          <FormControl className={classes.sourceControl} disabled={disabled}>
-            <InputLabel shrink htmlFor="statement_source">
-              Source
-            </InputLabel>
-            <Input
-              name="source"
-              id="statement_source"
-              value={form.source || ''}
-              onChange={this.binder1(this.handleFormChange, 'source')}
-            />
-          </FormControl>
-
-          <FormControl className={classes.periodControl} disabled={disabled}>
-            <InputLabel shrink htmlFor="statement_period_id">
-              Period
-            </InputLabel>
-            <PeriodAssignSelect
-              id="statement_period_id"
-              name="period_id"
-              value={form.period_id || ''}
-              displayEmpty
-              onChange={this.binder1(this.handleFormChange, 'period_id')}
-              periods={record.periods}
-            />
-          </FormControl>
-
-        </FormGroup>
-        <FormGroup row>
-        </FormGroup>
-      </div>
-    );
   }
 
   renderStatement() {
     const {
       classes,
+      dispatch,
       loading,
       loadError,
+      period,
       record,
       statementId,
     } = this.props;
@@ -253,16 +139,7 @@ class StatementView extends React.Component {
       );
     }
 
-    const rows = [];
     const colCount = 6;
-
-    const cfmt = new getCurrencyFormatter(record.statement.currency);
-
-    for (const entry of record.entries) {
-      rows.push(this.renderEntry(entry, cfmt));
-    }
-
-    const form = this.renderStatementForm();
 
     return (
       <Paper className={classes.tablePaper}>
@@ -280,82 +157,23 @@ class StatementView extends React.Component {
             <tbody>
               <tr>
                 <td colSpan={colCount} className={classes.formCell}>
-                  {form}
+                  <StatementForm
+                    period={period}
+                    periods={record.periods}
+                    statement={record.statement} />
                 </td>
               </tr>
             </tbody>
-            <thead>
-              <tr>
-                <th className={classes.headCell}
-                  colSpan={colCount}
-                >
-                  Account Entries
-                </th>
-              </tr>
-              <tr>
-                <th className={classes.columnHeadCell} width="15%">
-                  Date
-                </th>
-                <th className={classes.columnHeadCell} width="10%">
-                  Amount
-                </th>
-                <th className={classes.columnHeadCell} width="5%">
-                  Page
-                </th>
-                <th className={classes.columnHeadCell} width="5%">
-                  Line
-                </th>
-                <th className={classes.columnHeadCell} width="60%">
-                  Description
-                </th>
-                <th className={classes.columnHeadCell} width="5%">
-                  Reconciled
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows}
-            </tbody>
+            <AccountEntryTableContent
+              dispatch={dispatch}
+              period={period}
+              statement={record.statement}
+              entries={record.entries}
+            />
           </table>
         </Typography>
       </Paper>
     );
-  }
-
-  renderEntry(entry, cfmt) {
-    const {
-      classes,
-      period,
-      dispatch,
-    } = this.props;
-
-    return (
-      <tr key={entry.id}>
-        <td className={classes.textCell}>
-          <FormattedDate value={entry.entry_date}
-            day="numeric" month="short" year="numeric"
-            timeZone="UTC" />
-        </td>
-        <td className={classes.amountCell}>
-          {cfmt(entry.delta)}
-        </td>
-        <td className={classes.amountCell}>
-          {entry.page}
-        </td>
-        <td className={classes.amountCell}>
-          {entry.line}
-        </td>
-        <td className={classes.textCell}>
-          {entry.description}
-        </td>
-        <td className={classes.checkboxCell}>
-          <RecoCheckBox
-            periodId={period.id}
-            recoId={entry.reco_id}
-            accountEntryId={entry.id}
-            dispatch={dispatch} />
-        </td>
-      </tr>);
   }
 
   render() {
