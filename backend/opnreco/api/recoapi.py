@@ -694,7 +694,7 @@ class RecoSave:
                 Statement.currency == period.currency,
                 Statement.source == 'manual',
             )
-            .order_by(Statement.start_date.desc(), Statement.id.desc())
+            .order_by(Statement.id.desc())
             .first()
         )
 
