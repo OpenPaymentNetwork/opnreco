@@ -161,7 +161,8 @@ class StatementView extends React.Component {
                     dispatch={dispatch}
                     period={period}
                     periods={record.periods}
-                    statement={record.statement} />
+                    statement={record.statement}
+                    deleteConflicts={record.delete_conflicts} />
                 </td>
               </tr>
             </tbody>

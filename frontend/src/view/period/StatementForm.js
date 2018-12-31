@@ -15,6 +15,7 @@ import InputLabel from '@material-ui/core/InputLabel';
 import PeriodAssignSelect from './PeriodAssignSelect';
 import PropTypes from 'prop-types';
 import React from 'react';
+import StatementDeleteDialog from './StatementDeleteDialog';
 
 
 const styles = {
@@ -48,6 +49,7 @@ class StatementForm extends React.Component {
     period: PropTypes.object.isRequired,
     periods: PropTypes.array.isRequired,
     statement: PropTypes.object.isRequired,
+    deleteConflicts: PropTypes.number.isRequired,
   };
 
   constructor(props) {
@@ -133,6 +135,7 @@ class StatementForm extends React.Component {
   }
 
   handleCancel() {
+    // Cancel the user's changes to the form.
     const {statement} = this.props;
     this.setState({
       form: statement,
@@ -141,11 +144,21 @@ class StatementForm extends React.Component {
   }
 
   handleDelete() {
+    this.setState({deleteExists: true, deleteShown: true});
+  }
+
+  handleDeleteCancel() {
+    this.setState({deleteShown: false});
+  }
+
+  handleDeleteConfirmed() {
+    this.setState({deleteShown: false});
   }
 
   render() {
     const {
       classes,
+      deleteConflicts,
       period,
       periods,
       statement,
@@ -154,6 +167,8 @@ class StatementForm extends React.Component {
     const {
       form,
       saving,
+      deleteExists,
+      deleteShown,
     } = this.state;
 
     const {closed} = period;
@@ -167,8 +182,22 @@ class StatementForm extends React.Component {
       }
     }
 
+    let deleteDialog = null;
+    if (deleteExists) {
+      deleteDialog = (
+        <StatementDeleteDialog
+          statementId={statement.id}
+          deleteConflicts={deleteConflicts}
+          onCancel={this.binder(this.handleDeleteCancel)}
+          onDelete={this.binder(this.handleDeleteConfirmed)}
+          open={deleteShown}
+        />);
+    }
+
     return (
       <div className={classes.root}>
+        {deleteDialog}
+
         <FormGroup row className={classes.formLine}>
           <FormControl className={classes.sourceControl} disabled={closed}>
             <InputLabel shrink htmlFor="statement_source">

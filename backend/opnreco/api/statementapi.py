@@ -158,10 +158,22 @@ def statement_api(context, request):
     periods = list_assignable_periods(
         dbsession=dbsession, owner_id=owner_id, period=period)
 
+    # Prevent statement deletion if any of the contained account entries
+    # belong to a closed period.
+    delete_conflicts = (
+        dbsession.query(func.count(1))
+        .select_from(AccountEntry)
+        .join(Period, Period.id == AccountEntry.period_id)
+        .filter(
+            AccountEntry.statement_id == statement.id,
+            Period.closed)
+        .scalar())
+
     return {
         'statement': serialize_statement(statement),
         'entries': entries,
         'periods': periods,
+        'delete_conflicts': delete_conflicts,
     }
 
 

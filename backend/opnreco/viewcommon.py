@@ -441,6 +441,9 @@ def get_period_for_day(period_list, day, default='in_progress'):
     """
     default_period = None
 
+    if day is None:
+        return default_period
+
     for p in period_list:
         start_date = p.start_date
         end_date = p.end_date
