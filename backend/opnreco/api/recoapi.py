@@ -827,6 +827,7 @@ class RecoSave:
         return res
 
     def check_period_id(self):
+        """Raise HTTPBadRequest if the period specified is not valid."""
         old_period = self.period
         new_period_id = self.params['reco']['period_id']
         if new_period_id is None or new_period_id == old_period.id:

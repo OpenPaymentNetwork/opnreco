@@ -43,7 +43,7 @@ const styles = {
     border: '1px solid #bbb',
   },
   formCell: {
-    padding: '4px 8px',
+    padding: '4px 16px',
     fontWeight: 'normal',
     border: '1px solid #bbb',
   },
@@ -158,6 +158,7 @@ class StatementView extends React.Component {
               <tr>
                 <td colSpan={colCount} className={classes.formCell}>
                   <StatementForm
+                    dispatch={dispatch}
                     period={period}
                     periods={record.periods}
                     statement={record.statement} />

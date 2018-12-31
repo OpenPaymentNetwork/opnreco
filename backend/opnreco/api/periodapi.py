@@ -234,7 +234,7 @@ def period_state_api(context, request):
     return res
 
 
-class CurrencyInput(colander.SchemaType):
+class AmountInput(colander.SchemaType):
     def serialize(self, node, appstruct):
         if appstruct is colander.null:
             return colander.null
@@ -255,8 +255,8 @@ class CurrencyInput(colander.SchemaType):
 class PeriodSaveSchema(colander.Schema):
     start_date = colander.SchemaNode(colander.Date(), missing=None)
     end_date = colander.SchemaNode(colander.Date(), missing=None)
-    start_circ = colander.SchemaNode(CurrencyInput())
-    start_surplus = colander.SchemaNode(CurrencyInput())
+    start_circ = colander.SchemaNode(AmountInput())
+    start_surplus = colander.SchemaNode(AmountInput())
     pull = colander.SchemaNode(colander.Boolean(), missing=False)
     close = colander.SchemaNode(colander.Boolean(), missing=False)
 

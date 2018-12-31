@@ -2,6 +2,8 @@
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import now_func
+from opnreco.models.db import OwnerLog
+from opnreco.models.db import Period
 from opnreco.models.db import Statement
 from opnreco.models.site import PeriodResource
 from opnreco.viewcommon import list_assignable_periods
@@ -9,6 +11,7 @@ from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import case
 from sqlalchemy import func
+import colander
 import logging
 
 log = logging.getLogger(__name__)
@@ -69,6 +72,21 @@ def statements_api(context, request):
     return {
         'now': now,
         'statements': statements,
+    }
+
+
+def serialize_statement(statement):
+    return {
+        'id': str(statement.id),
+        'owner_id': statement.owner_id,
+        'peer_id': statement.peer_id,
+        'period_id': str(statement.period_id),
+        'loop_id': statement.loop_id,
+        'currency': statement.currency,
+        'source': statement.source,
+        'upload_ts': statement.upload_ts,
+        'filename': statement.filename,
+        'content_type': statement.content_type,
     }
 
 
@@ -141,18 +159,100 @@ def statement_api(context, request):
         dbsession=dbsession, owner_id=owner_id, period=period)
 
     return {
-        'statement': {
-            'id': str(statement.id),
-            'owner_id': statement.owner_id,
-            'peer_id': statement.peer_id,
-            'period_id': str(statement.period_id),
-            'loop_id': statement.loop_id,
-            'currency': statement.currency,
-            'source': statement.source,
-            'upload_ts': statement.upload_ts,
-            'filename': statement.filename,
-            'content_type': statement.content_type,
-        },
+        'statement': serialize_statement(statement),
         'entries': entries,
         'periods': periods,
+    }
+
+
+class StatementSaveSchema(colander.Schema):
+    id = colander.SchemaNode(colander.Integer())
+    source = colander.SchemaNode(
+        colander.String(),
+        missing='',
+        validator=colander.Length(max=100))
+    period_id = colander.SchemaNode(colander.Integer(), missing=None)
+
+
+@view_config(
+    name='statement-save',
+    context=PeriodResource,
+    permission=perms.edit_period,
+    renderer='json')
+def statement_save(context, request):
+    """Save changes to a statement."""
+    period = context.period
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    schema = StatementSaveSchema()
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        raise HTTPBadRequest(json_body={
+            'error': 'invalid',
+            'error_description': '; '.join(
+                "%s (%s)" % (v, k)
+                for (k, v) in sorted(e.asdict().items())),
+        })
+
+    statement = (
+        dbsession.query(Statement)
+        .filter(
+            Statement.owner_id == owner_id,
+            Statement.id == appstruct['id'],
+            Statement.peer_id == period.peer_id,
+            Statement.currency == period.currency,
+            Statement.loop_id == period.loop_id,
+        )
+        .first())
+
+    if statement is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_not_found',
+            'error_description': (
+                "Statement %s not found." % appstruct['id']),
+        })
+
+    new_period = None
+    if statement.period_id != appstruct['period_id']:
+        new_period = (
+            dbsession.query(Period)
+            .filter(
+                Period.owner_id == owner_id,
+                Period.peer_id == period.peer_id,
+                Period.currency == period.currency,
+                Period.loop_id == period.loop_id,
+                ~Period.closed,
+                Period.id == appstruct['period_id'],
+            )
+            .first())
+        if new_period is None:
+            raise HTTPBadRequest(json_body={
+                'error': 'invalid_period_id',
+                'error_description': (
+                    "The selected period is closed or not available."),
+            })
+
+    changes = {}
+
+    if statement.source != appstruct['source']:
+        changes['source'] = appstruct['source']
+        statement.source = appstruct['source']
+
+    if new_period is not None:
+        changes['period_id'] = appstruct['period_id']
+        statement.period_id = appstruct['period_id']
+
+    request.dbsession.add(OwnerLog(
+        owner_id=owner.id,
+        event_type='edit_statement',
+        remote_addr=request.remote_addr,
+        user_agent=request.user_agent,
+        content=appstruct,
+    ))
+
+    return {
+        'statement': serialize_statement(statement),
     }
