@@ -635,7 +635,7 @@ class AccountEntryReassignOp:
 
 
 def push_unreco(request, period, op):
-    """Push unreconciled movements or entries to the next open period.
+    """Push unreconciled movements or entries to other open periods.
 
     Create a new period if necessary.
 
