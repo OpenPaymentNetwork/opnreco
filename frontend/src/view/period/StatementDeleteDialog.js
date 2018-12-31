@@ -73,6 +73,8 @@ class StatementDeleteDialog extends React.Component {
         <DialogContent>
           <DialogContentText>
             Are you sure you want to delete statement {statementId}?
+            All account entries in the statement will be deleted and
+            any associated reconciliations will be canceled.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
