@@ -4,6 +4,7 @@ import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
+import { setStatementId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -121,6 +122,7 @@ class StatementForm extends React.Component {
           `/period/${encodeURIComponent(newPeriodId)}/statement/` +
           encodeURIComponent(statement.id));
         dispatch(fetchcache.suspend());
+        dispatch(setStatementId(statement.id, newPeriodId));
         history.push(newPath);
         // Resume fetchcache.
         window.setTimeout(() => {
@@ -152,7 +154,33 @@ class StatementForm extends React.Component {
   }
 
   handleDeleteConfirmed() {
-    this.setState({deleteShown: false});
+    const {
+      dispatch,
+      period,
+      statement,
+      history,
+    } = this.props;
+
+    const encPeriodId = encodeURIComponent(period.id);
+    const url = fOPNReco.pathToURL(`/period/${encPeriodId}/statement-delete`);
+    const data = {
+      id: statement.id,
+    };
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({deleting: true});
+    promise.then(() => {
+      const newPath = `/period/${encPeriodId}/statement`;
+      dispatch(fetchcache.suspend());
+      dispatch(setStatementId(null, null));
+      history.push(newPath);
+      dispatch(clearMost());
+      // Resume fetchcache.
+      window.setTimeout(() => {
+        dispatch(fetchcache.resume());
+      }, 0);
+    }).catch(() => {
+      this.setState({deleting: false});
+    });
   }
 
   render() {
@@ -169,6 +197,7 @@ class StatementForm extends React.Component {
       saving,
       deleteExists,
       deleteShown,
+      deleting,
     } = this.state;
 
     const {closed} = period;
@@ -191,6 +220,7 @@ class StatementForm extends React.Component {
           onCancel={this.binder(this.handleDeleteCancel)}
           onDelete={this.binder(this.handleDeleteConfirmed)}
           open={deleteShown}
+          deleting={deleting}
         />);
     }
 

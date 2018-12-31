@@ -15,6 +15,7 @@ class StatementDeleteDialog extends React.Component {
     deleteConflicts: PropTypes.number.isRequired,
     onCancel: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
+    deleting: PropTypes.bool,
   };
 
   render() {
@@ -23,6 +24,7 @@ class StatementDeleteDialog extends React.Component {
       deleteConflicts,
       onCancel,
       onDelete,
+      deleting,
       ...otherProps
     } = this.props;
 
@@ -78,10 +80,10 @@ class StatementDeleteDialog extends React.Component {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCancel} color="primary">
+          <Button onClick={onCancel} color="primary" disabled={deleting}>
             Cancel
           </Button>
-          <Button onClick={onDelete} color="primary">
+          <Button onClick={onDelete} color="primary" disabled={deleting}>
             Delete
           </Button>
         </DialogActions>

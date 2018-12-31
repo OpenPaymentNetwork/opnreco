@@ -356,7 +356,9 @@ class Movement(Base):
         ),
         CheckConstraint(or_(
             reco_wallet_delta == wallet_delta,
-            reco_wallet_delta == 0
+            # reco_wallet_delta can be forced to zero only when the movement
+            # belongs to a reco.
+            and_(reco_wallet_delta == 0, reco_id != null)
         ), name='reco_wallet_delta'),
         {})
 
@@ -527,9 +529,11 @@ class AccountEntryLog(Base):
     __tablename__ = 'account_entry_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
+    # Note that there should not be a FK from this table to
+    # account_entry because account_entry rows can be deleted
+    # while account_entry_log rows stay for historical purposes.
     account_entry_id = Column(
-        BigInteger, ForeignKey('account_entry.id'),
-        nullable=False, index=True)
+        BigInteger, nullable=False, index=True)
     event_type = Column(String, nullable=False)
 
     # Mutable fields of AccountEntry
@@ -543,8 +547,6 @@ class AccountEntryLog(Base):
     description = Column(JSONB, nullable=False)
     reco_id = Column(BigInteger, nullable=True, index=True)
 
-    account_entry = relationship(AccountEntry)
-
 
 account_entry_log_ddl = DDL("""
 create or replace function account_entry_log_process() returns trigger
@@ -552,7 +554,8 @@ as $triggerbody$
 begin
     if (TG_OP = 'DELETE') then
         insert into account_entry_log (
-            account_entry_id, event_type,
+            account_entry_id,
+            event_type,
             period_id,
             statement_id,
             page,

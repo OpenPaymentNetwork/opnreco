@@ -1,6 +1,7 @@
 
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
+from opnreco.models.db import Movement
 from opnreco.models.db import now_func
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
@@ -90,6 +91,19 @@ def serialize_statement(statement):
     }
 
 
+def count_delete_conflicts(dbsession, statement):
+    """Count the number of entries in a statement that belong to closed period.
+    """
+    return (
+        dbsession.query(func.count(1))
+        .select_from(AccountEntry)
+        .join(Period, Period.id == AccountEntry.period_id)
+        .filter(
+            AccountEntry.statement_id == statement.id,
+            Period.closed)
+        .scalar())
+
+
 @view_config(
     name='statement',
     context=PeriodResource,
@@ -160,14 +174,8 @@ def statement_api(context, request):
 
     # Prevent statement deletion if any of the contained account entries
     # belong to a closed period.
-    delete_conflicts = (
-        dbsession.query(func.count(1))
-        .select_from(AccountEntry)
-        .join(Period, Period.id == AccountEntry.period_id)
-        .filter(
-            AccountEntry.statement_id == statement.id,
-            Period.closed)
-        .scalar())
+    delete_conflicts = count_delete_conflicts(
+        dbsession=dbsession, statement=statement)
 
     return {
         'statement': serialize_statement(statement),
@@ -268,3 +276,109 @@ def statement_save(context, request):
     return {
         'statement': serialize_statement(statement),
     }
+
+
+class StatementDeleteSchema(colander.Schema):
+    id = colander.SchemaNode(colander.Integer())
+
+
+@view_config(
+    name='statement-delete',
+    context=PeriodResource,
+    permission=perms.edit_period,
+    renderer='json')
+def statement_delete(context, request):
+    """Delete a statement and the contained account entries."""
+    period = context.period
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    schema = StatementDeleteSchema()
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        raise HTTPBadRequest(json_body={
+            'error': 'invalid',
+            'error_description': '; '.join(
+                "%s (%s)" % (v, k)
+                for (k, v) in sorted(e.asdict().items())),
+        })
+
+    statement = (
+        dbsession.query(Statement)
+        .filter(
+            Statement.owner_id == owner_id,
+            Statement.id == appstruct['id'],
+            Statement.peer_id == period.peer_id,
+            Statement.currency == period.currency,
+            Statement.loop_id == period.loop_id,
+        )
+        .first())
+
+    if statement is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_not_found',
+            'error_description': (
+                "Statement %s not found." % appstruct['id']),
+        })
+
+    delete_conflicts = count_delete_conflicts(
+        dbsession=dbsession, statement=statement)
+
+    if delete_conflicts:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_has_closed_entries',
+            'error_description': (
+                "The statement can not be deleted because some of the "
+                "entries belong to a closed period."),
+        })
+
+    # Indicate that entries are being deleted and movements are being
+    # changed because the statement is being deleted.
+    dbsession.query(
+        func.set_config(
+            'opnreco.movement.event_type', 'statement_delete', True),
+        func.set_config(
+            'opnreco.account_entry.event_type', 'statement_delete', True),
+    ).one()
+
+    # reco_ids represents the list of recos to empty.
+    reco_ids = (
+        dbsession.query(AccountEntry.reco_id)
+        .filter(
+            AccountEntry.statement_id == statement.id,
+        )
+        .distinct()
+        .subquery(name='reco_ids_subq'))
+
+    # Cancel the reco_id of movements reconciled with any entry
+    # in the statement.
+    (
+        dbsession.query(Movement)
+        .filter(
+            Movement.reco_id.in_(reco_ids),
+        )
+        .update({
+            'reco_id': None,
+            # Also reset the reco_wallet_delta for each movement.
+            'reco_wallet_delta': Movement.wallet_delta,
+        }, synchronize_session='fetch'))
+
+    # Delete the account entries, but leave the account entry logs.
+    (
+        dbsession.query(AccountEntry)
+        .filter(
+            AccountEntry.statement_id == statement.id,
+        )
+        .delete(synchronize_session='fetch'))
+
+    # Delete the statement.
+    (
+        dbsession.query(Statement)
+        .filter(
+            Statement.id == statement.id,
+        )
+        .delete(synchronize_session='fetch'))
+
+    return {}
