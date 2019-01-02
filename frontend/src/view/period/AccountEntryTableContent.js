@@ -16,12 +16,6 @@ import RecoCheckBox from '../report/RecoCheckBox';
 
 
 const styles = theme => ({
-  headCell: {
-    padding: '4px 8px',
-    fontWeight: 'normal',
-    backgroundColor: '#ddd',
-    border: '1px solid #bbb',
-  },
   numCell: {
     textAlign: 'right',
     padding: '4px 8px',
@@ -427,11 +421,6 @@ class AccountEntryTableContent extends React.Component {
     return (
       <React.Fragment>
         <thead>
-          <tr>
-            <th className={classes.headCell} colSpan="6">
-              Account Entries
-            </th>
-          </tr>
           <tr>
             <th className={classes.columnHeadCell} width="15%">
               Date
