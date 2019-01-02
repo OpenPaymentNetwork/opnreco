@@ -224,7 +224,9 @@ class PeriodOverview extends React.Component {
       <Paper className={classes.paperContent}>
         <form className={classes.form} noValidate>
           <FormGroup row>
-            <Typography variant="body1" className={classes.lockLine}>
+            <Typography variant="body1" className={classes.lockLine}
+              component="div"
+            >
               {closed ?
                 <div>
                   <Lock className={classes.lockIcon} /> This
