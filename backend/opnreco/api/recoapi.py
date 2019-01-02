@@ -20,6 +20,7 @@ from opnreco.models.db import Reco
 from opnreco.models.db import Statement
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import PeriodResource
+from opnreco.param import amount_re
 from opnreco.param import parse_amount
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import list_assignable_periods
@@ -486,10 +487,6 @@ class MovementSchema(Schema):
     id = SchemaNode(Integer())
 
 
-# \u2212 = true minus sign
-amount_re = re.compile(r'^[+\-\u2212]?[0-9.,]+$', re.UNICODE)
-
-
 class AccountEntrySchema(Schema):
     # Validate these fields only lightly. The code will do its own
     # parsing and validation.
@@ -501,13 +498,13 @@ class AccountEntrySchema(Schema):
         ColanderString(),
         missing='',
         validator=All(
-            Length(max=100),
+            Length(max=50),
             Regex(amount_re, msg="Invalid amount"),
         ))
     entry_date = SchemaNode(
         ColanderString(),
         missing='',
-        validator=Length(max=100))
+        validator=Length(max=50))
     description = SchemaNode(
         ColanderString(),
         missing='',

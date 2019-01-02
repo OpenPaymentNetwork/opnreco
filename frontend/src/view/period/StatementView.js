@@ -107,6 +107,7 @@ class StatementView extends React.Component {
       loadError,
       period,
       record,
+      recordURL,
       statementId,
     } = this.props;
 
@@ -169,8 +170,8 @@ class StatementView extends React.Component {
             <AccountEntryTableContent
               dispatch={dispatch}
               period={period}
-              statement={record.statement}
-              entries={record.entries}
+              record={record}
+              recordURL={recordURL}
             />
           </table>
         </Typography>

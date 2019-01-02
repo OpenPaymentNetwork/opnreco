@@ -7,12 +7,15 @@ from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Statement
 from opnreco.models.site import PeriodResource
+from opnreco.param import amount_re
+from opnreco.param import parse_amount
 from opnreco.viewcommon import list_assignable_periods
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import case
 from sqlalchemy import func
 import colander
+import dateutil
 import logging
 
 log = logging.getLogger(__name__)
@@ -91,6 +94,22 @@ def serialize_statement(statement):
     }
 
 
+def serialize_entry(entry):
+    return {
+        'id': str(entry.id),
+        'peer_id': entry.peer_id,
+        'period_id': str(entry.period_id),
+        'page': entry.page,
+        'line': entry.line,
+        'entry_date': entry.entry_date,
+        'loop_id': entry.loop_id,
+        'currency': entry.currency,
+        'delta': entry.delta,
+        'description': entry.description,
+        'reco_id': None if entry.reco_id is None else str(entry.reco_id),
+    }
+
+
 def count_delete_conflicts(dbsession, statement):
     """Count the number of entries in a statement that belong to closed period.
     """
@@ -154,19 +173,7 @@ def statement_api(context, request):
             AccountEntry.line,
             AccountEntry.id)
         .all())
-    entries = [{
-        'id': str(row.id),
-        'peer_id': row.peer_id,
-        'period_id': str(row.period_id),
-        'page': row.page,
-        'line': row.line,
-        'entry_date': row.entry_date,
-        'loop_id': row.loop_id,
-        'currency': row.currency,
-        'delta': row.delta,
-        'description': row.description,
-        'reco_id': None if row.reco_id is None else str(row.reco_id),
-    } for row in entry_rows]
+    entries = [serialize_entry(row) for row in entry_rows]
 
     # periods is the list of periods the statement can be assigned to.
     periods = list_assignable_periods(
@@ -382,3 +389,150 @@ def statement_delete(context, request):
         .delete(synchronize_session='fetch'))
 
     return {}
+
+
+class AccountEntryEditSchema(colander.Schema):
+    # Validate these fields only lightly. The code will do its own
+    # parsing and validation.
+    id = colander.SchemaNode(colander.Integer(), missing=None)
+    statement_id = colander.SchemaNode(colander.Integer())
+    delta = colander.SchemaNode(
+        colander.String(),
+        validator=colander.All(
+            colander.Length(max=50),
+            colander.Regex(amount_re, msg="Invalid amount"),
+        ))
+    entry_date = colander.SchemaNode(
+        colander.String(),
+        validator=colander.Length(max=50))
+    page = colander.SchemaNode(
+        colander.String(),
+        missing='',
+        validator=colander.Length(max=50))
+    line = colander.SchemaNode(
+        colander.String(),
+        missing='',
+        validator=colander.Length(max=50))
+    description = colander.SchemaNode(
+        colander.String(),
+        missing='',
+        validator=colander.Length(max=1000))
+
+
+@view_config(
+    name='entry-save',
+    context=PeriodResource,
+    permission=perms.edit_period,
+    renderer='json')
+def entry_save(context, request):
+    """Save changes to an account entry."""
+    period = context.period
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    schema = AccountEntryEditSchema()
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        raise HTTPBadRequest(json_body={
+            'error': 'invalid',
+            'error_description': '; '.join(
+                "%s (%s)" % (v, k)
+                for (k, v) in sorted(e.asdict().items())),
+        })
+
+    statement = (
+        dbsession.query(Statement)
+        .filter(
+            Statement.owner_id == owner_id,
+            Statement.peer_id == period.peer_id,
+            Statement.currency == period.currency,
+            Statement.loop_id == period.loop_id,
+            Statement.id == appstruct['statement_id'],
+        )
+        .first())
+    if statement is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_not_found',
+            'error_description': (
+                "Statement %s not found." % appstruct['statement_id'])
+        })
+
+    delta_input = appstruct['delta']
+    try:
+        appstruct['delta'] = parse_amount(
+            delta_input, currency=period.currency)
+    except Exception as e:
+        raise HTTPBadRequest(json_body={
+            'error': 'amount_parse_error',
+            'error_description': (
+                "Unable to parse amount '%s': %s" % (delta_input, e))
+        })
+
+    date_input = appstruct['entry_date']
+    try:
+        appstruct['entry_date'] = dateutil.parser.parse(date_input).date()
+    except Exception as e:
+        raise HTTPBadRequest(json_body={
+            'error': 'date_parse_error',
+            'error_description': (
+                "Unable to parse date '%s': %s" % (date_input, e))
+        })
+
+    attrs = ('delta', 'entry_date', 'page', 'line', 'description')
+
+    if appstruct['id']:
+        dbsession.query(
+            func.set_config(
+                'opnreco.account_entry.event_type', 'entry_edit', True),
+        ).one()
+
+        entry = (
+            dbsession.query(AccountEntry)
+            .filter(
+                AccountEntry.owner_id == owner_id,
+                AccountEntry.statement_id == statement.id,
+                AccountEntry.id == appstruct['id'],
+            )
+            .first())
+
+        if entry is None:
+            raise HTTPBadRequest(json_body={
+                'error': 'account_entry_not_found',
+                'error_description': (
+                    'The specified account entry is not found.'),
+            })
+
+        if entry.reco_id is not None and entry.delta != appstruct['delta']:
+            raise HTTPBadRequest(json_body={
+                'error': 'amount_immutable_with_reco',
+                'error_description': (
+                    'The amount of an account entry can not change once it '
+                    'has been reconciled. If you need to change the amount, '
+                    'remove the reconciliation of the entry.'),
+            })
+
+        for attr in attrs:
+            setattr(entry, attr, appstruct[attr])
+        dbsession.flush()
+
+    else:
+        dbsession.query(
+            func.set_config(
+                'opnreco.account_entry.event_type', 'entry_add', True),
+        ).one()
+
+        entry = AccountEntry(
+            owner_id=owner_id,
+            peer_id=statement.peer_id,
+            period_id=period.id,
+            statement_id=statement.id,
+            loop_id=statement.loop_id,
+            currency=statement.currency,
+            reco_id=None,
+            **{attr: appstruct[attr] for attr in attrs})
+        dbsession.add(attr)
+        dbsession.flush()  # Assign entry.id
+
+    return {'entry': serialize_entry(entry)}

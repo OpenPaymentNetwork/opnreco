@@ -1,8 +1,9 @@
 
 import { binder, binder1 } from '../../util/binder';
+import { refetchAll } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
-//import { fOPNReco } from '../../util/fetcher';
-//import { fetchcache } from '../../reducer/fetchcache';
+import { fOPNReco } from '../../util/fetcher';
+import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { injectIntl, intlShape } from 'react-intl';
@@ -18,13 +19,21 @@ import RecoCheckBox from '../report/RecoCheckBox';
 const styles = theme => ({
   numCell: {
     textAlign: 'right',
-    padding: '4px 8px',
+    padding: '8px',
     border: '1px solid #bbb',
+    fontFamily: theme.typography.fontFamily,
+    fontSize: '0.9rem',
+    lineHeight: '16px',
+    cursor: 'text',
   },
   textCell: {
     textAlign: 'left',
-    padding: '4px 8px',
+    padding: '8px',
     border: '1px solid #bbb',
+    fontFamily: theme.typography.fontFamily,
+    fontSize: '0.9rem',
+    lineHeight: '16px',
+    cursor: 'text',
   },
   checkboxCell: {
     textAlign: 'center',
@@ -34,11 +43,11 @@ const styles = theme => ({
   columnHeadCell: {
     fontWeight: 'normal',
     textAlign: 'left',
-    padding: '4px 8px',
+    padding: '8px',
     border: '1px solid #bbb',
   },
   saveCell: {
-    padding: '8px 8px',
+    padding: '8px',
     border: '1px solid #bbb',
   },
   button: {
@@ -56,16 +65,22 @@ const styles = theme => ({
   },
   textInputField: {
     border: 'none',
-    padding: '4px 8px',
+    color: '#000',
+    padding: '8px',
     width: '100%',
     fontFamily: theme.typography.fontFamily,
+    fontSize: '0.9rem',
+    lineHeight: '16px',
   },
   numInputField: {
     border: 'none',
-    padding: '4px 8px',
+    color: '#000',
+    padding: '8px',
     width: '100%',
     textAlign: 'right',
     fontFamily: theme.typography.fontFamily,
+    fontSize: '0.9rem',
+    lineHeight: '16px',
   },
 });
 
@@ -76,8 +91,8 @@ class AccountEntryTableContent extends React.Component {
     dispatch: PropTypes.func.isRequired,
     intl: intlShape.isRequired,
     period: PropTypes.object.isRequired,
-    statement: PropTypes.object.isRequired,
-    entries: PropTypes.array.isRequired,
+    record: PropTypes.object.isRequired,
+    recordURL: PropTypes.string.isRequired,
   };
 
   constructor(props) {
@@ -85,7 +100,8 @@ class AccountEntryTableContent extends React.Component {
     this.binder = binder(this);
     this.binder1 = binder1(this);
     this.state = {
-      editingEntries: {},  // accountEntryId: {changed, saving, ...fields}
+      // editingEntries: {accountEntryId: {changed, saving, focus, ...fields}}
+      editingEntries: {},
     };
   }
 
@@ -109,7 +125,7 @@ class AccountEntryTableContent extends React.Component {
     if (fromState) {
       return this.state.editingEntries[entryId];
     } else {
-      for (const e of this.props.entries) {
+      for (const e of this.props.record.entries) {
         if (e.id === entryId) {
           return e;
         }
@@ -145,8 +161,8 @@ class AccountEntryTableContent extends React.Component {
       timeZone: 'UTC',
     };
 
-    const {intl, statement} = this.props;
-    const cfmt = new getCurrencyFormatter(statement.currency);
+    const {intl, record} = this.props;
+    const cfmt = new getCurrencyFormatter(record.statement.currency);
 
     this.setState({
       editingEntries: {
@@ -157,11 +173,32 @@ class AccountEntryTableContent extends React.Component {
           saving: false,
           focus: this.getName(event),
           entry_date: intl.formatDate(entry.entry_date, dateOptions),
-          delta: cfmt(entry.delta),
+          delta: entry.delta,
           page: entry.page || '',
           line: entry.line || '',
           description: entry.description || '',
         },
+      },
+    });
+  }
+
+  editEntry(entry, changes) {
+    this.setState({
+      editingEntries: {
+        ...this.state.editingEntries,
+        [entry.id]: {
+          ...entry,
+          ...changes,
+        },
+      },
+    });
+  }
+
+  cancelEntry(entry) {
+    this.setState({
+      editingEntries: {
+        ...this.state.editingEntries,
+        [entry.id]: undefined,
       },
     });
   }
@@ -172,15 +209,9 @@ class AccountEntryTableContent extends React.Component {
       return;
     }
 
-    this.setState({
-      editingEntries: {
-        ...this.state.editingEntries,
-        [entry.id]: {
-          ...entry,
-          changed: true,
-          [event.target.name]: event.target.value,
-        },
-      },
+    this.editEntry(entry, {
+      changed: true,
+      [event.target.name]: event.target.value,
     });
   }
 
@@ -189,6 +220,40 @@ class AccountEntryTableContent extends React.Component {
     if (!entry) {
       return;
     }
+
+    const {
+      dispatch,
+      period,
+      record: {statement},
+    } = this.props;
+
+    const url = fOPNReco.pathToURL(
+      `/period/${encodeURIComponent(period.id)}/entry-save`);
+    const data = {
+      statement_id: statement.id,
+      ...entry,
+    };
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.editEntry(entry, {saving: true});
+
+    promise.then((response) => {
+      const {record, recordURL} = this.props;
+      const newEntry = response.entry;
+      const newEntries = [];
+      for (const e of record.entries) {
+        newEntries.push(e.id === newEntry.id ? newEntry : e);
+      }
+      const newRecord = {
+        ...record,
+        entries: newEntries,
+      };
+      dispatch(fetchcache.inject(recordURL, newRecord));
+      dispatch(refetchAll());
+      this.cancelEntry(entry);
+    }).catch(() => {
+      this.editEntry(entry, {saving: false});
+    });
+
   }
 
   handleCancel(event) {
@@ -197,12 +262,7 @@ class AccountEntryTableContent extends React.Component {
       return;
     }
 
-    this.setState({
-      editingEntries: {
-        ...this.state.editingEntries,
-        [entry.id]: undefined,
-      },
-    });
+    this.cancelEntry(entry);
   }
 
   handleDelete(event) {
@@ -345,11 +405,11 @@ class AccountEntryTableContent extends React.Component {
       </tr>
     );
 
-    let save = null;
+    let controls = null;
     if (editing) {
       const {changed, saving} = editing;
-      save = (
-        <tr key={`${entry.id}-save`}>
+      controls = (
+        <tr key={`${entry.id}-controls`}>
           <td colSpan="6" className={classes.saveCell}>
             <FormGroup row>
               <Button
@@ -396,25 +456,24 @@ class AccountEntryTableContent extends React.Component {
       );
     }
 
-    return {main, save};
+    return {main, controls};
   }
 
   render() {
     const {
       classes,
-      statement,
-      entries,
+      record,
     } = this.props;
 
     const rows = [];
 
-    const cfmt = new getCurrencyFormatter(statement.currency);
+    const cfmt = new getCurrencyFormatter(record.statement.currency);
 
-    for (const entry of entries) {
+    for (const entry of record.entries) {
       const x = this.renderEntry(entry, cfmt);
       rows.push(x.main);
-      if (x.save) {
-        rows.push(x.save);
+      if (x.controls) {
+        rows.push(x.controls);
       }
     }
 
