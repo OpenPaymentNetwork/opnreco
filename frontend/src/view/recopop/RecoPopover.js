@@ -53,6 +53,7 @@ const styles = theme => ({
   actionBox: {
     display: 'flex',
     justifyContent: 'space-between',
+    marginTop: '16px',
   },
   actionLeftButtons: {
     flexGrow: 2,
@@ -623,8 +624,12 @@ class RecoPopover extends React.Component {
             </div>
             <Button
               color="primary"
+              variant="contained"
               disabled={saving || disabled}
-              onClick={this.binder(this.handleSave)}>Save</Button>
+              onClick={this.binder(this.handleSave)}
+            >
+              Save
+            </Button>
           </div>
         </Typography>
       </div>

@@ -30,16 +30,21 @@ class ServerErrorDialog extends React.Component {
 
   render() {
     const {error, open} = this.props;
+    let errorText = String(error);
+    if (errorText.startsWith('Error: ')) {
+      // Remove the redundant 'Error: ' prefix.
+      errorText = errorText.substr(7);
+    }
     return (
       <Dialog
         open={!!open}
         onClose={this.binder(this.handleClose)}
         aria-labelledby="error-dialog-title"
       >
-        <DialogTitle id="error-dialog-title">Server Error</DialogTitle>
+        <DialogTitle id="error-dialog-title">Error</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {error}
+            {errorText}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
