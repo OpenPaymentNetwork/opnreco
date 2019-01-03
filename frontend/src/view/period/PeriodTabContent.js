@@ -6,7 +6,7 @@ import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import RecoReport from '../report/RecoReport';
-import StatementView from './StatementView';
+import StatementView from '../statement/StatementView';
 import TransactionReport from '../report/TransactionReport';
 import TransferSummary from '../report/TransferSummary';
 

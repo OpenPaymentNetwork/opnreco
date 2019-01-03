@@ -13,7 +13,7 @@ import FormControl from '@material-ui/core/FormControl';
 import FormGroup from '@material-ui/core/FormGroup';
 import Input from '@material-ui/core/Input';
 import InputLabel from '@material-ui/core/InputLabel';
-import PeriodAssignSelect from './PeriodAssignSelect';
+import PeriodAssignSelect from '../period/PeriodAssignSelect';
 import PropTypes from 'prop-types';
 import React from 'react';
 import StatementDeleteDialog from './StatementDeleteDialog';
