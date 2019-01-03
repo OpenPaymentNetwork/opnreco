@@ -1,13 +1,16 @@
 
-import { binder1 } from '../../util/binder';
+import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { getCurrencyFormatter } from '../../util/currency';
 import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import Add from '@material-ui/icons/Add';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import Fab from '@material-ui/core/Fab';
 import PropTypes from 'prop-types';
 import React from 'react';
+import StatementAddDialog from './StatementAddDialog';
 import Typography from '@material-ui/core/Typography';
 
 const styles = {
@@ -45,6 +48,11 @@ const styles = {
     padding: '4px 8px',
     border: '1px solid #bbb',
   },
+  addCell: {
+    padding: '16px',
+    border: '1px solid #bbb',
+    textAlign: 'right',
+  },
   link: {
     display: 'block',
   },
@@ -63,7 +71,9 @@ class StatementsTable extends React.Component {
 
   constructor(props) {
     super(props);
+    this.binder = binder(this);
     this.binder1 = binder1(this);
+    this.state = {};
   }
 
   handleClick(path, event) {
@@ -71,6 +81,14 @@ class StatementsTable extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
+  }
+
+  handleAddButton() {
+    this.setState({dialogExists: true, dialogOpen: true});
+  }
+
+  handleCancelAdd() {
+    this.setState({dialogOpen: false});
   }
 
   render() {
@@ -82,7 +100,7 @@ class StatementsTable extends React.Component {
       statements,
     } = this.props;
 
-    const colCount = 8;
+    const colCount = 7;
     let rows = null;
     const encPeriodId = encodeURIComponent(period.id);
 
@@ -123,18 +141,31 @@ class StatementsTable extends React.Component {
         );
       });
     } else if (statements && !statements.length) {
-      rows = (
-        <tr>
+      rows = [
+        <tr key="empty">
           <td colSpan={colCount} className={classes.textCell}>
             <em>No account statements have been added to this period.</em>
           </td>
         </tr>
-      );
+      ];
     } else {
-      rows = (
-        <tr>
+      rows = [
+        <tr key="loading">
           <td colSpan={colCount} className={classes.textCell}>
             <CircularProgress size="24px" className={classes.progress} />
+          </td>
+        </tr>
+      ];
+    }
+
+    if (statements && !period.closed) {
+      rows.push(
+        <tr key="add">
+          <td colSpan={colCount} className={classes.addCell}>
+            <Fab size="small" color="primary" aria-label="Add a statement"
+              onClick={this.binder(this.handleAddButton)}>
+              <Add />
+            </Fab>
           </td>
         </tr>
       );
@@ -143,8 +174,20 @@ class StatementsTable extends React.Component {
     const reportDate = now ? renderReportDate(period, now) : null;
     const {peer_title, currency, loop_id, loop_title} = ploop;
 
+    let dialog = null;
+
+    if (this.state.dialogExists) {
+      dialog = (
+        <StatementAddDialog
+          open={this.state.dialogOpen}
+          onCancel={this.binder(this.handleCancelAdd)}
+        />
+      );
+    }
+
     return (
       <Typography className={classes.root} component="div">
+        {dialog}
         <table className={classes.table}>
           <thead>
             <tr>

@@ -12,7 +12,7 @@ import AccountEntryDeleteDialog from './AccountEntryDeleteDialog';
 import Add from '@material-ui/icons/Add';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import IconButton from '@material-ui/core/IconButton';
+import Fab from '@material-ui/core/Fab';
 import FormGroup from '@material-ui/core/FormGroup';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -54,8 +54,9 @@ const styles = theme => ({
     border: '1px solid #bbb',
   },
   addCell: {
-    padding: '4px',
+    padding: '16px',
     border: '1px solid #bbb',
+    textAlign: 'right',
   },
   button: {
     marginRight: '16px',
@@ -590,11 +591,11 @@ class AccountEntryTableContent extends React.Component {
         rows.push(
           <tr key="add">
             <td colSpan="6" className={classes.addCell}>
-              <IconButton
-                onClick={this.binder(this.handleStartAdd)}
-              >
-                <Add/>
-              </IconButton>
+              <Fab size="small" color="primary"
+                aria-label="Add an account entry"
+                onClick={this.binder(this.handleStartAdd)}>
+                <Add />
+              </Fab>
             </td>
           </tr>
         );
