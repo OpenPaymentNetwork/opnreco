@@ -358,6 +358,7 @@ class AccountEntryTableContent extends React.Component {
         ...this.state.editingEntries,
         add: {
           id: 'add',
+          reco_id: null,
           entry_date: '',
           delta: '',
           page: '',
@@ -492,11 +493,13 @@ class AccountEntryTableContent extends React.Component {
           }
         </td>
         <td className={classes.checkboxCell}>
-          <RecoCheckBox
-            periodId={period.id}
-            recoId={entry.reco_id}
-            accountEntryId={entry.id}
-            dispatch={dispatch} />
+          {editing && editing.id === 'add' ? null :
+            <RecoCheckBox
+              periodId={period.id}
+              recoId={entry.reco_id}
+              accountEntryId={entry.id}
+              dispatch={dispatch} />
+          }
         </td>
       </tr>
     );
