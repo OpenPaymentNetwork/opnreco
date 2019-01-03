@@ -18,6 +18,7 @@ from opnreco.viewcommon import compute_period_totals
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import get_period_for_day
+from opnreco.viewcommon import handle_invalid
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -380,12 +381,7 @@ def period_save(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        raise HTTPBadRequest(json_body={
-            'error': 'invalid',
-            'error_description': '; '.join(
-                "%s (%s)" % (v, k)
-                for (k, v) in sorted(e.asdict().items())),
-        })
+        handle_invalid(e, schema=schema)
 
     start_date = appstruct['start_date']
     end_date = appstruct['end_date']

@@ -9,8 +9,10 @@ import { getCurrencyFormatter } from '../../util/currency';
 import { injectIntl, intlShape } from 'react-intl';
 import { withStyles } from '@material-ui/core/styles';
 import AccountEntryDeleteDialog from './AccountEntryDeleteDialog';
+import Add from '@material-ui/icons/Add';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import IconButton from '@material-ui/core/IconButton';
 import FormGroup from '@material-ui/core/FormGroup';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -49,6 +51,10 @@ const styles = theme => ({
   },
   saveCell: {
     padding: '8px',
+    border: '1px solid #bbb',
+  },
+  addCell: {
+    padding: '4px',
     border: '1px solid #bbb',
   },
   button: {
@@ -197,6 +203,7 @@ class AccountEntryTableContent extends React.Component {
 
   cancelEntry(entry) {
     this.setState({
+      adding: false,
       editingEntries: {
         ...this.state.editingEntries,
         [entry.id]: undefined,
@@ -234,15 +241,23 @@ class AccountEntryTableContent extends React.Component {
       statement_id: statement.id,
       ...entry,
     };
+    if (data.id === 'add') {
+      data.id = '';
+    }
     const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
     this.editEntry(entry, {saving: true});
 
     promise.then((response) => {
       const {record, recordURL} = this.props;
       const newEntry = response.entry;
-      const newEntries = [];
-      for (const e of record.entries) {
-        newEntries.push(e.id === newEntry.id ? newEntry : e);
+      let newEntries;
+      if (entry.id === 'add') {
+        newEntries = [...record.entries, response.entry];
+      } else {
+        newEntries = [];
+        for (const e of record.entries) {
+          newEntries.push(e.id === newEntry.id ? newEntry : e);
+        }
       }
       const newRecord = {
         ...record,
@@ -251,6 +266,7 @@ class AccountEntryTableContent extends React.Component {
       dispatch(fetchcache.inject(recordURL, newRecord));
       dispatch(refetchAll());
       this.cancelEntry(entry);
+      this.setState({adding: false});
     }).catch(() => {
       this.editEntry(entry, {saving: false});
     });
@@ -332,6 +348,23 @@ class AccountEntryTableContent extends React.Component {
         deleting: false,
         deleteShown: false,
       });
+    });
+  }
+
+  handleStartAdd() {
+    this.setState({
+      adding: true,
+      editingEntries: {
+        ...this.state.editingEntries,
+        add: {
+          id: 'add',
+          entry_date: '',
+          delta: '',
+          page: '',
+          line: '',
+          description: '',
+        },
+      },
     });
   }
 
@@ -499,16 +532,18 @@ class AccountEntryTableContent extends React.Component {
                 Cancel
               </Button>
 
-              <Button
-                className={classes.button}
-                color="default"
-                disabled={saving}
-                data-account-entry-id={entry.id}
-                onClick={this.binder(this.handleDelete)}
-                size="small"
-              >
-                Delete
-              </Button>
+              {entry.id === 'add' ? null :
+                <Button
+                  className={classes.button}
+                  color="default"
+                  disabled={saving}
+                  data-account-entry-id={entry.id}
+                  onClick={this.binder(this.handleDelete)}
+                  size="small"
+                >
+                  Delete
+                </Button>
+              }
 
               {saving ?
                 <CircularProgress size={24} />
@@ -526,6 +561,7 @@ class AccountEntryTableContent extends React.Component {
     const {
       classes,
       record,
+      period,
     } = this.props;
 
     const rows = [];
@@ -537,6 +573,28 @@ class AccountEntryTableContent extends React.Component {
       rows.push(x.main);
       if (x.controls) {
         rows.push(x.controls);
+      }
+    }
+
+    if (!period.closed) {
+      if (this.state.adding) {
+        const x = this.renderEntry({id: 'add'}, cfmt);
+        rows.push(x.main);
+        if (x.controls) {
+          rows.push(x.controls);
+        }
+      } else {
+        rows.push(
+          <tr key="add">
+            <td colSpan="6" className={classes.addCell}>
+              <IconButton
+                onClick={this.binder(this.handleStartAdd)}
+              >
+                <Add/>
+              </IconButton>
+            </td>
+          </tr>
+        );
       }
     }
 

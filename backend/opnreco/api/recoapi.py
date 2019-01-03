@@ -23,6 +23,7 @@ from opnreco.models.site import PeriodResource
 from opnreco.param import amount_re
 from opnreco.param import parse_amount
 from opnreco.viewcommon import get_loop_map
+from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
 from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
@@ -499,7 +500,7 @@ class AccountEntrySchema(Schema):
         missing='',
         validator=All(
             Length(max=50),
-            Regex(amount_re, msg="Invalid amount"),
+            Regex(amount_re, msg="The amount is not valid"),
         ))
     entry_date = SchemaNode(
         ColanderString(),
@@ -558,15 +559,11 @@ class RecoSave:
     def __call__(self):
         """Save changes to a reco."""
         request = self.request
+        schema = RecoSaveSchema()
         try:
-            self.params = params = RecoSaveSchema().deserialize(request.json)
+            self.params = params = schema.deserialize(request.json)
         except Invalid as e:
-            raise HTTPBadRequest(json_body={
-                'error': 'invalid',
-                'error_description': '; '.join(
-                    "%s (%s)" % (v, k)
-                    for (k, v) in sorted(e.asdict().items())),
-            })
+            handle_invalid(e, schema=schema)
 
         self.reco_id = params['reco_id']
         self.reco_type = reco_type = params['reco']['reco_type']

@@ -9,6 +9,7 @@ from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
 from opnreco.models.db import Period
 from opnreco.util import check_requests_response
+from pyramid.httpexceptions import HTTPBadRequest
 from sqlalchemy import func
 import datetime
 import os
@@ -560,3 +561,12 @@ def list_assignable_periods(dbsession, owner_id, period):
         'end_date': p.end_date,
         'closed': p.closed,
     } for p in period_rows]
+
+
+def handle_invalid(e, schema):
+    raise HTTPBadRequest(json_body={
+        'error': 'invalid',
+        'error_description': '; '.join(
+            "%s (field: %s)" % (v, k)
+            for (k, v) in sorted(e.asdict().items())),
+    })
