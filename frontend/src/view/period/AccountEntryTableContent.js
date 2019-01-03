@@ -8,6 +8,7 @@ import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { injectIntl, intlShape } from 'react-intl';
 import { withStyles } from '@material-ui/core/styles';
+import AccountEntryDeleteDialog from './AccountEntryDeleteDialog';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import FormGroup from '@material-ui/core/FormGroup';
@@ -161,8 +162,7 @@ class AccountEntryTableContent extends React.Component {
       timeZone: 'UTC',
     };
 
-    const {intl, record} = this.props;
-    const cfmt = new getCurrencyFormatter(record.statement.currency);
+    const {intl} = this.props;
 
     this.setState({
       editingEntries: {
@@ -171,6 +171,7 @@ class AccountEntryTableContent extends React.Component {
           id: entry.id,
           changed: false,
           saving: false,
+          reco_id: entry.reco_id,
           focus: this.getName(event),
           entry_date: intl.formatDate(entry.entry_date, dateOptions),
           delta: entry.delta,
@@ -270,6 +271,68 @@ class AccountEntryTableContent extends React.Component {
     if (!entry) {
       return;
     }
+
+    this.setState({
+      deleteExists: true,
+      deleteShown: true,
+      deleteEntryId: entry.id,
+    });
+  }
+
+  handleDeleteCancel() {
+    this.setState({deleteShown: false});
+  }
+
+  handleDeleteConfirmed() {
+    const entry = this.state.editingEntries[this.state.deleteEntryId];
+    if (!entry) {
+      // Can this happen?
+      return;
+    }
+
+    this.setState({deleting: true});
+
+    const {
+      dispatch,
+      period,
+      record: {statement},
+    } = this.props;
+
+    const url = fOPNReco.pathToURL(
+      `/period/${encodeURIComponent(period.id)}/entry-delete`);
+    const data = {
+      id: entry.id,
+      statement_id: statement.id,
+    };
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.editEntry(entry, {saving: true});
+
+    promise.then(() => {
+      const {record, recordURL} = this.props;
+      const newEntries = [];
+      for (const e of record.entries) {
+        if (e.id !== entry.id) {
+          newEntries.push(e);
+        }
+      }
+      const newRecord = {
+        ...record,
+        entries: newEntries,
+      };
+      dispatch(fetchcache.inject(recordURL, newRecord));
+      dispatch(refetchAll());
+      this.cancelEntry(entry);
+      this.setState({
+        deleting: false,
+        deleteShown: false,
+      });
+    }).catch(() => {
+      this.editEntry(entry, {saving: false});
+      this.setState({
+        deleting: false,
+        deleteShown: false,
+      });
+    });
   }
 
   /*
@@ -477,11 +540,26 @@ class AccountEntryTableContent extends React.Component {
       }
     }
 
+    let deleteDialog = null;
+    if (this.state.deleteExists && this.state.deleteEntryId) {
+      const entry = this.state.editingEntries[this.state.deleteEntryId];
+      if (entry) {
+        deleteDialog = (
+          <AccountEntryDeleteDialog
+            hasReco={!!entry.reco_id}
+            onCancel={this.binder(this.handleDeleteCancel)}
+            onDelete={this.binder(this.handleDeleteConfirmed)}
+            open={this.state.deleteShown}
+            deleting={this.state.deleting} />);
+      }
+    }
+
     return (
       <React.Fragment>
         <thead>
           <tr>
             <th className={classes.columnHeadCell} width="15%">
+              {deleteDialog}
               Date
             </th>
             <th className={classes.columnHeadCell} width="10%">

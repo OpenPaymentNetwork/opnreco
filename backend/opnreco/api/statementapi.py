@@ -536,3 +536,83 @@ def entry_save(context, request):
         dbsession.flush()  # Assign entry.id
 
     return {'entry': serialize_entry(entry)}
+
+
+class AccountEntryDeleteSchema(colander.Schema):
+    id = colander.SchemaNode(colander.Integer())
+    statement_id = colander.SchemaNode(colander.Integer())
+
+
+@view_config(
+    name='entry-delete',
+    context=PeriodResource,
+    permission=perms.edit_period,
+    renderer='json')
+def entry_delete(context, request):
+    """Delete an account entry."""
+    period = context.period
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    schema = AccountEntryDeleteSchema()
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        raise HTTPBadRequest(json_body={
+            'error': 'invalid',
+            'error_description': '; '.join(
+                "%s (%s)" % (v, k)
+                for (k, v) in sorted(e.asdict().items())),
+        })
+
+    statement = (
+        dbsession.query(Statement)
+        .filter(
+            Statement.owner_id == owner_id,
+            Statement.peer_id == period.peer_id,
+            Statement.currency == period.currency,
+            Statement.loop_id == period.loop_id,
+            Statement.id == appstruct['statement_id'],
+        )
+        .first())
+    if statement is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_not_found',
+            'error_description': (
+                "Statement %s not found." % appstruct['statement_id'])
+        })
+
+    dbsession.query(
+        func.set_config(
+            'opnreco.account_entry.event_type', 'entry_edit', True),
+    ).one()
+
+    entry = (
+        dbsession.query(AccountEntry)
+        .filter(
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.statement_id == statement.id,
+            AccountEntry.id == appstruct['id'],
+        )
+        .first())
+
+    if entry is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'account_entry_not_found',
+            'error_description': (
+                'The specified account entry is not found.'),
+        })
+
+    if entry.reco_id is not None:
+        raise HTTPBadRequest(json_body={
+            'error': 'no_delete_reconciled_entry',
+            'error_description': (
+                'The specified account entry is reconciled and can not '
+                'be deleted unless the reconciliation is removed first.'),
+        })
+
+    dbsession.delete(entry)
+    dbsession.flush()
+
+    return {}
