@@ -20,7 +20,7 @@ import PropTypes from 'prop-types';
 import React from 'react';
 
 
-const styles = {
+const styles = (theme) => ({
   sourceControl: {
     width: '100%',
   },
@@ -34,7 +34,11 @@ const styles = {
     marginTop: -12,
     marginLeft: -12,
   },
-};
+  downloadLink: {
+    textDecoration: 'underline',
+    color: theme.palette.primary.main,
+  },
+});
 
 
 class StatementAddDialog extends React.Component {
@@ -49,6 +53,7 @@ class StatementAddDialog extends React.Component {
 
   constructor(props) {
     super(props);
+    this.downloadFormRef = React.createRef();
     this.state = {
       method: null,
       source: '',
@@ -145,6 +150,10 @@ class StatementAddDialog extends React.Component {
     });
   }
 
+  handleDownload = () => {
+    this.downloadFormRef.current.submit();
+  }
+
   render() {
     const {
       classes,
@@ -184,6 +193,8 @@ class StatementAddDialog extends React.Component {
       );
     }
 
+    const downloadURL = fOPNReco.pathToURL('/download-statement-template');
+
     // Note: the component="span" attribute is necessary for the
     // upload button to work.
 
@@ -206,14 +217,19 @@ class StatementAddDialog extends React.Component {
               >
                 <FormControlLabel value="upload" control={<Radio />} label={
                   <span>
-                    Import from a spreadsheet or CSV file (<a
-                      href="/template/Statement-Template-V1.xlsx">
-                        download template</a>)
+                    Import from a spreadsheet or CSV file (<span
+                      className={classes.downloadLink}
+                      onClick={this.handleDownload}>
+                        download template</span>)
                   </span>
                 } />
                 <FormControlLabel value="blank" control={<Radio />}
                   label="Add a blank statement" />
               </RadioGroup>
+              <form method="POST" action={downloadURL}
+                style={{display: 'none'}}
+                ref={this.downloadFormRef}
+              ></form>
             </FormControl>
           </FormGroup>
 
@@ -249,6 +265,6 @@ class StatementAddDialog extends React.Component {
 
 
 export default compose(
-  withStyles(styles),
+  withStyles(styles, {withTheme: true}),
   withRouter,
 )(StatementAddDialog);
