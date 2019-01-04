@@ -138,6 +138,7 @@ def main(global_config, **settings):
     config.include('pyramid_tm')
     config.include('opnreco.models.dbmeta')
     config.scan('opnreco.api', ignore='opnreco.api.tests')
+    config.scan('opnreco.siteviews')
 
     # config.add_translation_dirs('opnreco:locale/')
     config.add_translation_dirs('colander:locale/')

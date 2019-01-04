@@ -120,7 +120,8 @@ class StatementAddDialog extends React.Component {
                 <FormControlLabel value="upload" control={<Radio />} label={
                   <span>
                     Import from a spreadsheet (<a
-                      href="/Statement-Template-V1.xls">download template</a>)
+                      href="/template/Statement-Template-V1.xls">
+                        download template</a>)
                   </span>
                 } />
                 <FormControlLabel value="blank" control={<Radio />}

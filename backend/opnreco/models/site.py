@@ -8,10 +8,8 @@ from pyramid.security import DENY_ALL
 from weakref import ref
 import re
 
-webpack_file_re = re.compile(
-    r'^((app|vendor|[0-9]+)\.[0-9a-f]{8,99}\.(js|css))'
-    r'|([0-9a-f]{8,99}\.(png|jpg))'
-    r'|favicon\.ico|humans\.txt|robots\.txt$')
+frontend_file_re = re.compile(
+    r'^[a-zA-Z0-9\-.]+\.(json|js|ico|html|txt)$')
 
 
 class Site:
@@ -30,8 +28,8 @@ class Site:
     def __getitem__(self, name):
         if name == 'api':
             return self.api
-        elif webpack_file_re.match(name):
-            return WebpackFile(self, name)
+        elif frontend_file_re.match(name):
+            return FrontendFile(self, name)
         raise KeyError(name)
 
     @reify
@@ -39,15 +37,10 @@ class Site:
         return API(self)
 
 
-class WebpackFile:
+class FrontendFile:
     def __init__(self, site, name):
         self.__parent__ = site
         self.__name__ = name
-
-
-resource_collection_attrs = {
-    'period': 'periods',
-}
 
 
 class API:
@@ -58,9 +51,8 @@ class API:
         self.request_ref = parent.request_ref
 
     def __getitem__(self, name):
-        attr = resource_collection_attrs.get(name)
-        if attr is not None:
-            return getattr(self, attr)
+        if name == 'period':
+            return self.periods
         raise KeyError(name)
 
     @reify
