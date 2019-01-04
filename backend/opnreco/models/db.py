@@ -476,8 +476,8 @@ class AccountEntry(Base):
     statement_id = Column(
         BigInteger, ForeignKey('statement.id'),
         nullable=False, index=True)
-    page = Column(String, nullable=True)
-    line = Column(String, nullable=True)
+    sheet = Column(String, nullable=True)
+    row = Column(Integer, nullable=True)
 
     entry_date = Column(Date, nullable=False)
     loop_id = Column(String, nullable=False)
@@ -493,7 +493,7 @@ class AccountEntry(Base):
     delta = Column(Numeric, nullable=False)
 
     # description contains descriptive info provided by the bank.
-    description = Column(JSONB, nullable=False)
+    description = Column(Unicode, nullable=False)
 
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
@@ -540,11 +540,11 @@ class AccountEntryLog(Base):
 
     period_id = Column(BigInteger, nullable=False, index=True)
     statement_id = Column(BigInteger, nullable=True, index=True)
-    page = Column(String, nullable=True)
-    line = Column(String, nullable=True)
+    sheet = Column(String, nullable=True)
+    row = Column(Integer, nullable=True)
     entry_date = Column(Date, nullable=False)
     delta = Column(Numeric, nullable=False)
-    description = Column(JSONB, nullable=False)
+    description = Column(String, nullable=False)
     reco_id = Column(BigInteger, nullable=True, index=True)
 
 
@@ -558,8 +558,8 @@ begin
             event_type,
             period_id,
             statement_id,
-            page,
-            line,
+            sheet,
+            row,
             entry_date,
             delta,
             description,
@@ -569,8 +569,8 @@ begin
             current_setting('opnreco.account_entry.event_type'),
             old.period_id,
             old.statement_id,
-            old.page,
-            old.line,
+            old.sheet,
+            old.row,
             old.entry_date,
             old.delta,
             old.description,
@@ -582,8 +582,8 @@ begin
             event_type,
             period_id,
             statement_id,
-            page,
-            line,
+            sheet,
+            row,
             entry_date,
             delta,
             description,
@@ -593,8 +593,8 @@ begin
             current_setting('opnreco.account_entry.event_type'),
             new.period_id,
             new.statement_id,
-            new.page,
-            new.line,
+            new.sheet,
+            new.row,
             new.entry_date,
             new.delta,
             new.description,

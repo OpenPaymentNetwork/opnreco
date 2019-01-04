@@ -61,6 +61,50 @@ class StatementAddDialog extends React.Component {
     this.setState({source: event.target.value});
   }
 
+  handleChangeUpload = (event) => {
+    const files = event.target.files;
+    if (files && files.length) {
+      this.setState({loading: true});
+      const reader = new FileReader();
+      reader.onloadend = (e) => {
+        this.handleCompleteUpload(e, files[0]);
+      };
+      reader.readAsBinaryString(files[0]);
+    }
+  }
+
+  handleCompleteUpload = (event, file) => {
+    const {
+      dispatch,
+      history,
+      period,
+    } = this.props;
+
+    const encPeriodId = encodeURIComponent(period.id);
+    const url = fOPNReco.pathToURL(
+      `/period/${encPeriodId}/statement-upload`);
+    const data = {
+      b64: window.btoa(event.target.result),
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    };
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({loading: true});
+    promise.then((response) => {
+      // Redirect to the new statement.
+      this.setState({loading: false});
+      const path = (
+        `/period/${encPeriodId}` +
+        `/statement/${encodeURIComponent(response.statement.id)}`);
+      history.push(path);
+      dispatch(clearMost());
+      this.props.onClose();
+    }).catch(() => {
+      this.setState({loading: false});
+    });
+  }
+
   handleContinueBlank = () => {
     const {
       dispatch,
@@ -78,6 +122,7 @@ class StatementAddDialog extends React.Component {
     this.setState({loading: true});
     promise.then((response) => {
       // Redirect to the new statement.
+      this.setState({loading: false});
       const path = (
         `/period/${encPeriodId}` +
         `/statement/${encodeURIComponent(response.statement.id)}`);
@@ -87,16 +132,13 @@ class StatementAddDialog extends React.Component {
     }).catch(() => {
       this.setState({loading: false});
     });
-
   }
 
   render() {
     const {
-      /* eslint {"no-unused-vars": 0} */
       classes,
       onClose,
-      dispatch,
-      ...otherProps
+      open,
     } = this.props;
 
     const {
@@ -111,7 +153,8 @@ class StatementAddDialog extends React.Component {
         <input
           id="statement-upload-input"
           type="file"
-          style={{display: 'none'}} />
+          style={{display: 'none'}}
+          onChange={this.handleChangeUpload} />
       );
     } else if (method === 'blank') {
       otherField = (
@@ -136,7 +179,7 @@ class StatementAddDialog extends React.Component {
       <Dialog
         onClose={onClose}
         aria-labelledby="form-dialog-title"
-        {...otherProps}
+        open={open}
       >
         <DialogTitle id="form-dialog-title">Add a Statement</DialogTitle>
         <DialogContent>
@@ -151,8 +194,8 @@ class StatementAddDialog extends React.Component {
               >
                 <FormControlLabel value="upload" control={<Radio />} label={
                   <span>
-                    Import from a spreadsheet (<a
-                      href="/template/Statement-Template-V1.xls">
+                    Import from a spreadsheet or CSV file (<a
+                      href="/template/Statement-Template-V1.xlsx">
                         download template</a>)
                   </span>
                 } />

@@ -4,6 +4,7 @@ from setuptools import setup, find_packages
 
 requires = [
     'colander',
+    'defusedxml',
     'psycopg2',
     'pyramid',
     'pyramid_retry',
@@ -14,12 +15,13 @@ requires = [
     'requests',
     'SQLAlchemy',
     'transaction',
+    'xlrd',
     'zope.sqlalchemy',
 ]
 
 setup(
     name='opnreco',
-    version='0.0',
+    version='1.0',
     description='OPN Reconciliation Tool',
     classifiers=[
         "Programming Language :: Python",

@@ -179,8 +179,8 @@ class AccountEntryTableContent extends React.Component {
           focus: this.getName(event),
           entry_date: intl.formatDate(entry.entry_date, dateOptions),
           delta: entry.delta,
-          page: entry.page || '',
-          line: entry.line || '',
+          sheet: entry.sheet || '',
+          row: entry.row || '',
           description: entry.description || '',
         },
       },
@@ -359,8 +359,8 @@ class AccountEntryTableContent extends React.Component {
           reco_id: null,
           entry_date: '',
           delta: '',
-          page: '',
-          line: '',
+          sheet: '',
+          row: '',
           description: '',
         },
       },
@@ -448,30 +448,30 @@ class AccountEntryTableContent extends React.Component {
             : cfmt(entry.delta)
           }
         </td>
-        <td className={numCell} {...editableCellProps} data-name="page">
+        <td className={numCell} {...editableCellProps} data-name="sheet">
           {editing ?
             <input
               type="text"
-              name="page"
-              value={editing.page}
+              name="sheet"
+              value={editing.sheet}
               onChange={this.handleEdit}
               className={numInputField}
-              ref={editing.focus === 'page' ? callRefFocus : null}
+              ref={editing.focus === 'sheet' ? callRefFocus : null}
             />
-            : entry.page
+            : entry.sheet
           }
         </td>
-        <td className={numCell} {...editableCellProps} data-name="line">
+        <td className={numCell} {...editableCellProps} data-name="row">
           {editing ?
             <input
               type="text"
-              name="line"
-              value={editing.line}
+              name="row"
+              value={editing.row}
               onChange={this.handleEdit}
               className={numInputField}
-              ref={editing.focus === 'line' ? callRefFocus : null}
+              ref={editing.focus === 'row' ? callRefFocus : null}
               />
-            : entry.line
+            : entry.row
           }
         </td>
         <td className={textCell} {...editableCellProps} data-name="description">
@@ -622,10 +622,10 @@ class AccountEntryTableContent extends React.Component {
               Amount
             </th>
             <th className={classes.columnHeadCell} width="5%">
-              Page
+              Sheet
             </th>
             <th className={classes.columnHeadCell} width="5%">
-              Line
+              Row
             </th>
             <th className={classes.columnHeadCell} width="60%">
               Description

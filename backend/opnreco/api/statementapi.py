@@ -1,4 +1,5 @@
 
+from defusedxml.common import EntitiesForbidden
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
@@ -11,15 +12,24 @@ from opnreco.param import amount_re
 from opnreco.param import parse_amount
 from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
+from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import case
 from sqlalchemy import func
+from xlrd.formula import cellname
+from xlrd.xldate import xldate_as_tuple
+import base64
 import colander
+import datetime
 import dateutil
+import defusedxml
 import logging
+import xlrd
 
 log = logging.getLogger(__name__)
+
+defusedxml.defuse_stdlib()
 
 
 null = None
@@ -100,8 +110,8 @@ def serialize_entry(entry):
         'id': str(entry.id),
         'peer_id': entry.peer_id,
         'period_id': str(entry.period_id),
-        'page': entry.page,
-        'line': entry.line,
+        'sheet': entry.sheet,
+        'row': entry.row,
         'entry_date': entry.entry_date,
         'loop_id': entry.loop_id,
         'currency': entry.currency,
@@ -170,8 +180,8 @@ def statement_api(context, request):
         )
         .order_by(
             AccountEntry.entry_date,
-            AccountEntry.page,
-            AccountEntry.line,
+            AccountEntry.sheet,
+            AccountEntry.row,
             AccountEntry.id)
         .all())
     entries = [serialize_entry(row) for row in entry_rows]
@@ -403,14 +413,13 @@ class AccountEntryEditSchema(colander.Schema):
     entry_date = colander.SchemaNode(
         colander.String(),
         validator=colander.Length(max=50))
-    page = colander.SchemaNode(
+    sheet = colander.SchemaNode(
         colander.String(),
         missing='',
         validator=colander.Length(max=50))
-    line = colander.SchemaNode(
-        colander.String(),
-        missing='',
-        validator=colander.Length(max=50))
+    row = colander.SchemaNode(
+        colander.Integer(),
+        missing=None)
     description = colander.SchemaNode(
         colander.String(),
         missing='',
@@ -473,7 +482,7 @@ def entry_save(context, request):
                 "Unable to parse date '%s': %s" % (date_input, e))
         })
 
-    attrs = ('delta', 'entry_date', 'page', 'line', 'description')
+    attrs = ('delta', 'entry_date', 'sheet', 'row', 'description')
 
     if appstruct['id']:
         dbsession.query(
@@ -655,3 +664,218 @@ def statement_add_blank(context, request):
     return {
         'statement': serialize_statement(statement),
     }
+
+
+class StatementUploadSchema(colander.Schema):
+    b64 = colander.SchemaNode(colander.String())
+    name = colander.SchemaNode(
+        colander.String(),
+        validator=colander.Length(max=1000))
+    size = colander.SchemaNode(
+        colander.Integer(),
+        missing=None)
+    type = colander.SchemaNode(
+        colander.String(),
+        validator=colander.Length(max=1000))
+
+
+@view_config(
+    name='statement-upload',
+    context=PeriodResource,
+    permission=perms.edit_period,
+    renderer='json')
+class StatementUploadAPI:
+    """Upload a statement."""
+    excel_types = (
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+    excel_extensions = ('.xls', '.xlsx')
+
+    def __init__(self, context, request):
+        self.context = context
+        self.request = request
+        self.currency = context.period.currency
+        self.statement = None
+
+    def __call__(self):
+        request = self.request
+
+        schema = StatementUploadSchema()
+        try:
+            self.appstruct = appstruct = schema.deserialize(request.json)
+        except colander.Invalid as e:
+            handle_invalid(e, schema=schema)
+
+        name = appstruct['name']
+        pos = name.rfind('.')
+        if pos >= 0:
+            ext = name[pos:].lower()
+        else:
+            ext = ''
+
+        content_type = appstruct['type'].split(';')[0]
+        if content_type in self.excel_types or ext in self.excel_extensions:
+            self.handle_excel()
+
+        if self.statement is not None:
+            # TODO: auto-external-reco and OwnerLog.
+            return {}
+
+        raise NotImplementedError()
+
+    @reify
+    def content(self):
+        return base64.decodestring(self.appstruct['b64'].encode('ascii'))
+
+    def add_statement(self):
+        appstruct = self.appstruct
+        period = self.context.period
+        dbsession = self.request.dbsession
+        owner = self.request.owner
+        owner_id = owner.id
+
+        name = appstruct['name']
+        # Drop directory names from the name.
+        for sep in ('\\', '/'):
+            pos = name.rfind(sep)
+            if pos >= 0:
+                name = name[pos + 1:]
+
+        dbsession.query(func.set_config(
+            'opnreco.account_entry.event_type', 'upload', True)).all()
+
+        statement = Statement(
+            owner_id=owner_id,
+            period_id=period.id,
+            peer_id=period.peer_id,
+            loop_id=period.loop_id,
+            currency=period.currency,
+            source='upload',
+            upload_ts=now_func,
+            filename=name,
+            content_type=appstruct['type'],
+            content=self.content,
+        )
+        dbsession.add(statement)
+        dbsession.flush()  # Assign statement.id
+
+        self.statement = statement
+        return statement
+
+    def handle_excel(self):
+        period = self.context.period
+        dbsession = self.request.dbsession
+        owner = self.request.owner
+        owner_id = owner.id
+
+        content = self.content
+        try:
+            book = xlrd.open_workbook(file_contents=content)
+        except EntitiesForbidden:
+            raise HTTPBadRequest(json_body={
+                'error': 'xee_forbidden',
+                'error_description': (
+                    "Please upload a file with no complex XML entities."),
+            })
+
+        statement = self.add_statement()
+
+        for sheetx, sheet in enumerate(book.sheets()):
+            # Look for a heading row.
+            # The heading must contain at least "date" and "amount".
+            column_names = None
+            heading_rowx = -1
+            for rowx, row in enumerate(sheet.get_rows()):
+                texts = [str(cell.value).lower() for cell in row]
+                if 'date' in texts and 'amount' in texts:
+                    # Found the heading.
+                    column_names = tuple(texts)
+                    heading_rowx = rowx
+            if not column_names:
+                # No heading row found. Assume default columns.
+                column_names = ('date', 'amount', 'description')
+
+            if 'date' not in column_names or 'amount' not in column_names:
+                # Skip this sheet.
+                continue
+
+            sheet_name = sheet.name.strip() or str(sheetx + 1)
+            if sheet_name.lower().startswith('sheet'):
+                # Remove the redundant word.
+                sheet_name = sheet_name[5:].strip()
+
+            # Parse the sheet and add AccountEntry rows.
+            for rowx, row in enumerate(sheet.get_rows()):
+                if rowx <= heading_rowx:
+                    continue
+
+                attrs = {
+                    'sheet': sheet_name,
+                    'row': rowx + 1,
+                }
+                for colx, cell in enumerate(row):
+                    column_name = column_names[colx]
+                    try:
+                        info = self.parse_excel_cell(book, cell, column_name)
+                    except Exception as e:
+                        raise HTTPBadRequest(json_body={
+                            'error': 'parse_error',
+                            'error_description': (
+                                "Unable to parse %s cell %s on sheet %s. "
+                                "Cell contents: '%s', error: %s, %s" % (
+                                    column_name,
+                                    cellname(rowx, colx),
+                                    sheet_name,
+                                    cell.value,
+                                    type(e),
+                                    e,
+                                )
+                            ),
+                        })
+                    else:
+                        if info:
+                            k, v = info
+                            attrs[k] = v
+
+                if 'delta' not in attrs or 'entry_date' not in attrs:
+                    # Empty or incomplete row.
+                    continue
+
+                if not attrs['delta']:
+                    # Ignore zero amount rows.
+                    continue
+
+                dbsession.add(AccountEntry(
+                    owner_id=owner_id,
+                    peer_id=period.peer_id,
+                    period_id=period.id,
+                    statement_id=statement.id,
+                    loop_id=period.loop_id,
+                    currency=period.currency,
+                    reco_id=None,
+                    **attrs))
+
+    def parse_excel_cell(self, book, cell, column_name):
+        """Return (AccountEntry attr, value) or None.
+
+        Raise an exception in the event of a parse error.
+        """
+        if column_name in ('date', 'entry date', 'entry_date'):
+            if isinstance(cell.value, (int, float)):
+                tup = xldate_as_tuple(cell.value, book.datemode)
+                parsed = datetime.date(*tup[:3])
+            else:
+                parsed = dateutil.parser.parse(
+                    str(cell.value)).date()
+            return 'entry_date', parsed
+
+        if column_name in ('amount', 'delta'):
+            parsed = parse_amount(str(cell.value), currency=self.currency)
+            return 'delta', parsed
+
+        if column_name in ('description', 'desc'):
+            return 'description', str(cell.value)
+
+        return None
