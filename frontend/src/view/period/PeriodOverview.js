@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { clearWithPloops } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -82,8 +81,6 @@ class PeriodOverview extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
     this.state = {
       form: {},
     };
@@ -103,7 +100,7 @@ class PeriodOverview extends React.Component {
     }
   }
 
-  handleChangeText(fieldName, event) {
+  handleChangeText = (event, fieldName) => {
     this.setState({
       form: {
         ...this.state.form,
@@ -112,7 +109,7 @@ class PeriodOverview extends React.Component {
     });
   }
 
-  handleChangePull(event) {
+  handleChangePull = (event) => {
     this.setState({
       form: {
         ...this.state.form,
@@ -121,15 +118,15 @@ class PeriodOverview extends React.Component {
     });
   }
 
-  handleSave() {
+  handleSave = () => {
     this.save('save', false);
   }
 
-  handleSaveClose() {
+  handleSaveClose = () => {
     this.save('save', true);
   }
 
-  handleReopen() {
+  handleReopen = () => {
     this.save('reopen', false);
   }
 
@@ -187,7 +184,7 @@ class PeriodOverview extends React.Component {
             className={classes.saveButton}
             color="primary"
             variant="contained"
-            onClick={this.binder(this.handleSave)}
+            onClick={this.handleSave}
           >
             Save
           </Button>
@@ -196,7 +193,7 @@ class PeriodOverview extends React.Component {
             className={classes.saveButton}
             color="primary"
             variant="contained"
-            onClick={this.binder(this.handleSaveClose)}
+            onClick={this.handleSaveClose}
           >
             Save and Close
           </Button>
@@ -210,7 +207,7 @@ class PeriodOverview extends React.Component {
           <Button
             className={classes.saveButton}
             variant="contained"
-            onClick={this.binder(this.handleReopen)}
+            onClick={this.handleReopen}
           >
             Reopen
           </Button>
@@ -246,7 +243,7 @@ class PeriodOverview extends React.Component {
               label="Start Date"
               type="date"
               value={form.start_date || ''}
-              onChange={this.binder1(this.handleChangeText, 'start_date')}
+              onChange={(event) => this.handleChangeText(event, 'start_date')}
               className={classes.field}
               InputLabelProps={{
                 shrink: true,
@@ -259,7 +256,7 @@ class PeriodOverview extends React.Component {
               label="End Date"
               type="date"
               value={form.end_date || ''}
-              onChange={this.binder1(this.handleChangeText, 'end_date')}
+              onChange={(event) => this.handleChangeText(event, 'end_date')}
               className={classes.field}
               InputLabelProps={{
                 shrink: true,
@@ -273,7 +270,7 @@ class PeriodOverview extends React.Component {
               id="start_circ"
               label="Circulation on Start Date"
               value={form.start_circ || ''}
-              onChange={this.binder1(this.handleChangeText, 'start_circ')}
+              onChange={(event) => this.handleChangeText(event, 'start_circ')}
               className={classes.field}
               InputLabelProps={{
                 shrink: true,
@@ -285,7 +282,7 @@ class PeriodOverview extends React.Component {
               id="start_surplus"
               label="Surplus/Deficit on Start Date"
               value={form.start_surplus || ''}
-              onChange={this.binder1(this.handleChangeText, 'start_surplus')}
+              onChange={(event) => this.handleChangeText(event, 'start_surplus')}
               className={classes.field}
               InputLabelProps={{
                 shrink: true,
@@ -299,7 +296,7 @@ class PeriodOverview extends React.Component {
               control={
                 <Checkbox
                   checked={form.pull || false}
-                  onChange={this.binder(this.handleChangePull)}
+                  onChange={this.handleChangePull}
                   disabled={closed}
                 />
               }

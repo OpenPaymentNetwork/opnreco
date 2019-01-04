@@ -1,4 +1,3 @@
-import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { injectIntl, intlShape } from 'react-intl';
 import { renderPeriodDateString } from '../../util/reportrender';
@@ -59,12 +58,7 @@ class PeriodSelector extends React.Component {
     redirectToPeriod: PropTypes.func.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
-
-  handlePloopChange(event) {
+  handlePloopChange = (event) => {
     const {
       redirectToPeriod,
       ploops,
@@ -75,7 +69,7 @@ class PeriodSelector extends React.Component {
     redirectToPeriod(periodId);
   }
 
-  handlePeriodChange(event) {
+  handlePeriodChange = (event) => {
     const periodId = event.target.value;
     const {redirectToPeriod} = this.props;
     redirectToPeriod(periodId);
@@ -213,7 +207,7 @@ class PeriodSelector extends React.Component {
               className={classes.ploopSelect}
               classes={{root: classes.selectRoot}}
               value={ploopValue}
-              onChange={this.binder(this.handlePloopChange)}
+              onChange={this.handlePloopChange}
               inputProps={{
                 id: 'filter-ploop',
               }}
@@ -229,7 +223,7 @@ class PeriodSelector extends React.Component {
               className={classes.periodSelect}
               classes={{root: classes.selectRoot}}
               value={periodValue}
-              onChange={this.binder(this.handlePeriodChange)}
+              onChange={this.handlePeriodChange}
               inputProps={{
                 id: 'filter-period',
               }}

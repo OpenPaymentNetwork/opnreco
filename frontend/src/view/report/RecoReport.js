@@ -1,4 +1,4 @@
-import { binder, binder1 } from '../../util/binder';
+
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -107,17 +107,11 @@ class RecoReport extends React.Component {
     expanded: PropTypes.object,  // a Map or undefined
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
-  }
-
-  handleToggleNode(expandKey) {
+  handleToggleNode = (expandKey) => {
     this.props.dispatch(toggleNode('reco', expandKey));
   }
 
-  handleClickTransfer(path, event) {
+  handleClickTransfer = (event, path) => {
     if (event.button === 0) {
       event.preventDefault();
       this.props.history.push(path);
@@ -199,7 +193,7 @@ class RecoReport extends React.Component {
       }
       res.push(
         <tr className={trCN} key={item.wfType}
-          onClick={this.binder1(this.handleToggleNode, expandKey)}
+          onClick={() => this.handleToggleNode(expandKey)}
         >
           <td className={typeCellCN}>
             <span className={arrowCN}>&#x2BC8;</span> {item.title}
@@ -231,8 +225,9 @@ class RecoReport extends React.Component {
                 </React.Fragment>
               );
             }
-            const handleClick = this.binder1(
-              this.handleClickTransfer, transferPath);
+            const handleClick = (event) => {
+              this.handleClickTransfer(event, transferPath);
+            };
             res.push(
               <tr className={transferRowCN} key={movement.movement_id}
                   onClick={handleClick}>

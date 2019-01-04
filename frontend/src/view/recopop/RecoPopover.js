@@ -1,5 +1,4 @@
 
-import { binder } from '../../util/binder';
 import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -114,7 +113,6 @@ class RecoPopover extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       reco: null,             // reco state initially copied from the props
       undoLog: [],            // List of reco states
@@ -180,11 +178,11 @@ class RecoPopover extends React.Component {
     };
   }
 
-  handleActionCallback(popoverActions) {
+  handleActionCallback = (popoverActions) => {
     this.setState({popoverActions});
   }
 
-  updatePopoverPosition() {
+  updatePopoverPosition = () => {
     const {dragged, popoverActions} = this.state;
     if (!dragged && popoverActions && popoverActions.updatePosition) {
       popoverActions.updatePosition();
@@ -269,7 +267,7 @@ class RecoPopover extends React.Component {
     return newReco;
   }
 
-  handleUndo() {
+  handleUndo = () => {
     const {
       resetCount,
       undoLog,
@@ -298,7 +296,7 @@ class RecoPopover extends React.Component {
     this.updatePopoverPosition();
   }
 
-  handleRedo() {
+  handleRedo = () => {
     const {
       reco,
       resetCount,
@@ -341,26 +339,26 @@ class RecoPopover extends React.Component {
   /**
    * Accept a change to the reco's movement list.
    */
-  changeMovements(movements) {
+  changeMovements = (movements) => {
     this.changeWithUndo({movements});
   }
 
   /**
    * Accept a change to the reco's account_entries list.
    */
-  changeAccountEntries(account_entries) {
+  changeAccountEntries = (account_entries) => {
     this.changeWithUndo({account_entries});
   }
 
   /**
    * Accept a change to the reco_type.
    */
-  handleRecoType(event) {
+  handleRecoType = (event) => {
     this.changeWithUndo({reco_type: event.target.value});
     this.updatePopoverPosition();
   }
 
-  handleComment(event) {
+  handleComment = (event) => {
     this.setState({
       typingComment: event.target.value,
       redoLog: [],
@@ -368,7 +366,7 @@ class RecoPopover extends React.Component {
     this.getCommitThrottler()();
   }
 
-  handleCreateInput(fieldKey, value) {
+  handleCreateInput = (fieldKey, value) => {
     this.setState({
       createInputs: {
         ...this.state.createInputs,
@@ -379,7 +377,7 @@ class RecoPopover extends React.Component {
     this.getCommitThrottler()();
   }
 
-  handlePeriodChange(event) {
+  handlePeriodChange = (event) => {
     this.changeWithUndo({period_id: event.target.value});
     this.updatePopoverPosition();
   }
@@ -396,7 +394,7 @@ class RecoPopover extends React.Component {
   /**
    * Commit and save the changes.
    */
-  handleSave() {
+  handleSave = () => {
     const {
       windowPeriodId,
       recoId,
@@ -423,7 +421,7 @@ class RecoPopover extends React.Component {
     });
   }
 
-  onDragStart() {
+  onDragStart = () => {
     this.setState({dragged: true});
   }
 
@@ -464,7 +462,7 @@ class RecoPopover extends React.Component {
       recoId: recoId,
       resetCount: resetCount,
       showVault: showVault,
-      updatePopoverPosition: this.binder(this.updatePopoverPosition),
+      updatePopoverPosition: this.updatePopoverPosition,
       disabled: periodClosed,
     };
 
@@ -473,9 +471,9 @@ class RecoPopover extends React.Component {
       accountEntryTableBody = (
         <AccountEntryTableBody
           accountEntries={reco.account_entries}
-          changeAccountEntries={this.binder(this.changeAccountEntries)}
+          changeAccountEntries={this.changeAccountEntries}
           createInputs={createInputs}
-          handleCreateInput={this.binder(this.handleCreateInput)}
+          handleCreateInput={this.handleCreateInput}
           {...tableBodyProps}
         />
       );
@@ -486,7 +484,7 @@ class RecoPopover extends React.Component {
       movementTableBody = (
         <MovementTableBody
           movements={reco.movements}
-          changeMovements={this.binder(this.changeMovements)}
+          changeMovements={this.changeMovements}
           {...tableBodyProps}
         />
       );
@@ -571,7 +569,7 @@ class RecoPopover extends React.Component {
                 name="reco_type"
                 value={reco ? reco.reco_type : 'standard'}
                 displayEmpty
-                onChange={this.binder(this.handleRecoType)}
+                onChange={this.handleRecoType}
               >
                 <MenuItem value="standard">Standard Reconciliation</MenuItem>
                 <MenuItem value="wallet_only">Wallet In/Out</MenuItem>
@@ -587,7 +585,7 @@ class RecoPopover extends React.Component {
                 name="period_id"
                 value={reco ? reco.period_id : ''}
                 displayEmpty
-                onChange={this.binder(this.handlePeriodChange)}
+                onChange={this.handlePeriodChange}
                 periods={periods}
               />
             </FormControl>
@@ -599,7 +597,7 @@ class RecoPopover extends React.Component {
                 name="comment"
                 placeholder="Comment"
                 value={comment}
-                onChange={this.binder(this.handleComment)}
+                onChange={this.handleComment}
                 multiline
                 disabled={disabled}
               />
@@ -611,13 +609,13 @@ class RecoPopover extends React.Component {
             <div className={classes.actionLeftButtons}>
               <IconButton
                 disabled={!undoLog.length || disabled}
-                onClick={this.binder(this.handleUndo)}
+                onClick={this.handleUndo}
               >
                 <Undo/>
               </IconButton>
               <IconButton
                 disabled={!redoLog.length || disabled}
-                onClick={this.binder(this.handleRedo)}
+                onClick={this.handleRedo}
               >
                 <Redo/>
               </IconButton>
@@ -626,7 +624,7 @@ class RecoPopover extends React.Component {
               color="primary"
               variant="contained"
               disabled={saving || disabled}
-              onClick={this.binder(this.handleSave)}
+              onClick={this.handleSave}
             >
               Save
             </Button>
@@ -650,8 +648,8 @@ class RecoPopover extends React.Component {
           horizontal: 'right',
         }}
         TransitionComponent={FadeDrag1}
-        TransitionProps={{onDragStart: this.binder(this.onDragStart)}}
-        action={this.binder(this.handleActionCallback)}
+        TransitionProps={{onDragStart: this.onDragStart}}
+        action={this.handleActionCallback}
       >
         {popoverContent}
       </Popover>

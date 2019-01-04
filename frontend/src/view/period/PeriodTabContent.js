@@ -1,5 +1,4 @@
 
-import { binder } from '../../util/binder';
 import Button from '@material-ui/core/Button';
 import PeriodOverview from './PeriodOverview';
 import Paper from '@material-ui/core/Paper';
@@ -20,7 +19,6 @@ export default class TabContent extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       errorTab: null,
     };
@@ -45,7 +43,7 @@ export default class TabContent extends React.Component {
     }
   }
 
-  handleTryAgain() {
+  handleTryAgain = () => {
     this.setState({errorTab: null});
   }
 
@@ -59,7 +57,7 @@ export default class TabContent extends React.Component {
             See the developer console for more info.
             <p>
               <Button variant="outlined"
-                onClick={this.binder(this.handleTryAgain)}
+                onClick={this.handleTryAgain}
               >
                 Try Again
               </Button>

@@ -1,5 +1,4 @@
 import { FormattedRelative } from 'react-intl';
-import { binder } from '../../util/binder';
 import { clearWithPloops } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -60,7 +59,6 @@ class OPNDrawer extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.startingSync = false;
     this.state = {autoSyncOk: true};
   }
@@ -80,7 +78,7 @@ class OPNDrawer extends React.Component {
         !this.props.syncProgress) {
       // Start an automatic sync.
       this.startingSync = true;
-      window.setTimeout(() => this.handleSync(), 0);
+      window.setTimeout(this.handleSync, 0);
     }
   }
 
@@ -126,7 +124,7 @@ class OPNDrawer extends React.Component {
     };
   }
 
-  handleSync() {
+  handleSync = () => {
     const {
       dispatch,
       syncProgress,
@@ -173,25 +171,25 @@ class OPNDrawer extends React.Component {
     syncBatch();
   }
 
-  handleSignOut() {
+  handleSignOut = () => {
     this.props.dispatch(setLoggingOut(true));
     this.props.dispatch(closeDrawer());
   }
 
-  handleOpenDrawer() {
+  handleOpenDrawer = () => {
     this.props.dispatch(openDrawer());
   }
 
-  handleCloseDrawer() {
+  handleCloseDrawer = () => {
     this.props.dispatch(closeDrawer());
   }
 
-  handleReports() {
+  handleReports = () => {
     this.props.dispatch(closeDrawer());
     this.props.history.push('/');
   }
 
-  handleSettings() {
+  handleSettings = () => {
     this.props.dispatch(closeDrawer());
     this.props.history.push('/settings');
   }
@@ -213,7 +211,7 @@ class OPNDrawer extends React.Component {
 
         <ListItem
           button
-          onClick={this.binder(this.handleReports)}
+          onClick={this.handleReports}
         >
           <ListItemIcon><TableChart/></ListItemIcon>
           <ListItemText primary="Reports" />
@@ -221,7 +219,7 @@ class OPNDrawer extends React.Component {
 
         <ListItem
           button
-          onClick={this.binder(this.handleSettings)}
+          onClick={this.handleSettings}
         >
           <ListItemIcon><Settings/></ListItemIcon>
           <ListItemText primary="Settings" />
@@ -229,7 +227,7 @@ class OPNDrawer extends React.Component {
 
         <ListItem
           button
-          onClick={this.binder(this.handleSync)}
+          onClick={this.handleSync}
           disabled={syncUI.disabled}
         >
           <ListItemIcon>
@@ -242,7 +240,7 @@ class OPNDrawer extends React.Component {
 
         <ListItem
           button
-          onClick={this.binder(this.handleSignOut)}
+          onClick={this.handleSignOut}
         >
           <ListItemIcon>
             <ExitToApp />
@@ -261,8 +259,8 @@ class OPNDrawer extends React.Component {
       <div>
         <SwipeableDrawer
           open={drawerOpen}
-          onOpen={this.binder(this.handleOpenDrawer)}
-          onClose={this.binder(this.handleCloseDrawer)}
+          onOpen={this.handleOpenDrawer}
+          onClose={this.handleCloseDrawer}
           classes={{
             paper: classes.drawerPaper,
           }}

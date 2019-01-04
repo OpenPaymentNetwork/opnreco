@@ -7,7 +7,6 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import PropTypes from 'prop-types';
 import React from 'react';
-import { binder } from '../../util/binder';
 import { connect } from 'react-redux';
 import { closeServerError } from '../../reducer/app';
 
@@ -19,12 +18,7 @@ class ServerErrorDialog extends React.Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
-
-  handleClose() {
+  handleClose = () => {
     this.props.dispatch(closeServerError());
   }
 
@@ -38,7 +32,7 @@ class ServerErrorDialog extends React.Component {
     return (
       <Dialog
         open={!!open}
-        onClose={this.binder(this.handleClose)}
+        onClose={this.handleClose}
         aria-labelledby="error-dialog-title"
       >
         <DialogTitle id="error-dialog-title">Error</DialogTitle>
@@ -48,7 +42,7 @@ class ServerErrorDialog extends React.Component {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={this.binder(this.handleClose)} color="primary">
+          <Button onClick={this.handleClose} color="primary">
             Close
           </Button>
         </DialogActions>

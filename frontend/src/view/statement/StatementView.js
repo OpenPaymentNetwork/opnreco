@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -78,12 +77,6 @@ class StatementView extends React.Component {
     statementsURL: PropTypes.string.isRequired,
     statementsRecord: PropTypes.object,
   };
-
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
-  }
 
   componentDidMount() {
     const {period, statementId} = this.props;

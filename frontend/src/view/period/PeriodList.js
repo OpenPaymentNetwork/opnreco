@@ -1,4 +1,3 @@
-import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco, ploopsURL } from '../../util/fetcher';
@@ -151,13 +150,7 @@ class PeriodList extends React.Component {
     period: PropTypes.object,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
-  }
-
-  handleClickAnchor(path, event) {
+  handleClickAnchor = (event, path) => {
     if (event.button === 0) {
       event.preventDefault();
       this.props.history.push(path);
@@ -238,7 +231,7 @@ class PeriodList extends React.Component {
             <a
               className={clickableCell}
               href={reportsPath}
-              onClick={this.binder1(this.handleClickAnchor, reportsPath)}
+              onClick={(event) => this.handleClickAnchor(event, reportsPath)}
             >
               <Link className={cIcon} />
             </a>
@@ -247,7 +240,7 @@ class PeriodList extends React.Component {
             <a
               className={clickableCell}
               href={closedPath}
-              onClick={this.binder1(this.handleClickAnchor, closedPath)}
+              onClick={(event) => this.handleClickAnchor(event, closedPath)}
             >
               {period.closed ?
                 <span title="Closed"><Lock className={cIcon}/></span> :

@@ -1,4 +1,3 @@
-import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
@@ -22,11 +21,6 @@ class ViewTemplate extends React.Component {
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
   };
-
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
 
   render() {
     const {

@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { fetchcache } from '../../reducer/fetchcache';
@@ -55,8 +54,6 @@ class StatementForm extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
     this.state = {
       form: {},
     };
@@ -84,7 +81,7 @@ class StatementForm extends React.Component {
     });
   }
 
-  handleFormChange(fieldName, event) {
+  handleFormChange = (event, fieldName) => {
     this.setState({
       form: {
         ...this.state.form,
@@ -93,7 +90,7 @@ class StatementForm extends React.Component {
     });
   }
 
-  handleSave() {
+  handleSave = () => {
     const {
       dispatch,
       period,
@@ -136,7 +133,7 @@ class StatementForm extends React.Component {
     });
   }
 
-  handleCancel() {
+  handleCancel = () => {
     // Cancel the user's changes to the form.
     const {statement} = this.props;
     this.setState({
@@ -145,15 +142,15 @@ class StatementForm extends React.Component {
     });
   }
 
-  handleDelete() {
+  handleDelete = () => {
     this.setState({deleteExists: true, deleteShown: true});
   }
 
-  handleDeleteCancel() {
+  handleDeleteCancel = () => {
     this.setState({deleteShown: false});
   }
 
-  handleDeleteConfirmed() {
+  handleDeleteConfirmed = () => {
     const {
       dispatch,
       period,
@@ -217,8 +214,8 @@ class StatementForm extends React.Component {
         <StatementDeleteDialog
           statementId={statement.id}
           deleteConflicts={deleteConflicts}
-          onCancel={this.binder(this.handleDeleteCancel)}
-          onDelete={this.binder(this.handleDeleteConfirmed)}
+          onCancel={this.handleDeleteCancel}
+          onDelete={this.handleDeleteConfirmed}
           open={deleteShown}
           deleting={deleting}
         />);
@@ -237,7 +234,7 @@ class StatementForm extends React.Component {
               name="source"
               id="statement_source"
               value={form.source || ''}
-              onChange={this.binder1(this.handleFormChange, 'source')}
+              onChange={(event) => this.handleFormChange(event, 'source')}
             />
           </FormControl>
 
@@ -250,7 +247,7 @@ class StatementForm extends React.Component {
               name="period_id"
               value={form.period_id || ''}
               displayEmpty
-              onChange={this.binder1(this.handleFormChange, 'period_id')}
+              onChange={(event) => this.handleFormChange(event, 'period_id')}
               periods={periods}
             />
           </FormControl>
@@ -262,7 +259,7 @@ class StatementForm extends React.Component {
             color="primary"
             variant="contained"
             disabled={closed || !changed || saving}
-            onClick={this.binder(this.handleSave)}
+            onClick={this.handleSave}
           >
             Save
           </Button>
@@ -272,7 +269,7 @@ class StatementForm extends React.Component {
             color="default"
             variant="contained"
             disabled={closed || !changed || saving}
-            onClick={this.binder(this.handleCancel)}
+            onClick={this.handleCancel}
           >
             Cancel
           </Button>
@@ -281,7 +278,7 @@ class StatementForm extends React.Component {
             className={classes.button}
             color="default"
             disabled={closed || saving}
-            onClick={this.binder(this.handleDelete)}
+            onClick={this.handleDelete}
           >
             Delete
           </Button>

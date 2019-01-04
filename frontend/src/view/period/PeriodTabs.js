@@ -1,5 +1,4 @@
 
-import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
@@ -78,11 +77,6 @@ class PeriodTabs extends React.Component {
     transferId: PropTypes.string,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
-
   componentDidMount() {
     this.fixURL();
   }
@@ -91,7 +85,7 @@ class PeriodTabs extends React.Component {
     this.fixURL();
   }
 
-  handleToggleDrawer() {
+  handleToggleDrawer = () => {
     this.props.dispatch(toggleDrawer());
   }
 
@@ -131,7 +125,7 @@ class PeriodTabs extends React.Component {
     }
   }
 
-  redirectToPeriod(periodId) {
+  redirectToPeriod = (periodId) => {
     let path = null;
 
     if (periodId === 'periods') {
@@ -215,7 +209,7 @@ class PeriodTabs extends React.Component {
     ];
   }
 
-  handleTabChange(event, value) {
+  handleTabChange = (event, value) => {
     for (const tabinfo of this.getTabs()) {
       if (value === tabinfo.value) {
         this.props.history.push(tabinfo.path);
@@ -223,7 +217,7 @@ class PeriodTabs extends React.Component {
     }
   }
 
-  handleTabClick(event) {
+  handleTabClick = (event) => {
     if (event.button === 0) {
       event.preventDefault();
     }
@@ -245,7 +239,7 @@ class PeriodTabs extends React.Component {
     } = this.props;
 
     const tab = match.params.tab || 'reco';
-    const handleTabClick = this.binder(this.handleTabClick);
+    const handleTabClick = this.handleTabClick;
     const titleParts = [];
 
     const tabs = (
@@ -254,7 +248,7 @@ class PeriodTabs extends React.Component {
         value={tab}
         scrollable
         scrollButtons="auto"
-        onChange={this.binder(this.handleTabChange)}
+        onChange={this.handleTabChange}
       >
         {this.getTabs().map(tabinfo => {
           if (tabinfo.value === tab) {
@@ -282,7 +276,7 @@ class PeriodTabs extends React.Component {
           loading={loading}
           loadError={loadError}
           syncProgress={syncProgress}
-          redirectToPeriod={this.binder(this.redirectToPeriod)}
+          redirectToPeriod={this.redirectToPeriod}
           />
       </div>
     );
@@ -333,7 +327,7 @@ class PeriodTabs extends React.Component {
             className={classes.menuButton}
             color="inherit"
             aria-label="Menu"
-            onClick={this.binder(this.handleToggleDrawer)}
+            onClick={this.handleToggleDrawer}
           >
             <MenuIcon />
           </IconButton>

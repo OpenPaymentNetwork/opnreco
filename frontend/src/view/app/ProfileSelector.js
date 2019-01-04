@@ -1,4 +1,3 @@
-import { binder } from '../../util/binder';
 import { clearWithPloops } from '../../reducer/clearmost';
 import { closeDrawer, triggerResync } from '../../reducer/app';
 import { compose } from '../../util/functional';
@@ -51,13 +50,12 @@ class ProfileSelector extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       selectingId: null,
     };
   }
 
-  handleSelect(event) {
+  handleSelect = (event) => {
     const {dispatch} = this.props;
 
     const profileId = event.target.value;
@@ -105,7 +103,7 @@ class ProfileSelector extends React.Component {
         {spinner}
         <Select
           value={selectingId || profileId}
-          onChange={this.binder(this.handleSelect)}
+          onChange={this.handleSelect}
           className={classes.select}
           classes={{
             select: classes.selectInSelect,

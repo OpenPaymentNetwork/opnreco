@@ -7,7 +7,6 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import PropTypes from 'prop-types';
 import React from 'react';
-import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { logOut } from '../../reducer/login';
@@ -24,21 +23,20 @@ class LogoutDialog extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       password: '',
       showPassword: false,
     };
   }
 
-  handleLogout() {
+  handleLogout = () => {
     const {dispatch} = this.props;
     dispatch(tokenRefreshCancel());
     dispatch(logOut());
     window.setTimeout(() => this.props.history.push('/'), 0);
   }
 
-  handleCancel() {
+  handleCancel = () => {
     this.props.dispatch(setLoggingOut(false));
   }
 
@@ -46,7 +44,7 @@ class LogoutDialog extends React.Component {
     return (
       <Dialog
         open={!!this.props.loggingOut}
-        onClose={this.binder(this.handleCancel)}
+        onClose={this.handleCancel}
         aria-labelledby="form-dialog-title"
       >
         <DialogTitle id="form-dialog-title">Sign Out</DialogTitle>
@@ -56,10 +54,10 @@ class LogoutDialog extends React.Component {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={this.binder(this.handleCancel)} color="primary">
+          <Button onClick={this.handleCancel} color="primary">
             Cancel
           </Button>
-          <Button onClick={this.binder(this.handleLogout)} color="primary">
+          <Button onClick={this.handleLogout} color="primary">
             Sign Out
           </Button>
         </DialogActions>

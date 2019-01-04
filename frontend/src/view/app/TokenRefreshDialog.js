@@ -14,7 +14,6 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Visibility from '@material-ui/icons/Visibility';
 import VisibilityOff from '@material-ui/icons/VisibilityOff';
-import { binder } from '../../util/binder';
 import { fOPN } from '../../util/fetcher';
 import { connect } from 'react-redux';
 import { setAccessToken, logOut } from '../../reducer/login';
@@ -31,7 +30,6 @@ class TokenRefreshDialog extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       password: '',
       showPassword: false,
@@ -40,13 +38,13 @@ class TokenRefreshDialog extends React.Component {
     };
   }
 
-  handleLogOut() {
+  handleLogOut = () => {
     const {dispatch} = this.props;
     dispatch(tokenRefreshCancel());
     dispatch(logOut());
   }
 
-  handleOk() {
+  handleOk = () => {
     const {dispatch, profileId} = this.props;
     this.setState({submitting: true, error: null});
     const options = {
@@ -66,19 +64,19 @@ class TokenRefreshDialog extends React.Component {
     });
   }
 
-  handleChangePassword(event) {
+  handleChangePassword = (event) => {
     this.setState({password: event.target.value});
   }
 
-  handleClickShowPassword() {
+  handleClickShowPassword = () => {
     this.setState(state => ({showPassword: !state.showPassword}));
   }
 
-  handleMouseDownShowPassword(event) {
+  handleMouseDownShowPassword = (event) => {
     event.preventDefault();
   }
 
-  handleKeyDown(event) {
+  handleKeyDown = (event) => {
     // Matching the string 'Enter' is reliable thanks to React's
     // SyntheticEvent, which conforms to the DOM level 3 events spec:
     // https://www.w3.org/TR/uievents-key/#keys-whitespace
@@ -117,14 +115,14 @@ class TokenRefreshDialog extends React.Component {
               autoFocus
               type={this.state.showPassword ? 'text': 'password'}
               value={this.state.password}
-              onChange={this.binder(this.handleChangePassword)}
-              onKeyDown={this.binder(this.handleKeyDown)}
+              onChange={this.handleChangePassword}
+              onKeyDown={this.handleKeyDown}
               endAdornment={
                 <InputAdornment position="end">
                   <IconButton
                     aria-label="Toggle password visibility"
-                    onClick={this.binder(this.handleClickShowPassword)}
-                    onMouseDown={this.binder(this.handleMouseDownShowPassword)}
+                    onClick={this.handleClickShowPassword}
+                    onMouseDown={this.handleMouseDownShowPassword}
                   >
                     {this.state.showPassword ? <Visibility /> : <VisibilityOff />}
                   </IconButton>
@@ -135,10 +133,10 @@ class TokenRefreshDialog extends React.Component {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={this.binder(this.handleLogOut)} color="primary">
+          <Button onClick={this.handleLogOut} color="primary">
             Sign Out
           </Button>
-          <Button onClick={this.binder(this.handleOk)} color="primary">
+          <Button onClick={this.handleOk} color="primary">
             Ok
           </Button>
         </DialogActions>

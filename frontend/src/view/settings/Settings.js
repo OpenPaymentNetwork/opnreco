@@ -1,4 +1,4 @@
-import { binder } from '../../util/binder';
+
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
@@ -36,11 +36,6 @@ class Settings extends React.Component {
     settings: PropTypes.object,
     loading: PropTypes.bool,
   };
-
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
 
   render() {
     const {

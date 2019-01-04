@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { dashed } from '../../util/transferfmt';
 import { FormattedDate, FormattedTime } from 'react-intl';
@@ -46,13 +45,7 @@ class MovementTableBody extends React.Component {
     windowPeriodId: PropTypes.string.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
-  }
-
-  handleClickTransfer(path, event) {
+  handleClickTransfer = (event, path) => {
     if (event.button === 0) {
       event.preventDefault();
       this.props.closeDialog();
@@ -60,7 +53,7 @@ class MovementTableBody extends React.Component {
     }
   }
 
-  renderItemCells(movement, addCandidate) {
+  renderItemCells = (movement, addCandidate) => {
     const {classes, showVault, windowPeriodId} = this.props;
     const encPeriodId = encodeURIComponent(windowPeriodId);
     const tid = dashed(movement.transfer_id);
@@ -110,7 +103,8 @@ class MovementTableBody extends React.Component {
         </td>
         <td className={cellClass}>
           <a href={transferPath}
-              onClick={this.binder1(this.handleClickTransfer, transferPath)}>
+            onClick={(event) => this.handleClickTransfer(event, transferPath)}
+          >
             {tid} ({movement.number})
           </a>
         </td>
@@ -155,7 +149,7 @@ class MovementTableBody extends React.Component {
         items={movements}
         changeItems={changeMovements}
         showVault={showVault}
-        renderItemCells={this.binder(this.renderItemCells)}
+        renderItemCells={this.renderItemCells}
         searchFields={[
           {name: 'amount', colSpan: showVault ? 2 : 1},
           {name: 'date'},

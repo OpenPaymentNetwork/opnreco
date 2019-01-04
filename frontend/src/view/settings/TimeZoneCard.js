@@ -1,4 +1,4 @@
-import { binder } from '../../util/binder';
+
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -32,13 +32,12 @@ class TimeZoneCard extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       saving: false,
     };
   }
 
-  handleChange(event) {
+  handleChange = (event) => {
     const {value} = event.target;
     if (value !== this.props.settings.tzname) {
       const {dispatch} = this.props;
@@ -75,7 +74,7 @@ class TimeZoneCard extends React.Component {
             <Select
               name="tzname"
               value={settings.tzname}
-              onChange={this.binder(this.handleChange)}
+              onChange={this.handleChange}
               disabled={saving}
               native
             >

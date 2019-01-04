@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { fOPNReco } from '../../util/fetcher';
 import { throttler } from '../../util/throttler';
 import { withStyles } from '@material-ui/core/styles';
@@ -124,8 +123,6 @@ class RecoTableBody extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
     this.state = {
       removing: {},         // itemId: true
       searchInputs: {},     // field: text
@@ -141,7 +138,7 @@ class RecoTableBody extends React.Component {
     }
   }
 
-  closeSearch() {
+  closeSearch = () => {
     this.setState({
       searchInputs: {},
       searchResults: null,
@@ -150,7 +147,7 @@ class RecoTableBody extends React.Component {
     });
   }
 
-  handleRemove(itemId) {
+  handleRemove = (itemId) => {
     // Remove an item from the list.
     // Quickly animate the removal for clarity.
     this.setState({removing: {
@@ -181,7 +178,7 @@ class RecoTableBody extends React.Component {
     }, 200);
   }
 
-  handleAdd(itemId) {
+  handleAdd = (itemId) => {
     // Move an item from the search results to the reco's list of movements.
     const {items} = this.props;
     const {searchResults} = this.state;
@@ -229,7 +226,7 @@ class RecoTableBody extends React.Component {
     return t;
   }
 
-  handleSearchInput(fieldName, event) {
+  handleSearchInput = (event, fieldName) => {
     const hadQuery = this.state.hasQuery;
     this.setState({
       hasQuery: true,
@@ -304,7 +301,7 @@ class RecoTableBody extends React.Component {
     this.props.updatePopoverPosition();
   }
 
-  handleCreateInput(fieldKey, event) {
+  handleCreateInput = (event, fieldKey) => {
     this.props.handleCreateInput(fieldKey, event.target.value);
   }
 
@@ -340,7 +337,7 @@ class RecoTableBody extends React.Component {
                   classes={{input: classes.createInput}}
                   disableUnderline
                   value={value}
-                  onChange={this.binder1(this.handleCreateInput, fieldKey)}
+                  onChange={(event) => this.handleCreateInput(event, fieldKey)}
                   fullWidth
                 />
               </td>
@@ -357,12 +354,12 @@ class RecoTableBody extends React.Component {
       icon = (
         <AddCircle
           className={classes.addRemoveIcon}
-          onClick={this.binder1(this.handleAdd, itemId)} />);
+          onClick={() => this.handleAdd(itemId)} />);
     } else {
       icon = (
         <RemoveCircle
           className={classes.addRemoveIcon}
-          onClick={this.binder1(this.handleRemove, itemId)} />);
+          onClick={() => this.handleRemove(itemId)} />);
     }
 
     return (
@@ -446,7 +443,7 @@ class RecoTableBody extends React.Component {
             {hasQuery ?
               <Close
                 className={classes.searchCloseIcon}
-                onClick={this.binder(this.closeSearch)} />
+                onClick={this.closeSearch} />
               : <Search className={classes.searchIcon} />}
           </td>
           {searchFields.map(field => (
@@ -456,7 +453,7 @@ class RecoTableBody extends React.Component {
                 classes={{input: classes.searchInput}}
                 disableUnderline
                 value={searchInputs[field.name] || ''}
-                onChange={this.binder1(this.handleSearchInput, field.name)}
+                onChange={(event) => this.handleSearchInput(event, field.name)}
                 fullWidth
               />
             </td>

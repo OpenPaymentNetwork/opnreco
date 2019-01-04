@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -110,13 +109,7 @@ class TransactionReport extends React.Component {
     initialRowsPerPage: PropTypes.number.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
-  }
-
-  handleClickTransfer(path, event) {
+  handleClickTransfer = (event, path) => {
     if (event.button === 0) {
       event.preventDefault();
       this.props.history.push(path);
@@ -223,7 +216,7 @@ class TransactionReport extends React.Component {
           `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
         return (
           <a href={transferPath}
-            onClick={this.binder1(this.handleClickTransfer, transferPath)}
+            onClick={(event) => this.handleClickTransfer(event, transferPath)}
           >{tid}</a>
         );
       };

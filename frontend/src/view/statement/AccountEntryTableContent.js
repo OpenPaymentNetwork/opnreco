@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { refetchAll } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { fOPNReco } from '../../util/fetcher';
@@ -105,8 +104,6 @@ class AccountEntryTableContent extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
     this.state = {
       // editingEntries: {accountEntryId: {changed, saving, focus, ...fields}}
       editingEntries: {},
@@ -155,7 +152,7 @@ class AccountEntryTableContent extends React.Component {
     return null;
   }
 
-  handleClickEntry(event) {
+  handleClickEntry = (event) => {
     const entry = this.getEntry(event);
 
     if (!entry || this.state.editingEntries[entry.id]) {
@@ -212,7 +209,7 @@ class AccountEntryTableContent extends React.Component {
     });
   }
 
-  handleEdit(event) {
+  handleEdit = (event) => {
     const entry = this.getEntry(event, true);
     if (!entry) {
       return;
@@ -224,7 +221,7 @@ class AccountEntryTableContent extends React.Component {
     });
   }
 
-  handleSave(event) {
+  handleSave = (event) => {
     const entry = this.getEntry(event, true);
     if (!entry) {
       return;
@@ -274,7 +271,7 @@ class AccountEntryTableContent extends React.Component {
 
   }
 
-  handleCancel(event) {
+  handleCancel = (event) => {
     const entry = this.getEntry(event, true);
     if (!entry) {
       return;
@@ -283,7 +280,7 @@ class AccountEntryTableContent extends React.Component {
     this.cancelEntry(entry);
   }
 
-  handleDelete(event) {
+  handleDelete = (event) => {
     const entry = this.getEntry(event, true);
     if (!entry) {
       return;
@@ -296,11 +293,11 @@ class AccountEntryTableContent extends React.Component {
     });
   }
 
-  handleDeleteCancel() {
+  handleDeleteCancel = () => {
     this.setState({deleteShown: false});
   }
 
-  handleDeleteConfirmed() {
+  handleDeleteConfirmed = () => {
     const entry = this.state.editingEntries[this.state.deleteEntryId];
     if (!entry) {
       // Can this happen?
@@ -352,7 +349,7 @@ class AccountEntryTableContent extends React.Component {
     });
   }
 
-  handleStartAdd() {
+  handleStartAdd = () => {
     this.setState({
       adding: true,
       editingEntries: {
@@ -374,7 +371,7 @@ class AccountEntryTableContent extends React.Component {
    * Focus a specific input field once the DOM element is added,
    * then remove the request for focus.
    */
-  refFocus(entryId, element) {
+  refFocus(element, entryId) {
     if (!element) {
       return;
     }
@@ -414,9 +411,11 @@ class AccountEntryTableContent extends React.Component {
         numCell = classes.numCellEditing;
         textCell = classes.textCellEditing;
       } else {
-        editableCellProps.onClick = this.binder(this.handleClickEntry);
+        editableCellProps.onClick = this.handleClickEntry;
       }
     }
+
+    const callRefFocus = (element) => this.refFocus(element, entry.id);
 
     const main = (
       <tr key={entry.id} data-account-entry-id={entry.id}>
@@ -426,10 +425,9 @@ class AccountEntryTableContent extends React.Component {
               type="text"
               name="entry_date"
               value={editing.entry_date}
-              onChange={this.binder(this.handleEdit)}
+              onChange={this.handleEdit}
               className={textInputField}
-              ref={editing.focus === 'entry_date' ?
-                this.binder1(this.refFocus, entry.id) : null}
+              ref={editing.focus === 'entry_date' ? callRefFocus : null}
             />
             :
             <FormattedDate value={entry.entry_date}
@@ -443,10 +441,9 @@ class AccountEntryTableContent extends React.Component {
               type="text"
               name="delta"
               value={editing.delta}
-              onChange={this.binder(this.handleEdit)}
+              onChange={this.handleEdit}
               className={numInputField}
-              ref={editing.focus === 'delta' ?
-                this.binder1(this.refFocus, entry.id) : null}
+              ref={editing.focus === 'delta' ? callRefFocus : null}
             />
             : cfmt(entry.delta)
           }
@@ -457,10 +454,9 @@ class AccountEntryTableContent extends React.Component {
               type="text"
               name="page"
               value={editing.page}
-              onChange={this.binder(this.handleEdit)}
+              onChange={this.handleEdit}
               className={numInputField}
-              ref={editing.focus === 'page' ?
-                this.binder1(this.refFocus, entry.id) : null}
+              ref={editing.focus === 'page' ? callRefFocus : null}
             />
             : entry.page
           }
@@ -471,10 +467,9 @@ class AccountEntryTableContent extends React.Component {
               type="text"
               name="line"
               value={editing.line}
-              onChange={this.binder(this.handleEdit)}
+              onChange={this.handleEdit}
               className={numInputField}
-              ref={editing.focus === 'line' ?
-                this.binder1(this.refFocus, entry.id) : null}
+              ref={editing.focus === 'line' ? callRefFocus : null}
               />
             : entry.line
           }
@@ -485,10 +480,9 @@ class AccountEntryTableContent extends React.Component {
               type="text"
               name="description"
               value={editing.description}
-              onChange={this.binder(this.handleEdit)}
+              onChange={this.handleEdit}
               className={textInputField}
-              ref={editing.focus === 'description' ?
-                this.binder1(this.refFocus, entry.id) : null}
+              ref={editing.focus === 'description' ? callRefFocus : null}
               />
             : entry.description
           }
@@ -518,7 +512,7 @@ class AccountEntryTableContent extends React.Component {
                 variant="contained"
                 disabled={!changed || saving}
                 data-account-entry-id={entry.id}
-                onClick={this.binder(this.handleSave)}
+                onClick={this.handleSave}
                 size="small"
               >
                 Save
@@ -530,7 +524,7 @@ class AccountEntryTableContent extends React.Component {
                 variant="contained"
                 disabled={saving}
                 data-account-entry-id={entry.id}
-                onClick={this.binder(this.handleCancel)}
+                onClick={this.handleCancel}
                 size="small"
               >
                 Cancel
@@ -542,7 +536,7 @@ class AccountEntryTableContent extends React.Component {
                   color="default"
                   disabled={saving}
                   data-account-entry-id={entry.id}
-                  onClick={this.binder(this.handleDelete)}
+                  onClick={this.handleDelete}
                   size="small"
                 >
                   Delete
@@ -593,7 +587,7 @@ class AccountEntryTableContent extends React.Component {
             <td colSpan="6" className={classes.addCell}>
               <Fab size="small" color="primary"
                 aria-label="Add an account entry"
-                onClick={this.binder(this.handleStartAdd)}>
+                onClick={this.handleStartAdd}>
                 <Add />
               </Fab>
             </td>
@@ -609,8 +603,8 @@ class AccountEntryTableContent extends React.Component {
         deleteDialog = (
           <AccountEntryDeleteDialog
             hasReco={!!entry.reco_id}
-            onCancel={this.binder(this.handleDeleteCancel)}
-            onDelete={this.binder(this.handleDeleteConfirmed)}
+            onCancel={this.handleDeleteCancel}
+            onDelete={this.handleDeleteConfirmed}
             open={this.state.deleteShown}
             deleting={this.state.deleting} />);
       }

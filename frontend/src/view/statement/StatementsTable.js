@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { getCurrencyFormatter } from '../../util/currency';
 import { renderReportDate } from '../../util/reportrender';
@@ -71,23 +70,21 @@ class StatementsTable extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
     this.state = {};
   }
 
-  handleClick(path, event) {
+  handleClick = (event, path) => {
     if (event.button === 0) {
       event.preventDefault();
       this.props.history.push(path);
     }
   }
 
-  handleAddButton() {
+  handleAddButton = () => {
     this.setState({dialogExists: true, dialogOpen: true});
   }
 
-  handleCancelAdd() {
+  handleCancelAdd = () => {
     this.setState({dialogOpen: false});
   }
 
@@ -113,7 +110,7 @@ class StatementsTable extends React.Component {
 
         return (
           <tr key={statement.id}
-            onClick={this.binder1(this.handleClick, path)}
+            onClick={(event) => this.handleClick(event, path)}
             className={classes.clickableRow}
           >
             <td className={classes.textCell}>
@@ -163,7 +160,7 @@ class StatementsTable extends React.Component {
         <tr key="add">
           <td colSpan={colCount} className={classes.addCell}>
             <Fab size="small" color="primary" aria-label="Add a statement"
-              onClick={this.binder(this.handleAddButton)}>
+              onClick={this.handleAddButton}>
               <Add />
             </Fab>
           </td>
@@ -180,7 +177,7 @@ class StatementsTable extends React.Component {
       dialog = (
         <StatementAddDialog
           open={this.state.dialogOpen}
-          onCancel={this.binder(this.handleCancelAdd)}
+          onCancel={this.handleCancelAdd}
         />
       );
     }

@@ -1,5 +1,4 @@
 
-import { binder } from '../../util/binder';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import Dialog from '@material-ui/core/Dialog';
@@ -32,7 +31,6 @@ class StatementAddDialog extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       method: null,
       source: '',
@@ -48,15 +46,15 @@ class StatementAddDialog extends React.Component {
     }
   }
 
-  handleChangeMethod(event) {
+  handleChangeMethod = (event) => {
     this.setState({method: event.target.value});
   }
 
-  handleChangeSource(event) {
+  handleChangeSource = (event) => {
     this.setState({source: event.target.value});
   }
 
-  handleContinueBlank() {
+  handleContinueBlank = () => {
 
   }
 
@@ -89,7 +87,7 @@ class StatementAddDialog extends React.Component {
               name="source"
               id="blank_statement_source"
               value={source || ''}
-              onChange={this.binder(this.handleChangeSource)}
+              onChange={this.handleChangeSource}
               placeholder="Source"
             />
           </FormControl>
@@ -115,7 +113,7 @@ class StatementAddDialog extends React.Component {
                 aria-label="Method"
                 name="gender1"
                 value={this.state.value}
-                onChange={this.binder(this.handleChangeMethod)}
+                onChange={this.handleChangeMethod}
               >
                 <FormControlLabel value="upload" control={<Radio />} label={
                   <span>
@@ -144,7 +142,7 @@ class StatementAddDialog extends React.Component {
               component="span"
               onClick={
                 method === 'blank'
-                ? this.binder(this.handleContinueBlank)
+                ? this.handleContinueBlank
                 : undefined}
             >
               Continue

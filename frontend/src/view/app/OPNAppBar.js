@@ -6,7 +6,6 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
-import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { toggleDrawer } from '../../reducer/app';
@@ -33,12 +32,7 @@ class OPNAppBar extends React.Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
-
-  handleToggleDrawer() {
+  handleToggleDrawer = () => {
     this.props.dispatch(toggleDrawer());
   }
 
@@ -52,7 +46,7 @@ class OPNAppBar extends React.Component {
               className={classes.menuButton}
               color="inherit"
               aria-label="Menu"
-              onClick={this.binder(this.handleToggleDrawer)}
+              onClick={this.handleToggleDrawer}
             >
               <MenuIcon />
             </IconButton>

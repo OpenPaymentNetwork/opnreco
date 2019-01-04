@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from '../../util/binder';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyDeltaFormatter } from '../../util/currency';
 import { withStyles } from '@material-ui/core/styles';
@@ -38,13 +37,7 @@ class AccountEntryTableBody extends React.Component {
     showVault: PropTypes.bool,
   };
 
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
-  }
-
-  renderItemCells(entry, addCandidate) {
+  renderItemCells = (entry, addCandidate) => {
     const {classes, showVault} = this.props;
     const numCell = `${classes.cell} ${classes.numberCell}` + (
       addCandidate ? ` ${classes.candidateCell}` : '');
@@ -103,7 +96,7 @@ class AccountEntryTableBody extends React.Component {
         items={accountEntries}
         changeItems={changeAccountEntries}
         showVault={showVault}
-        renderItemCells={this.binder(this.renderItemCells)}
+        renderItemCells={this.renderItemCells}
         searchFields={[
           {name: 'delta', colSpan: showVault ? 2 : 1},
           {name: 'entry_date'},

@@ -1,5 +1,4 @@
 import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
-import { binder } from '../../util/binder';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -106,7 +105,6 @@ class TransferSummary extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
     this.state = {
       showSearch: props.transferId ? false : true,
       typingTransferId: '',
@@ -120,21 +118,21 @@ class TransferSummary extends React.Component {
     }
   }
 
-  handleShowSearch() {
+  handleShowSearch = () => {
     this.setState({showSearch: true});
   }
 
-  handleHideSearch() {
+  handleHideSearch = () => {
     this.setState({showSearch: false});
   }
 
-  handleKeyDown(event) {
+  handleKeyDown = (event) => {
     if (event.key === 'Enter') {
       this.handleTransferIdSubmit();
     }
   }
 
-  handleTransferIdChange(event) {
+  handleTransferIdChange = (event) => {
     // Allow only numbers and dashes.
     const {value} = event.target;
     const re = /[0-9-]+/g;
@@ -149,7 +147,7 @@ class TransferSummary extends React.Component {
     this.setState({typingTransferId: text.join('')});
   }
 
-  handleTransferIdSubmit() {
+  handleTransferIdSubmit = () => {
     const transferId = this.state.typingTransferId;
     if (transferId) {
       this.props.dispatch(setTransferId(transferId));
@@ -166,7 +164,7 @@ class TransferSummary extends React.Component {
     if (!showSearch) {
       return (
         <div className={classes.searchIconBox}>
-          <IconButton onClick={this.binder(this.handleShowSearch)}>
+          <IconButton onClick={this.handleShowSearch}>
             <SearchIcon/>
           </IconButton>
         </div>
@@ -177,7 +175,7 @@ class TransferSummary extends React.Component {
       <div>
         <Paper className={classes.formPaper}>
           <IconButton className={classes.cancelButton}
-            onClick={this.binder(this.handleHideSearch)}
+            onClick={this.handleHideSearch}
           >
             <CancelIcon />
           </IconButton>
@@ -186,13 +184,13 @@ class TransferSummary extends React.Component {
             label="Transfer ID"
             className={classes.transferIdField}
             value={typingTransferId}
-            onChange={this.binder(this.handleTransferIdChange)}
-            onKeyDown={this.binder(this.handleKeyDown)}
+            onChange={this.handleTransferIdChange}
+            onKeyDown={this.handleKeyDown}
           />
           <Button
             className={classes.formButton}
             variant="outlined"
-            onClick={this.binder(this.handleTransferIdSubmit)}
+            onClick={this.handleTransferIdSubmit}
             disabled={!typingTransferId}
           >
             Go

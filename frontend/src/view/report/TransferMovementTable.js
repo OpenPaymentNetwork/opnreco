@@ -14,7 +14,6 @@ import React from 'react';
 import StarIcon from '@material-ui/icons/Star';
 import VaultIcon from './Vault';
 import { withStyles } from '@material-ui/core/styles';
-import { binder } from '../../util/binder';
 
 
 const solidBorder = '1px solid #bbb';
@@ -112,11 +111,6 @@ class TransferMovementTable extends React.Component {
     periodId: PropTypes.string.isRequired,
     record: PropTypes.object,
   };
-
-  constructor(props) {
-    super(props);
-    this.binder = binder(this);
-  }
 
   renderMovementLegendCell(columnsAfterGraphic) {
     // The legend is the table cell above the graphic cells.

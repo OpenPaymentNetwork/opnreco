@@ -1,5 +1,4 @@
 
-import { binder, binder1 } from './binder';
 import { compose } from './functional';
 import { connect } from 'react-redux';
 import { getPagerState } from '../reducer/pager';
@@ -52,8 +51,6 @@ class Pager extends React.Component {
 
   constructor(props) {
     super(props);
-    this.binder = binder(this);
-    this.binder1 = binder1(this);
     this.state = {
       oldRowcount: null,
     };
@@ -68,7 +65,7 @@ class Pager extends React.Component {
     }
   }
 
-  handleChangeRowsPerPage(event) {
+  handleChangeRowsPerPage = (event) => {
     const value = event.target.value;
     const rowsPerPage = parseInt(value, 10);
     this.props.dispatch(setRowsPerPage(this.props.name, rowsPerPage));
@@ -78,19 +75,19 @@ class Pager extends React.Component {
     this.props.dispatch(setPageIndex(this.props.name, pageIndex));
   }
 
-  handleNavFirst() {
+  handleNavFirst = () => {
     this.setPageIndex(0);
   }
 
-  handleNavPrev() {
+  handleNavPrev = () => {
     this.setPageIndex(this.props.pageIndex - 1);
   }
 
-  handleNavNext() {
+  handleNavNext = () => {
     this.setPageIndex(this.props.pageIndex + 1);
   }
 
-  handleNavLast() {
+  handleNavLast = () => {
     const {rowcount, rowsPerPage} = this.props;
     this.setPageIndex(Math.floor(((rowcount || 1) - 1) / rowsPerPage));
   }
@@ -146,7 +143,7 @@ class Pager extends React.Component {
               disableUnderline
               className={classes.rowsPerPage}
               classes={{select: classes.rowsPerPageSelect}}
-              onChange={this.binder(this.handleChangeRowsPerPage)}
+              onChange={this.handleChangeRowsPerPage}
             >
               <MenuItem value="10">10</MenuItem>
               <MenuItem value="100">100</MenuItem>
@@ -164,19 +161,19 @@ class Pager extends React.Component {
           label={rowsInfo} />
 
         <IconButton title="First Page"
-          disabled={!navPrev} onClick={this.binder(this.handleNavFirst)}
+          disabled={!navPrev} onClick={this.handleNavFirst}
         ><FirstPage/></IconButton>
 
         <IconButton title="Previous Page"
-          disabled={!navPrev} onClick={this.binder(this.handleNavPrev)}
+          disabled={!navPrev} onClick={this.handleNavPrev}
         ><ChevronLeft/></IconButton>
 
         <IconButton title="Next Page"
-          disabled={!navNext} onClick={this.binder(this.handleNavNext)}
+          disabled={!navNext} onClick={this.handleNavNext}
         ><ChevronRight/></IconButton>
 
         <IconButton title="Last Page"
-          disabled={!navNext} onClick={this.binder(this.handleNavLast)}
+          disabled={!navNext} onClick={this.handleNavLast}
         ><LastPage/></IconButton>
 
       </div>
