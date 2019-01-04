@@ -1,4 +1,8 @@
 
+import { compose } from '../../util/functional';
+import { clearMost } from '../../reducer/clearmost';
+import { fOPNReco } from '../../util/fetcher';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import Dialog from '@material-ui/core/Dialog';
@@ -25,8 +29,11 @@ const styles = {
 class StatementAddDialog extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    onCancel: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
+    onClose: PropTypes.func.isRequired,
     open: PropTypes.bool,
+    period: PropTypes.object.isRequired,
   };
 
   constructor(props) {
@@ -55,13 +62,40 @@ class StatementAddDialog extends React.Component {
   }
 
   handleContinueBlank = () => {
+    const {
+      dispatch,
+      history,
+      period,
+    } = this.props;
+
+    const encPeriodId = encodeURIComponent(period.id);
+    const url = fOPNReco.pathToURL(
+      `/period/${encPeriodId}/statement-add-blank`);
+    const data = {
+      source: this.state.source,
+    };
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({loading: true});
+    promise.then((response) => {
+      // Redirect to the new statement.
+      const path = (
+        `/period/${encPeriodId}` +
+        `/statement/${encodeURIComponent(response.statement.id)}`);
+      history.push(path);
+      dispatch(clearMost());
+      this.props.onClose();
+    }).catch(() => {
+      this.setState({loading: false});
+    });
 
   }
 
   render() {
     const {
+      /* eslint {"no-unused-vars": 0} */
       classes,
-      onCancel,
+      onClose,
+      dispatch,
       ...otherProps
     } = this.props;
 
@@ -100,7 +134,7 @@ class StatementAddDialog extends React.Component {
 
     return (
       <Dialog
-        onClose={onCancel}
+        onClose={onClose}
         aria-labelledby="form-dialog-title"
         {...otherProps}
       >
@@ -132,7 +166,7 @@ class StatementAddDialog extends React.Component {
 
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCancel}>
+          <Button onClick={onClose}>
             Cancel
           </Button>
           <label htmlFor="statement-upload-input">
@@ -155,4 +189,7 @@ class StatementAddDialog extends React.Component {
 }
 
 
-export default withStyles(styles)(StatementAddDialog);
+export default compose(
+  withStyles(styles),
+  withRouter,
+)(StatementAddDialog);

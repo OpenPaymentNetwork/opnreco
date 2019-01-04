@@ -175,6 +175,7 @@ class StatementView extends React.Component {
   render() {
     const {
       classes,
+      dispatch,
       recordURL,
       period,
       ploop,
@@ -195,6 +196,7 @@ class StatementView extends React.Component {
         {require}
         <Paper className={classes.tablePaper}>
           <StatementsTable
+            dispatch={dispatch}
             period={period}
             ploop={ploop}
             statements={statementsRecord.statements}

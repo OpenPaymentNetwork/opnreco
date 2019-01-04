@@ -61,6 +61,7 @@ const styles = {
 class StatementsTable extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     now: PropTypes.string,
     period: PropTypes.object,
@@ -84,7 +85,7 @@ class StatementsTable extends React.Component {
     this.setState({dialogExists: true, dialogOpen: true});
   }
 
-  handleCancelAdd = () => {
+  handleClose = () => {
     this.setState({dialogOpen: false});
   }
 
@@ -176,8 +177,10 @@ class StatementsTable extends React.Component {
     if (this.state.dialogExists) {
       dialog = (
         <StatementAddDialog
+          dispatch={this.props.dispatch}
+          onClose={this.handleClose}
           open={this.state.dialogOpen}
-          onCancel={this.handleCancelAdd}
+          period={period}
         />
       );
     }

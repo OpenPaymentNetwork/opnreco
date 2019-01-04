@@ -49,7 +49,7 @@ def statements_api(context, request):
             func.sum(inc_case).label('inc_total'),
             func.sum(dec_case).label('dec_total'),
         )
-        .join(AccountEntry, AccountEntry.statement_id == Statement.id)
+        .outerjoin(AccountEntry, AccountEntry.statement_id == Statement.id)
         .filter(
             Statement.owner_id == owner_id,
             Statement.peer_id == period.peer_id,
@@ -58,7 +58,7 @@ def statements_api(context, request):
             Statement.period_id == period.id,
         )
         .group_by(Statement.id)
-        .order_by(Statement.source, Statement.upload_ts, Statement.id)
+        .order_by(Statement.id)
         .all()
     )
 
@@ -197,7 +197,6 @@ class StatementSaveSchema(colander.Schema):
     id = colander.SchemaNode(colander.Integer())
     source = colander.SchemaNode(
         colander.String(),
-        missing='',
         validator=colander.Length(max=100))
     period_id = colander.SchemaNode(colander.Integer(), missing=None)
 
@@ -269,8 +268,8 @@ def statement_save(context, request):
         statement.period_id = appstruct['period_id']
 
     request.dbsession.add(OwnerLog(
-        owner_id=owner.id,
-        event_type='edit_statement',
+        owner_id=owner_id,
+        event_type='statement_edit',
         remote_addr=request.remote_addr,
         user_agent=request.user_agent,
         content=appstruct,
@@ -378,6 +377,14 @@ def statement_delete(context, request):
             Statement.id == statement.id,
         )
         .delete(synchronize_session='fetch'))
+
+    request.dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='statement_delete',
+        remote_addr=request.remote_addr,
+        user_agent=request.user_agent,
+        content=appstruct,
+    ))
 
     return {}
 
@@ -597,3 +604,54 @@ def entry_delete(context, request):
     dbsession.flush()
 
     return {}
+
+
+class StatementAddBlankSchema(colander.Schema):
+    source = colander.SchemaNode(
+        colander.String(),
+        validator=colander.Length(max=100))
+
+
+@view_config(
+    name='statement-add-blank',
+    context=PeriodResource,
+    permission=perms.edit_period,
+    renderer='json')
+def statement_add_blank(context, request):
+    """Add a blank statement."""
+    period = context.period
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    schema = StatementAddBlankSchema()
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        handle_invalid(e, schema=schema)
+
+    statement = Statement(
+        owner_id=owner_id,
+        period_id=period.id,
+        peer_id=period.peer_id,
+        loop_id=period.loop_id,
+        currency=period.currency,
+        source=appstruct['source'],
+    )
+    dbsession.add(statement)
+    dbsession.flush()  # Assign statement.id
+
+    dbsession.add(OwnerLog(
+        owner_id=owner_id,
+        event_type='statement_add_blank',
+        remote_addr=request.remote_addr,
+        user_agent=request.user_agent,
+        content={
+            'statement_id': statement.id,
+            'source': appstruct['source'],
+        },
+    ))
+
+    return {
+        'statement': serialize_statement(statement),
+    }
