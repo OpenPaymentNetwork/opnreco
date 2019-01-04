@@ -701,6 +701,9 @@ class StatementUploadAPI:
 
     def __call__(self):
         request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+        owner_id = owner.id
 
         schema = StatementUploadSchema()
         try:
@@ -719,11 +722,38 @@ class StatementUploadAPI:
         if content_type in self.excel_types or ext in self.excel_extensions:
             self.handle_excel()
 
-        if self.statement is not None:
-            # TODO: auto-external-reco and OwnerLog.
-            return {}
+        if self.statement is None:
+            raise HTTPBadRequest(json_body={
+                'error': 'file_type_not_supported',
+                'error_description': (
+                    "File type not supported: %s (%s)" %
+                    (ext, appstruct['type'])
+                ),
+            })
 
-        raise NotImplementedError()
+        # TODO: auto-external-reco.
+
+        entry_count = (
+            dbsession.query(func.count(1))
+            .select_from(AccountEntry)
+            .filter(AccountEntry.statement_id == self.statement.id)
+            .scalar())
+
+        dbsession.add(OwnerLog(
+            owner_id=owner_id,
+            event_type='statement_upload',
+            remote_addr=request.remote_addr,
+            user_agent=request.user_agent,
+            content={
+                'statement_id': self.statement.id,
+                'filename': appstruct['name'],
+                'content_type': appstruct['type'],
+                'size': appstruct['size'],
+                'entry_count': entry_count,
+            },
+        ))
+
+        return {'statement': serialize_statement(self.statement)}
 
     @reify
     def content(self):
@@ -752,7 +782,7 @@ class StatementUploadAPI:
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
-            source='upload',
+            source='Uploaded',
             upload_ts=now_func,
             filename=name,
             content_type=appstruct['type'],

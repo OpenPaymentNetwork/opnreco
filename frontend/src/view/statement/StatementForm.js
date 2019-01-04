@@ -3,11 +3,13 @@ import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
+import { FormattedDate, FormattedTime } from 'react-intl';
 import { setStatementId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import CloudDownload from '@material-ui/icons/CloudDownload';
 import FormControl from '@material-ui/core/FormControl';
 import FormGroup from '@material-ui/core/FormGroup';
 import Input from '@material-ui/core/Input';
@@ -37,6 +39,28 @@ const styles = {
   },
   button: {
     marginRight: '16px',
+  },
+  downloadRow: {
+    paddingTop: '16px',
+  },
+  downloadLink: {
+    cursor: 'pointer',
+    display: 'inline-block',
+    height: '24px',
+    lineHeight: '24px',
+    position: 'relative',
+    paddingLeft: '32px',
+    paddingRight: '8px',
+    color: '#000',
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+  downloadIcon: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
 };
 
@@ -180,6 +204,37 @@ class StatementForm extends React.Component {
     });
   }
 
+  handleDownload = () => {
+  }
+
+  renderDownloadRow() {
+    const {
+      classes,
+      statement,
+    } = this.props;
+
+    return (
+      <div className={classes.downloadRow}>
+        <span
+          className={classes.downloadLink}
+          onClick={this.handleDownload}
+        >
+          <CloudDownload className={classes.downloadIcon} />
+          {statement.filename || 'file'}
+        </span>
+        <span className={classes.uploadDate}>
+          (Uploaded <span title={statement.upload_ts}>
+            <FormattedDate value={statement.upload_ts}
+              day="numeric" month="short" year="numeric" />
+            {' '}
+            <FormattedTime value={statement.upload_ts}
+              hour="numeric" minute="2-digit" second="2-digit" />)
+          </span>
+        </span>
+      </div>
+    );
+  }
+
   render() {
     const {
       classes,
@@ -221,6 +276,12 @@ class StatementForm extends React.Component {
         />);
     }
 
+    let downloadRow = null;
+
+    if (statement.upload_ts) {
+      downloadRow = this.renderDownloadRow();
+    }
+
     return (
       <div className={classes.root}>
         {deleteDialog}
@@ -253,6 +314,9 @@ class StatementForm extends React.Component {
           </FormControl>
 
         </FormGroup>
+
+        {downloadRow}
+
         <FormGroup row className={classes.buttonBox}>
           <Button
             className={classes.button}
@@ -261,7 +325,7 @@ class StatementForm extends React.Component {
             disabled={closed || !changed || saving}
             onClick={this.handleSave}
           >
-            Save
+            Save Changes
           </Button>
 
           <Button

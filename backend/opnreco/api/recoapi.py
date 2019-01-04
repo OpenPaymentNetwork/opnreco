@@ -686,7 +686,7 @@ class RecoSave:
                 Statement.period_id == period.id,
                 Statement.loop_id == period.loop_id,
                 Statement.currency == period.currency,
-                Statement.source == 'manual',
+                Statement.source == 'Manual Entries',
             )
             .order_by(Statement.id.desc())
             .first()
@@ -699,7 +699,7 @@ class RecoSave:
                 period_id=period.id,
                 loop_id=period.loop_id,
                 currency=period.currency,
-                source='manual',
+                source='Manual Entries',
             )
             dbsession.add(statement)
             dbsession.flush()  # Assign statement.id

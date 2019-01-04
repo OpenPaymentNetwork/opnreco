@@ -5,6 +5,7 @@ import { fOPNReco } from '../../util/fetcher';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
@@ -22,6 +23,16 @@ import React from 'react';
 const styles = {
   sourceControl: {
     width: '100%',
+  },
+  continueWrapper: {
+    position: 'relative',
+  },
+  buttonProgress: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -12,
+    marginLeft: -12,
   },
 };
 
@@ -144,6 +155,7 @@ class StatementAddDialog extends React.Component {
     const {
       method,
       source,
+      loading,
     } = this.state;
 
     let otherField = null;
@@ -209,13 +221,15 @@ class StatementAddDialog extends React.Component {
 
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>
+          <Button onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <label htmlFor="statement-upload-input">
+          <label htmlFor="statement-upload-input"
+            className={classes.continueWrapper}
+          >
             <Button
               color="primary"
-              disabled={!method || (method === 'blank' && !source)}
+              disabled={loading || !method || (method === 'blank' && !source)}
               component="span"
               onClick={
                 method === 'blank'
@@ -224,6 +238,8 @@ class StatementAddDialog extends React.Component {
             >
               Continue
             </Button>
+            {loading &&
+              <CircularProgress size={24} className={classes.buttonProgress} />}
           </label>
         </DialogActions>
       </Dialog>

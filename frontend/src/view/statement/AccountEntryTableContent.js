@@ -357,6 +357,7 @@ class AccountEntryTableContent extends React.Component {
         add: {
           id: 'add',
           reco_id: null,
+          changed: true,
           entry_date: '',
           delta: '',
           sheet: '',
@@ -515,7 +516,7 @@ class AccountEntryTableContent extends React.Component {
                 onClick={this.handleSave}
                 size="small"
               >
-                Save
+                {entry.id === 'add' ? 'Add' : 'Save Changes'}
               </Button>
 
               <Button
