@@ -260,7 +260,7 @@ def statement_download_api(context, request):
     headers = {
         'Content-Disposition': 'attachment; filename="%s"' % (
             statement.filename),
-        'Content-Type': 'application/x-force-download',
+        'Content-Type': statement.content_type,
         'Content-Length': '%d' % len(content),
     }
 
@@ -823,7 +823,7 @@ class StatementUploadAPI:
     def content(self):
         return base64.decodestring(self.appstruct['b64'].encode('ascii'))
 
-    def add_statement(self):
+    def add_statement(self, source):
         appstruct = self.appstruct
         period = self.context.period
         dbsession = self.request.dbsession
@@ -846,7 +846,7 @@ class StatementUploadAPI:
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
-            source='Uploaded',
+            source=source,
             upload_ts=now_func,
             filename=name,
             content_type=appstruct['type'],
@@ -874,7 +874,7 @@ class StatementUploadAPI:
                     "Please upload a file with no complex XML entities."),
             })
 
-        statement = self.add_statement()
+        statement = self.add_statement("Spreadsheet")
 
         for sheetx, sheet in enumerate(book.sheets()):
             # Look for a heading row.

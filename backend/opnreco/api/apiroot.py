@@ -12,9 +12,11 @@ def download_statement_template(context, request):
     f = open(fn, 'rb')
     content = f.read()
     f.close()
+    content_type = (
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     headers = {
         'Content-Disposition': 'attachment; filename="%s"' % name,
-        'Content-Type': 'application/x-force-download',
+        'Content-Type': content_type,
         'Content-Length': '%d' % len(content),
     }
 

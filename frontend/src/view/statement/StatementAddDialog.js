@@ -217,7 +217,7 @@ class StatementAddDialog extends React.Component {
               >
                 <FormControlLabel value="upload" control={<Radio />} label={
                   <span>
-                    Import from a spreadsheet or CSV file (<span
+                    Import from a spreadsheet (<span
                       className={classes.downloadLink}
                       onClick={this.handleDownload}>
                         download template</span>)
