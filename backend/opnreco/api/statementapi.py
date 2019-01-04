@@ -14,6 +14,7 @@ from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
 from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
+from pyramid.response import Response
 from pyramid.view import view_config
 from sqlalchemy import case
 from sqlalchemy import func
@@ -201,6 +202,69 @@ def statement_api(context, request):
         'periods': periods,
         'delete_conflicts': delete_conflicts,
     }
+
+
+@view_config(
+    name='statement-download',
+    context=PeriodResource,
+    permission=perms.view_period,
+    renderer='json')
+def statement_download_api(context, request):
+    subpath = request.subpath
+    if subpath:
+        statement_id_input = subpath[0]
+    else:
+        statement_id_input = ''
+    if not statement_id_input:
+        raise HTTPBadRequest(json_body={'error': 'statement_id_required'})
+
+    try:
+        statement_id = int(statement_id_input)
+    except ValueError:
+        raise HTTPBadRequest(json_body={'error': 'bad_statement_id'})
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+    period = context.period
+
+    statement = (
+        dbsession.query(Statement)
+        .filter(
+            Statement.owner_id == owner_id,
+            Statement.id == statement_id,
+            Statement.period_id == period.id,
+        )
+        .first())
+
+    if statement is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_not_found',
+            'error_description': (
+                "Statement %s not found in this period."
+                % statement_id
+            ),
+        })
+
+    content = statement.content
+
+    if content is None:
+        raise HTTPBadRequest(json_body={
+            'error': 'statement_has_no_upload',
+            'error_description': (
+                "Statement %s was not uploaded."
+                % statement_id
+            ),
+        })
+
+    headers = {
+        'Content-Disposition': 'attachment; filename="%s"' % (
+            statement.filename),
+        'Content-Type': 'application/x-force-download',
+        'Content-Length': '%d' % len(content),
+    }
+
+    return Response(content, headers=headers)
 
 
 class StatementSaveSchema(colander.Schema):

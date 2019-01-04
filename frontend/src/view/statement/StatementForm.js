@@ -1,9 +1,11 @@
 
 import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
 import { FormattedDate, FormattedTime } from 'react-intl';
+import { getAccessToken } from '../../reducer/login';
 import { setStatementId } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -74,10 +76,13 @@ class StatementForm extends React.Component {
     periods: PropTypes.array.isRequired,
     statement: PropTypes.object.isRequired,
     deleteConflicts: PropTypes.number.isRequired,
+    accessToken: PropTypes.string.isRequired,
   };
 
   constructor(props) {
     super(props);
+    this.accessTokenRef = React.createRef();
+    this.downloadFormRef = React.createRef();
     this.state = {
       form: {},
     };
@@ -205,13 +210,20 @@ class StatementForm extends React.Component {
   }
 
   handleDownload = () => {
+    this.accessTokenRef.current.setAttribute('value', this.props.accessToken);
+    this.downloadFormRef.current.submit();
   }
 
   renderDownloadRow() {
     const {
       classes,
+      period,
       statement,
     } = this.props;
+
+    const downloadURL = fOPNReco.pathToURL(
+      `/period/${encodeURIComponent(period.id)}/statement-download/` +
+      `${encodeURIComponent(statement.id)}`);
 
     return (
       <div className={classes.downloadRow}>
@@ -231,6 +243,12 @@ class StatementForm extends React.Component {
               hour="numeric" minute="2-digit" second="2-digit" />)
           </span>
         </span>
+        <form method="POST" action={downloadURL}
+          style={{display: 'none'}}
+          ref={this.downloadFormRef}
+        >
+          <input type="hidden" name="access_token" ref={this.accessTokenRef} />
+        </form>
       </div>
     );
   }
@@ -357,7 +375,15 @@ class StatementForm extends React.Component {
 }
 
 
+function mapStateToProps(state) {
+  return {
+    accessToken: getAccessToken(state.login.id),
+  };
+}
+
+
 export default compose(
   withStyles(styles),
   withRouter,
+  connect(mapStateToProps),
 )(StatementForm);
