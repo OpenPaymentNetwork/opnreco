@@ -30,6 +30,10 @@ def auto_reco_statement(dbsession, owner, period, statement):
     ))
     movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
 
+    # Build all_matches, a list of all possible reconciliations
+    # of this statement with existing OPN movements.
+    # This is an intentional cartesian join.
+
     all_matches = (
         dbsession.query(
             AccountEntry.delta,
@@ -58,10 +62,9 @@ def auto_reco_statement(dbsession, owner, period, statement):
         )
         .all())
 
+    # Group the matches by amount in the 'by_amount' map.
     # by_amount: {amount: [match]}
     by_amount = collections.defaultdict(list)
-    entry_recos = {}  # account_entry_id: reco_index
-    movement_recos = {}  # movement_id: reco_index
 
     for match in all_matches:
         if match.entry_date < match.movement_date:
@@ -90,7 +93,21 @@ def auto_reco_statement(dbsession, owner, period, statement):
         return (
             score, match.entry_date, match.account_entry_id, match.movement_id)
 
-    new_reco_count = 0
+    # For each group of possible matches in by_amount, apply the best
+    # matches first. As matches are chosen, later matches are disqualified
+    # automatically because the movement_id has been added to the
+    # movement_recos dict or the account_entry_id has been added to
+    # the entry_recos dict.
+
+    # Note: to minimize the number of database interactions, we create
+    # all the recos at once and update the movements and account entries
+    # afterward. This unfortunately leads to the need for reco_index
+    # as opposed to reco_id, since the reco_id is chosen later.
+    # Fortunately, the reco_index does not extend beyond this function.
+
+    new_reco_count = 0   # The number of Recos to create
+    entry_recos = {}     # account_entry_id: reco_index
+    movement_recos = {}  # movement_id: reco_index
 
     for match_list in by_amount.values():
         match_list.sort(key=rank_match, reverse=True)
