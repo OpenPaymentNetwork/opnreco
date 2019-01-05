@@ -263,7 +263,7 @@ class PeriodSaveSchema(colander.Schema):
 
 
 def day_intersects(day, range_start, range_end, is_start):
-    """Make a SQL expr that checks whether a day intersects with a range.
+    """Make a SQL expr that checks whether a day intersects with a date range.
     """
     if is_start:
         no_bound_test = (range_start == null)
@@ -305,13 +305,13 @@ def day_intersects(day, range_start, range_end, is_start):
     )
 
 
-def detect_date_conflict(dbsession, period, new_start_date, new_end_date):
-    """Find conflicting periods for a new date range.
+def detect_date_overlap(dbsession, period, new_start_date, new_end_date):
+    """Find overlapping periods for a new date range.
 
-    Return the first conflicting period.
+    Return the first overlapping period.
     """
 
-    def has_conflict():
+    def has_overlap():
         """Make a SQL expression that checks whether the new range intersects
         with an existing range.
         """
@@ -347,7 +347,7 @@ def detect_date_conflict(dbsession, period, new_start_date, new_end_date):
                 False),
         )
 
-    conflict_row = (
+    overlap_row = (
         dbsession.query(Period.id)
         .filter(
             Period.owner_id == period.owner_id,
@@ -355,12 +355,12 @@ def detect_date_conflict(dbsession, period, new_start_date, new_end_date):
             Period.currency == period.currency,
             Period.loop_id == period.loop_id,
             Period.id != period.id,
-            has_conflict(),
+            has_overlap(),
         )
         .order_by(Period.start_date)
         .first())
 
-    return conflict_row
+    return overlap_row
 
 
 @view_config(
@@ -397,23 +397,23 @@ def period_save(context, request):
 
     # Ensure the date range does not overlap any other periods for the
     # same peer loop.
-    conflict_row = detect_date_conflict(
+    overlap_row = detect_date_overlap(
         dbsession=dbsession,
         period=period,
         new_start_date=start_date,
         new_end_date=end_date)
-    if conflict_row is not None:
+    if overlap_row is not None:
         raise HTTPBadRequest(json_body={
             'error': 'date_overlap',
             'error_description': (
-                'The date range provided overlaps another period.'),
+                'The date range specified overlaps another period.'),
         })
 
     if close and (start_date is None or end_date is None):
         raise HTTPBadRequest(json_body={
             'error': 'dates_required',
             'error_description': (
-                "The start and end dates are required "
+                "Start and end dates are required "
                 "for closing the period."),
         })
 
