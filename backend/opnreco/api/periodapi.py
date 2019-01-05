@@ -1,4 +1,5 @@
 
+from decimal import Decimal
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
@@ -36,8 +37,7 @@ import datetime
 import logging
 
 log = logging.getLogger(__name__)
-
-
+zero = Decimal('0')
 null = None
 
 
@@ -126,9 +126,29 @@ def period_list_api(request):
         period_state['statement_count'] = statement_map.get(period_id, 0)
         periods.append(period_state)
 
+    # Get the next_start_date, which is null if the last period is endless.
+    endless_c = case([(Period.end_date == null, 1)], else_=None)
+    last_end_row = (
+        dbsession.query(
+            func.max(Period.end_date).label('end_date'),
+            func.count(endless_c).label('endless'),
+        )
+        .filter(
+            Period.owner_id == owner_id,
+            Period.peer_id == peer_id,
+            Period.loop_id == loop_id,
+            Period.currency == currency,
+        )
+        .one())
+    if last_end_row.endless:
+        next_start_date = None
+    else:
+        next_start_date = last_end_row.end_date + datetime.timedelta(days=1)
+
     return {
         'periods': periods,
         'rowcount': totals_row.rowcount,
+        'next_start_date': next_start_date,
     }
 
 
@@ -235,33 +255,6 @@ def period_state_api(context, request):
     return res
 
 
-class AmountInput(colander.SchemaType):
-    def serialize(self, node, appstruct):
-        if appstruct is colander.null:
-            return colander.null
-        return str(appstruct)
-
-    def deserialize(self, node, cstruct):
-        if not cstruct:
-            return colander.null
-
-        currency = node.bindings['currency']
-        value = parse_amount(cstruct, currency)
-        if value is None:
-            raise colander.Invalid(node, '"%s" is not a number' % cstruct)
-
-        return value
-
-
-class PeriodSaveSchema(colander.Schema):
-    start_date = colander.SchemaNode(colander.Date(), missing=None)
-    end_date = colander.SchemaNode(colander.Date(), missing=None)
-    start_circ = colander.SchemaNode(AmountInput())
-    start_surplus = colander.SchemaNode(AmountInput())
-    pull = colander.SchemaNode(colander.Boolean(), missing=False)
-    close = colander.SchemaNode(colander.Boolean(), missing=False)
-
-
 def day_intersects(day, range_start, range_end, is_start):
     """Make a SQL expr that checks whether a day intersects with a date range.
     """
@@ -363,6 +356,39 @@ def detect_date_overlap(dbsession, period, new_start_date, new_end_date):
     return overlap_row
 
 
+class AmountInput(colander.SchemaType):
+    def serialize(self, node, appstruct):
+        if appstruct is colander.null:
+            return colander.null
+        return str(appstruct)
+
+    def deserialize(self, node, cstruct):
+        if not cstruct:
+            return colander.null
+
+        currency = node.bindings['currency']
+        value = parse_amount(cstruct, currency)
+        if value is None:
+            raise colander.Invalid(node, '"%s" is not a number' % cstruct)
+
+        return value
+
+
+class PeriodSaveSchema(colander.Schema):
+    start_date = colander.SchemaNode(colander.Date(), missing=None)
+    end_date = colander.SchemaNode(colander.Date(), missing=None)
+    start_circ = colander.SchemaNode(AmountInput())
+    start_surplus = colander.SchemaNode(AmountInput())
+    pull = colander.SchemaNode(colander.Boolean(), missing=False)
+    close = colander.SchemaNode(colander.Boolean(), missing=False)
+
+
+class PeriodAddSchema(colander.Schema):
+    start_date = colander.SchemaNode(colander.Date(), missing=None)
+    end_date = colander.SchemaNode(colander.Date(), missing=None)
+    pull = colander.SchemaNode(colander.Boolean(), missing=False)
+
+
 @view_config(
     name='save',
     context=PeriodResource,
@@ -370,18 +396,65 @@ def detect_date_overlap(dbsession, period, new_start_date, new_end_date):
     renderer='json')
 def period_save(context, request):
     """Change the period."""
-
     period = context.period
-    dbsession = request.dbsession
-    owner = request.owner
-    owner_id = owner.id
-    period_id = period.id
 
     schema = PeriodSaveSchema().bind(currency=period.currency)
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
         handle_invalid(e, schema=schema)
+
+    return edit_period(
+        request=request,
+        period=period,
+        appstruct=appstruct,
+        event_type='period_save')
+
+
+@view_config(
+    name='period-add',
+    context=API,
+    permission=perms.use_app,
+    renderer='json')
+def period_add_api(request):
+    """Change the period."""
+    params = request.params
+    peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
+
+    schema = PeriodAddSchema().bind(currency=currency)
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        handle_invalid(e, schema=schema)
+
+    period = Period(
+        owner_id=request.owner.id,
+        peer_id=peer_id,
+        loop_id=loop_id,
+        currency=currency,
+        start_date=appstruct['start_date'],
+        end_date=appstruct['end_date'],
+        closed=False,
+    )
+
+    balances = get_prev_end_balances(request=request, next_period=period)
+    appstruct['start_circ'] = period.start_circ = balances['circ']
+    appstruct['start_surplus'] = period.start_surplus = balances['surplus']
+    appstruct['close'] = False
+
+    return edit_period(
+        request=request,
+        period=period,
+        appstruct=appstruct,
+        event_type='period_add',
+        add_period=True)
+
+
+def edit_period(request, period, appstruct, event_type, add_period=False):
+    """Edit a period. Used for both adding and saving periods."""
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
 
     start_date = appstruct['start_date']
     end_date = appstruct['end_date']
@@ -421,6 +494,10 @@ def period_save(context, request):
     period.end_date = end_date
     period.start_circ = start_circ
     period.start_surplus = start_surplus
+
+    if add_period:
+        dbsession.add(period)
+        dbsession.flush()  # Assign period.id
 
     move_counts = {}
 
@@ -476,7 +553,7 @@ def period_save(context, request):
     totals = compute_period_totals(
         dbsession=dbsession,
         owner_id=owner_id,
-        period_ids=[period_id])[period_id]
+        period_ids=[period.id])[period.id]
 
     if close:
         period.end_circ = totals['end']['circ']
@@ -485,7 +562,7 @@ def period_save(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
-        event_type='period_save',
+        event_type=event_type,
         content={
             'period_id': period.id,
             'peer_id': period.peer_id,
@@ -548,6 +625,51 @@ def update_next_period(request, prev_period, totals):
                 'start_surplus': next_period.start_surplus,
             },
         ))
+
+
+def get_prev_end_balances(request, next_period):
+    """Get the end balances from the previous period.
+
+    Return {'circ': end_circ or zero, 'surplus': end_surplus or zero}
+    """
+    if next_period.start_date is not None:
+        dbsession = request.dbsession
+        owner = request.owner
+        owner_id = owner.id
+        assert owner_id == next_period.owner_id
+
+        prev_period = (
+            dbsession.query(Period)
+            .filter(
+                Period.owner_id == owner_id,
+                Period.peer_id == next_period.peer_id,
+                Period.loop_id == next_period.loop_id,
+                Period.currency == next_period.currency,
+                Period.end_date < next_period.start_date,
+            )
+            .order_by(Period.end_date.desc())
+            .first())
+
+        if prev_period is not None:
+            if prev_period.closed:
+                return {
+                    'circ': prev_period.end_circ,
+                    'surplus': prev_period.end_surplus,
+                }
+            prev_period_id = prev_period.id
+            totals = compute_period_totals(
+                dbsession=dbsession,
+                owner_id=owner_id,
+                period_ids=[prev_period_id])[prev_period_id]
+            return {
+                'circ': totals['end']['circ'],
+                'surplus': totals['end']['surplus'],
+            }
+
+    return {
+        'circ': zero,
+        'surplus': zero,
+    }
 
 
 def make_day_period_cte(days, period_list, default_period='in_progress'):

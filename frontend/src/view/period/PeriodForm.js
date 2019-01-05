@@ -23,7 +23,7 @@ const styles = {
     margin: '16px 16px 16px 0',
     minWidth: '250px',
   },
-  saveButton: {
+  button: {
     margin: '16px 16px 16px 0',
   },
   progress: {
@@ -39,6 +39,9 @@ const styles = {
     top: 0,
     left: 0,
   },
+  addTopLine: {
+    marginTop: '16px',
+  },
 };
 
 
@@ -47,6 +50,9 @@ class PeriodOverview extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     period: PropTypes.object,
+    add: PropTypes.bool,
+    onClose: PropTypes.func,     // Required for add mode
+    ploopKey: PropTypes.string,  // Required for add mode
   };
 
   constructor(props) {
@@ -104,10 +110,17 @@ class PeriodOverview extends React.Component {
     const {
       period,
       dispatch,
+      add,
     } = this.props;
 
-    const url = fOPNReco.pathToURL(
-      `/period/${encodeURIComponent(period.id)}/${viewName}`);
+    let url;
+    if (add) {
+      url = fOPNReco.pathToURL(
+        `/period-add?ploop_key=${encodeURIComponent(this.props.ploopKey)}`);
+    } else {
+      url = fOPNReco.pathToURL(
+        `/period/${encodeURIComponent(period.id)}/${viewName}`);
+    }
     const data = {
       ...this.state.form,
       close,
@@ -123,6 +136,9 @@ class PeriodOverview extends React.Component {
         saving: false,
       });
       dispatch(clearWithPloops());
+      if (this.props.add && this.props.onClose) {
+        this.props.onClose();
+      }
     }).catch(() => {
       this.setState({saving: false});
     });
@@ -132,6 +148,7 @@ class PeriodOverview extends React.Component {
     const {
       classes,
       period,
+      add,
     } = this.props;
 
     const {
@@ -139,19 +156,44 @@ class PeriodOverview extends React.Component {
       saving,
     } = this.state;
 
-    const closed = period ? period.closed : true;
+    const closed = add ? false : (period ? period.closed : true);
 
     let spinner = null;
     if (saving) {
       spinner = <CircularProgress size="24px" className={classes.progress} />;
     }
 
+    let topLine;
     let buttons;
-    if (!closed) {
+    if (add) {
       buttons = (
         <FormGroup row>
           <Button
-            className={classes.saveButton}
+            className={classes.button}
+            color="primary"
+            variant="contained"
+            onClick={this.handleSave}
+          >
+            Add
+          </Button>
+
+          <Button
+            className={classes.button}
+            variant="contained"
+            onClick={this.props.onClose}
+          >
+            Cancel
+          </Button>
+
+          {spinner}
+        </FormGroup>
+      );
+    }
+    else if (!closed) {
+      buttons = (
+        <FormGroup row>
+          <Button
+            className={classes.button}
             color="primary"
             variant="contained"
             onClick={this.handleSave}
@@ -160,7 +202,7 @@ class PeriodOverview extends React.Component {
           </Button>
 
           <Button
-            className={classes.saveButton}
+            className={classes.button}
             color="primary"
             variant="contained"
             onClick={this.handleSaveClose}
@@ -175,7 +217,7 @@ class PeriodOverview extends React.Component {
       buttons = (
         <FormGroup row>
           <Button
-            className={classes.saveButton}
+            className={classes.button}
             variant="contained"
             onClick={this.handleReopen}
           >
@@ -187,24 +229,37 @@ class PeriodOverview extends React.Component {
       );
     }
 
+    if (add) {
+      topLine = (
+        <Typography variant="h6" className={classes.addTopLine}>
+          Add a Period
+        </Typography>
+      );
+    } else {
+      topLine = (
+        <Typography variant="body1" className={classes.lockLine}
+          component="div"
+        >
+          {closed ?
+            <div>
+              <Lock className={classes.lockIcon} /> This
+              period is closed.
+            </div> :
+            <div>
+              <LockOpen className={classes.lockIcon} /> This
+              period is open.
+            </div>
+          }
+        </Typography>
+      );
+    }
+
     return (
       <form className={classes.form} noValidate>
         <FormGroup row>
-          <Typography variant="body1" className={classes.lockLine}
-            component="div"
-          >
-            {closed ?
-              <div>
-                <Lock className={classes.lockIcon} /> This
-                period is closed.
-              </div> :
-              <div>
-                <LockOpen className={classes.lockIcon} /> This
-                period is open.
-              </div>
-            }
-          </Typography>
+          {topLine}
         </FormGroup>
+
         <FormGroup row>
 
           <TextField
@@ -234,31 +289,33 @@ class PeriodOverview extends React.Component {
           />
         </FormGroup>
 
-        <FormGroup row>
-          <TextField
-            id="start_circ"
-            label="Circulation on Start Date"
-            value={form.start_circ || ''}
-            onChange={(event) => this.handleChangeText(event, 'start_circ')}
-            className={classes.field}
-            InputLabelProps={{
-              shrink: true,
-            }}
-            disabled={closed}
-          />
+        {add ? null :
+          <FormGroup row>
+            <TextField
+              id="start_circ"
+              label="Circulation on Start Date"
+              value={form.start_circ || ''}
+              onChange={(event) => this.handleChangeText(event, 'start_circ')}
+              className={classes.field}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              disabled={closed}
+            />
 
-          <TextField
-            id="start_surplus"
-            label="Surplus/Deficit on Start Date"
-            value={form.start_surplus || ''}
-            onChange={(event) => this.handleChangeText(event, 'start_surplus')}
-            className={classes.field}
-            InputLabelProps={{
-              shrink: true,
-            }}
-            disabled={closed}
-          />
-        </FormGroup>
+            <TextField
+              id="start_surplus"
+              label="Surplus/Deficit on Start Date"
+              value={form.start_surplus || ''}
+              onChange={(event) => this.handleChangeText(event, 'start_surplus')}
+              className={classes.field}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              disabled={closed}
+            />
+          </FormGroup>
+        }
 
         <FormGroup row>
           <FormControlLabel

@@ -7,17 +7,20 @@ import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import Add from '@material-ui/icons/Add';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import Fab from '@material-ui/core/Fab';
+import LayoutConfig from '../app/LayoutConfig';
+import Link from '@material-ui/icons/Link';
 import Lock from '@material-ui/icons/Lock';
 import LockOpen from '@material-ui/icons/LockOpen';
-import CircularProgress from '@material-ui/core/CircularProgress';
-import LayoutConfig from '../app/LayoutConfig';
 import OPNAppBar from '../app/OPNAppBar';
 import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
+import PeriodForm from './PeriodForm';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
-import Link from '@material-ui/icons/Link';
 import Typography from '@material-ui/core/Typography';
 
 
@@ -133,6 +136,15 @@ const styles = {
     display: 'block',
     margin: '0 auto',
   },
+  addCell: {
+    padding: '16px',
+    border: '1px solid #bbb',
+    textAlign: 'right',
+  },
+  addFormCell: {
+    padding: '16px',
+    border: '1px solid #bbb',
+  },
 };
 
 
@@ -150,6 +162,11 @@ class PeriodList extends React.Component {
     period: PropTypes.object,
   };
 
+  constructor(props) {
+    super(props);
+    this.state = {};
+  }
+
   handleClickAnchor = (event, path) => {
     if (event.button === 0) {
       event.preventDefault();
@@ -157,10 +174,19 @@ class PeriodList extends React.Component {
     }
   }
 
-  renderTableBody(showCirc) {
+  handleAddButton = () => {
+    this.setState({adding: true});
+  }
+
+  handleAddClose = () => {
+    this.setState({adding: false});
+  }
+
+  renderTableBody(showCirc, columnCount) {
     const {
       classes,
       content,
+      dispatch,
       ploop,
       period: selectedPeriod,
     } = this.props;
@@ -179,7 +205,7 @@ class PeriodList extends React.Component {
     const clickableCell = classes.clickableCell;
     const cIcon = classes.cellIcon;
 
-    content.periods.forEach(period => {
+    for (const period of content.periods) {
       let rowClass = classes.periodRow;
       if (selectedPeriod && period.id === selectedPeriod.id) {
         rowClass += ' ' + classes.periodSelectedRow;
@@ -249,7 +275,37 @@ class PeriodList extends React.Component {
           </td>
         </tr>
       );
-    });
+    }
+
+    if (this.state.adding) {
+      rows.push(
+        <tr key="add">
+          <td colSpan={columnCount} className={classes.addFormCell}>
+            <PeriodForm
+              add
+              dispatch={dispatch}
+              onClose={this.handleAddClose}
+              ploopKey={ploop.ploop_key}
+              period={{
+                id: 'add',
+                pull: true,
+                start_date: content.next_start_date,
+              }} />
+          </td>
+        </tr>
+      );
+    } else {
+      rows.push(
+        <tr key="add">
+          <td colSpan={columnCount} className={classes.addCell}>
+            <Fab size="small" color="primary" aria-label="Add a period"
+              onClick={this.handleAddButton}>
+              <Add />
+            </Fab>
+          </td>
+        </tr>
+      );
+    }
 
     return <tbody>{rows}</tbody>;
   }
@@ -327,7 +383,7 @@ class PeriodList extends React.Component {
             {headRow0}
             {headRow1}
           </thead>
-          {this.renderTableBody(showCirc)}
+          {this.renderTableBody(showCirc, columnCount)}
         </table>
       </Paper>
     );
