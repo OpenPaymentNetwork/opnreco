@@ -1,5 +1,6 @@
 
 from defusedxml.common import EntitiesForbidden
+from opnreco.autorecostmt import auto_reco_statement
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
@@ -795,7 +796,12 @@ class StatementUploadAPI:
                 ),
             })
 
-        # TODO: auto-external-reco.
+        # Auto-reconcile the statement to the extent possible.
+        auto_reco_statement(
+            dbsession=dbsession,
+            owner=owner,
+            period=self.context.period,
+            statement=self.statement)
 
         entry_count = (
             dbsession.query(func.count(1))
