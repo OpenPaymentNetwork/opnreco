@@ -11,7 +11,6 @@ import Add from '@material-ui/icons/Add';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Fab from '@material-ui/core/Fab';
 import LayoutConfig from '../app/LayoutConfig';
-import Link from '@material-ui/icons/Link';
 import Lock from '@material-ui/icons/Lock';
 import LockOpen from '@material-ui/icons/LockOpen';
 import OPNAppBar from '../app/OPNAppBar';
@@ -119,9 +118,10 @@ const styles = {
     padding: '4px 8px',
   },
   periodRow: {
-  },
-  periodSelectedRow: {
-    backgroundColor: '#ffe',
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: '#eee',
+    },
   },
   clickableCell: {
     color: '#000',
@@ -174,6 +174,10 @@ class PeriodList extends React.Component {
     }
   }
 
+  handleClickCell = (path) => {
+    this.props.history.push(path);
+  }
+
   handleAddButton = () => {
     this.setState({adding: true});
   }
@@ -188,7 +192,6 @@ class PeriodList extends React.Component {
       content,
       dispatch,
       ploop,
-      period: selectedPeriod,
     } = this.props;
 
     const cfmt = new getCurrencyFormatter(ploop.currency);
@@ -200,34 +203,35 @@ class PeriodList extends React.Component {
     const ccStartCombined = `${classes.cellLeft} ${classes.right}`;
     const ccEndCombined = `${classes.cellRight} ${classes.right}`;
     const ccStatements = `${classes.cellLeft} ${classes.right}`;
-    const ccReports = `${classes.cell} ${classes.right}`;
     const ccClosed = `${classes.cell}`;
-    const clickableCell = classes.clickableCell;
     const cIcon = classes.cellIcon;
 
     for (const period of content.periods) {
-      let rowClass = classes.periodRow;
-      if (selectedPeriod && period.id === selectedPeriod.id) {
-        rowClass += ' ' + classes.periodSelectedRow;
-      }
-
       const reportsPath = `/period/${encodeURIComponent(period.id)}/reco`;
       const closedPath = `/period/${encodeURIComponent(period.id)}/overview`;
+
+      const onClickCell = () => {
+        this.handleClickCell(reportsPath);
+      };
+
+      const onClickClosedCell = () => {
+        this.handleClickCell(closedPath);
+      };
 
       rows.push(
         <tr
           key={period.id}
           data-period-id={period.id}
-          className={rowClass}
+          className={classes.periodRow}
         >
-          <td className={ccStartDate} width="14%">
+          <td className={ccStartDate} width="15%" onClick={onClickCell}>
             {period.start_date ?
               <FormattedDate value={period.start_date}
                 day="numeric" month="short" year="numeric"
                 timeZone="UTC" />
               : 'Initial'}
           </td>
-          <td className={ccEndDate} width="14%">
+          <td className={ccEndDate} width="15%" onClick={onClickCell}>
             {period.end_date ?
               <FormattedDate value={period.end_date}
                 day="numeric" month="short" year="numeric"
@@ -235,43 +239,28 @@ class PeriodList extends React.Component {
               : 'In progress'}
           </td>
           {showCirc ?
-            <td className={ccStartCirc} width="10%">
+            <td className={ccStartCirc} width="10%" onClick={onClickCell}>
               {cfmt(period.start_circ)}
             </td>
             : null}
           {showCirc ?
-            <td className={ccEndCirc} width="10%">
+            <td className={ccEndCirc} width="10%" onClick={onClickCell}>
               {cfmt(period.end_circ)}
             </td>
             : null}
-          <td className={ccStartCombined} width="10%">
+          <td className={ccStartCombined} width="10%" onClick={onClickCell}>
             {cfmt(period.start_combined)}
           </td>
-          <td className={ccEndCombined} width="10%">
+          <td className={ccEndCombined} width="10%" onClick={onClickCell}>
             {period.end_combined ? cfmt(period.end_combined) : 'In progress'}
           </td>
-          <td className={ccStatements} width="8%">
+          <td className={ccStatements} width="10%" onClick={onClickCell}>
             {period.statement_count}
           </td>
-          <td className={ccReports} width="8%">
-            <a
-              className={clickableCell}
-              href={reportsPath}
-              onClick={(event) => this.handleClickAnchor(event, reportsPath)}
-            >
-              <Link className={cIcon} />
-            </a>
-          </td>
-          <td className={ccClosed} width="8%">
-            <a
-              className={clickableCell}
-              href={closedPath}
-              onClick={(event) => this.handleClickAnchor(event, closedPath)}
-            >
-              {period.closed ?
-                <span title="Closed"><Lock className={cIcon}/></span> :
-                <span title="Open"><LockOpen className={cIcon} /></span>}
-            </a>
+          <td className={ccClosed} width="10%" onClick={onClickClosedCell}>
+            {period.closed ?
+              <span title="Closed"><Lock className={cIcon}/></span> :
+              <span title="Open"><LockOpen className={cIcon} /></span>}
           </td>
         </tr>
       );
@@ -325,7 +314,7 @@ class PeriodList extends React.Component {
     const showCirc = (ploop.peer_id === 'c');
 
     if (showCirc) {
-      columnCount = 9;
+      columnCount = 8;
       circHead0 = (
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Circulation</td>
       );
@@ -336,7 +325,7 @@ class PeriodList extends React.Component {
         </React.Fragment>
       );
     } else {
-      columnCount = 7;
+      columnCount = 6;
     }
 
     const headRow0 = (
@@ -345,7 +334,6 @@ class PeriodList extends React.Component {
         {circHead0}
         <td colSpan="2" className={`${classes.headCellLeftRight} ${classes.center}`}>Balance</td>
         <td className={`${classes.headCellLeft} ${classes.center}`}>Statements</td>
-        <td className={`${classes.headCell} ${classes.center}`}>Reports</td>
         <td className={`${classes.headCell} ${classes.center}`}>Closed</td>
       </tr>
     );
@@ -358,7 +346,6 @@ class PeriodList extends React.Component {
         <td className={`${classes.headCellLeft} ${classes.right}`}>Start</td>
         <td className={`${classes.headCellRight} ${classes.right}`}>End</td>
         <td className={`${classes.headCellLeft} ${classes.center}`}></td>
-        <td className={`${classes.headCell}`}></td>
         <td className={`${classes.headCell}`}></td>
       </tr>
     );
