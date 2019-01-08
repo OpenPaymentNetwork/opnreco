@@ -39,7 +39,7 @@ export function renderReportDate(period, now) {
         </span>
       </span>);
   } else {
-    return <span>Initial</span>;
+    return <span>Initial Period</span>;
   }
 }
 
@@ -63,6 +63,6 @@ export function renderPeriodDateString(period, intl) {
     const startStr = intl.formatDate(period.start_date, dateOptions);
     return `${startStr} (in progress)`;
   } else {
-    return 'Initial';
+    return 'Initial Period';
   }
 }
