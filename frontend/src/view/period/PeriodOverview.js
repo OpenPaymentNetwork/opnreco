@@ -3,6 +3,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Paper from '@material-ui/core/Paper';
@@ -36,18 +37,26 @@ class PeriodOverview extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
     loading: PropTypes.bool,
     periodId: PropTypes.string,
     queryURL: PropTypes.string.isRequired,
     result: PropTypes.object,
+    ploop: PropTypes.object.isRequired,
   };
 
   renderContent() {
-    const {classes, dispatch, result} = this.props;
+    const {classes, dispatch, history, result, ploop} = this.props;
     return (
       <div>
         <Paper className={classes.paperContent}>
-          <PeriodForm dispatch={dispatch} period={result.period} />
+          <PeriodForm
+            dispatch={dispatch}
+            period={result.period}
+            deleteConflicts={result.delete_conflicts}
+            history={history}
+            ploopKey={ploop.ploop_key}
+          />
         </Paper>
         <Paper className={classes.tablePaper}>
           <PeriodSummary result={result} />
@@ -106,5 +115,6 @@ function mapStateToProps(state, ownProps) {
 
 export default compose(
   withStyles(styles),
+  withRouter,
   connect(mapStateToProps),
 )(PeriodOverview);

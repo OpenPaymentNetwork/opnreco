@@ -443,7 +443,9 @@ class Statement(Base):
     # peer_id is either an OPN holder ID or
     # the letter 'c' for circulating.
     peer_id = Column(String, nullable=False)
-    period_id = Column(BigInteger, nullable=False, index=True)
+    period_id = Column(
+        BigInteger, ForeignKey('period.id'),
+        nullable=False, index=True)
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
     source = Column(Unicode, nullable=True)  # 'manual' or some external ID

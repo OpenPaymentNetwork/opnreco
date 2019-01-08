@@ -11,6 +11,7 @@ from opnreco.models.db import Statement
 from opnreco.models.site import PeriodResource
 from opnreco.param import amount_re
 from opnreco.param import parse_amount
+from opnreco.reassign import reassign_statement_period
 from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
 from pyramid.decorator import reify
@@ -123,10 +124,14 @@ def serialize_entry(entry):
     }
 
 
-def count_delete_conflicts(dbsession, statement):
-    """Count the number of entries in a statement that belong to closed period.
+def get_delete_conflicts(dbsession, statement):
+    """Get an object that describes why a statement can't be deleted (yet).
+
+    Return None or {
+        'entries_in_closed_period': N,
+    }
     """
-    return (
+    entries_in_closed_period = (
         dbsession.query(func.count(1))
         .select_from(AccountEntry)
         .join(Period, Period.id == AccountEntry.period_id)
@@ -134,6 +139,11 @@ def count_delete_conflicts(dbsession, statement):
             AccountEntry.statement_id == statement.id,
             Period.closed)
         .scalar())
+
+    if entries_in_closed_period:
+        return {'entries_in_closed_period': entries_in_closed_period}
+
+    return None
 
 
 @view_config(
@@ -192,9 +202,7 @@ def statement_api(context, request):
     periods = list_assignable_periods(
         dbsession=dbsession, owner_id=owner_id, period=period)
 
-    # Prevent statement deletion if any of the contained account entries
-    # belong to a closed period.
-    delete_conflicts = count_delete_conflicts(
+    delete_conflicts = get_delete_conflicts(
         dbsession=dbsession, statement=statement)
 
     return {
@@ -340,9 +348,29 @@ def statement_save(context, request):
 
     if new_period is not None:
         changes['period_id'] = appstruct['period_id']
+        old_period_id = statement.period_id
         statement.period_id = appstruct['period_id']
 
-    request.dbsession.add(OwnerLog(
+        # Change the period of the statement's account entries and recos that
+        # should move with the statement.
+        dbsession.query(
+            func.set_config(
+                'opnreco.movement.event_type',
+                'reassign_statement_period',
+                True),
+            func.set_config(
+                'opnreco.account_entry.event_type',
+                'reassign_statement_period',
+                True),
+        ).one()
+
+        reassign_statement_period(
+            dbsession=dbsession,
+            statement=statement,
+            old_period_id=old_period_id,
+            new_period_id=statement.period_id)
+
+    dbsession.add(OwnerLog(
         owner_id=owner_id,
         event_type='statement_edit',
         remote_addr=request.remote_addr,
@@ -395,15 +423,15 @@ def statement_delete(context, request):
                 "Statement %s not found." % appstruct['id']),
         })
 
-    delete_conflicts = count_delete_conflicts(
+    delete_conflicts = get_delete_conflicts(
         dbsession=dbsession, statement=statement)
 
     if delete_conflicts:
         raise HTTPBadRequest(json_body={
-            'error': 'statement_has_closed_entries',
+            'error': 'statement_delete_conflict',
             'error_description': (
-                "The statement can not be deleted because some of the "
-                "entries belong to a closed period."),
+                "The statement can not be deleted for the following "
+                "reasons: %s" % delete_conflicts),
         })
 
     # Indicate that entries are being deleted and movements are being

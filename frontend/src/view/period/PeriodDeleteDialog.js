@@ -9,10 +9,9 @@ import PropTypes from 'prop-types';
 import React from 'react';
 
 
-class StatementDeleteDialog extends React.Component {
+class PeriodDeleteDialog extends React.Component {
   static propTypes = {
-    statementId: PropTypes.string.isRequired,
-    deleteConflicts: PropTypes.object,
+    deleteConflicts: PropTypes.number.isRequired,
     onCancel: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
     deleting: PropTypes.bool,
@@ -20,7 +19,6 @@ class StatementDeleteDialog extends React.Component {
 
   render() {
     const {
-      statementId,
       deleteConflicts,
       onCancel,
       onDelete,
@@ -30,17 +28,17 @@ class StatementDeleteDialog extends React.Component {
 
     if (deleteConflicts) {
       let reason = null;
-      if (deleteConflicts.entries_in_closed_period === 1) {
+      if (deleteConflicts.end_date_required) {
         reason = (
           <span>
-            An account entry in this statement belongs to a closed period.
+            The period end date must be set before deletion.
           </span>
         );
-      } else if (deleteConflicts.entries_in_closed_period) {
+      } else if (deleteConflicts.statement_count) {
         reason = (
           <span>
-            {deleteConflicts} account entries in this statement belong
-            to a closed period.
+            The period can not be deleted until the statements it contains
+            are moved to another period or deleted.
           </span>
         );
       }
@@ -50,10 +48,10 @@ class StatementDeleteDialog extends React.Component {
           aria-labelledby="form-dialog-title"
           {...otherProps}
         >
-          <DialogTitle id="form-dialog-title">Delete Statement</DialogTitle>
+          <DialogTitle id="form-dialog-title">Delete Period</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              This statement can not be deleted yet. {reason}
+              This period can not currently be deleted. {reason}
             </DialogContentText>
           </DialogContent>
           <DialogActions>
@@ -71,12 +69,12 @@ class StatementDeleteDialog extends React.Component {
         aria-labelledby="form-dialog-title"
         {...otherProps}
       >
-        <DialogTitle id="form-dialog-title">Delete Statement</DialogTitle>
+        <DialogTitle id="form-dialog-title">Delete Period</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete statement {statementId}?
-            All account entries in the statement will be deleted and
-            any associated reconciliations will be canceled.
+            Are you sure you want to delete this period?
+            All account entries and movements will be reassigned
+            to other periods.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -93,4 +91,4 @@ class StatementDeleteDialog extends React.Component {
 }
 
 
-export default StatementDeleteDialog;
+export default PeriodDeleteDialog;

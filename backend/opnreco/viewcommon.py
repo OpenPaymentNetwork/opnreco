@@ -22,6 +22,10 @@ null = None
 stale_delta = datetime.timedelta(seconds=60)
 
 
+def get_tzname(owner):
+    return owner.tzname or 'America/New_York'
+
+
 def fetch_peers(request, input_peers):
     """Fetch updates as necessary for all peers relevant to a request.
 
@@ -435,22 +439,27 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     return res
 
 
-def get_period_for_day(period_list, day, default='in_progress'):
-    """Identify which open period in a list matches a day.
+def get_period_for_day(period_list, day, default_endless=True):
+    """Identify which open period in a list matches a day. day can be None.
 
-    Return None if none of them match.
+    If none of them match:
+    - If there is an endless period and default_endless is true,
+      return the endless period.
+    - Otherwise, return None.
     """
-    default_period = None
-
-    if day is None:
-        return default_period
+    default = None
 
     for p in period_list:
         start_date = p.start_date
         end_date = p.end_date
-        if end_date is None and default == 'in_progress':
+
+        if end_date is None and default_endless:
             # Fall back to the period with no end date.
-            default_period = p
+            default = p
+
+        if day is None:
+            continue
+
         if start_date is not None:
             if end_date is not None:
                 # Fully bounded period
@@ -469,7 +478,7 @@ def get_period_for_day(period_list, day, default='in_progress'):
                 # The period has no start_date or end_date.
                 return p
 
-    return default_period
+    return default
 
 
 def add_open_period(

@@ -9,6 +9,7 @@ import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
 import Lock from '@material-ui/icons/Lock';
 import LockOpen from '@material-ui/icons/LockOpen';
+import PeriodDeleteDialog from './PeriodDeleteDialog';
 import PropTypes from 'prop-types';
 import React from 'react';
 import TextField from '@material-ui/core/TextField';
@@ -49,10 +50,12 @@ class PeriodOverview extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
     period: PropTypes.object,
     add: PropTypes.bool,
     onClose: PropTypes.func,     // Required for add mode
-    ploopKey: PropTypes.string,  // Required for add mode
+    ploopKey: PropTypes.string.isRequired,
+    deleteConflicts: PropTypes.object,
   };
 
   constructor(props) {
@@ -106,6 +109,37 @@ class PeriodOverview extends React.Component {
     this.save('reopen', false);
   }
 
+  handleDelete = () => {
+    this.setState({deleteExists: true, deleteShown: true});
+  }
+
+  handleDeleteCancel = () => {
+    this.setState({deleteShown: false});
+  }
+
+  handleDeleteConfirmed = () => {
+    const {
+      dispatch,
+      history,
+      period,
+      ploopKey,
+    } = this.props;
+
+    const encPeriodId = encodeURIComponent(period.id);
+    const url = fOPNReco.pathToURL(`/period/${encPeriodId}/delete`);
+    const data = {};
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({deleting: true});
+    promise.then(() => {
+      dispatch(clearWithPloops());
+      this.setState({deleting: false});
+      const newPath = `/periods/${encodeURIComponent(ploopKey)}`;
+      history.push(newPath);
+    }).catch(() => {
+      this.setState({deleting: false});
+    });
+  }
+
   save(viewName, close) {
     const {
       period,
@@ -147,6 +181,7 @@ class PeriodOverview extends React.Component {
   render() {
     const {
       classes,
+      deleteConflicts,
       period,
       add,
     } = this.props;
@@ -154,6 +189,9 @@ class PeriodOverview extends React.Component {
     const {
       form,
       saving,
+      deleteExists,
+      deleteShown,
+      deleting,
     } = this.state;
 
     const closed = add ? false : (period ? period.closed : true);
@@ -210,6 +248,13 @@ class PeriodOverview extends React.Component {
             Save and Close
           </Button>
 
+          <Button
+            className={classes.button}
+            onClick={this.handleDelete}
+          >
+            Delete
+          </Button>
+
           {spinner}
         </FormGroup>
       );
@@ -254,8 +299,22 @@ class PeriodOverview extends React.Component {
       );
     }
 
+    let deleteDialog = null;
+    if (deleteExists) {
+      deleteDialog = (
+        <PeriodDeleteDialog
+          deleteConflicts={deleteConflicts}
+          onCancel={this.handleDeleteCancel}
+          onDelete={this.handleDeleteConfirmed}
+          open={deleteShown}
+          deleting={deleting}
+        />);
+    }
+
     return (
       <form className={classes.form} noValidate>
+        {deleteDialog}
+
         <FormGroup row>
           {topLine}
         </FormGroup>

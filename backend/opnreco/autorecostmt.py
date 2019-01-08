@@ -3,6 +3,7 @@ from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
+from opnreco.viewcommon import get_tzname
 from sqlalchemy import and_
 from sqlalchemy import func
 import collections
@@ -10,10 +11,6 @@ import datetime
 
 null = None
 max_autoreco_delay = datetime.timedelta(days=7)
-
-
-def get_tzname(owner):
-    return owner.tzname or 'America/New_York'
 
 
 def auto_reco_statement(dbsession, owner, period, statement):
@@ -73,7 +70,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
             continue
 
         if match.entry_date > match.movement_date + max_autoreco_delay:
-            # The account entry happened more than a week after the
+            # The account entry happened a long time after the
             # movement, so disqualify this match for autoreco.
             continue
 
@@ -101,9 +98,10 @@ def auto_reco_statement(dbsession, owner, period, statement):
 
     # Note: to minimize the number of database interactions, we create
     # all the recos at once and update the movements and account entries
-    # afterward. This unfortunately leads to the need for reco_index
-    # as opposed to reco_id, since the reco_id is chosen later.
-    # Fortunately, the reco_index does not extend beyond this function.
+    # afterward. This unfortunately leads to the need for a reco_index
+    # concept (which is an index in the new_recos list) as opposed to
+    # reco_id, since the reco_id is chosen later.
+    # Fortunately, the reco_index does not live beyond this function.
 
     new_reco_count = 0   # The number of Recos to create
     entry_recos = {}     # account_entry_id: reco_index
@@ -123,41 +121,42 @@ def auto_reco_statement(dbsession, owner, period, statement):
             movement_recos[match.movement_id] = reco_index
             entry_recos[match.account_entry_id] = reco_index
 
-    if new_reco_count:
+    if not new_reco_count:
+        return
 
-        # Create enough recos for all of the new matches.
-        new_recos = []
-        for i in range(new_reco_count):
-            reco = Reco(
-                owner_id=owner.id,
-                period_id=period.id,
-                reco_type='standard',
-                internal=False,
-            )
-            dbsession.add(reco)
-            new_recos.append(reco)
+    # Create enough recos for all of the new matches.
+    new_recos = []
+    for i in range(new_reco_count):
+        reco = Reco(
+            owner_id=owner.id,
+            period_id=period.id,
+            reco_type='standard',
+            internal=False,
+        )
+        dbsession.add(reco)
+        new_recos.append(reco)
 
-        # Assign the reco IDs.
-        dbsession.flush()
+    # Assign the reco IDs.
+    dbsession.flush()
 
-        # Get the movements and assign their reco_ids.
-        movements = (
-            dbsession.query(Movement)
-            .filter(Movement.id.in_(movement_recos.keys()))
-            .all())
-        for movement in movements:
-            reco = new_recos[movement_recos[movement.id]]
-            movement.reco_id = reco.id
-            movement.period_id = period.id
-        dbsession.flush()
+    # Get the movements and assign their reco_ids.
+    movements = (
+        dbsession.query(Movement)
+        .filter(Movement.id.in_(movement_recos.keys()))
+        .all())
+    for movement in movements:
+        reco = new_recos[movement_recos[movement.id]]
+        movement.reco_id = reco.id
+        movement.period_id = period.id
+    dbsession.flush()
 
-        # Get the account entries and assign their reco_ids.
-        entries = (
-            dbsession.query(AccountEntry)
-            .filter(AccountEntry.id.in_(entry_recos.keys()))
-            .all())
-        for entry in entries:
-            reco = new_recos[entry_recos[entry.id]]
-            entry.reco_id = reco.id
-            entry.period_id = period.id
-        dbsession.flush()
+    # Get the account entries and assign their reco_ids.
+    entries = (
+        dbsession.query(AccountEntry)
+        .filter(AccountEntry.id.in_(entry_recos.keys()))
+        .all())
+    for entry in entries:
+        reco = new_recos[entry_recos[entry.id]]
+        entry.reco_id = reco.id
+        entry.period_id = period.id
+    dbsession.flush()

@@ -75,7 +75,7 @@ class StatementForm extends React.Component {
     period: PropTypes.object.isRequired,
     periods: PropTypes.array.isRequired,
     statement: PropTypes.object.isRequired,
-    deleteConflicts: PropTypes.number.isRequired,
+    deleteConflicts: PropTypes.object,
     accessToken: PropTypes.string.isRequired,
   };
 
