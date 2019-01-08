@@ -58,7 +58,7 @@ def wallet_info(request):
 
 
 def owner(request):
-    """Get the Owner row for the authenticated profile"""
+    """Get or create the Owner row for the authenticated profile."""
     authenticated_userid = request.authenticated_userid
     if not authenticated_userid:
         return None
@@ -91,6 +91,7 @@ def owner(request):
 
         dbsession.add(OwnerLog(
             owner_id=owner.id,
+            personal_id=request.personal_id,
             event_type='created',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
@@ -113,6 +114,18 @@ def owner(request):
     return owner
 
 
+def personal_id(request):
+    """Get the OPN personal profile ID for the authenticated profile."""
+    wallet_info = request.wallet_info
+    if 'personal_profile' in wallet_info:
+        return wallet_info['personal_profile']['id']
+    profile = wallet_info['profile']
+    if profile['is_individual']:
+        return profile['id']
+    # Personal profile not provided. Old version of OPN?
+    return ''
+
+
 def main(global_config, **settings):
     """This function returns a Pyramid WSGI application."""
     load_dotenv()
@@ -131,6 +144,7 @@ def main(global_config, **settings):
     config.add_request_method(access_token, name='access_token', reify=True)
     config.add_request_method(wallet_info, name='wallet_info', reify=True)
     config.add_request_method(owner, name='owner', reify=True)
+    config.add_request_method(personal_id, name='personal_id', reify=True)
     config.add_renderer('json', CustomJSONRenderer)
 
     config.include('opnreco.cors')

@@ -76,6 +76,8 @@ class OwnerLog(Base):
     ts = Column(DateTime, nullable=False, server_default=now_func)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    # personal_id is the OPN personal profile ID. May be equal to owner_id.
+    personal_id = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
     remote_addr = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
@@ -390,6 +392,8 @@ class MovementLog(Base):
     movement_id = Column(
         BigInteger, ForeignKey('movement.id'),
         nullable=False, index=True)
+    # personal_id is the OPN personal profile ID.
+    personal_id = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
 
     # Mutable fields of movement rows
@@ -408,19 +412,35 @@ as $triggerbody$
 begin
     if (TG_OP = 'DELETE') then
         insert into movement_log (
-            movement_id, event_type, period_id, reco_id, reco_wallet_delta)
+            movement_id,
+            personal_id,
+            event_type,
+            period_id,
+            reco_id,
+            reco_wallet_delta)
         select
             old.id,
+            current_setting('opnreco.personal_id'),
             current_setting('opnreco.movement.event_type'),
-            old.period_id, old.reco_id, old.reco_wallet_delta;
+            old.period_id,
+            old.reco_id,
+            old.reco_wallet_delta;
         return old;
     elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
         insert into movement_log (
-            movement_id, event_type, period_id, reco_id, reco_wallet_delta)
+            movement_id,
+            personal_id,
+            event_type,
+            period_id,
+            reco_id,
+            reco_wallet_delta)
         select
             new.id,
+            current_setting('opnreco.personal_id'),
             current_setting('opnreco.movement.event_type'),
-            new.period_id, new.reco_id, new.reco_wallet_delta;
+            new.period_id,
+            new.reco_id,
+            new.reco_wallet_delta;
         return new;
     end if;
     return null;
@@ -463,6 +483,7 @@ class Statement(Base):
             ['period_id', 'peer_id', 'loop_id', 'currency'],
             ['period.id', 'period.peer_id', 'period.loop_id',
              'period.currency'],
+            name='match_period',
         ),
         {})
 
@@ -536,6 +557,8 @@ class AccountEntryLog(Base):
     # while account_entry_log rows stay for historical purposes.
     account_entry_id = Column(
         BigInteger, nullable=False, index=True)
+    # personal_id is the OPN personal profile ID.
+    personal_id = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
 
     # Mutable fields of AccountEntry
@@ -557,6 +580,7 @@ begin
     if (TG_OP = 'DELETE') then
         insert into account_entry_log (
             account_entry_id,
+            personal_id,
             event_type,
             period_id,
             statement_id,
@@ -567,7 +591,9 @@ begin
             description,
             reco_id
         )
-        select old.id,
+        select
+            old.id,
+            current_setting('opnreco.personal_id'),
             current_setting('opnreco.account_entry.event_type'),
             old.period_id,
             old.statement_id,
@@ -581,6 +607,7 @@ begin
     elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
         insert into account_entry_log (
             account_entry_id,
+            personal_id,
             event_type,
             period_id,
             statement_id,
@@ -591,7 +618,9 @@ begin
             description,
             reco_id
         )
-        select new.id,
+        select
+            new.id,
+            current_setting('opnreco.personal_id'),
             current_setting('opnreco.account_entry.event_type'),
             new.period_id,
             new.statement_id,
@@ -615,7 +644,7 @@ event.listen(AccountEntry.__table__, 'after_create', account_entry_log_ddl)
 
 
 class Reco(Base):
-    """A reconciliation matches movement(s) and account entries."""
+    """A reco/reconciliation matches movement(s) and/or account entries."""
     __tablename__ = 'reco'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(

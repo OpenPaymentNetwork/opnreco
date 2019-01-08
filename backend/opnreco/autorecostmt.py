@@ -16,11 +16,6 @@ max_autoreco_delay = datetime.timedelta(days=7)
 def auto_reco_statement(dbsession, owner, period, statement):
     """Add external reconciliations automatically for a statement."""
 
-    dbsession.query(func.set_config(
-        'opnreco.movement.event_type', 'statement_auto_reco', True)).all()
-    dbsession.query(func.set_config(
-        'opnreco.account_entry.event_type', 'statement_auto_reco', True)).all()
-
     movement_date_c = func.date(func.timezone(
         get_tzname(owner),
         func.timezone('UTC', Movement.ts)
@@ -29,7 +24,8 @@ def auto_reco_statement(dbsession, owner, period, statement):
 
     # Build all_matches, a list of all possible reconciliations
     # of this statement with existing OPN movements.
-    # This is an intentional cartesian join.
+    # This query is an intentional but filtered cartesian join between
+    # the movement and account_entry tables.
 
     all_matches = (
         dbsession.query(
@@ -98,7 +94,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
 
     # Note: to minimize the number of database interactions, we create
     # all the recos at once and update the movements and account entries
-    # afterward. This unfortunately leads to the need for a reco_index
+    # afterward. This unfortunately leads to the need for the reco_index
     # concept (which is an index in the new_recos list) as opposed to
     # reco_id, since the reco_id is chosen later.
     # Fortunately, the reco_index does not live beyond this function.
@@ -124,7 +120,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
     if not new_reco_count:
         return
 
-    # Create enough recos for all of the new matches.
+    # Create a reco for each of the new matches.
     new_recos = []
     for i in range(new_reco_count):
         reco = Reco(

@@ -24,6 +24,7 @@ from opnreco.viewcommon import compute_period_totals
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import handle_invalid
+from opnreco.viewcommon import configure_dblog
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -531,12 +532,7 @@ def edit_period(request, period, appstruct, event_type, add_period=False):
     account_entry_op = AccountEntryReassignOp()
 
     if close:
-        dbsession.query(
-            func.set_config(
-                'opnreco.movement.event_type', 'push_unreco', True),
-            func.set_config(
-                'opnreco.account_entry.event_type', 'push_unreco', True),
-        ).one()
+        configure_dblog(request, event_type='push_unreco')
 
         # Push unreconciled movements and account entries in this period
         # to other open periods of the same peer loop.
@@ -552,13 +548,7 @@ def edit_period(request, period, appstruct, event_type, add_period=False):
         # and account entries when closing.)
 
         if not close:
-            dbsession.query(
-                func.set_config(
-                    'opnreco.movement.event_type', 'pull_unreco', True),
-                func.set_config(
-                    'opnreco.account_entry.event_type', 'pull_unreco', True),
-            ).one()
-
+            configure_dblog(request, event_type='pull_unreco')
             move_counts['pull_unreco_movements'] = (
                 pull_unreco_and_ineligible(
                     request=request, period=period, op=movement_op))
@@ -566,13 +556,7 @@ def edit_period(request, period, appstruct, event_type, add_period=False):
                 pull_unreco_and_ineligible(
                     request=request, period=period, op=account_entry_op))
 
-        dbsession.query(
-            func.set_config(
-                'opnreco.movement.event_type', 'pull_recos', True),
-            func.set_config(
-                'opnreco.account_entry.event_type', 'pull_recos', True),
-        ).one()
-
+        configure_dblog(request, event_type='push_recos')
         move_counts['pull_recos'] = (
             pull_recos(request=request, period=period))
 
@@ -588,6 +572,7 @@ def edit_period(request, period, appstruct, event_type, add_period=False):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type=event_type,
         content={
             'period_id': period.id,
@@ -640,6 +625,7 @@ def update_next_period(request, prev_period, totals):
         next_period.start_surplus = totals['end']['surplus']
         dbsession.add(OwnerLog(
             owner_id=owner_id,
+            personal_id=request.personal_id,
             event_type='update_next_period',
             content={
                 'prev_period_id': prev_period.id,
@@ -717,6 +703,7 @@ def period_reopen(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='period_reopen',
         content={
             'period_id': period.id,
@@ -759,12 +746,7 @@ def period_delete(context, request):
                 "reasons: %s" % delete_conflicts),
         })
 
-    dbsession.query(
-        func.set_config(
-            'opnreco.movement.event_type', 'period_delete', True),
-        func.set_config(
-            'opnreco.account_entry.event_type', 'period_delete', True),
-    ).one()
+    configure_dblog(request, event_type='period_delete')
 
     move_counts = {}
 
@@ -782,6 +764,7 @@ def period_delete(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='period_delete',
         content={
             'period_id': period.id,

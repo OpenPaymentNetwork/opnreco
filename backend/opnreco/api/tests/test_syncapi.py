@@ -49,6 +49,7 @@ class TestSyncAPI(unittest.TestCase):
         request = pyramid.testing.DummyRequest(
             dbsession=self.dbsession,
             owner=owner,
+            personal_id='12',
             access_token='example-token',
             remote_addr='127.0.0.1',
             user_agent='Test UA',
@@ -174,9 +175,9 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'add_peer',
-            'add_peer',
-            'add_peer',
+            'peer_add',
+            'peer_add',
+            'peer_add',
             'add_period_for_sync',
             'add_period_for_sync',
         ], [e.event_type for e in events])
@@ -462,9 +463,9 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'add_peer',
-            'add_peer',
-            'add_peer',
+            'peer_add',
+            'peer_add',
+            'peer_add',
             'add_period_for_sync',
             'add_period_for_sync',
         ], [e.event_type for e in events])
@@ -628,9 +629,9 @@ class TestSyncAPI(unittest.TestCase):
             .all())
         self.assertEqual([
             'opn_sync',
-            'add_peer',
-            'add_peer',
-            'add_peer',
+            'peer_add',
+            'peer_add',
+            'peer_add',
             'add_period_for_sync',
             'add_period_for_sync',
             'add_period_for_sync',
@@ -1214,13 +1215,13 @@ class TestSyncAPI(unittest.TestCase):
             .all())
         self.assertEqual([
             'opn_sync',
-            'add_peer',
-            'add_peer',
-            'add_peer',
+            'peer_add',
+            'peer_add',
+            'peer_add',
             'add_period_for_sync',
             'add_period_for_sync',
             'opn_sync',
-            'update_peer',
+            'peer_update',
         ], [e.event_type for e in events])
 
         self.assertEqual({
@@ -1371,9 +1372,9 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'add_peer',
-            'add_peer',
-            'add_peer',
+            'peer_add',
+            'peer_add',
+            'peer_add',
             'add_period_for_sync',
             'add_period_for_sync',
         ], [e.event_type for e in events])
@@ -1427,9 +1428,9 @@ class TestSyncAPI(unittest.TestCase):
             .order_by(db.OwnerLog.id).all())
         self.assertEqual([
             'opn_sync',
-            'add_peer',
-            'add_peer',
-            'add_peer',
+            'peer_add',
+            'peer_add',
+            'peer_add',
             'add_period_for_sync',
             'add_period_for_sync',
             'opn_sync',

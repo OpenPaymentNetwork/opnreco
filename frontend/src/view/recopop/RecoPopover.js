@@ -525,7 +525,7 @@ class RecoPopover extends React.Component {
       saving,
     } = this.state;
 
-    const disabled = periodClosed;
+    const disabled = periodClosed || !reco;
 
     let require = null;
     if (recoURL && open) {

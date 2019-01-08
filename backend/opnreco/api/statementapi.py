@@ -12,6 +12,7 @@ from opnreco.models.site import PeriodResource
 from opnreco.param import amount_re
 from opnreco.param import parse_amount
 from opnreco.reassign import reassign_statement_period
+from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
 from pyramid.decorator import reify
@@ -353,16 +354,8 @@ def statement_save(context, request):
 
         # Change the period of the statement's account entries and recos that
         # should move with the statement.
-        dbsession.query(
-            func.set_config(
-                'opnreco.movement.event_type',
-                'reassign_statement_period',
-                True),
-            func.set_config(
-                'opnreco.account_entry.event_type',
-                'reassign_statement_period',
-                True),
-        ).one()
+        configure_dblog(
+            request=request, event_type='reassign_statement_period')
 
         reassign_statement_period(
             dbsession=dbsession,
@@ -372,7 +365,8 @@ def statement_save(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
-        event_type='statement_edit',
+        personal_id=request.personal_id,
+        event_type='statement_save',
         remote_addr=request.remote_addr,
         user_agent=request.user_agent,
         content=appstruct,
@@ -436,12 +430,8 @@ def statement_delete(context, request):
 
     # Indicate that entries are being deleted and movements are being
     # changed because the statement is being deleted.
-    dbsession.query(
-        func.set_config(
-            'opnreco.movement.event_type', 'statement_delete', True),
-        func.set_config(
-            'opnreco.account_entry.event_type', 'statement_delete', True),
-    ).one()
+    configure_dblog(
+        request=request, event_type='statement_delete')
 
     # reco_ids represents the list of recos to empty.
     reco_ids = (
@@ -483,6 +473,7 @@ def statement_delete(context, request):
 
     request.dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='statement_delete',
         remote_addr=request.remote_addr,
         user_agent=request.user_agent,
@@ -578,10 +569,8 @@ def entry_save(context, request):
     attrs = ('delta', 'entry_date', 'sheet', 'row', 'description')
 
     if appstruct['id']:
-        dbsession.query(
-            func.set_config(
-                'opnreco.account_entry.event_type', 'entry_edit', True),
-        ).one()
+        configure_dblog(
+            request=request, account_entry_event_type='entry_edit')
 
         entry = (
             dbsession.query(AccountEntry)
@@ -613,10 +602,8 @@ def entry_save(context, request):
         dbsession.flush()
 
     else:
-        dbsession.query(
-            func.set_config(
-                'opnreco.account_entry.event_type', 'entry_add', True),
-        ).one()
+        configure_dblog(
+            request=request, account_entry_event_type='entry_add')
 
         entry = AccountEntry(
             owner_id=owner_id,
@@ -673,10 +660,8 @@ def entry_delete(context, request):
                 "Statement %s not found." % appstruct['statement_id'])
         })
 
-    dbsession.query(
-        func.set_config(
-            'opnreco.account_entry.event_type', 'entry_edit', True),
-    ).one()
+    configure_dblog(
+        request=request, account_entry_event_type='entry_delete')
 
     entry = (
         dbsession.query(AccountEntry)
@@ -745,6 +730,7 @@ def statement_add_blank(context, request):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='statement_add_blank',
         remote_addr=request.remote_addr,
         user_agent=request.user_agent,
@@ -825,6 +811,7 @@ class StatementUploadAPI:
             })
 
         # Auto-reconcile the statement to the extent possible.
+        configure_dblog(request=request, event_type='statement_auto_reco')
         auto_reco_statement(
             dbsession=dbsession,
             owner=owner,
@@ -839,6 +826,7 @@ class StatementUploadAPI:
 
         dbsession.add(OwnerLog(
             owner_id=owner_id,
+            personal_id=request.personal_id,
             event_type='statement_upload',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
@@ -871,8 +859,8 @@ class StatementUploadAPI:
             if pos >= 0:
                 name = name[pos + 1:]
 
-        dbsession.query(func.set_config(
-            'opnreco.account_entry.event_type', 'upload', True)).all()
+        configure_dblog(
+            request=self.request, account_entry_event_type='upload')
 
         statement = Statement(
             owner_id=owner_id,

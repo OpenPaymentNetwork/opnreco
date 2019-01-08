@@ -1,15 +1,37 @@
 
 /* global process: false */
 
-import React from 'react';
-import PropTypes from 'prop-types';
+import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { startOAuth } from '../../reducer/login';
+import { withStyles } from '@material-ui/core/styles';
+import PropTypes from 'prop-types';
+import React from 'react';
+import Typography from '@material-ui/core/Typography';
+
+
+const styles = (theme) => ({
+  root: {
+    height: '100%',
+  },
+  bannerBox: {
+    marginTop: '160px',
+    textAlign: 'center',
+  },
+  banner: {
+    color: theme.palette.primary.main,
+    paddingBottom: '16px',
+  },
+  serviceLine: {
+    paddingTop: '16px',
+  },
+});
 
 
 class LoginView extends React.Component {
 
   static propTypes = {
+    classes: PropTypes.object.isRequired,
     deviceUUID: PropTypes.string,
     forceLogin: PropTypes.bool,
     oauthState: PropTypes.string,
@@ -22,7 +44,7 @@ class LoginView extends React.Component {
 
   componentDidUpdate() {
     if (!this.props.oauthState) {
-      // componentDidMount() should normally call startOAuth(),
+      // componentDidMount() should normally call startOAuth(), but
       // sometimes after logout it doesn't work. Just fix it. :-)
       startOAuth();
     }
@@ -33,15 +55,17 @@ class LoginView extends React.Component {
   }
 
   render() {
-    const {deviceUUID, oauthState, forceLogin} = this.props;
+    const {deviceUUID, oauthState, forceLogin, classes} = this.props;
 
     if (!deviceUUID || !oauthState) {
       // The random strings haven't been generated yet.
-      return <div style={{opacity: '0.1'}}>Preparing to log in&hellip;</div>;
+      return <div style={{opacity: '0.1'}}>Loading&hellip;</div>;
     }
 
+    const platformURL = process.env.REACT_APP_OPN_PUBLIC_URL;
+
     const url = (
-      process.env.REACT_APP_OPN_PUBLIC_URL +
+      platformURL +
       '/authorize?client_id=' +
       encodeURIComponent(process.env.REACT_APP_OPN_CLIENT_ID) +
       '&response_type=token' +
@@ -57,9 +81,19 @@ class LoginView extends React.Component {
       (forceLogin ? '&force_login=true' : ''));
 
     return (
-      <p>
-        <a href={url}>Sign In</a>
-      </p>
+      <div className={classes.root}>
+        <div className={classes.bannerBox}>
+          <Typography variant="h2" className={classes.banner}>
+            OPN Reconciliation
+          </Typography>
+          <Typography variant="h4" className={classes.signin}>
+            <a href={url}>Sign In</a>
+          </Typography>
+          <Typography variant="body1" className={classes.serviceLine}>
+            Using the OPN Platform at <a href={platformURL}>{platformURL}</a>
+          </Typography>
+        </div>
+      </div>
     );
   }
 }
@@ -72,4 +106,8 @@ function mapStateToProps(state) {
   };
 }
 
-export default connect(mapStateToProps)(LoginView);
+
+export default compose(
+  withStyles(styles, {withTheme: true}),
+  connect(mapStateToProps),
+)(LoginView);

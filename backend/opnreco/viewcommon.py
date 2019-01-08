@@ -481,13 +481,16 @@ def get_period_for_day(period_list, day, default_endless=True):
     return default
 
 
-def add_open_period(
-        dbsession, owner_id, peer_id, loop_id, currency, event_type):
+def add_open_period(request, peer_id, loop_id, currency, event_type):
     """Add a new period.
 
     Base it on the end date and end balances of the period with the
     newest end date.
     """
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
     prev = (
         dbsession.query(Period)
         .filter(
@@ -531,6 +534,7 @@ def add_open_period(
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type=event_type,
         content={
             'period_id': period.id,
@@ -579,3 +583,25 @@ def handle_invalid(e, schema):
             "%s (field: %s)" % (v, k)
             for (k, v) in sorted(e.asdict().items())),
     })
+
+
+def configure_dblog(
+        request,
+        event_type=None,
+        movement_event_type=None,
+        account_entry_event_type=None):
+    """Set variables for logging in database triggers."""
+    columns = [
+        func.set_config('opnreco.personal_id', request.personal_id, True),
+    ]
+    if movement_event_type or event_type:
+        columns.append(func.set_config(
+            'opnreco.movement.event_type',
+            movement_event_type or event_type,
+            True))
+    if account_entry_event_type or event_type:
+        columns.append(func.set_config(
+            'opnreco.account_entry.event_type',
+            account_entry_event_type or event_type,
+            True))
+    request.dbsession.query(*columns).one()

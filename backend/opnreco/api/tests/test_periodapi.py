@@ -17,7 +17,7 @@ def teardown_module():
     dbsession_fixture.close()
 
 
-class Test_detect_date_conflict(unittest.TestCase):
+class Test_detect_date_overlap(unittest.TestCase):
 
     def setUp(self):
         self.config = pyramid.testing.setUp()
@@ -28,8 +28,8 @@ class Test_detect_date_conflict(unittest.TestCase):
         pyramid.testing.tearDown()
 
     def _call(self, *args, **kw):
-        from ..periodapi import detect_date_conflict
-        return detect_date_conflict(*args, **kw)
+        from ..periodapi import detect_date_overlap
+        return detect_date_overlap(*args, **kw)
 
     def register_peer(self):
         from opnreco.models import db

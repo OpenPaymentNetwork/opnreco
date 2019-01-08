@@ -50,7 +50,8 @@ def set_tzname(request):
     owner.tzname = tzname
     request.dbsession.add(OwnerLog(
         owner_id=owner.id,
-        event_type='change_tzname',
+        personal_id=request.personal_id,
+        event_type='tzname_change',
         remote_addr=request.remote_addr,
         user_agent=request.user_agent,
         content={

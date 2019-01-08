@@ -22,6 +22,7 @@ from opnreco.models.db import TransferRecord
 from opnreco.models.site import PeriodResource
 from opnreco.param import amount_re
 from opnreco.param import parse_amount
+from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
@@ -589,12 +590,7 @@ class RecoSave:
 
         # Everything checks out. Save the changes.
 
-        request.dbsession.query(
-            func.set_config(
-                'opnreco.movement.event_type', 'reco_save', True),
-            func.set_config(
-                'opnreco.account_entry.event_type', 'reco_save', True),
-        ).one()
+        configure_dblog(request, event_type='reco_save')
 
         if self.reco_id is not None:
             self.remove_old_movements(new_movements=new_movements)
@@ -1019,6 +1015,7 @@ class RecoSave:
 
         dbsession.add(OwnerLog(
             owner_id=owner_id,
+            personal_id=request.personal_id,
             event_type='reco_add' if added else 'reco_change',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,

@@ -178,8 +178,7 @@ def push_unreco(request, period, op):
     # create a new period.
     if missing_period:
         new_period = add_open_period(
-            dbsession=dbsession,
-            owner_id=owner_id,
+            request=request,
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
@@ -201,6 +200,7 @@ def push_unreco(request, period, op):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='push_unreco_%s' % op.plural,
         content={
             'period_id': period.id,
@@ -292,6 +292,7 @@ def pull_unreco_and_ineligible(request, period, op):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='pull_unreco_%s' % op.plural,
         content={
             'period_id': period.id,
@@ -414,6 +415,7 @@ def pull_recos(request, period):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='pull_recos',
         content={
             'period_id': period.id,
@@ -509,8 +511,7 @@ def push_recos(request, period):
     # create a new period.
     if missing_period:
         new_period = add_open_period(
-            dbsession=dbsession,
-            owner_id=owner_id,
+            request=request,
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
@@ -554,6 +555,7 @@ def push_recos(request, period):
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,
+        personal_id=request.personal_id,
         event_type='push_recos',
         content={
             'period_id': period.id,

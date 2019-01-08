@@ -74,6 +74,7 @@ class OPNTokenAuthenticationPolicy(object):
             request.owner  # Add the Owner to the database
             request.dbsession.add(OwnerLog(
                 owner_id=profile_id,
+                personal_id=request.personal_id,
                 event_type='access',
                 remote_addr=request.remote_addr,
                 user_agent=request.user_agent,

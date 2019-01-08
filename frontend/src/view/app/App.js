@@ -73,11 +73,14 @@ class App extends React.Component {
   render() {
     if (!this.props.personalTitle) {
       return (
-        <Switch>
-          <Route path="/login" component={LoginView} />
-          <Route path="/oauth2cb" component={OAuth2CallbackView} />
-          <Route component={LoginRedirect} />
-        </Switch>
+        <MuiThemeProvider theme={customTheme}>
+          <CssBaseline />
+          <Switch>
+            <Route path="/login" component={LoginView} />
+            <Route path="/oauth2cb" component={OAuth2CallbackView} />
+            <Route component={LoginRedirect} />
+          </Switch>
+        </MuiThemeProvider>
       );
     }
 

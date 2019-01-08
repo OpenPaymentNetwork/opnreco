@@ -13,11 +13,11 @@ from opnreco.models.db import TransferRecord
 from opnreco.models.site import API
 from opnreco.util import check_requests_response
 from opnreco.util import to_datetime
+from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from opnreco.viewcommon import add_open_period
 from pyramid.decorator import reify
 from pyramid.view import view_config
-from sqlalchemy import func
 import collections
 import datetime
 import logging
@@ -77,7 +77,8 @@ class SyncAPI:
                 owner.tzname = tzname
                 request.dbsession.add(OwnerLog(
                     owner_id=owner.id,
-                    event_type='init_tzname',
+                    personal_id=request.personal_id,
+                    event_type='tzname_init',
                     remote_addr=request.remote_addr,
                     user_agent=request.user_agent,
                     content={
@@ -178,6 +179,7 @@ class SyncAPI:
 
         dbsession.add(OwnerLog(
             owner_id=owner.id,
+            personal_id=request.personal_id,
             event_type='opn_sync',
             remote_addr=request.remote_addr,
             user_agent=request.user_agent,
@@ -384,7 +386,8 @@ class SyncAPI:
 
             dbsession.add(OwnerLog(
                 owner_id=self.owner_id,
-                event_type='add_peer',
+                personal_id=self.request.personal_id,
+                event_type='peer_add',
                 content={
                     'peer_id': peer_id,
                     'info': info,
@@ -425,7 +428,8 @@ class SyncAPI:
                 if changes:
                     dbsession.add(OwnerLog(
                         owner_id=self.owner_id,
-                        event_type='update_peer',
+                        personal_id=self.request.personal_id,
+                        event_type='peer_update',
                         content={
                             'peer_id': peer_id,
                             'changes': changes,
@@ -458,9 +462,7 @@ class SyncAPI:
             )
             movement_dict[row_key] = movement
 
-        dbsession.query(
-            func.set_config('opnreco.movement.event_type', 'download', True),
-        ).one()
+        configure_dblog(request=self.request, movement_event_type='download')
 
         movements_added = []  # [Movement]
 
@@ -531,8 +533,7 @@ class SyncAPI:
 
         dbsession.flush()  # Assign the movement IDs and log the movements
 
-        dbsession.query(func.set_config(
-            'opnreco.movement.event_type', 'autoreco', True)).all()
+        configure_dblog(request=self.request, movement_event_type='autoreco')
 
         self.autoreco(
             record=record,
@@ -697,8 +698,7 @@ class SyncAPI:
 
         # Create a new open period.
         period = add_open_period(
-            dbsession=dbsession,
-            owner_id=owner_id,
+            request=self.request,
             peer_id=peer_id,
             loop_id=loop_id,
             currency=currency,
