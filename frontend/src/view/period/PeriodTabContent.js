@@ -30,7 +30,7 @@ export default class TabContent extends React.Component {
 
     if (typeof console !== 'undefined') {
       console.error(
-        'TabContent render error',
+        'PeriodTabContent render error',
         {error, info, ploop, period, tab});
     }
     this.setState({errorTab: this.props.tab});

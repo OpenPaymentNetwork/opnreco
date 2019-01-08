@@ -944,6 +944,8 @@ class StatementUploadAPI:
                     'row': rowx + 1,
                 }
                 for colx, cell in enumerate(row):
+                    if not cell.value:
+                        continue
                     column_name = column_names[colx]
                     try:
                         info = self.parse_excel_cell(book, cell, column_name)
