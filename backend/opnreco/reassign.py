@@ -463,7 +463,9 @@ def push_recos(request, period):
 
     # reco_date_c provides the date of each reco.
     # Recos with no entries or movements have no date, so fall back to
-    # a date 100+ years in the future as the reco date.
+    # an arbitrary date 100+ years in the future as the reco date.
+    # The arbitrary date does not get stored (unless the user has created
+    # a period for 100+ years in the future.)
     reco_date_c = func.coalesce(entry_date_c, movement_date_c, future)
 
     # List the dates of all recos in this period.
