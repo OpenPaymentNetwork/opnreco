@@ -1,7 +1,7 @@
 
-This is the source code for the OPN Reconciliation tool. Use the tool to
-reconcile your OPN activity with your bank account. The tool is especially
-intended for issuers.
+This is the source code for the OPN Reconciliation tool. OPN is the Open
+Payment Network. Use the tool to reconcile your OPN activity with your
+bank account. The tool is especially intended for issuers.
 
 Build the software using Buildout:
 
