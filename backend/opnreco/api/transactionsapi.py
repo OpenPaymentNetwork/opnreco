@@ -68,6 +68,7 @@ def transactions_api(context, request):
     account_delta_c = (
         dbsession.query(func.sum(AccountEntry.delta))
         .filter(AccountEntry.reco_id == Reco.id)
+        .correlate(Reco)
         .as_scalar()
         .label('account_delta')
     )
@@ -75,6 +76,7 @@ def transactions_api(context, request):
     entry_date_c = (
         dbsession.query(func.min(AccountEntry.entry_date))
         .filter(AccountEntry.reco_id == Reco.id)
+        .correlate(Reco)
         .as_scalar()
         .label('entry_date')
     )
@@ -82,6 +84,7 @@ def transactions_api(context, request):
     ts_c = (
         dbsession.query(func.min(Movement.ts))
         .filter(Movement.reco_id == Reco.id)
+        .correlate(Reco)
         .as_scalar()
         .label('ts')
     )
@@ -89,6 +92,7 @@ def transactions_api(context, request):
     movement_delta_c = (
         dbsession.query(func.sum(movement_delta))
         .filter(Movement.reco_id == Reco.id)
+        .correlate(Reco)
         .as_scalar()
         .label('movement_delta')
     )
@@ -96,6 +100,7 @@ def transactions_api(context, request):
     reco_movement_delta_c = (
         dbsession.query(func.sum(reco_movement_delta))
         .filter(Movement.reco_id == Reco.id)
+        .correlate(Reco)
         .as_scalar()
         .label('reco_movement_delta')
     )
