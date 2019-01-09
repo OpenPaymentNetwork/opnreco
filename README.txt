@@ -6,7 +6,7 @@ bank account. The tool is especially intended for issuers.
 Build the software using Buildout:
 
     cd backend
-    pyvenv .
+    python3 -m venv .
     bin/pip install -r requirements.txt
     bin/buildout
     cd ..
