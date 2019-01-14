@@ -542,7 +542,6 @@ class RecoSaveSchema(Schema):
 movement_matches_required = (
     ('currency', "currency", "currencies"),
     ('loop_id', "cash design", "cash designs"),
-    ('transfer_record_id', "transfer", "transfers"),
     ('peer_id', "peer", "peers"),
 )
 
