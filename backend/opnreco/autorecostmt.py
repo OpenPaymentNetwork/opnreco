@@ -13,6 +13,44 @@ null = None
 max_autoreco_delay = datetime.timedelta(days=7)
 
 
+class SortableMatch:
+    """A potential reconciliation match.
+
+    Matches an account entry with an OPN movement. Scores the probability
+    of a match. Provides a corresponding sort_key.
+    """
+    def __init__(self, row):
+        self.delta = row.delta
+        self.account_entry_id = account_entry_id = row.account_entry_id
+        self.entry_date = entry_date = row.entry_date
+        self.description = description = row.description
+        self.movement_id = movement_id = row.movement_id
+        self.movement_date = movement_date = row.movement_date
+        self.transfer_id = transfer_id = row.transfer_id
+
+        score = 0
+
+        if transfer_id:
+            clean_desc = description.replace('-', '')
+            # Count how many characters of the transfer ID are found
+            # in the description. Require at least 3 characters to improve
+            # the score.
+            maxlen = min(len(transfer_id), len(clean_desc))
+            for length in range(maxlen, 2, -1):
+                if transfer_id[:length] in clean_desc:
+                    # This scoring function seems reasonable for
+                    # matching 11 digit transfer IDs.
+                    score += 1.5 ** length
+                    break
+
+        # The closer in time, the higher the score.
+        score -= abs((entry_date - movement_date).days)
+
+        self.score = score
+
+        self.sort_key = (score, entry_date, account_entry_id, movement_id)
+
+
 def auto_reco_statement(dbsession, owner, period, statement):
     """Add external reconciliations automatically for a statement."""
 
@@ -56,7 +94,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
         .all())
 
     # Group the matches by amount in the 'by_amount' map.
-    # by_amount: {amount: [match]}
+    # by_amount: {amount: [SortableMatch]}
     by_amount = collections.defaultdict(list)
 
     for match in all_matches:
@@ -70,21 +108,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
             # movement, so disqualify this match for autoreco.
             continue
 
-        by_amount[match.delta].append(match)
-
-    def rank_match(match):
-        """Sort key function that ranks the best matches highest."""
-        if match.transfer_id in match.description.replace('-', ''):
-            # The transfer ID is in the description, so rank the match highly.
-            score = 100
-        else:
-            score = 0
-
-        # The closer in time, the higher the score.
-        score -= abs((match.entry_date - match.movement_date).days)
-
-        return (
-            score, match.entry_date, match.account_entry_id, match.movement_id)
+        by_amount[match.delta].append(SortableMatch(match))
 
     # For each group of possible matches in by_amount, apply the best
     # matches first. As matches are chosen, later matches are disqualified
@@ -99,12 +123,15 @@ def auto_reco_statement(dbsession, owner, period, statement):
     # reco_id, since the reco_id is chosen later.
     # Fortunately, the reco_index does not live beyond this function.
 
+    def sort_match(sortable_match):
+        return sortable_match.sort_key
+
     new_reco_count = 0   # The number of Recos to create
     entry_recos = {}     # account_entry_id: reco_index
     movement_recos = {}  # movement_id: reco_index
 
     for match_list in by_amount.values():
-        match_list.sort(key=rank_match, reverse=True)
+        match_list.sort(key=sort_match, reverse=True)
         for match in match_list:
             if match.movement_id in movement_recos:
                 # Already matched.
