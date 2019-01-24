@@ -103,11 +103,13 @@ class RecoPopover extends React.Component {
     closeDialog: PropTypes.func.isRequired,
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
+    periodClosed: PropTypes.bool,
     periods: PropTypes.array,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
     recoFinalURL: PropTypes.string,
     reco: PropTypes.object,
+    showVault: PropTypes.bool,
     windowPeriodId: PropTypes.string,
   };
 
@@ -467,7 +469,7 @@ class RecoPopover extends React.Component {
     };
 
     let accountEntryTableBody = null;
-    if (recoType !== 'wallet_only') {
+    if (recoType === 'standard' || recoType === 'account_only') {
       accountEntryTableBody = (
         <AccountEntryTableBody
           accountEntries={reco.account_entries}
@@ -480,7 +482,8 @@ class RecoPopover extends React.Component {
     }
 
     let movementTableBody = null;
-    if (recoType !== 'account_only') {
+    if (recoType === 'standard' || recoType === 'wallet_only' ||
+        recoType === 'vault_only') {
       movementTableBody = (
         <MovementTableBody
           movements={reco.movements}
@@ -574,6 +577,7 @@ class RecoPopover extends React.Component {
                 <MenuItem value="standard">Standard Reconciliation</MenuItem>
                 <MenuItem value="wallet_only">Wallet In/Out</MenuItem>
                 <MenuItem value="account_only">Account Credit/Debit</MenuItem>
+                <MenuItem value="vault_only">Vault Offset</MenuItem>
               </Select>
             </FormControl>
             <FormControl className={classes.periodControl} disabled={disabled}>

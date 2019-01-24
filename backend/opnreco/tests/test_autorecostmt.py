@@ -174,7 +174,7 @@ class Test_auto_reco_statement(unittest.TestCase):
             wallet_delta=0,
             vault_delta=Decimal(amount),
             period_id=self.period.id,
-            reco_wallet_delta=0,
+            surplus_delta=0,
         )
         dbsession.add(m)
         dbsession.flush()
@@ -224,7 +224,7 @@ class Test_auto_reco_statement(unittest.TestCase):
             wallet_delta=0,
             vault_delta=Decimal(amount),
             period_id=self.period.id,
-            reco_wallet_delta=0,
+            surplus_delta=0,
         )
         dbsession.add(m)
         dbsession.flush()
@@ -314,7 +314,7 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         for reco in recos:
             m_total = sum((
-                m.vault_delta + m.reco_wallet_delta
+                m.vault_delta + m.wallet_delta
                 for m in movements[reco.id]), 0)
             e_total = sum((e.delta for e in account_entries[reco.id]), 0)
             self.assertEqual(0, m_total + e_total)

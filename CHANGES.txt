@@ -1,0 +1,18 @@
+
+1.1 (2019-01-24)
+----------------
+
+- Allow recos to span transfers.
+
+- In auto external reconciliation, accept partial matches of transfer IDs.
+
+- Allow "Vault Offset" reconciliation, which means circulation changed
+  while failing to affect the account. This is a way to record the error while
+  keeping the circulation and surplus totals correct.
+
+- Stop accidentally redirecting to the latest period.
+
+1.0 (2019-01-10)
+----------------
+
+- Initial release.

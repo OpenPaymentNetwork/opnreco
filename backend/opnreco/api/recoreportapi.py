@@ -27,13 +27,13 @@ def reco_report_api(context, request):
     dbsession = request.dbsession
     owner_id = request.owner.id
 
-    movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
+    movement_delta_cols = -(Movement.wallet_delta + Movement.vault_delta)
 
     movement_filter = and_(
         Movement.owner_id == owner_id,
         Movement.period_id == period_id,
         Movement.transfer_record_id == TransferRecord.id,
-        movement_delta != 0,
+        movement_delta_cols != 0,
     )
 
     now = dbsession.query(now_func).scalar()
@@ -44,7 +44,7 @@ def reco_report_api(context, request):
     # but not from the internally reconciled movements.
     workflow_type_rows = (
         dbsession.query(
-            func.sign(movement_delta).label('sign'),
+            func.sign(movement_delta_cols).label('sign'),
             TransferRecord.workflow_type,
         )
         .outerjoin(Reco, Reco.id == Movement.reco_id)
@@ -55,7 +55,7 @@ def reco_report_api(context, request):
                 ~Reco.internal,
             ))
         .group_by(
-            func.sign(movement_delta),
+            func.sign(movement_delta_cols),
             TransferRecord.workflow_type)
         .all())
 
@@ -70,14 +70,14 @@ def reco_report_api(context, request):
         workflow_types_pre[(str(r.sign), r.workflow_type)] = (zero, zero, zero)
 
     # outstanding_rows lists the unreconciled movements.
-    # Negate the amounts because we're showing compensating amounts.
     outstanding_rows = (
         dbsession.query(
-            func.sign(movement_delta).label('sign'),
+            func.sign(movement_delta_cols).label('sign'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
+            # circ_delta is always the negative of vault_delta.
             (-Movement.vault_delta).label('circ_delta'),
-            (-Movement.reco_wallet_delta).label('surplus_delta'),
+            Movement.surplus_delta,
             Movement.ts,
             Movement.id,
         )

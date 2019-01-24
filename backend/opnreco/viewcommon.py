@@ -350,7 +350,7 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             Movement.period_id,
             Reco.internal,
             func.sum(-Movement.vault_delta).label('circ'),
-            func.sum(-Movement.reco_wallet_delta).label('surplus'),
+            func.sum(Movement.surplus_delta).label('surplus'),
         )
         .join(Reco, Reco.id == Movement.reco_id)
         .filter(
@@ -403,7 +403,7 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         dbsession.query(
             Movement.period_id,
             func.sum(-Movement.vault_delta).label('circ'),
-            func.sum(-Movement.reco_wallet_delta).label('surplus'),
+            func.sum(Movement.surplus_delta).label('surplus'),
         )
         .filter(
             Movement.owner_id == owner_id,

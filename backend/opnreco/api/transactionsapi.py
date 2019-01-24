@@ -24,8 +24,8 @@ null = None
 zero = Decimal()
 
 
-movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
-reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
+movement_delta_cols = -(Movement.wallet_delta + Movement.vault_delta)
+reco_movement_delta_cols = Movement.surplus_delta - Movement.vault_delta
 
 
 def start_query(dbsession):
@@ -36,8 +36,8 @@ def start_query(dbsession):
         Movement.id.label('movement_id'),
         Movement.ts,
         Movement.reco_id,
-        movement_delta.label('movement_delta'),
-        reco_movement_delta.label('reco_movement_delta'),
+        movement_delta_cols.label('movement_delta'),
+        reco_movement_delta_cols.label('reco_movement_delta'),
         TransferRecord.workflow_type,
         TransferRecord.transfer_id,
     )
@@ -61,9 +61,6 @@ def transactions_api(context, request):
     # unreconciled account entries, and unreconciled movements.
     # (The big query causes all ordering and paging to be done in the
     # database, which is faster than retrieving rows first.)
-
-    movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
-    reco_movement_delta = -(Movement.reco_wallet_delta + Movement.vault_delta)
 
     account_delta_c = (
         dbsession.query(func.sum(AccountEntry.delta))
@@ -90,7 +87,7 @@ def transactions_api(context, request):
     )
 
     movement_delta_c = (
-        dbsession.query(func.sum(movement_delta))
+        dbsession.query(func.sum(movement_delta_cols))
         .filter(Movement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
@@ -98,7 +95,7 @@ def transactions_api(context, request):
     )
 
     reco_movement_delta_c = (
-        dbsession.query(func.sum(reco_movement_delta))
+        dbsession.query(func.sum(reco_movement_delta_cols))
         .filter(Movement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
@@ -158,8 +155,8 @@ def transactions_api(context, request):
             cast(None, Numeric).label('account_delta'),
             Movement.id.label('movement_id'),
             Movement.ts,
-            movement_delta.label('movement_delta'),
-            reco_movement_delta.label('reco_movement_delta'),
+            movement_delta_cols.label('movement_delta'),
+            reco_movement_delta_cols.label('reco_movement_delta'),
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
         )
@@ -169,7 +166,7 @@ def transactions_api(context, request):
         .filter(
             Movement.owner_id == owner_id,
             Movement.period_id == period_id,
-            movement_delta != 0,
+            movement_delta_cols != 0,
             Movement.reco_id == null,
         ),
     )
@@ -241,8 +238,8 @@ def transactions_api(context, request):
                 Movement.reco_id,
                 Movement.id.label('movement_id'),
                 Movement.ts,
-                movement_delta.label('movement_delta'),
-                reco_movement_delta.label('reco_movement_delta'),
+                movement_delta_cols.label('movement_delta'),
+                reco_movement_delta_cols.label('reco_movement_delta'),
                 TransferRecord.workflow_type,
                 TransferRecord.transfer_id,
             )

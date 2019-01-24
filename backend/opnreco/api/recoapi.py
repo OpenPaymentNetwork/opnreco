@@ -516,7 +516,12 @@ class AccountEntrySchema(Schema):
 class RecoSchema(Schema):
     reco_type = SchemaNode(
         ColanderString(),
-        validator=OneOf(('standard', 'wallet_only', 'account_only')))
+        validator=OneOf((
+            'standard',
+            'wallet_only',
+            'account_only',
+            'vault_only',
+        )))
     comment = SchemaNode(
         ColanderString(),
         missing='',
@@ -575,7 +580,7 @@ class RecoSave:
                 m['id'] for m in params['reco']['movements'])
             new_movements = self.get_new_movements(new_movement_ids)
 
-        if reco_type == 'wallet_only':
+        if reco_type in ('wallet_only', 'vault_only'):
             new_account_entries = ()
         else:
             new_account_entries = self.get_new_account_entries(
@@ -891,6 +896,16 @@ class RecoSave:
                         "not vault changes.",
                     })
 
+        elif reco_type == 'vault_only':
+            for m in new_movements:
+                if m.wallet_delta:
+                    raise HTTPBadRequest(json_body={
+                        'error': 'vault_only_excludes_wallet',
+                        'error_description': "Vault Offset "
+                        "reconciliation can include vault changes only, "
+                        "not wallet changes.",
+                    })
+
         if self.reco_type != 'standard' and not self.params['reco']['comment']:
             raise HTTPBadRequest(json_body={
                 'error': 'comment_required',
@@ -919,7 +934,7 @@ class RecoSave:
 
         for m in old_movements:
             m.reco_id = None
-            m.reco_wallet_delta = m.wallet_delta
+            m.surplus_delta = -m.wallet_delta
 
     def remove_old_account_entries(self, new_account_entries):
         """Remove old account entries from the reco."""
@@ -994,11 +1009,15 @@ class RecoSave:
             if reco_type == 'wallet_only':
                 # Wallet-only reconciliations should have no effect on
                 # the surplus amount.
-                m.reco_wallet_delta = zero
+                m.surplus_delta = zero
+            elif reco_type == 'vault_only':
+                # Vault-only reconciliations expect the surplus to change
+                # with the vault.
+                m.surplus_delta = m.vault_delta
             else:
                 # Other reconciliations expect the surplus to change
                 # inversely to the wallet.
-                m.reco_wallet_delta = m.wallet_delta
+                m.surplus_delta = -m.wallet_delta
 
         created_account_entries = []
         for entry in new_account_entries:

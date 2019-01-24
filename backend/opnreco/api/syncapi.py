@@ -525,7 +525,7 @@ class SyncAPI:
                         wallet_delta=wallet_delta,
                         vault_delta=vault_delta,
                         period_id=period_id,
-                        reco_wallet_delta=wallet_delta,
+                        surplus_delta=-wallet_delta,
                     )
                     dbsession.add(movement)
                     movement_dict[row_key] = movement

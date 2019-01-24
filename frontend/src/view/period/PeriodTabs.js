@@ -60,6 +60,7 @@ class PeriodTabs extends React.Component {
     classes: PropTypes.object.isRequired,
     defaultPloop: PropTypes.string,
     dispatch: PropTypes.func.isRequired,
+    gotAllPloops: PropTypes.bool,
     history: PropTypes.object.isRequired,
     intl: intlShape.isRequired,
     match: PropTypes.object.isRequired,
@@ -97,13 +98,15 @@ class PeriodTabs extends React.Component {
     }
 
     const {
+      gotAllPloops,
       ploopOrder,
       defaultPloop,
       ploops,
     } = this.props;
 
-    if (!ploopOrder || !ploopOrder.length) {
-      // The ploops aren't loaded yet or the owner has no available ploops.
+    if (!gotAllPloops || !ploopOrder || !ploopOrder.length) {
+      // Not all the ploops are loaded yet or
+      // the owner has no available ploops.
       return;
     }
 
@@ -355,10 +358,16 @@ function mapStateToProps(state, ownProps) {
   const ploopsURLMod = (
     ploopsURL + `?period_id=${encodeURIComponent(periodId)}`);
 
-  const fetched = (
-    fetchcache.get(state, ploopsURLMod) ||
-    fetchcache.get(state, ploopsURL) ||
-    {});
+  let gotAllPloops = false;
+
+  let fetched = fetchcache.get(state, ploopsURLMod);
+  if (fetched) {
+    // All the ploops requested have been loaded.
+    gotAllPloops = true;
+  } else {
+    fetched = fetchcache.get(state, ploopsURL) || {};
+  }
+
   if (fetched.ploop_order && fetched.ploop_order.length) {
     let ploopKey;
     ploopKey = fetched.ploop_keys[periodId];
@@ -386,6 +395,7 @@ function mapStateToProps(state, ownProps) {
     syncProgress: state.app.syncProgress,
     loading,
     loadError,
+    gotAllPloops,
   };
 }
 

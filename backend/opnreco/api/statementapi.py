@@ -451,8 +451,8 @@ def statement_delete(context, request):
         )
         .update({
             'reco_id': None,
-            # Also reset the reco_wallet_delta for each movement.
-            'reco_wallet_delta': Movement.wallet_delta,
+            # Also reset the surplus_delta for each movement.
+            'surplus_delta': -Movement.wallet_delta,
         }, synchronize_session='fetch'))
 
     # Delete the account entries, but leave the account entry logs.

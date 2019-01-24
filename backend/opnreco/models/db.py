@@ -334,10 +334,16 @@ class Movement(Base):
     reco_id = Column(
         BigInteger, ForeignKey('reco.id'), nullable=True, index=True)
 
-    # reco_wallet_delta is the same as wallet_delta except when the movement
-    # is part of a wallet_only reco, in which case reco_wallet_delta
-    # is zero, meaning no compensating surplus delta is expected.
-    reco_wallet_delta = Column(Numeric, nullable=False)
+    # surplus_delta is usually the negative of wallet_delta except when
+    # the movement is part of a wallet_only or vault_only reco.
+    # For wallet_only, surplus_delta is zero, meaning the movement
+    # had no effect on the account.
+    # For vault_only, surplus_delta is equal to vault_delta,
+    # meaning either money was circulated without adding to the account
+    # (leading to a deficit, or decrease in surplus), or
+    # month was removed from circulation without removing it from the account
+    # (leading to an increase in surplus, or a reduction of the deficit).
+    surplus_delta = Column(Numeric, nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -357,11 +363,12 @@ class Movement(Base):
             initially='deferred',
         ),
         CheckConstraint(or_(
-            reco_wallet_delta == wallet_delta,
-            # reco_wallet_delta can be forced to zero only when the movement
-            # belongs to a reco.
-            and_(reco_wallet_delta == 0, reco_id != null)
-        ), name='reco_wallet_delta'),
+            surplus_delta == -wallet_delta,
+            # surplus_delta can be forced to zero or vault_delta
+            # only when the movement belongs to a reco.
+            and_(surplus_delta == 0, reco_id != null),
+            and_(surplus_delta == vault_delta, reco_id != null),
+        ), name='surplus_delta_value'),
         {})
 
     transfer_record = relationship(TransferRecord)
@@ -399,7 +406,7 @@ class MovementLog(Base):
     # Mutable fields of movement rows
     period_id = Column(BigInteger, nullable=False, index=True)
     reco_id = Column(BigInteger, nullable=True, index=True)
-    reco_wallet_delta = Column(Numeric, nullable=False)
+    surplus_delta = Column(Numeric, nullable=False)
 
     movement = relationship(Movement)
 
@@ -417,14 +424,14 @@ begin
             event_type,
             period_id,
             reco_id,
-            reco_wallet_delta)
+            surplus_delta)
         select
             old.id,
             current_setting('opnreco.personal_id'),
             current_setting('opnreco.movement.event_type'),
             old.period_id,
             old.reco_id,
-            old.reco_wallet_delta;
+            old.surplus_delta;
         return old;
     elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
         insert into movement_log (
@@ -433,14 +440,14 @@ begin
             event_type,
             period_id,
             reco_id,
-            reco_wallet_delta)
+            surplus_delta)
         select
             new.id,
             current_setting('opnreco.personal_id'),
             current_setting('opnreco.movement.event_type'),
             new.period_id,
             new.reco_id,
-            new.reco_wallet_delta;
+            new.surplus_delta;
         return new;
     end if;
     return null;
@@ -664,13 +671,15 @@ class Reco(Base):
     __table_args__ = (
         CheckConstraint(reco_type.in_([
             # Note: standard recos must be balanced;
-            # wallet_only and account_only recos do not need to be.
+            # *_only recos do not need to be.
             # wallet_only recos can only contain wallet movements (not
             # account entries or vault movements).
             # account_only recos can only contain account movements.
+            # vault_only recos can only contain vault movements.
             'standard',
             'wallet_only',       # Wallet In/Out
             'account_only',      # Account Credit/Debit
+            'vault_only',        # Vault Offset
         ]), name='reco_type'),
         {})
 
