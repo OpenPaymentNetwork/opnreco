@@ -11,6 +11,7 @@ from opnreco.models.db import Period
 from opnreco.util import check_requests_response
 from pyramid.httpexceptions import HTTPBadRequest
 from sqlalchemy import func
+from sqlalchemy import literal
 import datetime
 import os
 import requests
@@ -274,18 +275,17 @@ def get_loop_map(request, need_loop_ids, final=False):
 def compute_period_totals(dbsession, owner_id, period_ids):
     """Compute the balances and deltas for a set of periods.
 
-    Gets the start balances (circ, surplus, and combined) and computes:
-    - reconciled_delta
-    - reconciled_total
-    - outstanding_delta
-    - end
+    Gets the start balances (circ, surplus, and combined) and computes totals.
 
     Return:
     {period_id: {
         'start': {'circ', 'surplus', 'combined'},
+        'internal_reconciled_delta': {'circ', 'surplus', 'combined'},
+        'external_reconciled_delta': {'circ', 'surplus', 'combined'},
         'reconciled_delta': {'circ', 'surplus', 'combined'},
         'reconciled_total': {'circ', 'surplus', 'combined'},
-        'outstanding_delta': {'circ', 'surplus', 'combined'},
+        'unreco_movements_delta': {'circ', 'surplus', 'combined'},
+        'unreco_entries_delta': {'circ', 'surplus', 'combined'},
         'end': {'circ', 'surplus', 'combined'},
     }
     """
@@ -332,7 +332,12 @@ def compute_period_totals(dbsession, owner_id, period_ids):
                 'surplus': zero,
                 'combined': zero,
             },
-            'outstanding_delta': {
+            'unreco_movements_delta': {
+                'circ': zero,
+                'surplus': zero,
+                'combined': zero,
+            },
+            'unreco_entries_delta': {
                 'circ': zero,
                 'surplus': zero,
                 'combined': zero,
@@ -413,13 +418,33 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .group_by(Movement.period_id)
         .all())
     for row in rows:
-        m = res[row.period_id]['outstanding_delta']
+        m = res[row.period_id]['unreco_movements_delta']
         m['circ'] = row.circ
         m['surplus'] = row.surplus
         m['combined'] = row.circ + row.surplus
 
-    # Note that this code does not include the amounts from unreconciled
-    # account entries in the totals. That's because there are two kinds of
+    # Gather the amounts from unreconciled account entries.
+    rows = (
+        dbsession.query(
+            AccountEntry.period_id,
+            literal(zero).label('circ'),
+            func.sum(AccountEntry.delta).label('surplus'),
+        )
+        .filter(
+            AccountEntry.owner_id == owner_id,
+            AccountEntry.reco_id == null,
+            AccountEntry.period_id.in_(period_ids),
+        )
+        .group_by(AccountEntry.period_id)
+        .all())
+    for row in rows:
+        m = res[row.period_id]['unreco_entries_delta']
+        m['circ'] = row.circ
+        m['surplus'] = row.surplus
+        m['combined'] = row.circ + row.surplus
+
+    # Note that this code does not include unreco_entries_delta
+    # in the end totals. That's because there are two kinds of
     # unreconciled account entries, the majority of which are represented by
     # unreconciled movements that have been included in the totals already.
     # Unreconciled account entries from sources other than movements will
@@ -434,7 +459,7 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             m['reconciled_delta'][k] = reconciled_delta
             reconciled_total = m['start'][k] + reconciled_delta
             m['reconciled_total'][k] = reconciled_total
-            m['end'][k] = reconciled_total + m['outstanding_delta'][k]
+            m['end'][k] = reconciled_total + m['unreco_movements_delta'][k]
 
     return res
 

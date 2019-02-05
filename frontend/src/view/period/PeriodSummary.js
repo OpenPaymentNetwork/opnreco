@@ -23,6 +23,18 @@ const styles = {
     padding: '4px 8px',
     border: '1px solid #bbb',
   },
+  totalCell: {
+    textAlign: 'right',
+    padding: '4px 8px',
+    border: '1px solid #bbb',
+    fontWeight: 'bold',
+  },
+  maskedCell: {
+    textAlign: 'right',
+    padding: '4px 8px',
+    border: '1px solid #bbb',
+    opacity: '0.5',
+  },
   columnHeadCell: {
     fontWeight: 'normal',
     textAlign: 'right',
@@ -59,25 +71,34 @@ class PeriodSummary extends React.Component {
 
     const cfmt = new getCurrencyFormatter(period.currency);
 
-    const getAmountColumns = (rowname, strong) => {
+    const getAmountColumns = (rowname, options) => {
+      let cellClass = classes.amountCell;
+      if (options && options.cellClass) {
+        cellClass = options.cellClass;
+      }
+
+      let totalClass = cellClass;
+      if (options && options.totalClass) {
+        totalClass = options.totalClass;
+      }
+
       if (showCirc) {
-        const combined = cfmt(totals[rowname].combined);
         return (
           <React.Fragment>
-            <td className={classes.amountCell}>
+            <td className={cellClass}>
               {cfmt(totals[rowname].circ)}
             </td>
-            <td className={classes.amountCell}>
+            <td className={cellClass}>
               {cfmt(totals[rowname].surplus)}
             </td>
-            <td className={classes.amountCell}>
-              {strong ? <strong>{combined}</strong> : combined}
+            <td className={totalClass}>
+              {cfmt(totals[rowname].combined)}
             </td>
           </React.Fragment>
         );
       } else {
         return (
-          <td className={classes.amountCell}>
+          <td className={totalClass}>
             {cfmt(totals[rowname].combined)}
           </td>
         );
@@ -112,7 +133,7 @@ class PeriodSummary extends React.Component {
               <td className={classes.rowHeadCell}>
                 Start Balance
               </td>
-              {getAmountColumns('start', false)}
+              {getAmountColumns('start')}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>
@@ -146,18 +167,18 @@ class PeriodSummary extends React.Component {
               <td className={classes.rowHeadCell}>
                 Start + Reconciled
               </td>
-              {getAmountColumns('reconciled_total', true)}
+              {getAmountColumns('reconciled_total', {
+                totalClass: classes.totalCell})}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>
 
             <tr>
               <td className={classes.rowHeadCell}>
-                Unreconciled
+                Unreconciled OPN Movements
               </td>
-              {getAmountColumns('outstanding_delta')}
+              {getAmountColumns('unreco_movements_delta')}
               <td className={classes.amountCell}>
-                {counts.account_entries_unreconciled}
               </td>
               <td className={classes.amountCell}>
                 {counts.movements_unreconciled}
@@ -166,9 +187,22 @@ class PeriodSummary extends React.Component {
 
             <tr>
               <td className={classes.rowHeadCell}>
+                Unreconciled Account Entries
+              </td>
+              {getAmountColumns(
+                'unreco_entries_delta', {cellClass: classes.maskedCell})}
+              <td className={classes.amountCell}>
+                {counts.account_entries_unreconciled}
+              </td>
+              <td className={classes.amountCell}>
+              </td>
+            </tr>
+
+            <tr>
+              <td className={classes.rowHeadCell}>
                 End Balance
               </td>
-              {getAmountColumns('end', true)}
+              {getAmountColumns('end', {totalClass: classes.totalCell})}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>
