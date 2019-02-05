@@ -5,7 +5,6 @@ import './index.css';
 import App from './view/app/App';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import registerServiceWorker from './registerServiceWorker';
 import { BrowserRouter } from 'react-router-dom';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from 'react-router';
@@ -38,4 +37,9 @@ ReactDOM.render(
   ), target
 );
 
-registerServiceWorker();
+// We don't really want the extra caching done by a service worker for now.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.ready.then(registration => {
+    registration.unregister();
+  });
+}

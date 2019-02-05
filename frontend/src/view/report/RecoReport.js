@@ -16,6 +16,7 @@ import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
 import { FormattedDate } from 'react-intl';
+import { isSimpleClick } from '../../util/click';
 
 
 const styles = {
@@ -112,7 +113,7 @@ class RecoReport extends React.Component {
   }
 
   handleClickTransfer = (event, path) => {
-    if (event.button === 0) {
+    if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }

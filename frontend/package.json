@@ -1,6 +1,6 @@
 {
-  "name": "opnreport",
-  "version": "0.1.0",
+  "name": "opnreco",
+  "version": "1.1.1",
   "private": true,
   "dependencies": {
     "@material-ui/core": "^3.7.1",

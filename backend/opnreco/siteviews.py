@@ -16,6 +16,7 @@ _frontend_build = None
 
 
 def get_frontend_build():
+    """Get the directory where the frontend HTML/CSS/JS have been built."""
     global _frontend_build
     if not _frontend_build:
         _frontend_build = os.path.abspath(os.path.join(
@@ -29,10 +30,12 @@ def get_frontend_build():
 def index_html(request):
     frontend_build = get_frontend_build()
     fn = os.path.join(frontend_build, 'index.html')
-    return FileResponse(
+    response = FileResponse(
         fn,
         request=request,
         content_type='text/html;charset=utf-8')
+    response.cache_control = 'no-store, no-cache'
+    return response
 
 
 @view_config(name='', context=FrontendFile)
@@ -56,13 +59,13 @@ def static_file_view(context, request):
 
     fn = os.path.join(frontend_build, 'static', *subpath)
 
-    return make_file_response(fn, request)
+    return make_file_response(fn, request, cache_control='public')
 
 
 gzip_cache = {}  # {frontend file name: {mtime, size, gzipped_content}}
 
 
-def make_file_response(fn, request):
+def make_file_response(fn, request, cache_control='no-store'):
     pos = fn.rfind('.')
     if pos >= 0:
         ext = fn[pos:]
@@ -104,9 +107,12 @@ def make_file_response(fn, request):
                 content_type=content_type,
                 content_encoding='gzip',
                 last_modified=mtime,
-                content_length=len(body))
+                content_length=len(body),
+                cache_control=cache_control)
 
-    return FileResponse(fn, request=request)
+    response = FileResponse(fn, request=request)
+    response.cache_control = cache_control
+    return response
 
 
 @notfound_view_config()
@@ -136,4 +142,6 @@ def notfound(request):
         conditional_response=True,
         content_type='text/html;charset=utf-8',
         charset='utf-8',
-        body=body)
+        body=body,
+        cache_control='no-store, no-cache',
+    )

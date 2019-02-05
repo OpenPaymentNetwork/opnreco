@@ -41,6 +41,14 @@ const styles = theme => ({
     padding: '16px',
     textAlign: 'center',
   },
+  versionLine: {
+    display: 'block',
+    color: '#000',
+    opacity: '0.7',
+    fontSize: '80%',
+    padding: '16px',
+    textAlign: 'right',
+  },
 });
 
 
@@ -145,18 +153,23 @@ class OPNDrawer extends React.Component {
       tzname = '';
     }
 
+    let changeCount = 0;
+
     const syncBatch = () => {
       const action = fOPNReco.fetchPath('/sync', {data: {
         tzname,
       }});
       dispatch(action).then(status => {
+        changeCount += (status.change_count || 0);
         if (status.more) {
           dispatch(setSyncProgress(status.progress_percent));
           syncBatch();
         } else {
           // Done.
           dispatch(setSyncProgress(null, new Date()));
-          dispatch(clearWithPloops());
+          if (changeCount) {
+            dispatch(clearWithPloops());
+          }
           this.setState({autoSyncOk: true});
         }
       }).catch(() => {
@@ -249,6 +262,13 @@ class OPNDrawer extends React.Component {
         </ListItem>
 
       </List>
+
+      <a href="https://github.com/wingcash/opnreco"
+          target="_blank" rel="noopener noreferrer"
+          className={classes.versionLine}>
+        Version {process.env.REACT_APP_VERSION}
+      </a>
+
     </div>);
   }
 

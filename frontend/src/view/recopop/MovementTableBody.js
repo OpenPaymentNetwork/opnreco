@@ -3,6 +3,7 @@ import { compose } from '../../util/functional';
 import { dashed } from '../../util/transferfmt';
 import { FormattedDate, FormattedTime } from 'react-intl';
 import { getCurrencyDeltaFormatter } from '../../util/currency';
+import { isSimpleClick } from '../../util/click';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
@@ -46,7 +47,7 @@ class MovementTableBody extends React.Component {
   };
 
   handleClickTransfer = (event, path) => {
-    if (event.button === 0) {
+    if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.closeDialog();
       this.props.history.push(path);

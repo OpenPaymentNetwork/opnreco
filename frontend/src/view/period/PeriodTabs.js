@@ -4,6 +4,7 @@ import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco, ploopsURL } from '../../util/fetcher';
 import { injectIntl, intlShape } from 'react-intl';
+import { isSimpleClick } from '../../util/click';
 import { renderPeriodDateString } from '../../util/reportrender';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
@@ -221,7 +222,7 @@ class PeriodTabs extends React.Component {
   }
 
   handleTabClick = (event) => {
-    if (event.button === 0) {
+    if (isSimpleClick(event)) {
       event.preventDefault();
     }
   }

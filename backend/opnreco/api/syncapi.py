@@ -62,6 +62,8 @@ class SyncAPI:
         # period_lists: {(peer_id, loop_id, currency): [Period]}
         self.period_lists = {}
 
+        self.change_count = 0
+
     def set_tzname(self):
         """If the owner doesn't have a tzname yet, try to set it."""
         request = self.request
@@ -186,11 +188,12 @@ class SyncAPI:
             content={
                 'sync_ts': sync_ts_iso,
                 'progress_percent': progress_percent,
+                'change_count': self.change_count,
                 'transfers': {
                     'ids': sorted(
                         t['id'] for t in transfers_download['results']),
                     'count': len(transfers_download['results']),
-                    'more': transfers_download['more'],
+                    'more': more,
                     'first_sync_ts': transfers_download['first_sync_ts'],
                     'last_sync_ts': transfers_download['last_sync_ts'],
                 }
@@ -200,9 +203,11 @@ class SyncAPI:
         self.import_transfer_records(transfers_download)
 
         return {
-            'count': len(transfers_download['results']),
-            'more': more,
             'progress_percent': progress_percent,
+            'change_count': self.change_count,
+            'download_count': len(transfers_download['results']),
+            'more': more,
+            'first_sync_ts': transfers_download['first_sync_ts'],
             'last_sync_ts': transfers_download['last_sync_ts'],
         }
 
@@ -295,6 +300,7 @@ class SyncAPI:
                 dbsession.add(record)
                 dbsession.flush()  # Assign record.id
                 record_map[transfer_id] = record
+                self.change_count += 1
 
             else:
                 # Update a TransferRecord.
@@ -315,6 +321,7 @@ class SyncAPI:
                         changed_map[attr] = value
                 if changed_map:
                     changed.append(changed_map)
+                    self.change_count += 1
 
             dbsession.add(TransferDownloadRecord(
                 opn_download_id=self.opn_download_id,
@@ -382,6 +389,7 @@ class SyncAPI:
                 last_update=now_func,
             )
             dbsession.add(peer)
+            self.change_count += 1
             self.peers[peer_id] = peer
 
             dbsession.add(OwnerLog(
@@ -426,6 +434,7 @@ class SyncAPI:
             if attrs_found:
                 peer.last_update = now_func
                 if changes:
+                    self.change_count += 1
                     dbsession.add(OwnerLog(
                         owner_id=self.owner_id,
                         personal_id=self.request.personal_id,
@@ -463,8 +472,6 @@ class SyncAPI:
             movement_dict[row_key] = movement
 
         configure_dblog(request=self.request, movement_event_type='download')
-
-        movements_added = []  # [Movement]
 
         for movement in item['movements']:
             number = movement.get('number')
@@ -529,7 +536,7 @@ class SyncAPI:
                     )
                     dbsession.add(movement)
                     movement_dict[row_key] = movement
-                    movements_added.append(movement)
+                    self.change_count += 1
 
         dbsession.flush()  # Assign the movement IDs and log the movements
 
@@ -706,6 +713,7 @@ class SyncAPI:
 
         self.period_lists[list_key] = list(period_list) + [period]
         self.periods[period_key] = period
+        self.change_count += 1
 
         return period
 
@@ -773,6 +781,7 @@ class SyncAPI:
                 movement.reco_id = reco_id
 
         if added:
+            self.change_count += 1
             dbsession.flush()
 
 

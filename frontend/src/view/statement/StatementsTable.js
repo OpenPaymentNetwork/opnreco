@@ -1,6 +1,7 @@
 
 import { compose } from '../../util/functional';
 import { getCurrencyFormatter } from '../../util/currency';
+import { isSimpleClick } from '../../util/click';
 import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -75,7 +76,7 @@ class StatementsTable extends React.Component {
   }
 
   handleClick = (event, path) => {
-    if (event.button === 0) {
+    if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }

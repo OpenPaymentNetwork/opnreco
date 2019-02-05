@@ -90,6 +90,7 @@ class LoginView extends React.Component {
             <a href={url}>Sign In</a>
           </Typography>
           <Typography variant="body1" className={classes.serviceLine}>
+            Version {process.env.REACT_APP_VERSION} -
             Using the OPN Platform at <a href={platformURL}>{platformURL}</a>
           </Typography>
         </div>

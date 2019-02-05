@@ -18,6 +18,7 @@ import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
 import { FormattedDate } from 'react-intl';
 import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { isSimpleClick } from '../../util/click';
 
 
 const tableWidth = 800;
@@ -110,7 +111,7 @@ class TransactionReport extends React.Component {
   };
 
   handleClickTransfer = (event, path) => {
-    if (event.button === 0) {
+    if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }

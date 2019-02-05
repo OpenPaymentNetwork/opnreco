@@ -184,7 +184,7 @@ class TestSyncAPI(unittest.TestCase):
         event = events[0]
         self.assertEqual('11', event.owner_id)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -326,7 +326,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -473,7 +473,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('11', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -639,7 +639,7 @@ class TestSyncAPI(unittest.TestCase):
         event = events[0]
         self.assertEqual('19', event.owner_id)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -755,7 +755,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -820,7 +820,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -907,7 +907,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = self.dbsession.query(db.TransferRecord).all()
@@ -1359,10 +1359,12 @@ class TestSyncAPI(unittest.TestCase):
             self.assertGreaterEqual(download_status['progress_percent'], 0.0)
             self.assertLessEqual(download_status['progress_percent'], 100.0)
             self.assertEqual({
-                'count': 1,
+                'change_count': 8,
+                'download_count': 1,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
                 'more': True,
                 'progress_percent': 50,
-                'last_sync_ts': '2018-08-01T04:05:11Z',
             }, download_status)
 
         downloads = self.dbsession.query(db.OPNDownload).all()
@@ -1382,7 +1384,7 @@ class TestSyncAPI(unittest.TestCase):
         event = events[0]
         self.assertEqual('11', event.owner_id)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         period = (
@@ -1417,10 +1419,12 @@ class TestSyncAPI(unittest.TestCase):
                 })
             download_status = obj()
             self.assertEqual({
-                'count': 1,
-                'more': False,
-                'progress_percent': 100.0,
+                'change_count': 11,
+                'download_count': 1,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
+                'more': False,
+                'progress_percent': 100,
             }, download_status)
 
         events = (
@@ -1438,7 +1442,7 @@ class TestSyncAPI(unittest.TestCase):
         event = events[-1]
         self.assertEqual('11', event.owner_id)
         self.assertEqual(
-            {'sync_ts', 'progress_percent', 'transfers'},
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
         records = (

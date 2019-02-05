@@ -5,6 +5,7 @@ import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
+import { isSimpleClick } from '../../util/click';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';
@@ -168,7 +169,7 @@ class PeriodList extends React.Component {
   }
 
   handleClickAnchor = (event, path) => {
-    if (event.button === 0) {
+    if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }
