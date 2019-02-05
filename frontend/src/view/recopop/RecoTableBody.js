@@ -190,7 +190,8 @@ class RecoTableBody extends React.Component {
     this.setState({searchResults: newSearchResults});
 
     if (!newSearchResults.length) {
-      this.closeSearch();
+      // Search again.
+      window.setTimeout(this.getSearchThrottler().trigger, 0);
     }
 
     this.props.updatePopoverPosition();
