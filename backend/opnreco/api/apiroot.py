@@ -7,7 +7,7 @@ import os.path
 
 @view_config(name='download-statement-template', context=API)
 def download_statement_template(context, request):
-    name = 'Statement-Template-V1.xlsx'
+    name = 'Statement-Template-V2.xlsx'
     fn = os.path.join(os.path.dirname(__file__), 'template', name)
     f = open(fn, 'rb')
     content = f.read()

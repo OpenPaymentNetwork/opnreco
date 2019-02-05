@@ -995,6 +995,14 @@ class StatementUploadAPI:
                     # Ignore zero amount rows.
                     continue
 
+                sign = attrs.pop('sign', None)
+                if sign:
+                    # Force the sign of the amount.
+                    attrs['delta'] = abs(attrs['delta']) * sign
+
+                if not attrs.get('description'):
+                    attrs['description'] = ''
+
                 dbsession.add(AccountEntry(
                     owner_id=owner_id,
                     peer_id=period.peer_id,
@@ -1025,5 +1033,13 @@ class StatementUploadAPI:
 
         if column_name in ('description', 'desc'):
             return 'description', str(cell.value)
+
+        if column_name == 'sign':
+            v = str(cell.value).strip().lower()
+            # Treat it as a liability account: credit = increase.
+            if v in ('+', 'c', 'cr', 'credit', 'deposit'):
+                return 'sign', 1
+            elif v in ('-', 'd', 'dr', 'debit', 'withdrawal'):
+                return 'sign', -1
 
         return None
