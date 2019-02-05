@@ -139,6 +139,7 @@ class Period(Base):
     # vault connected with this period. (has_vault is an attr of Period rather
     # than Peer because an issuer might hold notes of multiple
     # currencies / loops, but issue only one currency / loop.)
+    # The value of has_vault spreads to other periods of the same peer.
     has_vault = Column(Boolean, nullable=False, default=False)
 
     start_date = Column(Date, nullable=True)

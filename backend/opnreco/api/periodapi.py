@@ -15,16 +15,18 @@ from opnreco.param import parse_amount
 from opnreco.param import parse_ploop_key
 from opnreco.reassign import AccountEntryReassignOp
 from opnreco.reassign import MovementReassignOp
+from opnreco.reassign import pull_recos
+from opnreco.reassign import pull_unreco_and_ineligible
 from opnreco.reassign import push_recos
 from opnreco.reassign import push_unreco
-from opnreco.reassign import pull_unreco_and_ineligible
-from opnreco.reassign import pull_recos
 from opnreco.serialize import serialize_period
+from opnreco.viewcommon import add_open_period
 from opnreco.viewcommon import compute_period_totals
+from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import handle_invalid
-from opnreco.viewcommon import configure_dblog
+from opnreco.viewcommon import open_end_period_exists
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -444,7 +446,7 @@ def period_save(context, request):
     permission=perms.use_app,
     renderer='json')
 def period_add_api(request):
-    """Change the period."""
+    """Add a period."""
     params = request.params
     peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
 
@@ -454,14 +456,30 @@ def period_add_api(request):
     except colander.Invalid as e:
         handle_invalid(e, schema=schema)
 
+    owner_id = request.owner.id
+
+    has_vault_count_row = (
+        request.dbsession.query(func.count(1))
+        .filter(
+            Period.owner_id == owner_id,
+            Period.peer_id == peer_id,
+            Period.loop_id == loop_id,
+            Period.currency == currency,
+            Period.has_vault,
+        )
+        .one())
+
+    has_vault = bool(has_vault_count_row[0])
+
     period = Period(
-        owner_id=request.owner.id,
+        owner_id=owner_id,
         peer_id=peer_id,
         loop_id=loop_id,
         currency=currency,
         start_date=appstruct['start_date'],
         end_date=appstruct['end_date'],
         closed=False,
+        has_vault=has_vault,
     )
 
     balances = get_prev_end_balances(request=request, next_period=period)
@@ -474,10 +492,10 @@ def period_add_api(request):
         period=period,
         appstruct=appstruct,
         event_type='period_add',
-        add_period=True)
+        adding_period=True)
 
 
-def edit_period(request, period, appstruct, event_type, add_period=False):
+def edit_period(request, period, appstruct, event_type, adding_period=False):
     """Edit a period. Used for both adding and saving periods."""
     dbsession = request.dbsession
     owner = request.owner
@@ -522,7 +540,7 @@ def edit_period(request, period, appstruct, event_type, add_period=False):
     period.start_circ = start_circ
     period.start_surplus = start_surplus
 
-    if add_period:
+    if adding_period:
         dbsession.add(period)
         dbsession.flush()  # Assign period.id
 
@@ -569,6 +587,22 @@ def edit_period(request, period, appstruct, event_type, add_period=False):
         period.end_circ = totals['end']['circ']
         period.end_surplus = totals['end']['surplus']
         period.closed = True
+
+    # If the user is editing the period (not adding) and there is no
+    # longer an open-ended period, create it now.
+    if not adding_period and end_date is not None:
+        if end_date is not None:
+            args = {
+                'request': request,
+                'peer_id': period.peer_id,
+                'loop_id': period.loop_id,
+                'currency': period.currency,
+            }
+            if not open_end_period_exists(**args):
+                add_open_period(
+                    event_type='add_period_on_edit',
+                    has_vault=period.has_vault,
+                    **args)
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,

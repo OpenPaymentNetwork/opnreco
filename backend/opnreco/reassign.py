@@ -182,7 +182,8 @@ def push_unreco(request, period, op):
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
-            event_type='add_period_for_push_unreco_%s' % op.plural)
+            event_type='add_period_for_push_unreco_%s' % op.plural,
+            has_vault=period.has_vault)
         new_period_id = new_period.id
     else:
         new_period_id = None
@@ -515,7 +516,8 @@ def push_recos(request, period):
             peer_id=period.peer_id,
             loop_id=period.loop_id,
             currency=period.currency,
-            event_type='add_period_for_push_reco')
+            event_type='add_period_for_push_reco',
+            has_vault=period.has_vault)
         new_period_id = new_period.id
     else:
         new_period_id = None

@@ -481,11 +481,39 @@ def get_period_for_day(period_list, day, default_endless=True):
     return default
 
 
-def add_open_period(request, peer_id, loop_id, currency, event_type):
+def open_end_period_exists(request, peer_id, loop_id, currency):
+    """Return true if an open end period exists."""
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    row = (
+        dbsession.query(func.count(Period.id))
+        .filter(
+            Period.owner_id == owner_id,
+            Period.peer_id == peer_id,
+            Period.loop_id == loop_id,
+            Period.currency == currency,
+            Period.end_date == null,
+        )
+        .one())
+    return row[0]
+
+
+def add_open_period(
+        request,
+        peer_id,
+        loop_id,
+        currency,
+        event_type,
+        has_vault=False):
     """Add a new period.
 
     Base it on the end date and end balances of the period with the
     newest end date.
+
+    The has_vault parameter is forced to true if the previous period has
+    a vault.
     """
     dbsession = request.dbsession
     owner = request.owner
@@ -504,6 +532,8 @@ def add_open_period(request, peer_id, loop_id, currency, event_type):
         .first())
 
     if prev is not None:
+        if prev.has_vault:
+            has_vault = True
         next_start_date = prev.end_date + datetime.timedelta(days=1)
         if prev.closed:
             next_start_circ = prev.end_circ
@@ -528,7 +558,8 @@ def add_open_period(request, peer_id, loop_id, currency, event_type):
         currency=currency,
         start_date=next_start_date,
         start_circ=next_start_circ,
-        start_surplus=next_start_surplus)
+        start_surplus=next_start_surplus,
+        has_vault=has_vault)
     dbsession.add(period)
     dbsession.flush()  # Assign period.id
 
