@@ -455,6 +455,18 @@ def statement_delete(context, request):
             'surplus_delta': -Movement.wallet_delta,
         }, synchronize_session='fetch'))
 
+    # Cancel the reco_id of account entries on other statements
+    # reconciled with any entry in the statement.
+    (
+        dbsession.query(AccountEntry)
+        .filter(
+            AccountEntry.reco_id.in_(reco_ids),
+            AccountEntry.statement_id != statement.id,
+        )
+        .update({
+            'reco_id': None,
+        }, synchronize_session='fetch'))
+
     # Delete the account entries, but leave the account entry logs.
     (
         dbsession.query(AccountEntry)
@@ -660,9 +672,6 @@ def entry_delete(context, request):
                 "Statement %s not found." % appstruct['statement_id'])
         })
 
-    configure_dblog(
-        request=request, account_entry_event_type='entry_delete')
-
     entry = (
         dbsession.query(AccountEntry)
         .filter(
@@ -679,13 +688,34 @@ def entry_delete(context, request):
                 'The specified account entry is not found.'),
         })
 
+    # Indicate that movements and other entries are being
+    # changed because this entry is being deleted.
+    configure_dblog(request=request, event_type='entry_delete')
+
     if entry.reco_id is not None:
-        raise HTTPBadRequest(json_body={
-            'error': 'no_delete_reconciled_entry',
-            'error_description': (
-                'The specified account entry is reconciled and can not '
-                'be deleted unless the reconciliation is removed first.'),
-        })
+        # Cancel the reco_id of movements reconciled with this entry.
+        (
+            dbsession.query(Movement)
+            .filter(
+                Movement.reco_id == entry.reco_id,
+            )
+            .update({
+                'reco_id': None,
+                # Also reset the surplus_delta for each movement.
+                'surplus_delta': -Movement.wallet_delta,
+            }, synchronize_session='fetch'))
+
+        # Cancel the reco_id of account entries on other statements
+        # reconciled with this entry.
+        (
+            dbsession.query(AccountEntry)
+            .filter(
+                AccountEntry.reco_id == entry.reco_id,
+                AccountEntry.statement_id != statement.id,
+            )
+            .update({
+                'reco_id': None,
+            }, synchronize_session='fetch'))
 
     dbsession.delete(entry)
     dbsession.flush()

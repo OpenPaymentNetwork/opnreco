@@ -1,11 +1,8 @@
 
-from colander import All
-from colander import Boolean
 from colander import Integer
 from colander import Invalid
 from colander import Length
 from colander import OneOf
-from colander import Regex
 from colander import Schema
 from colander import SchemaNode
 from colander import Sequence
@@ -20,7 +17,6 @@ from opnreco.models.db import Reco
 from opnreco.models.db import Statement
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import PeriodResource
-from opnreco.param import amount_re
 from opnreco.param import parse_amount
 from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_loop_map

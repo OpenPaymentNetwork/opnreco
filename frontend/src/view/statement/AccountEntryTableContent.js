@@ -603,7 +603,6 @@ class AccountEntryTableContent extends React.Component {
       if (entry) {
         deleteDialog = (
           <AccountEntryDeleteDialog
-            hasReco={!!entry.reco_id}
             onCancel={this.handleDeleteCancel}
             onDelete={this.handleDeleteConfirmed}
             open={this.state.deleteShown}

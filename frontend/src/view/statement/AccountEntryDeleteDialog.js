@@ -14,7 +14,6 @@ class AccountEntryDeleteDialog extends React.Component {
     onCancel: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
     deleting: PropTypes.bool,
-    hasReco: PropTypes.bool,
   };
 
   render() {
@@ -22,32 +21,8 @@ class AccountEntryDeleteDialog extends React.Component {
       onCancel,
       onDelete,
       deleting,
-      hasReco,
       ...otherProps
     } = this.props;
-
-    if (hasReco) {
-      return (
-        <Dialog
-          onClose={onCancel}
-          aria-labelledby="form-dialog-title"
-          {...otherProps}
-        >
-          <DialogTitle id="form-dialog-title">Delete Account Entry</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              Reconciled account entries can not be deleted. To delete
-              this entry, first remove the reconciliation.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={onCancel} color="primary">
-              Cancel
-            </Button>
-          </DialogActions>
-        </Dialog>
-      );
-    }
 
     return (
       <Dialog
