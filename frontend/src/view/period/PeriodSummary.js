@@ -59,8 +59,9 @@ class PeriodSummary extends React.Component {
 
     const cfmt = new getCurrencyFormatter(period.currency);
 
-    const getAmountColumns = (rowname) => {
+    const getAmountColumns = (rowname, strong) => {
       if (showCirc) {
+        const combined = cfmt(totals[rowname].combined);
         return (
           <React.Fragment>
             <td className={classes.amountCell}>
@@ -70,7 +71,7 @@ class PeriodSummary extends React.Component {
               {cfmt(totals[rowname].surplus)}
             </td>
             <td className={classes.amountCell}>
-              {cfmt(totals[rowname].combined)}
+              {strong ? <strong>{combined}</strong> : combined}
             </td>
           </React.Fragment>
         );
@@ -145,7 +146,7 @@ class PeriodSummary extends React.Component {
               <td className={classes.rowHeadCell}>
                 Start + Reconciled
               </td>
-              {getAmountColumns('reconciled_total')}
+              {getAmountColumns('reconciled_total', true)}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>
@@ -167,7 +168,7 @@ class PeriodSummary extends React.Component {
               <td className={classes.rowHeadCell}>
                 End Balance
               </td>
-              {getAmountColumns('end')}
+              {getAmountColumns('end', true)}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>
