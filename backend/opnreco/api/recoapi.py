@@ -490,27 +490,7 @@ class MovementSchema(Schema):
 
 
 class AccountEntrySchema(Schema):
-    # Validate these fields only lightly. The code will do its own
-    # parsing and validation.
-    id = SchemaNode(
-        ColanderString(),
-        validator=Regex(r'^(creating_)?[0-9]+$'))
-    creating = SchemaNode(Boolean(), missing=False)
-    delta = SchemaNode(
-        ColanderString(),
-        missing='',
-        validator=All(
-            Length(max=50),
-            Regex(amount_re, msg="The amount is not valid"),
-        ))
-    entry_date = SchemaNode(
-        ColanderString(),
-        missing='',
-        validator=Length(max=50))
-    description = SchemaNode(
-        ColanderString(),
-        missing='',
-        validator=Length(max=1000))
+    id = SchemaNode(Integer())
 
 
 class RecoSchema(Schema):
@@ -707,78 +687,12 @@ class RecoSave:
 
         return statement_id
 
-    def create_account_entry(self, inputs):
-        """Create a new AccountEntry from the inputs."""
-        period = self.period
-        delta_input = inputs['delta']
-        if not delta_input:
-            raise HTTPBadRequest(json_body={
-                'error': 'amount_required',
-                'error_description': (
-                    "An amount is required for each account entry."),
-            })
-
-        try:
-            delta = parse_amount(delta_input, currency=period.currency)
-        except Exception as e:
-            raise HTTPBadRequest(json_body={
-                'error': 'amount_parse_error',
-                'error_description': (
-                    "Unable to parse amount '%s': %s" % (delta_input, e))
-            })
-
-        match = re.search(r'[A-Z]+', delta_input, re.I)
-        if match is not None:
-            currency = match.group(0).upper()
-            if currency != period.currency:
-                raise HTTPBadRequest(json_body={
-                    'error': 'currency_mismatch',
-                    'error_description': (
-                        "Currency should be %s" % self.period.currency)
-                })
-
-        date_input = inputs['entry_date']
-        if not date_input:
-            raise HTTPBadRequest(json_body={
-                'error': 'date_required',
-                'error_description': (
-                    "A date is required for each account entry."),
-            })
-
-        try:
-            entry_date = dateutil.parser.parse(date_input).date()
-        except Exception as e:
-            raise HTTPBadRequest(json_body={
-                'error': 'date_parse_error',
-                'error_description': (
-                    "Unable to parse date '%s': %s" % (date_input, e))
-            })
-
-        entry = AccountEntry(
-            owner_id=self.request.owner.id,
-            peer_id=period.peer_id,
-            period_id=period.id,
-            statement_id=self.manual_statement_id,
-            entry_date=entry_date,
-            loop_id=period.loop_id,
-            currency=period.currency,
-            delta=delta,
-            description=inputs['description'] or '',
-        )
-        return entry
-
     def get_new_account_entries(self, new_entries):
         res = []  # [AccountEntry]
         reusing_ids = []  # [account_entry_id]
 
         for entry in new_entries:
-            if entry['creating']:
-                if (entry['delta'] or entry['entry_date'] or
-                        entry['description']):
-                    res.append(self.create_account_entry(entry))
-                # else it's a blank input row; ignore it.
-            else:
-                reusing_ids.append(int(entry['id']))
+            reusing_ids.append(int(entry['id']))
 
         if reusing_ids:
             request = self.request

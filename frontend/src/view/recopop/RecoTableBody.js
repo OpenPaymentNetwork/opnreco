@@ -10,7 +10,6 @@ import Input from '@material-ui/core/Input';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Search from '@material-ui/icons/Search';
-import Edit from '@material-ui/icons/Edit';
 
 
 const styles = {
@@ -76,24 +75,6 @@ const styles = {
     padding: '4px 8px',
     fontStyle: 'italic',
   },
-  createIcon: {
-    color: '#777',
-    display: 'block',
-    margin: '0 auto',
-  },
-  createIconCell: {
-    border: '1px solid #bbb',
-    textAlign: 'center',
-  },
-  createCell: {
-    border: '1px solid #bbb',
-    padding: '2px 8px',
-    textAlign: 'right',
-  },
-  createInput: {
-    padding: 0,
-    textAlign: 'right',
-  },
 };
 
 /**
@@ -116,8 +97,6 @@ class RecoTableBody extends React.Component {
     tableTitle: PropTypes.string.isRequired,
     columnHeadRow: PropTypes.node.isRequired,
     emptyMessage: PropTypes.string.isRequired,
-    createInputs: PropTypes.object,
-    handleCreateInput: PropTypes.func,
     disabled: PropTypes.bool,
   };
 
@@ -301,51 +280,13 @@ class RecoTableBody extends React.Component {
     this.props.updatePopoverPosition();
   }
 
-  handleCreateInput = (event, fieldKey) => {
-    this.props.handleCreateInput(fieldKey, event.target.value);
-  }
-
   renderRow(item, addCandidate) {
-    const {classes, renderItemCells, searchFields, disabled} = this.props;
+    const {classes, renderItemCells, disabled} = this.props;
     const {removing} = this.state;
 
     const itemId = item.id;
     const rowClass = `${classes.removableRow} ` + (
       removing[itemId] && !addCandidate ? classes.removingRow : '');
-    const creating = item.creating;
-
-    if (creating) {
-      // This item is being created.
-      const {createInputs} = this.props;
-      return (
-        <tr key={itemId} data-id={itemId} className={rowClass}>
-          <td className={classes.removeCell}>
-            <Edit className={classes.createIcon}/>
-          </td>
-          {searchFields.map(field => {
-            const fieldKey = `${itemId} ${field.name}`;
-            let value = createInputs[fieldKey];
-            if (value === undefined) {
-              value = item[field.name] || '';
-            }
-            return (
-              <td key={field.name}
-                  className={classes.createCell}
-                  colSpan={field.colSpan || 1}>
-                <Input
-                  name={field.name}
-                  classes={{input: classes.createInput}}
-                  disableUnderline
-                  value={value}
-                  onChange={(event) => this.handleCreateInput(event, fieldKey)}
-                  fullWidth
-                />
-              </td>
-            );
-          })}
-        </tr>
-      );
-    }
 
     let icon;
     if (disabled) {
