@@ -1,6 +1,6 @@
 {
   "name": "opnreco",
-  "version": "1.2",
+  "version": "1.2.0",
   "private": true,
   "dependencies": {
     "@material-ui/core": "^3.7.1",
