@@ -934,7 +934,7 @@ class StatementUploadAPI:
             column_names = None
             heading_rowx = -1
             for rowx, row in enumerate(sheet.get_rows()):
-                texts = [str(cell.value).lower() for cell in row]
+                texts = [str(cell.value).strip().lower() for cell in row]
                 if 'date' in texts and 'amount' in texts:
                     # Found the heading.
                     column_names = tuple(texts)
@@ -968,19 +968,20 @@ class StatementUploadAPI:
                     try:
                         info = self.parse_excel_cell(book, cell, column_name)
                     except Exception as e:
+                        error_description = (
+                            "Unable to parse %s cell %s on sheet %s. "
+                            "Cell contents: '%s', error: %s, %s" % (
+                                column_name,
+                                cellname(rowx, colx),
+                                sheet_name,
+                                cell.value,
+                                type(e),
+                                e,
+                            ))
+                        log.exception(error_description)
                         raise HTTPBadRequest(json_body={
                             'error': 'parse_error',
-                            'error_description': (
-                                "Unable to parse %s cell %s on sheet %s. "
-                                "Cell contents: '%s', error: %s, %s" % (
-                                    column_name,
-                                    cellname(rowx, colx),
-                                    sheet_name,
-                                    cell.value,
-                                    type(e),
-                                    e,
-                                )
-                            ),
+                            'error_description': error_description,
                         })
                     else:
                         if info:
@@ -1024,15 +1025,16 @@ class StatementUploadAPI:
                 parsed = datetime.date(*tup[:3])
             else:
                 parsed = dateutil.parser.parse(
-                    str(cell.value)).date()
+                    str(cell.value).strip()).date()
             return 'entry_date', parsed
 
         if column_name in ('amount', 'delta'):
-            parsed = parse_amount(str(cell.value), currency=self.currency)
+            parsed = parse_amount(
+                str(cell.value).strip(), currency=self.currency)
             return 'delta', parsed
 
         if column_name in ('description', 'desc'):
-            return 'description', str(cell.value)
+            return 'description', str(cell.value).strip()
 
         if column_name == 'sign':
             v = str(cell.value).strip().lower()
