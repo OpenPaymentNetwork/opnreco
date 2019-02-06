@@ -1,4 +1,29 @@
 
+1.2 (2019-02-05)
+----------------
+
+- Added support for a "sign" column on statement upload. Use + or -.
+  Synonyms for + are credit, CR, C, and deposit. Synonyms for - are
+  debit, DR, D, and withdrawal.
+
+- A new period is now created automatically when setting the end date of
+  an existing period.
+
+- Added the unreconciled account entries to the period overview,
+  but they are not included in the total, so they are grayed out.
+
+- Exposed the version in the UI and link to the GitHub project.
+
+- Allowed ctrl-click and shift-link on links (to open in a tab or window.)
+
+- Removed support for creating account entries in the reconciliation dialog.
+  The feature was confusing and redundant.
+
+- Let users delete reconciled account entries (for consistency.)
+
+- Fixed caching of the app by disabling the service worker; used ordinary
+  cache-control headers instead.
+
 1.1 (2019-01-24)
 ----------------
 
