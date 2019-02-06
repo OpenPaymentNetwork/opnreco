@@ -1,7 +1,5 @@
 
 export const wfTypeTitles = {
-  // _account_credit: '[Account Credit]', // Not a real transfer workflow type
-  // _account_debit: '[Account Debit]', // Not a real transfer workflow type
   bill: 'Brand Cash Purchase',
   closed_profile_to_profile: 'Closed Profile to Profile',  // BBB
   cobrand_notes: 'Co-brand Pages',
@@ -25,6 +23,7 @@ export const wfTypeTitles = {
   reclaim_notes: 'Reclaim Notes',  // BBB
   redeem: 'Deposit',
   return_to_provider: 'Return',
+  reversal: 'Reversal',
   roll_up: 'Roll Up',  // BBB
   send_design: 'Issue (Send Design)',
   settle: 'Settle',
