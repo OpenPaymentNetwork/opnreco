@@ -506,12 +506,12 @@ class RecoSchema(Schema):
         Sequence(),
         MovementSchema(),
         missing=(),
-        validator=Length(max=100))
+        validator=Length(max=10000))
     account_entries = SchemaNode(
         Sequence(),
         AccountEntrySchema(),
         missing=(),
-        validator=Length(max=100))
+        validator=Length(max=10000))
     period_id = SchemaNode(Integer(), missing=None)
 
 
@@ -794,7 +794,10 @@ class RecoSave:
                     'error_description': "Unbalanced reconciliation. "
                     "Standard reconciliation requires the sum "
                     "of changes to the account, vault, and wallet to "
-                    "equal zero.",
+                    "equal zero. "
+                    "(Input wallet sum: %s, vault sum: %s, "
+                    "account entries sum: %s)" %
+                    (wallet_sum, vault_sum, entries_sum),
                 })
         elif reco_type == 'wallet_only':
             for m in new_movements:
