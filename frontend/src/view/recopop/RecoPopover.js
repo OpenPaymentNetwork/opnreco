@@ -576,6 +576,10 @@ class RecoPopover extends React.Component {
         TransitionComponent={FadeDrag1}
         TransitionProps={{onDragStart: this.onDragStart}}
         action={this.handleActionCallback}
+        disableBackdropClick
+        BackdropProps={{
+          invisible: false,
+        }}
       >
         {popoverContent}
       </Popover>
