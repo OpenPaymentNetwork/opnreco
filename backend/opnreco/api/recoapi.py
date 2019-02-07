@@ -793,10 +793,10 @@ class RecoSave:
                     'error': 'unbalanced_reconciliation',
                     'error_description': "Unbalanced reconciliation. "
                     "Standard reconciliation requires the sum "
-                    "of changes to the account, vault, and wallet to "
+                    "of changes to the wallet, vault, and account to "
                     "equal zero. "
-                    "(Computed wallet sum: %s, vault sum: %s, "
-                    "account entries sum: %s)" %
+                    "(Computed wallet changes: %s, vault changes: %s, "
+                    "account changes: %s)" %
                     (wallet_sum, vault_sum, entries_sum),
                 })
         elif reco_type == 'wallet_only':
