@@ -795,7 +795,7 @@ class RecoSave:
                     "Standard reconciliation requires the sum "
                     "of changes to the account, vault, and wallet to "
                     "equal zero. "
-                    "(Input wallet sum: %s, vault sum: %s, "
+                    "(Computed wallet sum: %s, vault sum: %s, "
                     "account entries sum: %s)" %
                     (wallet_sum, vault_sum, entries_sum),
                 })
