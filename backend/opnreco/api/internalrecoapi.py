@@ -98,7 +98,7 @@ def internal_recos_api(context, request):
         ).one())
     all_totals = {
         'vault_delta': totals_row.vault_delta or zero,
-        'wallet_delta': totals_row.vault_delta or zero,
+        'wallet_delta': totals_row.wallet_delta or zero,
     }
 
     subq = query.subquery('subq')
