@@ -141,7 +141,7 @@ class PeriodTabs extends React.Component {
       // Redirect to the same tab in a different period.
       const {match} = this.props;
       const {tab} = match.params;
-      const tabs = this.getTabs(periodId, true);
+      const tabs = this.getTabs(periodId);
       for (const tabinfo of tabs) {
         if (tab === tabinfo.value) {
           path = tabinfo.path;
@@ -160,7 +160,7 @@ class PeriodTabs extends React.Component {
     }
   }
 
-  getTabs(periodId, withInvisible) {
+  getTabs(periodId) {
     const {statementPeriodId} = this.props;
 
     if (!periodId) {
@@ -183,7 +183,7 @@ class PeriodTabs extends React.Component {
       `/period/${encPeriodId}/statement/${encodeURIComponent(statementId)}` :
       `/period/${encPeriodId}/statement`);
 
-    const res = [
+    return [
       {
         value: 'reco',
         label: 'Reconciliation',
@@ -210,17 +210,13 @@ class PeriodTabs extends React.Component {
         label: 'Period Overview',
         path: `/period/${encPeriodId}/overview`,
       },
-    ];
-
-    if (withInvisible) {
-      res.push({
+      {
         value: 'internal',
-        label: 'Internal',
+        label: 'Internal Reconciliations',
         path: `/period/${encPeriodId}/internal`,
-      });
-    }
-
-    return res;
+        invisible: true,
+      },
+    ];
   }
 
   handleTabChange = (event, value) => {
@@ -256,6 +252,16 @@ class PeriodTabs extends React.Component {
     const handleTabClick = this.handleTabClick;
     const titleParts = [];
 
+    const displayTabs = [];
+    for (const tabinfo of this.getTabs()) {
+      if (tabinfo.value === tab) {
+        titleParts.push(tabinfo.titlePart || tabinfo.label);
+      }
+      if (!tabinfo.invisible) {
+        displayTabs.push(tabinfo);
+      }
+    }
+
     const tabs = (
       <Tabs
         className={classes.tabs}
@@ -264,19 +270,14 @@ class PeriodTabs extends React.Component {
         scrollButtons="auto"
         onChange={this.handleTabChange}
       >
-        {this.getTabs().map(tabinfo => {
-          if (tabinfo.value === tab) {
-            titleParts.push(tabinfo.titlePart || tabinfo.label);
-          }
-          return (
-            <Tab
-              key={tabinfo.value}
-              value={tabinfo.value}
-              label={tabinfo.label}
-              href={tabinfo.path}
-              onClick={handleTabClick} />
-          );
-        })}
+        {displayTabs.map(tabinfo => (
+          <Tab
+            key={tabinfo.value}
+            value={tabinfo.value}
+            label={tabinfo.label}
+            href={tabinfo.path}
+            onClick={handleTabClick} />
+        ))}
       </Tabs>
     );
 
