@@ -30,7 +30,7 @@ class TestSortableMatch(unittest.TestCase):
             account_entry_id=33,
             entry_date=datetime.date(2019, 1, 15),
             description='Banco T23486735',
-            movement_id=55,
+            movement_ids=[55],
             movement_date=datetime.date(2019, 1, 13),
             transfer_id='2348673501',
             ):
@@ -41,7 +41,7 @@ class TestSortableMatch(unittest.TestCase):
                 self.account_entry_id = account_entry_id
                 self.entry_date = entry_date
                 self.description = description
-                self.movement_id = movement_id
+                self.movement_ids = movement_ids
                 self.movement_date = movement_date
                 self.transfer_id = transfer_id
 
@@ -52,7 +52,7 @@ class TestSortableMatch(unittest.TestCase):
         self.assertGreater(obj.score, 23)
         self.assertLess(obj.score, 24)
         self.assertEqual(
-            (obj.score,  datetime.date(2019, 1, 15), 33, 55),
+            (obj.score,  datetime.date(2019, 1, 15), 33, (55,)),
             obj.sort_key)
 
     def test_with_full_description_match(self):
@@ -60,14 +60,14 @@ class TestSortableMatch(unittest.TestCase):
         self.assertGreater(obj.score, 55)
         self.assertLess(obj.score, 56)
         self.assertEqual(
-            (obj.score,  datetime.date(2019, 1, 15), 33, 55),
+            (obj.score,  datetime.date(2019, 1, 15), 33, (55,)),
             obj.sort_key)
 
     def test_with_no_description_match(self):
         obj = self._make(description='REDEEM')
         self.assertEqual(-2, obj.score)
         self.assertEqual(
-            (obj.score,  datetime.date(2019, 1, 15), 33, 55),
+            (obj.score,  datetime.date(2019, 1, 15), 33, (55,)),
             obj.sort_key)
 
 
@@ -131,63 +131,18 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         dbsession.flush()
 
-    def add_transfer_6502(self, amount='2.00'):
-        from opnreco.models import db
-        dbsession = self.dbsession
-
-        r = db.TransferRecord(
-            owner_id='102',
+    def add_transfer_6502(
+            self,
+            amount='2.00',
+            bundle_transfer_id=None,
             transfer_id='6502',
-            workflow_type='redeem',
-            start=datetime.datetime(2018, 1, 15, 6, 0, 0),
-            currency='USD',
-            amount=Decimal(amount),
-            timestamp=datetime.datetime(2018, 1, 15, 6, 0, 1),
-            next_activity='completed',
-            completed=True,
-            canceled=False,
-            sender_id='11',
-            sender_uid='wingcash:11',
-            sender_info={'title': "Testy User"},
-            recipient_id='211',
-            recipient_uid='wingcash:211',
-            recipient_info={'title': "My Account"},
-        )
-        dbsession.add(r)
-        dbsession.flush()
-
-        m = db.Movement(
-            owner_id='102',
-            transfer_record_id=r.id,
-            number=2,
-            amount_index=0,
-            peer_id='c',
-            orig_peer_id='211',
-            loop_id='0',
-            currency='USD',
-            issuer_id='19',
-            from_id='19',
-            to_id='211',
-            amount=Decimal(amount),
-            action='deposit',
-            ts=datetime.datetime(2018, 1, 15, 6, 0, 1),
-            wallet_delta=0,
-            vault_delta=Decimal(amount),
-            period_id=self.period.id,
-            surplus_delta=0,
-        )
-        dbsession.add(m)
-        dbsession.flush()
-
-        return r, m
-
-    def add_transfer_6510(self, amount='10.00'):
+            ):
         from opnreco.models import db
         dbsession = self.dbsession
 
         r = db.TransferRecord(
             owner_id='102',
-            transfer_id='6510',
+            transfer_id=transfer_id,
             workflow_type='redeem',
             start=datetime.datetime(2018, 1, 15, 6, 0, 0),
             currency='USD',
@@ -202,6 +157,7 @@ class Test_auto_reco_statement(unittest.TestCase):
             recipient_id='211',
             recipient_uid='wingcash:211',
             recipient_info={'title': "My Account"},
+            bundle_transfer_id=bundle_transfer_id,
         )
         dbsession.add(r)
         dbsession.flush()
@@ -230,6 +186,112 @@ class Test_auto_reco_statement(unittest.TestCase):
         dbsession.flush()
 
         return r, m
+
+    def add_transfer_6510(
+            self,
+            amount='10.00',
+            bundle_transfer_id=None,
+            transfer_id='6510',
+            ):
+        from opnreco.models import db
+        dbsession = self.dbsession
+
+        r = db.TransferRecord(
+            owner_id='102',
+            transfer_id=transfer_id,
+            workflow_type='redeem',
+            start=datetime.datetime(2018, 1, 15, 6, 0, 0),
+            currency='USD',
+            amount=Decimal(amount),
+            timestamp=datetime.datetime(2018, 1, 15, 6, 0, 1),
+            next_activity='completed',
+            completed=True,
+            canceled=False,
+            sender_id='11',
+            sender_uid='wingcash:11',
+            sender_info={'title': "Testy User"},
+            recipient_id='211',
+            recipient_uid='wingcash:211',
+            recipient_info={'title': "My Account"},
+            bundle_transfer_id=bundle_transfer_id,
+        )
+        dbsession.add(r)
+        dbsession.flush()
+
+        m = db.Movement(
+            owner_id='102',
+            transfer_record_id=r.id,
+            number=2,
+            amount_index=0,
+            peer_id='c',
+            orig_peer_id='211',
+            loop_id='0',
+            currency='USD',
+            issuer_id='19',
+            from_id='19',
+            to_id='211',
+            amount=Decimal(amount),
+            action='deposit',
+            ts=datetime.datetime(2018, 1, 15, 6, 0, 1),
+            wallet_delta=0,
+            vault_delta=Decimal(amount),
+            period_id=self.period.id,
+            surplus_delta=0,
+        )
+        dbsession.add(m)
+        dbsession.flush()
+
+        return r, m
+
+    def add_transfer_6512(
+            self,
+            amount='12.00',
+            transfer_id='6512',
+            bundled_transfer_ids=('6502', '6510'),
+            bundled_amounts=('2.00', '10.00'),
+            ):
+        from opnreco.models import db
+        dbsession = self.dbsession
+
+        r = db.TransferRecord(
+            owner_id='102',
+            transfer_id=transfer_id,
+            workflow_type='ach_file_bundle',  # Not a real workflow_type
+            start=datetime.datetime(2018, 1, 15, 6, 0, 0),
+            currency='USD',
+            amount=Decimal(amount),
+            timestamp=datetime.datetime(2018, 1, 15, 6, 0, 1),
+            next_activity='completed',
+            completed=True,
+            canceled=False,
+            sender_id='11',
+            sender_uid='wingcash:11',
+            sender_info={'title': "Testy User"},
+            recipient_id='11',
+            recipient_uid='wingcash:11',
+            recipient_info={'title': "Testy User"},
+            bundle_transfer_id=None,
+            bundled_transfers=[
+                {
+                    'transfer_id': bundled_transfer_ids[0],
+                    'currency': 'USD',
+                    'loop_id': '0',
+                    'issuer_id': '19',
+                    'amount': bundled_amounts[0],
+                },
+                {
+                    'transfer_id': bundled_transfer_ids[1],
+                    'currency': 'USD',
+                    'loop_id': '0',
+                    'issuer_id': '19',
+                    'amount': bundled_amounts[1],
+                },
+            ],
+        )
+        dbsession.add(r)
+        dbsession.flush()
+
+        return r
 
     def add_statement(
             self,
@@ -504,4 +566,150 @@ class Test_auto_reco_statement(unittest.TestCase):
         self.assert_recos(
             expect_recos=0,
             expect_movements=1,
+            expect_account_entries=2)
+
+    def test_match_complete_bundle(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(amount='-2.00', bundle_transfer_id='6512')
+        self.add_transfer_6510(amount='-10.00', bundle_transfer_id='6512')
+        self.add_transfer_6512()
+        self.add_statement(e1value='12.00', e2value='3.14')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=1,
+            expect_movements=2,
+            expect_account_entries=2)
+
+        # Assert that both movements are part of the same reco.
+        from opnreco.models import db
+        dbsession = self.dbsession
+
+        rows = dbsession.query(db.Movement).all()
+        reco_ids = set(row.reco_id for row in rows)
+        self.assertEqual(1, len(reco_ids))
+
+    def test_no_match_incomplete_bundle(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(amount='-2.00', bundle_transfer_id='6512')
+        self.add_transfer_6512()
+        self.add_statement(e1value='12.00', e2value='3.14')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=0,
+            expect_movements=1,
+            expect_account_entries=2)
+
+    def test_no_match_without_bundle(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(amount='-2.00', bundle_transfer_id='6512')
+        self.add_transfer_6510(amount='-10.00', bundle_transfer_id='6512')
+        self.add_statement(e1value='12.00', e2value='3.14')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=0,
+            expect_movements=2,
+            expect_account_entries=2)
+
+    def test_no_match_incorrect_bundle(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(amount='-2.00', bundle_transfer_id='6512')
+        self.add_transfer_6510(amount='-10.01', bundle_transfer_id='6512')
+        self.add_transfer_6512()
+        self.add_statement(e1value='12.00', e2value='3.14')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=0,
+            expect_movements=2,
+            expect_account_entries=2)
+
+    def test_match_bundle_and_single_at_once(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(amount='-2.00', bundle_transfer_id='6512')
+        self.add_transfer_6510(amount='-10.00', bundle_transfer_id='6512')
+        self.add_transfer_6512()
+        self.add_transfer_6502(transfer_id='7502', amount='3.14')
+        self.add_statement(e1value='12.00', e2value='-3.14')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=2,
+            expect_movements=3,
+            expect_account_entries=2)
+
+    def test_match_transfers_in_7500_range(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(
+            amount='-2.50', transfer_id='7502', bundle_transfer_id='7512')
+        self.add_transfer_6510(
+            amount='-10.50', transfer_id='7510', bundle_transfer_id='7512')
+        self.add_transfer_6512(
+            transfer_id='7512',
+            bundled_transfer_ids=['7502', '7510'],
+            bundled_amounts=['2.50', '10.50'])
+        self.add_statement(e1value='1.00', e2value='13.00')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=1,
+            expect_movements=2,
+            expect_account_entries=2)
+
+    def test_match_two_bundles_at_once(self):
+        self.add_peer()
+        self.add_period()
+        self.add_transfer_6502(amount='-2.00', bundle_transfer_id='6512')
+        self.add_transfer_6510(amount='-10.00', bundle_transfer_id='6512')
+        self.add_transfer_6512()
+        self.add_transfer_6502(
+            amount='-2.50', transfer_id='7502', bundle_transfer_id='7512')
+        self.add_transfer_6510(
+            amount='-10.50', transfer_id='7510', bundle_transfer_id='7512')
+        self.add_transfer_6512(
+            transfer_id='7512',
+            bundled_transfer_ids=['7510', '7502'],
+            bundled_amounts=['10.50', '2.50'])
+        self.add_statement(e1value='12.00', e2value='13.00')
+        self._call(
+            dbsession=self.dbsession,
+            owner=self.owner,
+            period=self.period,
+            statement=self.statement,
+        )
+        self.assert_recos(
+            expect_recos=2,
+            expect_movements=4,
             expect_account_entries=2)

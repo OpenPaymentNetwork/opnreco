@@ -1,16 +1,30 @@
 
+from decimal import Decimal
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.viewcommon import get_tzname
-from sqlalchemy import and_
+from sqlalchemy import BigInteger
+from sqlalchemy import Date
+from sqlalchemy import cast
 from sqlalchemy import func
+from sqlalchemy import literal
+from sqlalchemy import Numeric
+from sqlalchemy import select
+from sqlalchemy import String
+from sqlalchemy import union_all
+from sqlalchemy.dialects.postgresql import array
+from sqlalchemy.dialects.postgresql import array_agg
 import collections
 import datetime
+import logging
+
+log = logging.getLogger(__name__)
 
 null = None
 max_autoreco_delay = datetime.timedelta(days=7)
+movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
 
 
 class SortableMatch:
@@ -24,7 +38,7 @@ class SortableMatch:
         self.account_entry_id = account_entry_id = row.account_entry_id
         self.entry_date = entry_date = row.entry_date
         self.description = description = row.description
-        self.movement_id = movement_id = row.movement_id
+        self.movement_ids = movement_ids = row.movement_ids
         self.movement_date = movement_date = row.movement_date
         self.transfer_id = transfer_id = row.transfer_id
 
@@ -48,22 +62,338 @@ class SortableMatch:
 
         self.score = score
 
-        self.sort_key = (score, entry_date, account_entry_id, movement_id)
+        self.sort_key = (
+            score, entry_date, account_entry_id, tuple(sorted(movement_ids)))
+
+
+def build_single_movement_query(dbsession, owner, period):
+    """Build a query that lists the unreconciled movements.
+
+    Return a query providing these columns:
+
+    - transfer_id
+    - date
+    - currency
+    - loop_id
+    - delta
+    - movement_ids
+    """
+    movement_date_c = func.date(func.timezone(
+        get_tzname(owner),
+        func.timezone('UTC', Movement.ts)
+    ))
+
+    return (
+        dbsession.query(
+            TransferRecord.transfer_id,
+            movement_date_c.label('date'),
+            Movement.currency,
+            Movement.loop_id,
+            movement_delta.label('delta'),
+            array([Movement.id]).label('movement_ids'),
+        )
+        .select_from(Movement)
+        .join(TransferRecord, TransferRecord.id == Movement.transfer_record_id)
+        .filter(
+            Movement.owner_id == owner.id,
+            Movement.peer_id == period.peer_id,
+            Movement.loop_id == period.loop_id,
+            Movement.currency == period.currency,
+            Movement.reco_id == null,
+        ))
+
+
+class BundleFinder:
+    """Build a query that lists the qualified, unreconciled bundled transfers.
+
+    (Note: In this class, there is a strict distinction between "bundle"
+    and "bundled". A bundle transfer contains bundled transfers.)
+
+    Find both the unreconciled bundle transfers and the related unreconciled
+    bundled transfers. Ensure they match, then provide a list of bundles
+    as a query with standard columns.
+
+    find() returns None if there are no qualified unreconciled bundle
+    transfers. Otherwise, it returns a query providing these columns:
+
+    - transfer_id
+    - date
+    - currency
+    - loop_id
+    - delta
+    - movement_ids
+    """
+
+    def __init__(self, dbsession, owner, period):
+        self.dbsession = dbsession
+        self.owner = owner
+        self.period = period
+
+    def find(self):
+        """Create and return bundle_query or None (if nothing qualifies)."""
+        movement_list_lookup = self.build_movement_list_lookup()
+        if not movement_list_lookup:
+            return None
+
+        bundle_records = self.list_bundle_records()
+        if not bundle_records:
+            return None
+
+        qualified_bundles = self.list_qualified_bundles(
+            bundle_records=bundle_records,
+            movement_list_lookup=movement_list_lookup)
+        if not qualified_bundles:
+            return None
+
+        return self.build_query(qualified_bundles=qualified_bundles)
+
+    def build_movement_list_lookup(self):
+        """List the unreconciled movements that could be part of bundles."""
+        dbsession = self.dbsession
+        owner = self.owner
+        period = self.period
+
+        movement_rows = (
+            dbsession.query(
+                Movement.currency,
+                Movement.loop_id,
+                Movement.issuer_id,
+                TransferRecord.transfer_id,
+                func.sum(movement_delta).label('delta'),
+                array_agg(Movement.id).label('movement_ids'),
+            )
+            .join(
+                TransferRecord,
+                TransferRecord.id == Movement.transfer_record_id)
+            .filter(
+                Movement.owner_id == owner.id,
+                Movement.peer_id == period.peer_id,
+                Movement.currency == period.currency,
+                Movement.loop_id == period.loop_id,
+                Movement.reco_id == null,
+                TransferRecord.bundle_transfer_id != null,
+            )
+            .group_by(
+                Movement.currency,
+                Movement.loop_id,
+                Movement.issuer_id,
+                TransferRecord.transfer_id,
+            )
+            .all())
+
+        log.info(
+            "BundleFinder: %s unreconciled bundled movement(s) for period %s",
+            len(movement_rows), period.id)
+
+        # movement_list_lookup: {
+        #   (bundled_transfer_id, currency, loop_id, issuer_id):
+        #       (delta, movement_ids)
+        # }
+        movement_list_lookup = {}
+        for row in movement_rows:
+            key = (row.transfer_id, row.currency, row.loop_id, row.issuer_id)
+            movement_list_lookup[key] = (row.delta, row.movement_ids)
+
+        return movement_list_lookup
+
+    def list_bundle_records(self):
+        """List bundle transfers that contain unreconciled bundled movements.
+        """
+        dbsession = self.dbsession
+        owner = self.owner
+        period = self.period
+
+        # bundle_transfer_ids_cte lists the bundle transfer IDs
+        # of the unreconciled bundled movements for this peer.
+        bundle_transfer_ids_cte = (
+            dbsession.query(TransferRecord.bundle_transfer_id)
+            .select_from(Movement)
+            .join(
+                TransferRecord,
+                TransferRecord.id == Movement.transfer_record_id)
+            .filter(
+                Movement.owner_id == owner.id,
+                Movement.peer_id == period.peer_id,
+                Movement.currency == period.currency,
+                Movement.loop_id == period.loop_id,
+                Movement.reco_id == null,
+                TransferRecord.bundle_transfer_id != null,
+            )
+            .distinct()
+            .cte('bundle_transfer_ids_cte'))
+
+        record_date_c = func.date(func.timezone(
+            get_tzname(owner),
+            func.timezone('UTC', TransferRecord.start)
+        ))
+
+        bundle_records = (
+            dbsession.query(
+                TransferRecord.transfer_id,
+                TransferRecord.bundled_transfers,
+                record_date_c.label('date'),
+            )
+            .filter(
+                TransferRecord.owner_id == owner.id,
+                TransferRecord.transfer_id.in_(bundle_transfer_ids_cte),
+                TransferRecord.bundled_transfers != null,
+                func.jsonb_array_length(TransferRecord.bundled_transfers) > 0,
+            )
+            .order_by(TransferRecord.start, TransferRecord.transfer_id)
+            .all())
+
+        log.info(
+            "BundleFinder: %s unreconciled bundle(s) for period %s",
+            len(bundle_records), period.id)
+
+        return bundle_records
+
+    def list_qualified_bundles(self, bundle_records, movement_list_lookup):
+        """List the bundle records qualified for auto reconciliation.
+
+        The results must be formatted for building the bundle_query.
+
+        Note that this may generate more than one bundle per transfer,
+        especially if the bundle transfer used multiple issuers.
+
+        Return [(
+            bundle_transfer_id,
+            date,
+            currency,
+            loop_id,
+            delta,
+            movement_ids,
+        )].
+        """
+        qualified_bundles = []
+
+        for bundle_record in bundle_records:
+            # specs is the mapping of movements required for each bundle
+            # to qualify for automatic bundle reconciliation.
+            # specs:
+            # {(currency, loop_id, issuer_id): {bundled_transfer_id: delta}}
+            specs = collections.defaultdict(
+                lambda: collections.defaultdict(Decimal))
+            for t in bundle_record.bundled_transfers:
+                key = (t['currency'], t['loop_id'], t['issuer_id'])
+                specs[key][t['transfer_id']] += Decimal(t['amount'])
+
+            for spec_key, spec in sorted(specs.items()):
+                # spec_key and spec describe a potentially reconcilable bundle.
+                # Do the unreconciled movements match the spec?
+                currency, loop_id, issuer_id = spec_key
+                qualified = True
+                bundled_movement_ids = []
+                total_delta = Decimal()
+                for bundled_transfer_id, spec_delta in sorted(spec.items()):
+                    movement_key = (
+                        bundled_transfer_id, currency, loop_id, issuer_id)
+                    movements_info = movement_list_lookup.get(movement_key)
+                    if not movements_info:
+                        # The bundle should not be reconciled
+                        # automatically because this bundled transfer
+                        # was not downloaded or is already
+                        # reconciled (in full or in part).
+                        qualified = False
+                        break
+                    else:
+                        movements_delta, movement_ids = movements_info
+                        if movements_delta != spec_delta:
+                            # The bundle transfer should not be reconciled
+                            # automatically because this bundled transfer
+                            # did not send the specified amount or is already
+                            # reconciled (in full or in part).
+                            qualified = False
+                            break
+                        else:
+                            bundled_movement_ids.extend(movement_ids)
+                            total_delta += spec_delta
+
+                if not qualified:
+                    continue
+
+                # Found a qualified bundle. Add it to qualified_bundles.
+                qualified_bundles.append((
+                    bundle_record.transfer_id,
+                    bundle_record.date,
+                    currency,
+                    loop_id,
+                    total_delta,
+                    bundled_movement_ids,
+                ))
+
+        log.info(
+            "BundleFinder: %s qualified bundle(s) for period %s",
+            len(qualified_bundles), self.period.id)
+        return qualified_bundles
+
+    def build_query(self, qualified_bundles):
+        """Create a query from the qualified bundles."""
+        stmts = []
+        for tup in qualified_bundles:
+            (
+                transfer_id,
+                date,
+                currency,
+                loop_id,
+                delta,
+                movement_ids,
+            ) = tup
+            if not stmts:
+                # Apply column types and labels to the first row.
+                stmts.append(select([
+                    cast(literal(transfer_id), String).label('transfer_id'),
+                    cast(literal(date), Date).label('date'),
+                    cast(literal(currency), String).label('currency'),
+                    cast(literal(loop_id), String).label('loop_id'),
+                    cast(literal(delta), Numeric).label('delta'),
+                    array(movement_ids, type_=BigInteger).label(
+                        'movement_ids'),
+                ]))
+            else:
+                # The column types and labels in the remaining rows are
+                # inferred from the first row.
+                stmts.append(select([
+                    literal(transfer_id),
+                    literal(date),
+                    literal(currency),
+                    literal(loop_id),
+                    literal(delta),
+                    array(movement_ids),
+                ]))
+
+        query = union_all(*stmts)
+        return query
 
 
 def auto_reco_statement(dbsession, owner, period, statement):
     """Add external reconciliations automatically for a statement."""
 
-    movement_date_c = func.date(func.timezone(
-        get_tzname(owner),
-        func.timezone('UTC', Movement.ts)
-    ))
-    movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
+    # Reconcile with individual movements
+    single_movement_query = build_single_movement_query(
+        dbsession=dbsession,
+        owner=owner,
+        period=period)
+
+    # Also reconcile with bundled movements (receive_ach_file transfers,
+    # for example.)
+    bundle_query = BundleFinder(
+        dbsession=dbsession,
+        owner=owner,
+        period=period).find()
+
+    if bundle_query is not None:
+        # Include bundle matches.
+        movement_query = union_all(bundle_query, single_movement_query)
+    else:
+        movement_query = single_movement_query
+
+    movement_cte = movement_query.cte('movement_cte')
 
     # Build all_matches, a list of all possible reconciliations
     # of this statement with existing OPN movements.
     # This query is an intentional but filtered cartesian join between
-    # the movement and account_entry tables.
+    # movement_cte and the account_entry table.
 
     all_matches = (
         dbsession.query(
@@ -71,31 +401,25 @@ def auto_reco_statement(dbsession, owner, period, statement):
             AccountEntry.id.label('account_entry_id'),
             AccountEntry.entry_date,
             AccountEntry.description,
-            Movement.id.label('movement_id'),
-            movement_date_c.label('movement_date'),
-            TransferRecord.transfer_id,
+            movement_cte.c.movement_ids,
+            movement_cte.c.date.label('movement_date'),
+            movement_cte.c.transfer_id,
         )
-        .join(Movement, and_(
-            movement_delta == AccountEntry.delta,
-            Movement.peer_id == AccountEntry.peer_id,
-            Movement.loop_id == AccountEntry.loop_id,
-            Movement.currency == AccountEntry.currency,
-        ))
-        .join(TransferRecord, TransferRecord.id == Movement.transfer_record_id)
+        .join(movement_cte, movement_cte.c.delta == AccountEntry.delta)
         .filter(
             AccountEntry.owner_id == owner.id,
             AccountEntry.statement_id == statement.id,
+            AccountEntry.peer_id == period.peer_id,
+            AccountEntry.loop_id == period.loop_id,
+            AccountEntry.currency == period.currency,
             AccountEntry.reco_id == null,
             AccountEntry.delta != 0,
-            Movement.owner_id == owner.id,
-            Movement.period_id == period.id,
-            Movement.reco_id == null,
         )
         .all())
 
-    # Group the matches by amount in the 'by_amount' map.
-    # by_amount: {amount: [SortableMatch]}
-    by_amount = collections.defaultdict(list)
+    # Group the matches by amount delta in the 'by_delta' map.
+    # by_delta: {delta: [SortableMatch]}
+    by_delta = collections.defaultdict(list)
 
     for match in all_matches:
         if match.entry_date < match.movement_date:
@@ -108,9 +432,9 @@ def auto_reco_statement(dbsession, owner, period, statement):
             # movement, so disqualify this match for autoreco.
             continue
 
-        by_amount[match.delta].append(SortableMatch(match))
+        by_delta[match.delta].append(SortableMatch(match))
 
-    # For each group of possible matches in by_amount, apply the best
+    # For each group of possible matches in by_delta, apply the best
     # matches first. As matches are chosen, later matches are disqualified
     # automatically because the movement_id has been added to the
     # movement_recos dict or the account_entry_id has been added to
@@ -130,18 +454,24 @@ def auto_reco_statement(dbsession, owner, period, statement):
     entry_recos = {}     # account_entry_id: reco_index
     movement_recos = {}  # movement_id: reco_index
 
-    for match_list in by_amount.values():
+    for match_list in by_delta.values():
         match_list.sort(key=sort_match, reverse=True)
         for match in match_list:
-            if match.movement_id in movement_recos:
-                # Already matched.
+            qualified = True
+            for movement_id in match.movement_ids:
+                if movement_id in movement_recos:
+                    # Already matched.
+                    qualified = False
+                    break
+            if not qualified:
                 continue
             if match.account_entry_id in entry_recos:
                 # Already matched.
                 continue
             reco_index = new_reco_count
             new_reco_count = reco_index + 1
-            movement_recos[match.movement_id] = reco_index
+            for movement_id in match.movement_ids:
+                movement_recos[movement_id] = reco_index
             entry_recos[match.account_entry_id] = reco_index
 
     if not new_reco_count:
@@ -162,7 +492,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
     # Assign the reco IDs.
     dbsession.flush()
 
-    # Get the movements and assign their reco_ids.
+    # Get the movements and assign their reco_ids and period_ids.
     movements = (
         dbsession.query(Movement)
         .filter(Movement.id.in_(movement_recos.keys()))

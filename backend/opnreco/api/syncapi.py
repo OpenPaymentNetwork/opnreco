@@ -285,6 +285,8 @@ class SyncAPI:
                 'recipient_id': tsum['recipient_id'] or None,
                 'recipient_uid': tsum['recipient_uid'] or None,
                 'recipient_info': tsum['recipient_info'],
+                'bundled_transfers': tsum.get('bundled_transfers'),
+                'bundle_transfer_id': tsum.get('bundle_transfer_id'),
             }
 
             transfer_id = tsum['id']

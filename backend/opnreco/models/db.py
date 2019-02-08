@@ -232,6 +232,17 @@ class TransferRecord(Base):
     recipient_uid = Column(Unicode, nullable=True)    # May change
     recipient_info = Column(JSONB, nullable=True)     # May change
 
+    # Some transfers (particularly receive_ach_file transfers) are
+    # essentially bundles of other transfers. bundled_transfers is the list
+    # of transfers that this transfer bundles.
+    # bundled_transfers: null or
+    # [{transfer_id, currency, loop_id, issuer_id, amount}]
+    bundled_transfers = Column(JSONB, nullable=True)    # May change
+
+    # bundle_transfer_id specifies which bundle this transfer belongs
+    # to, if any.
+    bundle_transfer_id = Column(String, nullable=True)  # May change
+
     owner = relationship(Owner)
 
 
