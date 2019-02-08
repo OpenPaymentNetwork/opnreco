@@ -11,6 +11,31 @@ from sqlalchemy import or_
 from sqlalchemy.orm import aliased
 
 
+def make_ploop_cte(dbsession, owner, with_non_circ=True):
+    """Generate a CTE that lists the owner's available ploops."""
+
+    # The owner can reconcile any 'c' peer loop that has
+    # seen movements to/from a vault, indicating the owner is
+    # an issuer (of cash in the period's currency and loop).
+    conditions = [and_(Period.peer_id == 'c', Period.has_vault)]
+    if with_non_circ:
+        # The owner can reconcile any peer loop associated with their
+        # own DFI account.
+        conditions.append(Peer.is_own_dfi_account)
+
+    return (
+        dbsession.query(Period.peer_id, Period.loop_id, Period.currency)
+        .join(Peer, and_(
+            Peer.owner_id == owner.id,
+            Peer.peer_id == Period.peer_id))
+        .filter(
+            Period.owner_id == owner.id,
+            or_(*conditions)
+        )
+        .distinct()
+        .cte('ploop_cte'))
+
+
 @view_config(
     name='ploops',
     context=API,
@@ -51,32 +76,17 @@ def ploops_api(request):
     selected_period_id = request.params.get('period_id')
 
     # ploop_cte prepares the list of peer loops the owner profile should see.
-    ploop_cte = (
-        dbsession.query(Period.peer_id, Period.loop_id, Period.currency)
-        .join(Peer, and_(
-            Peer.owner_id == owner_id,
-            Peer.peer_id == Period.peer_id))
-        .filter(
-            Period.owner_id == owner_id,
-            or_(
-                # The owner can reconcile any peer loop associated with their
-                # own DFI account.
-                Peer.is_own_dfi_account,
-                # The owner can also reconcile any 'c' peer loop that has
-                # seen movements to/from a vault, indicating the owner is
-                # an issuer (of cash in the period's currency and loop).
-                and_(
-                    Period.peer_id == 'c',
-                    Period.has_vault,
-                ),
-                # If we let the owner see all possible peer loops for their
-                # profile, they can reconcile with other wallets!
-                # Advanced feature?
-                # True,
-            )
-        )
-        .distinct()
-        .cte('ploop_cte'))
+    ploop_cte = make_ploop_cte(dbsession=dbsession, owner=owner)
+
+    if not owner.show_non_circ_with_circ:
+        has_circ = (
+            dbsession.query(ploop_cte.c.peer_id)
+            .filter(ploop_cte.c.peer_id == 'c')
+            .first())
+        if has_circ:
+            # Limit to circulation peers.
+            ploop_cte = make_ploop_cte(
+                dbsession=dbsession, owner=owner, with_non_circ=False)
 
     # ploop_rows is the list of visible peer loops,
     # with a loop title if available.

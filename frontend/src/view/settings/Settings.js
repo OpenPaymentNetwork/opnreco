@@ -1,8 +1,9 @@
 
+import { clearForSettings } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
-import { fOPNReco } from '../../util/fetcher';
+import { fOPNReco, settingsURL } from '../../util/fetcher';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import LayoutConfig from '../app/LayoutConfig';
@@ -13,6 +14,7 @@ import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Require from '../../util/Require';
+import ShowNonCircCard from './ShowNonCircCard';
 import TimeZoneCard from './TimeZoneCard';
 
 
@@ -32,16 +34,20 @@ class Settings extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    settingsURL: PropTypes.string.isRequired,
     settings: PropTypes.object,
     loading: PropTypes.bool,
   };
+
+  updateSettings = (settings) => {
+    const {dispatch} = this.props;
+    dispatch(clearForSettings());
+    dispatch(fetchcache.inject(settingsURL, settings));
+  }
 
   render() {
     const {
       classes,
       settings,
-      settingsURL,
       loading,
     } = this.props;
 
@@ -56,7 +62,20 @@ class Settings extends React.Component {
         </Card>
       );
     } else if (settings) {
-      cards.push(<TimeZoneCard key="tz" settings={settings} />);
+      const updateSettings = this.updateSettings;
+
+      cards.push(
+        <TimeZoneCard
+          key="tz"
+          settings={settings}
+          updateSettings={updateSettings}
+        />);
+      cards.push(
+        <ShowNonCircCard
+          key="noncirc"
+          settings={settings}
+          updateSettings={updateSettings}
+        />);
     }
 
     return (
@@ -75,7 +94,6 @@ class Settings extends React.Component {
 }
 
 function mapStateToProps(state) {
-  const settingsURL = fOPNReco.pathToURL('/settings');
   const settings = fetchcache.get(state, settingsURL);
   const loading = fetchcache.fetching(state, settingsURL);
   return {

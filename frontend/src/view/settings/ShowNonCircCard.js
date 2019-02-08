@@ -2,11 +2,11 @@
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
-import { clearForSettings } from '../../reducer/clearmost';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import React from 'react';
-import Select from '@material-ui/core/Select';
+import Checkbox from '@material-ui/core/Checkbox';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -26,7 +26,7 @@ const styles = {
 };
 
 
-class TimeZoneCard extends React.Component {
+class ShowNonCircCard extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -41,20 +41,17 @@ class TimeZoneCard extends React.Component {
     };
   }
 
-  handleChange = (event) => {
-    const {value} = event.target;
-    if (value !== this.props.settings.tzname) {
-      const {dispatch} = this.props;
-      const action = fOPNReco.fetchPath(
-        '/set-tzname', {data: {tzname: event.target.value}});
-      this.setState({saving: true});
-      dispatch(action).then((settings) => {
-        this.props.updateSettings(settings);
-        this.setState({saving: false});
-      }).finally(() => {
-        this.setState({saving: false});
-      });
-    }
+  handleChange = (event, checked) => {
+    const {dispatch} = this.props;
+    const action = fOPNReco.fetchPath(
+      '/set-show-non-circ', {data: {show_non_circ_with_circ: checked}});
+    this.setState({saving: true});
+    dispatch(action).then((settings) => {
+      this.props.updateSettings(settings);
+      this.setState({saving: false});
+    }).finally(() => {
+      this.setState({saving: false});
+    });
   }
 
   render() {
@@ -65,29 +62,33 @@ class TimeZoneCard extends React.Component {
       <Card className={classes.card}>
         <CardContent className={classes.cardContent}>
           <Typography variant="h6">
-            Time Zone
+            Reconcile Both Non-Circulation and Circulation
           </Typography>
           <Typography variant="body2">
-            Update this setting to match the time zone of your financial
-            institution. It will help align OPN movements with
-            account entries. Note: most financial institutions in
-            the United States generate statements based on
-            the <em>America/New_York</em> time zone.
+            Reconciliation of non-circulation accounts is normally
+            disabled if you have a circulation account. Enable
+            this feature to reconcile both types of accounts.
           </Typography>
           <Typography variant="body1" component="div">
-            <Select
-              name="tzname"
-              value={settings.tzname}
-              onChange={this.handleChange}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={settings.show_non_circ_with_circ}
+                  onChange={this.handleChange}
+                />
+              }
+              label={
+                <span>
+                  Reconcile both non-circulation and circulation
+                  accounts {saving &&
+                    <CircularProgress
+                      size="12px"
+                      className={classes.progress} />
+                  }
+                </span>
+              }
               disabled={saving}
-              native
-            >
-              {settings.tznames.map(tzname => (
-                <option key={tzname} value={tzname}>{tzname}</option>
-              ))}
-            </Select> {saving ?
-              <CircularProgress size="12px" className={classes.progress} />
-              : null}
+            />
           </Typography>
         </CardContent>
       </Card>
@@ -98,4 +99,4 @@ class TimeZoneCard extends React.Component {
 export default compose(
   withStyles(styles),
   connect(),
-)(TimeZoneCard);
+)(ShowNonCircCard);

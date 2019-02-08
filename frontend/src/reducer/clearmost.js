@@ -1,5 +1,5 @@
 
-import { ploopsURL, selectableURL } from '../util/fetcher';
+import { ploopsURL, selectableURL, settingsURL } from '../util/fetcher';
 import { fetchcache } from './fetchcache';
 
 
@@ -19,6 +19,15 @@ export function clearMost() {
  */
 export function clearWithPloops() {
   const keep = (url) => (url === selectableURL);
+  return fetchcache.invalidate(keep);
+}
+
+/**
+ * Clear most of the fetch cache except /token/selectable and /settings.
+ * /ploops must be cleared.
+ */
+export function clearForSettings() {
+  const keep = (url) => (url === selectableURL || url === settingsURL);
   return fetchcache.invalidate(keep);
 }
 

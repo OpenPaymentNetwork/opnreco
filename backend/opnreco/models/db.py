@@ -63,6 +63,9 @@ class Owner(Base):
     # sync_done is the number of transfer records downloaded
     # successfully in this sync operation.
     sync_done = Column(BigInteger, nullable=False, default=0)
+    # If show_non_circ_with_circ is true, the owner can select
+    # both non-circulation and circulation peers.
+    show_non_circ_with_circ = Column(Boolean, nullable=False, default=False)
 
 
 class OwnerLog(Base):
