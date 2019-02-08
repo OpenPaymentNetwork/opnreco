@@ -186,5 +186,5 @@ def internal_recos_api(context, request):
             'page': page_totals,
             'all': all_totals,
         },
-        'show_vault': context.period.has_vault,
+        'show_vault': context.period.peer_id == 'c',
     }
