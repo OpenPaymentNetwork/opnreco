@@ -1,5 +1,6 @@
 
 import Button from '@material-ui/core/Button';
+import InternalRecoReport from '../report/InternalRecoReport';
 import PeriodOverview from './PeriodOverview';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -73,20 +74,16 @@ export default class TabContent extends React.Component {
       return <RecoReport ploop={ploop} period={period} />;
     case 'transactions':
       return <TransactionReport ploop={ploop} period={period} />;
-    case 'liabilities':
-      return this.renderLiabilitiesTab();
     case 't':
       return <TransferSummary ploop={ploop} period={period} />;
     case 'overview':
       return <PeriodOverview ploop={ploop} period={period} />;
     case 'statement':
       return <StatementView ploop={ploop} period={period} />;
+    case 'internal':
+       return <InternalRecoReport ploop={ploop} period={period} />;
     default:
       return null;
     }
-  }
-
-  renderLiabilitiesTab() {
-    return 'Liabilities!';
   }
 }

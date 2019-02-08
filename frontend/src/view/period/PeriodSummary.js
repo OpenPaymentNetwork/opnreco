@@ -1,5 +1,8 @@
 
+import { compose } from '../../util/functional';
 import { getCurrencyFormatter } from '../../util/currency';
+import { isSimpleClick } from '../../util/click';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -53,8 +56,16 @@ const styles = {
 class PeriodSummary extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    history: PropTypes.object.isRequired,
     result: PropTypes.object,
   };
+
+  handleClick = (event, path) => {
+    if (isSimpleClick(event)) {
+      event.preventDefault();
+      this.props.history.push(path);
+    }
+  }
 
   render() {
     const {
@@ -105,6 +116,9 @@ class PeriodSummary extends React.Component {
       }
     };
 
+    const encPeriodId = encodeURIComponent(period.id);
+    const internalReportPath = `/period/${encPeriodId}/internal`;
+
     return (
       <Typography className={classes.root} component="div">
         <table className={classes.table}>
@@ -146,7 +160,11 @@ class PeriodSummary extends React.Component {
               <td className={classes.amountCell}>
               </td>
               <td className={classes.amountCell}>
-                {counts.internal_movements_reconciled}
+                <a href={internalReportPath}
+                  onClick={event => this.handleClick(event, internalReportPath)}
+                >
+                  {counts.internal_movements_reconciled}
+                </a>
               </td>
             </tr>
 
@@ -214,4 +232,7 @@ class PeriodSummary extends React.Component {
   }
 }
 
-export default withStyles(styles)(PeriodSummary);
+export default compose(
+  withStyles(styles),
+  withRouter,
+)(PeriodSummary);

@@ -3,7 +3,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
-import { getCurrencyFormatter } from '../../util/currency';
+import { getCurrencyDeltaFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
 import { renderReportDate } from '../../util/reportrender';
 import { withRouter } from 'react-router';
@@ -52,19 +52,6 @@ const styles = {
     backgroundColor: '#ddd',
     textAlign: 'center',
   },
-  subtitleCell: {
-    padding: '4px 8px',
-    fontWeight: 'normal',
-    backgroundColor: '#eee',
-    textAlign: 'center',
-  },
-  activityHeadCell: {
-    fontWeight: 'normal',
-    textAlign: 'center',
-  },
-  groupEndCell: {
-    borderRight: '4px solid #bbb',
-  },
   textCell: {
     padding: '2px 8px',
     fontWeight: 'normal',
@@ -89,14 +76,10 @@ const styles = {
     padding: '0',
     verticalAlign: 'top',
   },
-  strikeout: {
-    textDecoration: 'line-through',
-    opacity: '0.3',
-  },
 };
 
 
-class TransactionReport extends React.Component {
+class InternalRecoReport extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -117,7 +100,7 @@ class TransactionReport extends React.Component {
     }
   }
 
-  renderBody(records, totals, subtitle) {
+  renderBody(records, totals, showVault) {
     const {
       classes,
       period,
@@ -128,7 +111,6 @@ class TransactionReport extends React.Component {
 
     const {
       cell,
-      groupEndCell,
       pageTotalCell,
       totalCell,
     } = classes;
@@ -136,10 +118,7 @@ class TransactionReport extends React.Component {
     const txtCell = `${cell} ${classes.textCell}`;
     const numCell = `${cell} ${classes.numberCell}`;
     const chkCell = `${cell} ${classes.checkCell}`;
-    const txtGroupEndCell = `${txtCell} ${groupEndCell}`;
-    const numGroupEndCell = `${numCell} ${groupEndCell}`;
-    const activityHeadCell = `${cell} ${classes.activityHeadCell}`;
-    const fmt = getCurrencyFormatter(ploop.currency);
+    const fmt = getCurrencyDeltaFormatter(ploop.currency);
     const encPeriodId = encodeURIComponent(period.id);
 
     const rows = [];
@@ -147,43 +126,29 @@ class TransactionReport extends React.Component {
       rows.push(
         <tr key="empty1">
           <td className={txtCell} colSpan="7">
-            <em>This period has no transactions to display.</em>
+            <em>This period has no internal reconciliations to display.</em>
           </td>
         </tr>
       );
     } else {
 
       rows.push(
-        <tr key="activityHead1">
-          <th className={`${activityHeadCell} ${groupEndCell}`} colSpan="2">
-            Account Activity
-          </th>
-          <th className={`${activityHeadCell} ${groupEndCell}`} colSpan="4">
-            {ploop.peer_id === 'c' ?
-              'Wallet and Vault Activity' : 'Wallet Activity'}
-          </th>
-          <th className={activityHeadCell}>
-          </th>
-        </tr>
-      );
-      rows.push(
         <tr key="activityHead2">
           <th className={txtCell}>
             Date
           </th>
-          <th className={`${txtCell} ${groupEndCell}`}>
-            Amount
-          </th>
+          {showVault &&
+            <th className={txtCell}>
+              Vault
+            </th>
+          }
           <th className={txtCell}>
-            Date
-          </th>
-          <th className={txtCell}>
-            Amount
+            Wallet
           </th>
           <th className={txtCell}>
             Type
           </th>
-          <th className={`${txtCell} ${groupEndCell}`}>
+          <th className={txtCell}>
             Transfer
           </th>
           <th className={txtCell}>
@@ -191,22 +156,6 @@ class TransactionReport extends React.Component {
           </th>
         </tr>
       );
-
-      const renderAmountCell = (m) => {
-        if (m.movement_delta && m.movement_delta !== '0') {
-          if (!m.reco_movement_delta || m.reco_movement_delta === '0') {
-            return (
-              <span className={classes.strikeout}>
-                {fmt(m.movement_delta)}
-              </span>
-            );
-          } else {
-            return fmt(m.reco_movement_delta);
-          }
-        } else {
-          return <span>&nbsp;</span>;
-        }
-      };
 
       const renderTransferLink = (m) => {
         if (!m.transfer_id) {
@@ -225,26 +174,7 @@ class TransactionReport extends React.Component {
       records.forEach((record, index) => {
         rows.push(
           <tr key={index}
-              data-movement-id={record.movement_id}
-              data-account-entry-id={record.account_entry_id}
               data-reco-id={record.reco_id}>
-            <td className={txtCell}>
-              {record.account_entries.map((entry, i) => (
-                <div key={i} title={entry.entry_date}
-                    data-account-entry-id={entry.id}>
-                  <FormattedDate value={entry.entry_date}
-                    day="numeric" month="short" year="numeric"
-                    timeZone="UTC" />
-                </div>
-              ))}
-            </td>
-            <td className={numGroupEndCell}>
-              {record.account_entries.map((entry, i) => (
-                <div key={i} data-account-entry-id={entry.id}>
-                  {fmt(entry.account_delta)}
-                </div>
-              ))}
-            </td>
             <td className={txtCell}>
               {record.movements.map((m, i) => (
                 <div key={i} title={m.ts} data-movement-id={m.id}>
@@ -253,10 +183,19 @@ class TransactionReport extends React.Component {
                 </div>
               ))}
             </td>
+            {showVault &&
+              <td className={numCell}>
+                {record.movements.map((m, i) => (
+                  <div key={i} data-movement-id={m.id}>
+                    {fmt(m.vault_delta)}
+                  </div>
+                ))}
+              </td>
+            }
             <td className={numCell}>
               {record.movements.map((m, i) => (
                 <div key={i} data-movement-id={m.id}>
-                  {renderAmountCell(m)}
+                  {fmt(m.wallet_delta)}
                 </div>
               ))}
             </td>
@@ -267,7 +206,7 @@ class TransactionReport extends React.Component {
                 </div>
               ))}
             </td>
-            <td className={txtGroupEndCell}>
+            <td className={txtCell}>
               {record.movements.map((m, i) => (
                 <div key={i} data-movement-id={m.id}>
                   {renderTransferLink(m)}
@@ -293,17 +232,17 @@ class TransactionReport extends React.Component {
           <td className={`${cell} ${pageTotalCell}`}>
             Page Total
           </td>
-          <td className={`${numCell} ${pageTotalCell} ${groupEndCell}`}>
-            {fmt(totals.page.account_delta)}
-          </td>
-          <td className={txtCell}>
-          </td>
+          {showVault &&
+            <td className={`${numCell} ${pageTotalCell}`}>
+              {fmt(totals.page.vault_delta)}
+            </td>
+          }
           <td className={`${numCell} ${pageTotalCell}`}>
-            {fmt(totals.page.reco_movement_delta)}
+            {fmt(totals.page.wallet_delta)}
           </td>
           <td className={txtCell}>
           </td>
-          <td className={`${txtCell} ${groupEndCell}`}>
+          <td className={txtCell}>
           </td>
           <td className={txtCell}>
           </td>
@@ -316,51 +255,25 @@ class TransactionReport extends React.Component {
         <td className={`${cell} ${totalCell}`}>
           Total
         </td>
-        <td className={`${numCell} ${totalCell} ${groupEndCell}`}>
-          {fmt(totals.all.account_delta)}
-        </td>
-        <td className={txtCell}>
-        </td>
+        {showVault &&
+          <td className={`${numCell} ${totalCell}`}>
+            {fmt(totals.all.vault_delta)}
+          </td>
+        }
         <td className={`${numCell} ${totalCell}`}>
-          {fmt(totals.all.reco_movement_delta)}
+          {fmt(totals.all.wallet_delta)}
         </td>
         <td className={txtCell}>
         </td>
-        <td className={`${txtCell} ${groupEndCell}`}>
+        <td className={txtCell}>
         </td>
         <td className={txtCell}>
         </td>
       </tr>
     );
-
-    rows.push(
-      <tr key="spacer">
-        <td className={txtCell}>
-          &nbsp;
-        </td>
-        <td className={`${txtCell} ${groupEndCell}`}>
-        </td>
-        <td className={txtCell}>
-        </td>
-        <td className={txtCell}>
-        </td>
-        <td className={txtCell}>
-        </td>
-        <td className={`${txtCell} ${groupEndCell}`}>
-        </td>
-        <td className={txtCell}>
-        </td>
-      </tr>
-    );
-
 
     return (
       <tbody>
-        <tr>
-          <th colSpan="7"
-            className={`${cell} ${classes.subtitleCell}`}
-          >{subtitle}</th>
-        </tr>
         {rows}
       </tbody>
     );
@@ -387,6 +300,8 @@ class TransactionReport extends React.Component {
 
     if (report) {
       const reportDate = renderReportDate(period, report.now);
+      const showVault = report.show_vault;
+      const colCount = showVault ? 6 : 5;
 
       rowcount = report.rowcount;
       content = (
@@ -395,9 +310,9 @@ class TransactionReport extends React.Component {
             <thead>
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`}
-                  colSpan="7"
+                  colSpan={colCount}
                 >
-                  {ploop.peer_title} Transaction Report
+                  {ploop.peer_title} Internal Reconciliations
                   <div>
                     {ploop.currency}
                     {' '}{ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title}
@@ -406,14 +321,7 @@ class TransactionReport extends React.Component {
                 </th>
               </tr>
             </thead>
-            {this.renderBody(
-              report.inc_records,
-              report.inc_totals,
-              'Deposits (increase account balance)')}
-            {this.renderBody(
-              report.dec_records,
-              report.dec_totals,
-              'Withdrawals (decrease account balance)')}
+            {this.renderBody(report.records, report.totals, report.show_vault)}
           </table>
         </Paper>
       );
@@ -449,7 +357,7 @@ class TransactionReport extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const pagerName = 'TransactionReport';
+  const pagerName = 'InternalRecoReport';
   const {period} = ownProps;
 
   const {
@@ -459,7 +367,7 @@ function mapStateToProps(state, ownProps) {
   } = getPagerState(state, pagerName, 100);
 
   const reportURL = fOPNReco.pathToURL(
-    `/period/${encodeURIComponent(period.id)}/transactions` +
+    `/period/${encodeURIComponent(period.id)}/internal` +
     `?offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
     `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
   const report = fetchcache.get(state, reportURL);
@@ -481,4 +389,4 @@ export default compose(
   withStyles(styles),
   withRouter,
   connect(mapStateToProps),
-)(TransactionReport);
+)(InternalRecoReport);

@@ -104,7 +104,8 @@ class App extends React.Component {
                 <Route path="/settings" component={Settings} />
                 <Route path="/period/:periodId([0-9]+)/:tab(t)/:transferId" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)/:tab(statement)/:statementId" component={PeriodTabs} />
-                <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview|statement)" component={PeriodTabs} />
+                <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview|statement|internal)"
+                  component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
                 <Route path="/periods/:ploopKey([A-Za-z0-9-]+)" component={PeriodList} />
                 <Route path="/" component={AuthenticatedHome} exact />

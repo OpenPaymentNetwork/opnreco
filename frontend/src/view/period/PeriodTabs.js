@@ -141,7 +141,7 @@ class PeriodTabs extends React.Component {
       // Redirect to the same tab in a different period.
       const {match} = this.props;
       const {tab} = match.params;
-      const tabs = this.getTabs(periodId);
+      const tabs = this.getTabs(periodId, true);
       for (const tabinfo of tabs) {
         if (tab === tabinfo.value) {
           path = tabinfo.path;
@@ -160,7 +160,7 @@ class PeriodTabs extends React.Component {
     }
   }
 
-  getTabs(periodId) {
+  getTabs(periodId, withInvisible) {
     const {statementPeriodId} = this.props;
 
     if (!periodId) {
@@ -183,7 +183,7 @@ class PeriodTabs extends React.Component {
       `/period/${encPeriodId}/statement/${encodeURIComponent(statementId)}` :
       `/period/${encPeriodId}/statement`);
 
-    return [
+    const res = [
       {
         value: 'reco',
         label: 'Reconciliation',
@@ -211,6 +211,16 @@ class PeriodTabs extends React.Component {
         path: `/period/${encPeriodId}/overview`,
       },
     ];
+
+    if (withInvisible) {
+      res.push({
+        value: 'internal',
+        label: 'Internal',
+        path: `/period/${encPeriodId}/internal`,
+      });
+    }
+
+    return res;
   }
 
   handleTabChange = (event, value) => {
