@@ -147,7 +147,7 @@ class TransactionReport extends React.Component {
       rows.push(
         <tr key="empty1">
           <td className={txtCell} colSpan="7">
-            <em>This period has no transactions to display.</em>
+            <em>There are no transactions to display for this period.</em>
           </td>
         </tr>
       );
