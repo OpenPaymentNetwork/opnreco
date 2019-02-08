@@ -28,21 +28,6 @@ movement_delta_cols = -(Movement.wallet_delta + Movement.vault_delta)
 reco_movement_delta_cols = Movement.surplus_delta - Movement.vault_delta
 
 
-def start_query(dbsession):
-    return dbsession.query(
-        AccountEntry.id.label('account_entry_id'),
-        AccountEntry.entry_date,
-        AccountEntry.delta.label('account_delta'),
-        Movement.id.label('movement_id'),
-        Movement.ts,
-        Movement.reco_id,
-        movement_delta_cols.label('movement_delta'),
-        reco_movement_delta_cols.label('reco_movement_delta'),
-        TransferRecord.workflow_type,
-        TransferRecord.transfer_id,
-    )
-
-
 @view_config(
     name='transactions',
     context=PeriodResource,
