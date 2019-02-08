@@ -403,37 +403,39 @@ class TransferMovementTable extends React.Component {
       </tr>
     );
 
-    const legendWidthStyle = {
-      width: graphicCellWidth * peer_order.length - 1,
-      minWidth: graphicCellWidth * peer_order.length - 1,
-    };
+    if (record.movements.length) {
+      const legendWidthStyle = {
+        width: graphicCellWidth * peer_order.length - 1,
+        minWidth: graphicCellWidth * peer_order.length - 1,
+      };
 
-    headRows.push(
-      <tr key="legend">
-        <td className={labelCell}></td>
-        {this.renderMovementLegendCell(layout.columnsAfterGraphic)}
-      </tr>
-    );
+      headRows.push(
+        <tr key="legend">
+          <td className={labelCell}></td>
+          {this.renderMovementLegendCell(layout.columnsAfterGraphic)}
+        </tr>
+      );
 
-    headRows.push(
-      <tr key="labels">
-        <td key="number" className={labelCell}>Number</td>
-        <td key="legend" className={legendLowerCell} style={legendWidthStyle}>
-        </td>
-        {layout.showVault ?
-          <td key="vault" className={labelCell}>Vault</td>
-          : null}
-        <td key="wallet" className={labelCell}>Wallet</td>
-        {layout.showOtherAmount ?
-          <td key="other_amount" className={labelCell}>Other Amount</td>
-          : null}
-        <td key="design" className={labelCell}>Note Design</td>
-        <td key="issuer" className={labelCell}>Issuer</td>
-        <td key="action" className={labelCell}>Action Code</td>
-        <td key="ts" className={labelCell}>Date and Time</td>
-        <td key="reco" className={labelCell}>Reconciled</td>
-      </tr>
-    );
+      headRows.push(
+        <tr key="labels">
+          <td key="number" className={labelCell}>Number</td>
+          <td key="legend" className={legendLowerCell} style={legendWidthStyle}>
+          </td>
+          {layout.showVault ?
+            <td key="vault" className={labelCell}>Vault</td>
+            : null}
+          <td key="wallet" className={labelCell}>Wallet</td>
+          {layout.showOtherAmount ?
+            <td key="other_amount" className={labelCell}>Other Amount</td>
+            : null}
+          <td key="design" className={labelCell}>Note Design</td>
+          <td key="issuer" className={labelCell}>Issuer</td>
+          <td key="action" className={labelCell}>Action Code</td>
+          <td key="ts" className={labelCell}>Date and Time</td>
+          <td key="reco" className={labelCell}>Reconciled</td>
+        </tr>
+      );
+    }
 
     return <thead>{headRows}</thead>;
   }
@@ -466,6 +468,18 @@ class TransferMovementTable extends React.Component {
     } = layout;
 
     const bodyRows = [];
+
+    if (!record.movements.length) {
+      bodyRows.push(
+        <tr key="empty">
+          <td colSpan={layout.columnsAfterGraphic + 2}
+            className={`${classes.cell} ${classes.textCell}`}
+          >
+            <em>This transfer has not changed the possession of any notes.</em>
+          </td>
+        </tr>
+      );
+    }
 
     movements.forEach((movement, index) => {
       const mvCells = [];
@@ -584,15 +598,17 @@ class TransferMovementTable extends React.Component {
 
     const footRows = [];
 
-    footRows.push(
-      <tr key="total-heading">
-        <th className={`${classes.cell} ${classes.headCell}`}
-          colSpan={2 + layout.columnsAfterGraphic}
-        >
-          Total
-        </th>
-      </tr>
-    );
+    if (record.delta_totals.length) {
+      footRows.push(
+        <tr key="total-heading">
+          <th className={`${classes.cell} ${classes.headCell}`}
+            colSpan={2 + layout.columnsAfterGraphic}
+          >
+            Total
+          </th>
+        </tr>
+      );
+    }
 
     record.delta_totals.forEach((row, totalIndex) => {
       const {

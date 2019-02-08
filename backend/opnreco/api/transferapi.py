@@ -88,6 +88,9 @@ def transfer_record_api(context, request, final=False):
     need_peer_ids = set()
     need_loop_ids = set()
 
+    need_peer_ids.add(record.sender_id)
+    need_peer_ids.add(record.recipient_id)
+
     # peer_appearance is used for sorting the peers by order of
     # appearance in the transfer.
     # peer_appearance: {peer_id: [(movement_number, amount_index)]}
@@ -233,4 +236,6 @@ def transfer_record_api(context, request, final=False):
         'loops': loops,
         'delta_totals': delta_totals_json,
         'show_vault': is_circ,
+        'bundled_transfers': record.bundled_transfers,
+        'bundle_transfer_id': record.bundle_transfer_id,
     }

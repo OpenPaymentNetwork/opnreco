@@ -2,6 +2,7 @@
 from decimal import Decimal
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import Movement
+from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.viewcommon import get_tzname
@@ -67,7 +68,7 @@ class SortableMatch:
 
 
 def build_single_movement_query(dbsession, owner, period):
-    """Build a query that lists the unreconciled movements.
+    """Build a query that lists the unreconciled movements in open periods.
 
     Return a query providing these columns:
 
@@ -94,12 +95,15 @@ def build_single_movement_query(dbsession, owner, period):
         )
         .select_from(Movement)
         .join(TransferRecord, TransferRecord.id == Movement.transfer_record_id)
+        .join(Period, Period.id == Movement.period_id)
         .filter(
             Movement.owner_id == owner.id,
             Movement.peer_id == period.peer_id,
             Movement.loop_id == period.loop_id,
             Movement.currency == period.currency,
             Movement.reco_id == null,
+            movement_delta != 0,
+            ~Period.closed,
         ))
 
 
@@ -165,13 +169,16 @@ class BundleFinder:
             .join(
                 TransferRecord,
                 TransferRecord.id == Movement.transfer_record_id)
+            .join(Period, Period.id == Movement.period_id)
             .filter(
                 Movement.owner_id == owner.id,
                 Movement.peer_id == period.peer_id,
                 Movement.currency == period.currency,
                 Movement.loop_id == period.loop_id,
                 Movement.reco_id == null,
+                movement_delta != 0,
                 TransferRecord.bundle_transfer_id != null,
+                ~Period.closed,
             )
             .group_by(
                 Movement.currency,
@@ -211,13 +218,16 @@ class BundleFinder:
             .join(
                 TransferRecord,
                 TransferRecord.id == Movement.transfer_record_id)
+            .join(Period, Period.id == Movement.period_id)
             .filter(
                 Movement.owner_id == owner.id,
                 Movement.peer_id == period.peer_id,
                 Movement.currency == period.currency,
                 Movement.loop_id == period.loop_id,
                 Movement.reco_id == null,
+                movement_delta != 0,
                 TransferRecord.bundle_transfer_id != null,
+                ~Period.closed,
             )
             .distinct()
             .cte('bundle_transfer_ids_cte'))
@@ -406,6 +416,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
             movement_cte.c.transfer_id,
         )
         .join(movement_cte, movement_cte.c.delta == AccountEntry.delta)
+        .join(Period, Period.id == AccountEntry.period_id)
         .filter(
             AccountEntry.owner_id == owner.id,
             AccountEntry.statement_id == statement.id,
@@ -414,6 +425,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
             AccountEntry.currency == period.currency,
             AccountEntry.reco_id == null,
             AccountEntry.delta != 0,
+            ~Period.closed,
         )
         .all())
 

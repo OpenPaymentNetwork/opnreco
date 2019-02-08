@@ -269,6 +269,16 @@ class SyncAPI:
                 recipient_info = tsum['recipient_info']
             self.import_peer(tsum['recipient_id'], recipient_info)
 
+            transfer_id = tsum['id']
+
+            bundled_transfers = tsum.get('bundled_transfers')
+            if (bundled_transfers is not None and
+                    not isinstance(bundled_transfers, list)):
+                # Don't let something weird get into the database.
+                raise ValueError(
+                    "Transfer %s: bundled_transfers should be None or a list, "
+                    "not %s" % (transfer_id, repr(bundled_transfers)))
+
             changed = []
             kw = {
                 'workflow_type': tsum['workflow_type'],
@@ -285,11 +295,10 @@ class SyncAPI:
                 'recipient_id': tsum['recipient_id'] or None,
                 'recipient_uid': tsum['recipient_uid'] or None,
                 'recipient_info': tsum['recipient_info'],
-                'bundled_transfers': tsum.get('bundled_transfers'),
+                'bundled_transfers': bundled_transfers,
                 'bundle_transfer_id': tsum.get('bundle_transfer_id'),
             }
 
-            transfer_id = tsum['id']
             record = record_map.get(transfer_id)
             if record is None:
                 # Add a TransferRecord.

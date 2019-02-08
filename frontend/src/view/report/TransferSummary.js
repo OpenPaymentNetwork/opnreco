@@ -1,11 +1,12 @@
-import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import { fOPNReco } from '../../util/fetcher';
+import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
+import { isSimpleClick } from '../../util/click';
 import { setTransferId } from '../../reducer/app';
-import { wfTypeTitles } from '../../util/transferfmt';
+import { wfTypeTitles, dashed } from '../../util/transferfmt';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -157,6 +158,13 @@ class TransferSummary extends React.Component {
     }
   }
 
+  handleLink = (event, path) => {
+    if (isSimpleClick(event)) {
+      event.preventDefault();
+      this.props.history.push(path);
+    }
+  }
+
   renderForm() {
     const {classes} = this.props;
     const {showSearch, typingTransferId} = this.state;
@@ -201,6 +209,53 @@ class TransferSummary extends React.Component {
     );
   }
 
+  renderBundleInfo() {
+    const {record, period} = this.props;
+
+    const blocks = [];
+    if (record.bundled_transfers && record.bundled_transfers.length) {
+      const encPeriodId = encodeURIComponent(period.id);
+      blocks.push(
+        <div key="bundled_transfers">
+          This transfer is a bundle of:
+          <ul>
+            {record.bundled_transfers.map(t => {
+              const tid = dashed(t.transfer_id);
+              const transferPath = (
+                `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
+              return (
+                <li key={t.transfer_id}>
+                  <a href={transferPath}
+                    onClick={event => this.handleLink(event, transferPath)}
+                  >{tid}</a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+    }
+    if (record.bundle_transfer_id) {
+      const encPeriodId = encodeURIComponent(period.id);
+      const tid = dashed(record.bundle_transfer_id);
+      const transferPath = (
+        `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
+      blocks.push(
+        <div key="bundle_transfer_id">
+          This transfer belongs to bundle transfer <a
+          href={transferPath}
+            onClick={event => this.handleLink(event, transferPath)}
+          >{tid}</a>
+        </div>
+      );
+    }
+    if (!blocks.length) {
+      return <span>Not bundled</span>;
+    } else {
+      return blocks;
+    }
+  }
+
   renderSummaryTable() {
     const {
       classes,
@@ -212,6 +267,7 @@ class TransferSummary extends React.Component {
     const fieldNameCell = `${classes.cell} ${classes.fieldNameCell}`;
     const fieldValueCell = `${classes.cell} ${classes.fieldValueCell}`;
     const transferURL = `${publicURL}/p/${profileId}/t/${transferId}`;
+    const bundleInfo = this.renderBundleInfo();
 
     return (
       <div>
@@ -292,6 +348,14 @@ class TransferSummary extends React.Component {
                 <ProfileLink id={record.recipient_id}
                   title={record.recipient_title}
                   profiles={record.peers} />
+              </td>
+            </tr>
+            <tr>
+              <td className={fieldNameCell}>
+                Bundling
+              </td>
+              <td className={fieldValueCell}>
+                {bundleInfo}
               </td>
             </tr>
           </tbody>
