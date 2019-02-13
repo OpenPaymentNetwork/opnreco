@@ -10,6 +10,7 @@ from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferDownloadRecord
 from opnreco.models.db import TransferRecord
+from opnreco.models.db import TransferVerification
 from opnreco.models.site import API
 from opnreco.util import check_requests_response
 from opnreco.util import to_datetime
@@ -17,7 +18,9 @@ from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from opnreco.viewcommon import add_open_period
 from pyramid.decorator import reify
+from pyramid.httpexceptions import HTTPInsufficientStorage
 from pyramid.view import view_config
+import colander
 import collections
 import datetime
 import logging
@@ -30,25 +33,30 @@ zero = Decimal()
 null = None
 
 
-class SyncError(Exception):
-    """Data synchronization error"""
+class VerificationFailure(Exception):
+    """A transfer failed verification"""
+
+    def __init__(self, msg, transfer_id):
+        Exception.__init__(self, msg)
+        self.transfer_id = transfer_id
 
 
-@view_config(
-    name='sync',
-    context=API,
-    permission=perms.use_app,
-    renderer='json')
-class SyncAPI:
-    """Sync with OPN.
+class SyncBase:
+    """Base class for views that sync with OPN.
 
-    This view downloads all transfers and movements since the last sync.
+    This is a base class for either downloading all transfers and movements
+    since the last sync or for verifying that existing transfers and
+    movements have not changed.
     """
+    write_enabled = True
+    change_log = None  # A list for use in verification
+
     def __init__(self, request):
         self.request = request
         self.owner = owner = request.owner
         self.owner_id = owner.id
         self.api_url = os.environ['opn_api_url']
+        self.change_count = 0
 
         # peers is a cache of {peer_id: Peer}.
         self.peers = {}
@@ -62,32 +70,6 @@ class SyncAPI:
         # period_lists: {(peer_id, loop_id, currency): [Period]}
         self.period_lists = {}
 
-        self.change_count = 0
-
-    def set_tzname(self):
-        """If the owner doesn't have a tzname yet, try to set it."""
-        request = self.request
-        owner = self.owner
-
-        if not owner.tzname:
-            try:
-                params = self.request.json
-            except Exception:
-                params = {}
-            tzname = params.get('tzname', '').strip()
-            if tzname and tzname in pytz.all_timezones:
-                owner.tzname = tzname
-                request.dbsession.add(OwnerLog(
-                    owner_id=owner.id,
-                    personal_id=request.personal_id,
-                    event_type='tzname_init',
-                    remote_addr=request.remote_addr,
-                    user_agent=request.user_agent,
-                    content={
-                        'tzname': tzname,
-                    },
-                ))
-
     @reify
     def timezone(self):
         """Get the pytz time zone for the owner.
@@ -99,30 +81,7 @@ class SyncAPI:
         except Exception:
             return pytz.timezone('America/New_York')
 
-    def __call__(self):
-        request = self.request
-        owner = self.owner
-
-        self.set_tzname()
-
-        if owner.first_sync_ts is None:
-            # Start a new sync. Download transfers created or changed
-            # after 5 minutes before the last sync. (Add 5 minutes in
-            # case some transfers showed up out of order.)
-            if owner.last_sync_ts is not None:
-                sync_ts = (
-                    owner.last_sync_ts - datetime.timedelta(seconds=60 * 5))
-            else:
-                sync_ts = datetime.datetime(1970, 1, 1)
-            sync_transfer_id = None
-            count_remain = True
-        else:
-            # A sync was started but not finished. Download the next batch.
-            sync_ts = owner.last_sync_ts
-            sync_transfer_id = owner.last_sync_transfer_id
-            count_remain = False
-        sync_ts_iso = sync_ts.isoformat() + 'Z'
-
+    def download_batch(self, sync_ts_iso, sync_transfer_id, count_remain):
         url = '%s/wallet/history_sync' % self.api_url
         postdata = {
             'sync_ts': sync_ts_iso,
@@ -134,87 +93,17 @@ class SyncAPI:
         r = requests.post(
             url,
             data=postdata,
-            headers={'Authorization': 'Bearer %s' % request.access_token})
+            headers={'Authorization': 'Bearer %s' % self.request.access_token})
         check_requests_response(r)
 
-        transfers_download = r.json()
-        dbsession = request.dbsession
-        more = transfers_download['more']
-        now = datetime.datetime.utcnow()
-
-        if more:
-            len_results = len(transfers_download['results'])
-            if owner.first_sync_ts is None:
-                owner.first_sync_ts = to_datetime(
-                    transfers_download['first_sync_ts'])
-                owner.sync_total = len_results + transfers_download['remain']
-                owner.sync_done = len_results
-            else:
-                owner.sync_done += len_results
-            owner.last_sync_ts = to_datetime(
-                transfers_download['last_sync_ts'])
-            owner.last_transfer_id = (
-                transfers_download['results'][-1]['id'])
-            # Note: avoid division by zero.
-            progress_percent = int(
-                100.0 * owner.sync_done / owner.sync_total
-                if owner.sync_total else 0.0)
-        else:
-            owner.first_sync_ts = None
-            owner.last_sync_transfer_id = None
-            owner.last_sync_ts = now
-            owner.sync_total = 0
-            owner.sync_done = 0
-            progress_percent = 100
-
-        opn_download = OPNDownload(
-            owner_id=owner.id,
-            content={
-                'transfers': transfers_download,
-                'more': more,
-            },
-        )
-        dbsession.add(opn_download)
-        dbsession.flush()
-
-        self.opn_download_id = opn_download.id
-
-        dbsession.add(OwnerLog(
-            owner_id=owner.id,
-            personal_id=request.personal_id,
-            event_type='opn_sync',
-            remote_addr=request.remote_addr,
-            user_agent=request.user_agent,
-            content={
-                'sync_ts': sync_ts_iso,
-                'progress_percent': progress_percent,
-                'change_count': self.change_count,
-                'transfers': {
-                    'ids': sorted(
-                        t['id'] for t in transfers_download['results']),
-                    'count': len(transfers_download['results']),
-                    'more': more,
-                    'first_sync_ts': transfers_download['first_sync_ts'],
-                    'last_sync_ts': transfers_download['last_sync_ts'],
-                }
-            },
-        ))
-
-        self.import_transfer_records(transfers_download)
-
-        return {
-            'progress_percent': progress_percent,
-            'change_count': self.change_count,
-            'download_count': len(transfers_download['results']),
-            'more': more,
-            'first_sync_ts': transfers_download['first_sync_ts'],
-            'last_sync_ts': transfers_download['last_sync_ts'],
-        }
+        return r.json()
 
     def import_transfer_records(self, transfers_download):
         """Add and update TransferRecord rows."""
         dbsession = self.request.dbsession
         owner_id = self.owner_id
+        write_enabled = self.write_enabled
+        change_log = self.change_log
 
         transfer_ids = [item['id'] for item in transfers_download['results']]
 
@@ -256,10 +145,12 @@ class SyncAPI:
         for peer in peer_rows:
             self.peers[peer.peer_id] = peer
 
-        self.import_peer('c', None)  # Create or update the 'c' peer
+        if write_enabled:
+            self.import_peer('c', None)  # Create or update the 'c' peer
 
         for tsum in transfers_download['results']:
-            self.import_peer(tsum['sender_id'], tsum['sender_info'])
+            if write_enabled:
+                self.import_peer(tsum['sender_id'], tsum['sender_info'])
 
             if tsum.get('recipient_is_dfi_account'):
                 recipient_info = {}
@@ -267,7 +158,8 @@ class SyncAPI:
                 recipient_info['is_dfi_account'] = True
             else:
                 recipient_info = tsum['recipient_info']
-            self.import_peer(tsum['recipient_id'], recipient_info)
+            if write_enabled:
+                self.import_peer(tsum['recipient_id'], recipient_info)
 
             transfer_id = tsum['id']
 
@@ -303,15 +195,21 @@ class SyncAPI:
             if record is None:
                 # Add a TransferRecord.
                 new_record = True
-                record = TransferRecord(
-                    transfer_id=transfer_id,
-                    owner_id=owner_id,
-                    **kw)
-                changed.append(kw)
-                dbsession.add(record)
-                dbsession.flush()  # Assign record.id
-                record_map[transfer_id] = record
+                if write_enabled:
+                    record = TransferRecord(
+                        transfer_id=transfer_id,
+                        owner_id=owner_id,
+                        **kw)
+                    changed.append(kw)
+                    dbsession.add(record)
+                    dbsession.flush()  # Assign record.id
+                    record_map[transfer_id] = record
                 self.change_count += 1
+                if change_log is not None:
+                    change_log.append({
+                        'event_type': 'transfer_add',
+                        'transfer_id': transfer_id,
+                    })
 
             else:
                 # Update a TransferRecord.
@@ -319,29 +217,39 @@ class SyncAPI:
                 immutable_attrs = ('workflow_type', 'start')
                 for attr in immutable_attrs:
                     if kw[attr] != getattr(record, attr):
-                        raise SyncError(
-                            "Transfer %s: Immutable attribute changed. "
+                        msg = (
+                            "Verification failure in transfer %s. "
+                            "Immutable attribute changed. "
                             "Old %s was %s, new %s is %s" %
                             (transfer_id, attr, repr(getattr(record, attr)),
                                 attr, repr(kw[attr])))
+                        log.error(msg)
+                        raise VerificationFailure(msg, transfer_id=transfer_id)
 
                 changed_map = {}
                 for attr, value in sorted(kw.items()):
                     if getattr(record, attr) != value:
-                        setattr(record, attr, value)
+                        if write_enabled:
+                            setattr(record, attr, value)
                         changed_map[attr] = value
                 if changed_map:
                     changed.append(changed_map)
                     self.change_count += 1
+                    if change_log is not None:
+                        change_log.append({
+                            'event_type': 'transfer_changes',
+                            'transfer_id': transfer_id,
+                            'changes': sorted(changed_map.keys()),
+                        })
 
-            dbsession.add(TransferDownloadRecord(
-                opn_download_id=self.opn_download_id,
-                transfer_record_id=record.id,
-                transfer_id=transfer_id,
-                changed=changed))
+            if write_enabled:
+                dbsession.add(TransferDownloadRecord(
+                    opn_download_id=self.opn_download_id,
+                    transfer_record_id=record.id,
+                    transfer_id=transfer_id,
+                    changed=changed))
 
-            if tsum['movements']:
-                self.import_movements(record, tsum, new_record=new_record)
+            self.import_movements(record, tsum, new_record=new_record)
 
         dbsession.flush()
 
@@ -356,6 +264,11 @@ class SyncAPI:
         if not peer_id:
             # A transfer's sender or recipient is not yet known.
             # There's nothing to import.
+            return
+
+        if not self.write_enabled:
+            # This method doesn't need to do anything when writing is
+            # disabled.
             return
 
         if peer_id == self.owner_id or peer_id == 'c':
@@ -401,6 +314,11 @@ class SyncAPI:
             )
             dbsession.add(peer)
             self.change_count += 1
+            if self.change_log is not None:
+                self.change_log.append({
+                    'event_type': 'peer_add',
+                    'peer_id': peer_id,
+                })
             self.peers[peer_id] = peer
 
             dbsession.add(OwnerLog(
@@ -446,6 +364,11 @@ class SyncAPI:
                 peer.last_update = now_func
                 if changes:
                     self.change_count += 1
+                    if self.change_log is not None:
+                        self.change_log.append({
+                            'event_type': 'peer_update',
+                            'peer_id': peer_id,
+                        })
                     dbsession.add(OwnerLog(
                         owner_id=self.owner_id,
                         personal_id=self.request.personal_id,
@@ -458,6 +381,8 @@ class SyncAPI:
     def import_movements(self, record, item, new_record):
         transfer_id = item['id']
         dbsession = self.request.dbsession
+        write_enabled = self.write_enabled
+        change_log = self.change_log
 
         # Prepare movement_dict, a dict of movements already imported.
         rows = (
@@ -481,10 +406,13 @@ class SyncAPI:
                 movement.issuer_id,
             )
             movement_dict[row_key] = movement
+        movements_unseen = set(movement_dict.keys())
 
         configure_dblog(request=self.request, movement_event_type='download')
 
-        for movement in item['movements']:
+        item_movements = item['movements'] or ()
+
+        for movement in item_movements:
             number = movement.get('number')
             if not number:
                 raise ValueError(
@@ -509,6 +437,7 @@ class SyncAPI:
 
                     if old_movement is not None:
                         # The movement is already recorded.
+                        movements_unseen.discard(row_key)
                         # Verify it has not changed, then continue.
                         self.verify_old_movement(
                             transfer_id=transfer_id,
@@ -518,45 +447,67 @@ class SyncAPI:
                             from_id=from_id,
                             to_id=to_id,
                             action=action,
-                            wallet_delta=wallet_delta,
-                            vault_delta=vault_delta,
                             amount=amount,
+                            loop_id=loop_id,
+                            currency=currency,
+                            issuer_id=issuer_id,
                         )
                         continue
 
-                    # Record the new movement.
-                    movement = Movement(
-                        transfer_record_id=record.id,
-                        owner_id=self.owner_id,
-                        number=number,
-                        amount_index=amount_index,
-                        peer_id=peer_id,
-                        orig_peer_id=orig_peer_id,
-                        loop_id=loop_id,
-                        currency=currency,
-                        issuer_id=issuer_id,
-                        from_id=from_id,
-                        to_id=to_id,
-                        amount=amount,
-                        action=action,
-                        ts=ts,
-                        wallet_delta=wallet_delta,
-                        vault_delta=vault_delta,
-                        period_id=period_id,
-                        surplus_delta=-wallet_delta,
-                    )
-                    dbsession.add(movement)
-                    movement_dict[row_key] = movement
+                    if write_enabled:
+                        # Record the new movement.
+                        movement = Movement(
+                            transfer_record_id=record.id,
+                            owner_id=self.owner_id,
+                            number=number,
+                            amount_index=amount_index,
+                            peer_id=peer_id,
+                            orig_peer_id=orig_peer_id,
+                            loop_id=loop_id,
+                            currency=currency,
+                            issuer_id=issuer_id,
+                            from_id=from_id,
+                            to_id=to_id,
+                            amount=amount,
+                            action=action,
+                            ts=ts,
+                            wallet_delta=wallet_delta,
+                            vault_delta=vault_delta,
+                            period_id=period_id,
+                            surplus_delta=-wallet_delta,
+                        )
+                        dbsession.add(movement)
+                        movement_dict[row_key] = movement
+
                     self.change_count += 1
+                    if change_log is not None:
+                        change_log.append({
+                            'event_type': 'movement_add',
+                            'transfer_id': transfer_id,
+                            'movement_number': number,
+                        })
 
-        dbsession.flush()  # Assign the movement IDs and log the movements
+        if movements_unseen:
+            old_movement_numbers = sorted(
+                row_key[0] for row_key in movement_dict.keys())
+            new_movement_numbers = sorted(
+                movement['number'] for movement in item_movements)
+            msg = (
+                "Verification failure in transfer %s. "
+                "Previously downloaded movement(s) are no longer available. "
+                "Old movement numbers: %s, new movement numbers: %s" %
+                (transfer_id, old_movement_numbers, new_movement_numbers))
+            log.error(msg)
+            raise VerificationFailure(msg, transfer_id=transfer_id)
 
-        configure_dblog(request=self.request, movement_event_type='autoreco')
-
-        self.autoreco(
-            record=record,
-            movements=movement_dict.values(),
-            new_record=new_record)
+        if write_enabled:
+            dbsession.flush()  # Assign the movement IDs and log the movements
+            configure_dblog(
+                request=self.request, movement_event_type='autoreco')
+            self.autoreco(
+                record=record,
+                movements=movement_dict.values(),
+                new_record=new_record)
 
     def summarize_movement(self, movement, transfer_id, ts):
         """Summarize a movement.
@@ -566,6 +517,7 @@ class SyncAPI:
             [(amount, wallet_delta, vault_delta, period_id)],
         }, where peer_id can be 'c', but orig_peer_id can not.
         """
+        write_enabled = self.write_enabled
         number = movement['number']
         from_id = movement['from_id']
         to_id = movement['to_id']
@@ -621,65 +573,76 @@ class SyncAPI:
 
             # Add to the 'c' (circulation) movements.
             c_key = ('c', peer_id, loop_id, currency, issuer_id)
-            c_period = self.get_open_period(
-                'c', loop_id, currency, day=day)
-            if vault_delta and not c_period.has_vault:
-                c_period.has_vault = True
+            if write_enabled:
+                c_period = self.get_open_period(
+                    'c', loop_id, currency, day=day)
+                if vault_delta and not c_period.has_vault:
+                    c_period.has_vault = True
+                c_period_id = c_period.id
+            else:
+                c_period_id = None
             by_ploop[c_key].append(
-                (amount, wallet_delta, vault_delta, c_period.id))
+                (amount, wallet_delta, vault_delta, c_period_id))
 
             # Add to the wallet-specific or account-specific movements.
             plkey = (peer_id, peer_id, loop_id, currency, issuer_id)
-            peer_period = self.get_open_period(
-                peer_id, loop_id, currency, day=day)
+            if write_enabled:
+                peer_period = self.get_open_period(
+                    peer_id, loop_id, currency, day=day)
+                peer_period_id = peer_period.id
+            else:
+                peer_period_id = None
             by_ploop[plkey].append(
-                (amount, wallet_delta, vault_delta, peer_period.id))
+                (amount, wallet_delta, vault_delta, peer_period_id))
 
         return by_ploop
 
     def verify_old_movement(
             self, old_movement, transfer_id, number,
             ts, from_id, to_id, action,
-            wallet_delta, vault_delta, amount):
+            amount, issuer_id, loop_id, currency):
         if old_movement.ts != ts:
-            raise ValueError(
-                "Movement %s in transfer %s has changed:"
+            msg = (
+                "Verification failure in transfer %s. "
+                "Movement %s has changed: "
                 "recorded timestamp is %s, "
                 "new timestamp is %s" % (
-                    number, transfer_id,
+                    transfer_id, number,
                     old_movement.ts.isoformat(),
                     ts.isoformat()))
+            raise VerificationFailure(msg, transfer_id=transfer_id)
+
         if (old_movement.from_id != from_id or
                 old_movement.to_id != to_id):
-            raise ValueError(
-                "Movement %s in transfer %s has changed:"
+            msg = (
+                "Verification failure in transfer %s. "
+                "Movement %s has changed: "
                 "movement was from %s to %s, "
                 "new movement is from %s to %s" % (
-                    number, transfer_id,
+                    transfer_id, number,
                     old_movement.from_id,
                     old_movement.to_id,
                     from_id,
                     to_id))
-        if old_movement.action != action:
-            raise ValueError(
-                "Movement %s in transfer %s has changed:"
-                "recorded action is %s, new action is %s" % (
-                    number, transfer_id,
-                    old_movement.action, action))
-        if (old_movement.wallet_delta != wallet_delta or
-                old_movement.vault_delta != vault_delta or
-                old_movement.amount != amount):
-            raise ValueError(
-                "Movement %s in transfer %s has changed:"
-                "recorded delta is (%s, %s, %s), "
-                "new delta is (%s, %s, %s)" % (
-                    number, transfer_id,
-                    old_movement.amount,
-                    old_movement.wallet_delta,
-                    old_movement.vault_delta,
-                    amount,
-                    wallet_delta,
-                    vault_delta))
+            raise VerificationFailure(msg, transfer_id=transfer_id)
+
+        for attr, new_value in (
+                ('currency', currency),
+                ('loop_id', loop_id),
+                ('amount', amount),
+                ('issuer_id', issuer_id),
+                ('action', action),
+                ):
+            old_value = getattr(old_movement, attr)
+            if new_value != old_value:
+                msg = (
+                    "Verification failure in transfer %s. "
+                    "Movement %s has changed: "
+                    "recorded %s is %s, new %s is %s" % (
+                        transfer_id, number,
+                        attr, old_value,
+                        attr, new_value))
+                raise VerificationFailure(msg, transfer_id=transfer_id)
 
     def get_open_period(self, peer_id, loop_id, currency, day):
         """Get an open Period for (peer_id, loop_id, currency, movement_date).
@@ -725,6 +688,11 @@ class SyncAPI:
         self.period_lists[list_key] = list(period_list) + [period]
         self.periods[period_key] = period
         self.change_count += 1
+        if self.change_log is not None:
+            self.change_log.append({
+                'event_type': 'add_period',
+                'period_id': period.id,
+            })
 
         return period
 
@@ -793,7 +761,280 @@ class SyncAPI:
 
         if added:
             self.change_count += 1
+            if self.change_log is not None:
+                self.change_log.append({
+                    'event_type': 'reco_add',
+                    'reco_id': reco_id,
+                })
             dbsession.flush()
+
+
+@view_config(
+    name='sync',
+    context=API,
+    permission=perms.use_app,
+    renderer='json')
+class SyncAPI(SyncBase):
+    write_enabled = True
+
+    def set_tzname(self):
+        """If the owner doesn't have a tzname yet, try to set it."""
+        request = self.request
+        owner = self.owner
+
+        if not owner.tzname:
+            try:
+                params = self.request.json
+            except Exception:
+                params = {}
+            tzname = params.get('tzname', '').strip()
+            if tzname and tzname in pytz.all_timezones:
+                owner.tzname = tzname
+                request.dbsession.add(OwnerLog(
+                    owner_id=owner.id,
+                    personal_id=request.personal_id,
+                    event_type='tzname_init',
+                    remote_addr=request.remote_addr,
+                    user_agent=request.user_agent,
+                    content={
+                        'tzname': tzname,
+                    },
+                ))
+
+    def __call__(self):
+        request = self.request
+        owner = self.owner
+
+        self.set_tzname()
+
+        if owner.first_sync_ts is None:
+            # Start a new sync. Download transfers created or changed
+            # after 5 minutes before the last sync. (Add 5 minutes in
+            # case some transfers showed up out of order.)
+            if owner.last_sync_ts is not None:
+                sync_ts = (
+                    owner.last_sync_ts - datetime.timedelta(seconds=60 * 5))
+            else:
+                sync_ts = datetime.datetime(1970, 1, 1)
+            sync_transfer_id = None
+            count_remain = True
+        else:
+            # A sync was started but not finished. Download the next batch.
+            sync_ts = owner.last_sync_ts
+            sync_transfer_id = owner.last_sync_transfer_id
+            count_remain = False
+        sync_ts_iso = sync_ts.isoformat() + 'Z'
+
+        transfers_download = self.download_batch(
+            sync_ts_iso=sync_ts_iso,
+            sync_transfer_id=sync_transfer_id,
+            count_remain=count_remain)
+
+        dbsession = request.dbsession
+        more = transfers_download['more']
+        now = datetime.datetime.utcnow()
+
+        if more:
+            len_results = len(transfers_download['results'])
+            if owner.first_sync_ts is None:
+                owner.first_sync_ts = to_datetime(
+                    transfers_download['first_sync_ts'])
+                owner.sync_total = len_results + transfers_download['remain']
+                owner.sync_done = len_results
+            else:
+                owner.sync_done += len_results
+            owner.last_sync_ts = to_datetime(
+                transfers_download['last_sync_ts'])
+            owner.last_transfer_id = (
+                transfers_download['results'][-1]['id'])
+            # Note: avoid division by zero.
+            progress_percent = int(
+                100.0 * owner.sync_done / owner.sync_total
+                if owner.sync_total else 0.0)
+        else:
+            owner.first_sync_ts = None
+            owner.last_sync_transfer_id = None
+            owner.last_sync_ts = now
+            owner.sync_total = 0
+            owner.sync_done = 0
+            progress_percent = 100
+
+        opn_download = OPNDownload(
+            owner_id=owner.id,
+            content={
+                'transfers': transfers_download,
+                'more': more,
+            },
+        )
+        dbsession.add(opn_download)
+        dbsession.flush()
+
+        self.opn_download_id = opn_download.id
+
+        dbsession.add(OwnerLog(
+            owner_id=owner.id,
+            personal_id=request.personal_id,
+            event_type='opn_sync',
+            remote_addr=request.remote_addr,
+            user_agent=request.user_agent,
+            content={
+                'sync_ts': sync_ts_iso,
+                'progress_percent': progress_percent,
+                'change_count': self.change_count,
+                'transfers': {
+                    'ids': sorted(
+                        t['id'] for t in transfers_download['results']),
+                    'count': len(transfers_download['results']),
+                    'more': more,
+                    'first_sync_ts': transfers_download['first_sync_ts'],
+                    'last_sync_ts': transfers_download['last_sync_ts'],
+                }
+            },
+        ))
+
+        try:
+            self.import_transfer_records(transfers_download)
+        except VerificationFailure as e:
+            # HTTP Error 507 is reasonably close to 'data verification error'.
+            raise HTTPInsufficientStorage(json_body={
+                'error': 'verification_failure',
+                'error_description': str(e),
+            })
+
+        return {
+            'progress_percent': progress_percent,
+            'change_count': self.change_count,
+            'download_count': len(transfers_download['results']),
+            'more': more,
+            'first_sync_ts': transfers_download['first_sync_ts'],
+            'last_sync_ts': transfers_download['last_sync_ts'],
+        }
+
+
+class VerifySchema(colander.Schema):
+    verification_id = colander.SchemaNode(colander.String())
+    initial = colander.SchemaNode(colander.Boolean())
+    sync_ts = colander.SchemaNode(colander.DateTime())
+    # transfer_id specifies which transfers to download when the sync_ts
+    # is an exact match.
+    transfer_id = colander.SchemaNode(colander.String(), missing=None)
+    full = colander.SchemaNode(colander.Boolean(), missing=False)
+
+
+@view_config(
+    name='verify',
+    context=API,
+    permission=perms.use_app,
+    renderer='json')
+class VerifyAPI(SyncBase):
+    """Verify existing OPN transfer records have not changed."""
+    write_enabled = False
+
+    def __call__(self):
+        request = self.request
+
+        appstruct = VerifySchema().deserialize(request.json)
+        self.change_log = []
+
+        transfers_download = self.download_batch(
+            sync_ts_iso=appstruct['sync_ts'].isoformat() + 'Z',
+            sync_transfer_id=appstruct['transfer_id'],
+            count_remain=appstruct['initial'])
+
+        try:
+            self.import_transfer_records(transfers_download)
+            self.verify_batch(appstruct, transfers_download)
+
+        except VerificationFailure as e:
+            # HTTP error 507 is reasonably close to
+            # 'data verification error on the server'. HTTP error 507
+            # is also obscure enough that it probably won't be
+            # triggered by any other error.
+            raise HTTPInsufficientStorage(json_body={
+                'error': 'verification_failure',
+                'error_description': str(e),
+            })
+
+        if appstruct['initial']:
+            total_transfers = (
+                len(transfers_download['results']) +
+                transfers_download['remain'])
+        else:
+            total_transfers = None
+
+        return {
+            'total_transfers': total_transfers,
+            'change_count': self.change_count,
+            'change_log': self.change_log,
+            'download_count': len(transfers_download['results']),
+            'more': transfers_download['more'],
+            'first_sync_ts': transfers_download['first_sync_ts'],
+            'last_sync_ts': transfers_download['last_sync_ts'],
+        }
+
+    def verify_batch(self, appstruct, transfers_download):
+        """Perform additional verification of the batch.
+        """
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+        results = transfers_download['results']
+
+        now = datetime.datetime.utcnow()
+
+        (dbsession.query(TransferVerification)
+            .filter(TransferVerification.owner_id == owner.id)
+            .filter(TransferVerification.expires <= now)
+            .delete())
+
+        expires = now + datetime.timedelta(days=1)
+
+        dbsession.add(TransferVerification(
+            owner_id=owner.id,
+            verification_id=appstruct['verification_id'],
+            initial=appstruct['initial'],
+            transfer_ids=[item['id'] for item in results],
+            expires=expires,
+        ))
+
+        if not transfers_download['more'] and appstruct['full']:
+            # All transfers have been received. Look for transfers
+            # downloaded previously that were not included in the
+            # download.
+            rows = (
+                dbsession.query(TransferRecord.transfer_id)
+                .filter(TransferRecord.owner_id == owner.id)
+                .all())
+            old_transfer_ids = set(row[0] for row in rows)
+
+            rows = (
+                dbsession.query(TransferVerification.transfer_ids)
+                .filter(TransferVerification.owner_id == owner.id)
+                .filter(
+                    TransferVerification.verification_id ==
+                    appstruct['verification_id'])
+                .all())
+            new_transfer_ids = set.union(set(row[0]) for row in rows)
+
+            missing_transfer_ids = (
+                old_transfer_ids.difference(new_transfer_ids))
+
+            if missing_transfer_ids:
+                missing_list = sorted(missing_transfer_ids)
+                transfer_id = missing_list[0]
+                # Note that it's possible for clients to trigger
+                # this error inappropriately by downloading
+                # only part of the history while claiming all of
+                # the history was downloaded. Is that a serious issue?
+                msg = (
+                    "Verification failure in transfer %s. "
+                    "The transfer appears to be missing from OPN. "
+                    "Total missing transfers: %d, verification ID: %s" % (
+                        transfer_id,
+                        len(missing_list),
+                        appstruct['verification_id']))
+                log.error(msg)
+                raise VerificationFailure(msg, transfer_id=transfer_id)
 
 
 def find_internal_movements(movements, done_movement_ids):

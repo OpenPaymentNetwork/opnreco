@@ -60,7 +60,9 @@ class TestSyncAPI(unittest.TestCase):
                 'alias': 'myacct',
             }]}},
         )
-        return self._class(request)
+        obj = self._class(request)
+        obj.change_log = []
+        return obj
 
     @responses.activate
     def test_with_no_transfers(self):
@@ -1229,8 +1231,8 @@ class TestSyncAPI(unittest.TestCase):
             'peer_id': '11',
         }, events[-1].content)
 
-    def test_sync_error(self):
-        from ..syncapi import SyncError
+    def test_verification_failure_due_to_changed_workflow_type(self):
+        from pyramid.httpexceptions import HTTPInsufficientStorage
 
         def _make_transfer_result():
             return {
@@ -1297,9 +1299,11 @@ class TestSyncAPI(unittest.TestCase):
                     'first_sync_ts': '2018-08-01T04:05:10Z',
                     'last_sync_ts': '2018-08-01T04:05:11Z',
                 })
-            with self.assertRaisesRegexp(
-                    SyncError, r'Immutable attribute changed'):
+            with self.assertRaises(HTTPInsufficientStorage) as cm:
                 obj()
+            self.assertRegexpMatches(
+                cm.exception.json['error_description'],
+                r'Immutable attribute changed')
 
     def test_download_batches(self):
         from opnreco.models import db
