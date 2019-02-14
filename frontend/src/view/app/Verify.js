@@ -2,6 +2,7 @@
 import { compose } from '../../util/functional';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox';
 import FormControl from '@material-ui/core/FormControl';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -59,14 +60,57 @@ class Verify extends React.Component {
     this.setState({[attr]: event.target.value});
   }
 
+  handleForm = event => {
+  }
+
+  renderForm() {
+    const {
+      classes,
+    } = this.props;
+    const {state} = this;
+    const {running} = state;
+
+    return (
+      <Paper className={classes.contentPaper}>
+
+        <FormGroup row>
+
+          <FormControl disabled={running} className={classes.field}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={state.verifySync}
+                  onChange={this.handleCheckBox('verifySync')}
+                />
+              }
+              label="Verify Transfer Integrity"
+            />
+            <FormHelperText className={classes.checkboxHelperText}>
+              Test the integrity of transfers already downloaded from OPN.
+            </FormHelperText>
+          </FormControl>
+
+        </FormGroup>
+
+        <FormGroup row>
+          <Button
+            className={classes.button}
+            variant="contained"
+            onClick={this.handleForm}
+          >
+            Verify
+          </Button>
+        </FormGroup>
+
+        <div style={{height: 1}}></div>
+      </Paper>
+    );
+  }
+
   render() {
     const {
       classes,
     } = this.props;
-
-    const {state} = this;
-
-    const {running} = state;
 
     return (
       <div className={classes.root}>
@@ -75,29 +119,7 @@ class Verify extends React.Component {
         <OPNAppBar />
 
         <div className={classes.content}>
-          <Paper className={classes.contentPaper}>
-
-            <FormGroup row>
-
-              <FormControl disabled={running} className={classes.field}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={state.verifySync}
-                      onChange={this.handleCheckBox('verifySync')}
-                    />
-                  }
-                  label="Verify Transfer Integrity"
-                />
-                <FormHelperText className={classes.checkboxHelperText}>
-                  Test the integrity of transfers already downloaded from OPN.
-                </FormHelperText>
-              </FormControl>
-
-            </FormGroup>
-
-            <div style={{height: 1}}></div>
-          </Paper>
+          {this.renderForm()}
         </div>
       </div>
     );
