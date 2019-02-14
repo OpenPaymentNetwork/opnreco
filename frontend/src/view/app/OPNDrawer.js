@@ -6,6 +6,7 @@ import { fOPNReco } from '../../util/fetcher';
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import CompareArrows from '@material-ui/icons/CompareArrows';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
@@ -207,6 +208,11 @@ class OPNDrawer extends React.Component {
     this.props.history.push('/settings');
   }
 
+  handleVerify = () => {
+    this.props.dispatch(closeDrawer());
+    this.props.history.push('/verify');
+  }
+
   renderContent() {
     const {classes} = this.props;
     const syncUI = this.getSyncUI();
@@ -249,6 +255,14 @@ class OPNDrawer extends React.Component {
           <ListItemText
             primary={syncUI.primary}
             secondary={syncUI.secondary} />
+        </ListItem>
+
+        <ListItem
+          button
+          onClick={this.handleVerify}
+        >
+          <ListItemIcon><CompareArrows/></ListItemIcon>
+          <ListItemText primary="Verify" />
         </ListItem>
 
         <ListItem

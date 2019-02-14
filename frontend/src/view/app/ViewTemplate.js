@@ -34,7 +34,7 @@ class ViewTemplate extends React.Component {
         <OPNAppBar />
 
         <div className={classes.content}>
-          ViewTemplate.js a template for views.
+          ViewTemplate.js is a template for views.
         </div>
       </div>
     );

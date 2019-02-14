@@ -22,6 +22,7 @@ import Redirecting from './Redirecting';
 import ServerErrorDialog from './ServerErrorDialog';
 import Settings from '../settings/Settings';
 import TokenRefreshDialog from './TokenRefreshDialog';
+import Verify from './Verify';
 
 
 /* Theme based on https://material.io/tools/color/#!/
@@ -102,6 +103,7 @@ class App extends React.Component {
                 <Route path="/login" component={LoginView} />
                 <Route path="/oauth2cb" component={Redirecting} />
                 <Route path="/settings" component={Settings} />
+                <Route path="/verify" component={Verify} />
                 <Route path="/period/:periodId([0-9]+)/:tab(t)/:transferId" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)/:tab(statement)/:statementId" component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview|statement|internal)"

@@ -18,15 +18,16 @@ from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from opnreco.viewcommon import add_open_period
 from pyramid.decorator import reify
+from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.httpexceptions import HTTPInsufficientStorage
 from pyramid.view import view_config
-import colander
 import collections
 import datetime
 import logging
 import os
 import pytz
 import requests
+import uuid
 
 log = logging.getLogger(__name__)
 zero = Decimal()
@@ -845,12 +846,12 @@ class SyncAPI(SyncBase):
                 owner.sync_done += len_results
             owner.last_sync_ts = to_datetime(
                 transfers_download['last_sync_ts'])
-            owner.last_transfer_id = (
+            owner.last_sync_transfer_id = (
                 transfers_download['results'][-1]['id'])
             # Note: avoid division by zero.
-            progress_percent = int(
+            progress_percent = min(99, int(
                 100.0 * owner.sync_done / owner.sync_total
-                if owner.sync_total else 0.0)
+                if owner.sync_total else 0.0))
         else:
             owner.first_sync_ts = None
             owner.last_sync_transfer_id = None
@@ -911,16 +912,6 @@ class SyncAPI(SyncBase):
         }
 
 
-class VerifySchema(colander.Schema):
-    verification_id = colander.SchemaNode(colander.String())
-    initial = colander.SchemaNode(colander.Boolean())
-    sync_ts = colander.SchemaNode(colander.DateTime())
-    # transfer_id specifies which transfers to download when the sync_ts
-    # is an exact match.
-    transfer_id = colander.SchemaNode(colander.String(), missing=None)
-    full = colander.SchemaNode(colander.Boolean(), missing=False)
-
-
 @view_config(
     name='verify',
     context=API,
@@ -932,19 +923,65 @@ class VerifyAPI(SyncBase):
 
     def __call__(self):
         request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
 
-        appstruct = VerifySchema().deserialize(request.json)
+        self.now = datetime.datetime.utcnow()
+        self.expires = self.now + datetime.timedelta(days=1)
+
+        # Expire old verification records.
+        (dbsession.query(TransferVerification)
+            .filter(TransferVerification.owner_id == owner.id)
+            .filter(TransferVerification.expires <= self.now)
+            .delete())
+
         self.change_log = []
 
+        verification_id = request.params.get('verification_id')
+        if not verification_id:
+            # Start a new verification operation.
+            initial = True
+            verification_id = '%s.%s' % (
+                datetime.datetime.utcnow().isoformat(),
+                uuid.uuid4())
+
+            itvf = TransferVerification(
+                owner_id=owner.id,
+                verification_id=verification_id,
+                initial=True,
+                last_sync_ts=datetime.datetime(1970, 1, 1),
+                last_sync_transfer_id=None,
+                sync_done=0,
+                verified_transfer_ids=[],
+                expires=self.expires,
+            )
+            dbsession.add(itvf)
+
+        else:
+            # Continue a verification operation.
+            initial = False
+
+            itvf = (
+                dbsession.query(TransferVerification)
+                .filter(
+                    TransferVerification.owner_id == owner.id,
+                    TransferVerification.verification_id == verification_id,
+                    TransferVerification.initial,
+                )
+                .first())
+            if itvf is None:
+                raise HTTPBadRequest(json_body={
+                    'error': 'verification_id_not_found',
+                })
+
+        sync_ts_iso = itvf.last_sync_ts.isoformat() + 'Z'
         transfers_download = self.download_batch(
-            sync_ts_iso=appstruct['sync_ts'].isoformat() + 'Z',
-            sync_transfer_id=appstruct['transfer_id'],
-            count_remain=appstruct['initial'])
+            sync_ts_iso=sync_ts_iso,
+            sync_transfer_id=itvf.last_sync_transfer_id,
+            count_remain=initial)
 
         try:
             self.import_transfer_records(transfers_download)
-            self.verify_batch(appstruct, transfers_download)
-
         except VerificationFailure as e:
             # HTTP error 507 is reasonably close to
             # 'data verification error on the server'. HTTP error 507
@@ -955,15 +992,49 @@ class VerifyAPI(SyncBase):
                 'error_description': str(e),
             })
 
-        if appstruct['initial']:
-            total_transfers = (
-                len(transfers_download['results']) +
-                transfers_download['remain'])
+        len_results = len(transfers_download['results'])
+        verified_transfer_ids = [
+            item['id'] for item in transfers_download['results']]
+
+        if initial:
+            itvf.first_sync_ts = to_datetime(
+                transfers_download['first_sync_ts'])
+            itvf.sync_total = len_results + transfers_download['remain']
+            itvf.sync_done = len_results
+            itvf.verified_transfer_ids = verified_transfer_ids
         else:
-            total_transfers = None
+            itvf.sync_done += len_results
+            dbsession.add(TransferVerification(
+                owner_id=owner.id,
+                verification_id=verification_id,
+                initial=False,
+                verified_transfer_ids=verified_transfer_ids,
+                expires=self.expires,
+            ))
+
+        itvf.last_sync_ts = to_datetime(
+            transfers_download['last_sync_ts'])
+        itvf.last_sync_transfer_id = (
+            transfers_download['results'][-1]['id'])
+
+        if transfers_download['more']:
+            # Note: avoid division by zero.
+            progress_percent = min(99, int(
+                100.0 * itvf.sync_done / itvf.sync_total
+                if itvf.sync_total else 0.0))
+        else:
+            try:
+                self.verify_final(itvf)
+            except VerificationFailure as e:
+                raise HTTPInsufficientStorage(json_body={
+                    'error': 'verification_failure',
+                    'error_description': str(e),
+                })
+            progress_percent = 100
 
         return {
-            'total_transfers': total_transfers,
+            'verification_id': verification_id,
+            'progress_percent': progress_percent,
             'change_count': self.change_count,
             'change_log': self.change_log,
             'download_count': len(transfers_download['results']),
@@ -972,69 +1043,53 @@ class VerifyAPI(SyncBase):
             'last_sync_ts': transfers_download['last_sync_ts'],
         }
 
-    def verify_batch(self, appstruct, transfers_download):
-        """Perform additional verification of the batch.
+    def verify_final(self, itvf):
+        """Verify the entire download.
         """
         request = self.request
         dbsession = request.dbsession
         owner = request.owner
-        results = transfers_download['results']
 
-        now = datetime.datetime.utcnow()
+        # Look for transfers
+        # downloaded previously that were not included in the
+        # download.
+        rows = (
+            dbsession.query(TransferRecord.transfer_id)
+            .filter(TransferRecord.owner_id == owner.id)
+            .all())
+        old_transfer_ids = set(row[0] for row in rows)
 
-        (dbsession.query(TransferVerification)
-            .filter(TransferVerification.owner_id == owner.id)
-            .filter(TransferVerification.expires <= now)
-            .delete())
+        rows = (
+            dbsession.query(TransferVerification.verified_transfer_ids)
+            .filter(
+                TransferVerification.owner_id == owner.id,
+                TransferVerification.verification_id == itvf.verification_id,
+            )
+            .all())
+        new_transfer_ids = set.union(set(row[0]) for row in rows)
 
-        expires = now + datetime.timedelta(days=1)
+        missing_transfer_ids = (
+            old_transfer_ids.difference(new_transfer_ids))
 
-        dbsession.add(TransferVerification(
-            owner_id=owner.id,
-            verification_id=appstruct['verification_id'],
-            initial=appstruct['initial'],
-            transfer_ids=[item['id'] for item in results],
-            expires=expires,
-        ))
+        if not missing_transfer_ids:
+            return
 
-        if not transfers_download['more'] and appstruct['full']:
-            # All transfers have been received. Look for transfers
-            # downloaded previously that were not included in the
-            # download.
-            rows = (
-                dbsession.query(TransferRecord.transfer_id)
-                .filter(TransferRecord.owner_id == owner.id)
-                .all())
-            old_transfer_ids = set(row[0] for row in rows)
-
-            rows = (
-                dbsession.query(TransferVerification.transfer_ids)
-                .filter(TransferVerification.owner_id == owner.id)
-                .filter(
-                    TransferVerification.verification_id ==
-                    appstruct['verification_id'])
-                .all())
-            new_transfer_ids = set.union(set(row[0]) for row in rows)
-
-            missing_transfer_ids = (
-                old_transfer_ids.difference(new_transfer_ids))
-
-            if missing_transfer_ids:
-                missing_list = sorted(missing_transfer_ids)
-                transfer_id = missing_list[0]
-                # Note that it's possible for clients to trigger
-                # this error inappropriately by downloading
-                # only part of the history while claiming all of
-                # the history was downloaded. Is that a serious issue?
-                msg = (
-                    "Verification failure in transfer %s. "
-                    "The transfer appears to be missing from OPN. "
-                    "Total missing transfers: %d, verification ID: %s" % (
-                        transfer_id,
-                        len(missing_list),
-                        appstruct['verification_id']))
-                log.error(msg)
-                raise VerificationFailure(msg, transfer_id=transfer_id)
+        missing_list = sorted(missing_transfer_ids)
+        transfer_id = missing_list[0]
+        # Note that it's possible for clients to trigger
+        # this error inappropriately by downloading
+        # only part of the history while claiming all of
+        # the history was downloaded. Is that a serious issue?
+        msg = (
+            "Verification failure in transfer %s. "
+            "The transfer appears to be missing from OPN. "
+            "Total missing transfers: %d, verification ID: %s" % (
+                transfer_id,
+                len(missing_list),
+                itvf.verification_id,
+            ))
+        log.error(msg)
+        raise VerificationFailure(msg, transfer_id=transfer_id)
 
 
 def find_internal_movements(movements, done_movement_ids):
