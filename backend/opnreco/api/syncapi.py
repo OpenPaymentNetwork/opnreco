@@ -10,7 +10,7 @@ from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferDownloadRecord
 from opnreco.models.db import TransferRecord
-from opnreco.models.db import TransferVerification
+from opnreco.models.db import VerificationResult
 from opnreco.models.site import API
 from opnreco.util import check_requests_response
 from opnreco.util import to_datetime
@@ -928,57 +928,20 @@ class VerifyAPI(SyncBase):
 
         self.now = datetime.datetime.utcnow()
         self.expires = self.now + datetime.timedelta(days=1)
-
-        # Expire old verification records.
-        (dbsession.query(TransferVerification)
-            .filter(TransferVerification.owner_id == owner.id)
-            .filter(TransferVerification.expires <= self.now)
-            .delete())
-
         self.change_log = []
 
-        verification_id = request.params.get('verification_id')
-        if not verification_id:
-            # Start a new verification operation.
-            initial = True
-            verification_id = '%s.%s' % (
-                datetime.datetime.utcnow().isoformat(),
-                uuid.uuid4())
+        # Expire old verification records.
+        (dbsession.query(VerificationResult)
+            .filter(VerificationResult.owner_id == owner.id)
+            .filter(VerificationResult.expires <= self.now)
+            .delete())
 
-            itvf = TransferVerification(
-                owner_id=owner.id,
-                verification_id=verification_id,
-                initial=True,
-                last_sync_ts=datetime.datetime(1970, 1, 1),
-                last_sync_transfer_id=None,
-                sync_done=0,
-                verified_transfer_ids=[],
-                expires=self.expires,
-            )
-            dbsession.add(itvf)
-
-        else:
-            # Continue a verification operation.
-            initial = False
-
-            itvf = (
-                dbsession.query(TransferVerification)
-                .filter(
-                    TransferVerification.owner_id == owner.id,
-                    TransferVerification.verification_id == verification_id,
-                    TransferVerification.initial,
-                )
-                .first())
-            if itvf is None:
-                raise HTTPBadRequest(json_body={
-                    'error': 'verification_id_not_found',
-                })
-
-        sync_ts_iso = itvf.last_sync_ts.isoformat() + 'Z'
+        ivr, created = self.get_ivr()
+        sync_ts_iso = ivr.last_sync_ts.isoformat() + 'Z'
         transfers_download = self.download_batch(
             sync_ts_iso=sync_ts_iso,
-            sync_transfer_id=itvf.last_sync_transfer_id,
-            count_remain=initial)
+            sync_transfer_id=ivr.last_sync_transfer_id,
+            count_remain=created)
 
         try:
             self.import_transfer_records(transfers_download)
@@ -992,39 +955,17 @@ class VerifyAPI(SyncBase):
                 'error_description': str(e),
             })
 
-        len_results = len(transfers_download['results'])
-        verified_transfer_ids = [
-            item['id'] for item in transfers_download['results']]
-
-        if initial:
-            itvf.first_sync_ts = to_datetime(
-                transfers_download['first_sync_ts'])
-            itvf.sync_total = len_results + transfers_download['remain']
-            itvf.sync_done = len_results
-            itvf.verified_transfer_ids = verified_transfer_ids
-        else:
-            itvf.sync_done += len_results
-            dbsession.add(TransferVerification(
-                owner_id=owner.id,
-                verification_id=verification_id,
-                initial=False,
-                verified_transfer_ids=verified_transfer_ids,
-                expires=self.expires,
-            ))
-
-        itvf.last_sync_ts = to_datetime(
-            transfers_download['last_sync_ts'])
-        itvf.last_sync_transfer_id = (
-            transfers_download['results'][-1]['id'])
+        self.log_download(
+            ivr=ivr, created=created, transfers_download=transfers_download)
 
         if transfers_download['more']:
             # Note: avoid division by zero.
             progress_percent = min(99, int(
-                100.0 * itvf.sync_done / itvf.sync_total
-                if itvf.sync_total else 0.0))
+                100.0 * ivr.sync_done / ivr.sync_total
+                if ivr.sync_total else 0.0))
         else:
             try:
-                self.verify_final(itvf)
+                self.verify_final(ivr)
             except VerificationFailure as e:
                 raise HTTPInsufficientStorage(json_body={
                     'error': 'verification_failure',
@@ -1033,17 +974,108 @@ class VerifyAPI(SyncBase):
             progress_percent = 100
 
         return {
-            'verification_id': verification_id,
+            'verification_id': ivr.verification_id,
+            'sync_done': ivr.sync_done,
+            'sync_total': ivr.sync_total,
             'progress_percent': progress_percent,
             'change_count': self.change_count,
-            'change_log': self.change_log,
             'download_count': len(transfers_download['results']),
             'more': transfers_download['more'],
             'first_sync_ts': transfers_download['first_sync_ts'],
             'last_sync_ts': transfers_download['last_sync_ts'],
         }
 
-    def verify_final(self, itvf):
+    def get_ivr(self):
+        """Get the initial VerificationResult record.
+
+        Return (ivr, created).
+        """
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+
+        verification_id = request.params.get('verification_id')
+        if not verification_id:
+            # Start a new verification operation.
+            verification_id = '%s.%s' % (
+                datetime.datetime.utcnow().isoformat(),
+                uuid.uuid4())
+
+            ivr = VerificationResult(
+                owner_id=owner.id,
+                verification_id=verification_id,
+                initial=True,
+                last_sync_ts=datetime.datetime(1970, 1, 1),
+                last_sync_transfer_id=None,
+                sync_done=0,
+                verified={},
+                expires=self.expires,
+            )
+            dbsession.add(ivr)
+            created = True
+
+        else:
+            # Continue a verification operation.
+            ivr = (
+                dbsession.query(VerificationResult)
+                .filter(
+                    VerificationResult.owner_id == owner.id,
+                    VerificationResult.verification_id == verification_id,
+                    VerificationResult.initial,
+                )
+                .first())
+            if ivr is None:
+                raise HTTPBadRequest(json_body={
+                    'error': 'verification_id_not_found',
+                })
+            created = False
+
+        return ivr, created
+
+    def log_download(self, ivr, created, transfers_download):
+        """Log the results of the transfer download."""
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+
+        len_results = len(transfers_download['results'])
+        verified = {
+            item['id']: None
+            for item in transfers_download['results']}
+
+        for entry in self.change_log:
+            transfer_id = entry.get('transfer_id')
+            if transfer_id and transfer_id in verified:
+                transfer_changes = verified[transfer_id]
+                if transfer_changes is None:
+                    verified[transfer_id] = transfer_changes = []
+                entry_copy = {}
+                entry_copy.update(entry)
+                del entry_copy['transfer_id']
+                transfer_changes.append(entry_copy)
+
+        if created:
+            ivr.first_sync_ts = to_datetime(
+                transfers_download['first_sync_ts'])
+            ivr.sync_total = len_results + transfers_download['remain']
+            ivr.sync_done = len_results
+            ivr.verified = verified
+        else:
+            ivr.sync_done += len_results
+            dbsession.add(VerificationResult(
+                owner_id=owner.id,
+                verification_id=ivr.verification_id,
+                initial=False,
+                verified=verified,
+                expires=self.expires,
+            ))
+
+        ivr.last_sync_ts = to_datetime(
+            transfers_download['last_sync_ts'])
+        ivr.last_sync_transfer_id = (
+            transfers_download['results'][-1]['id'])
+
+    def verify_final(self, ivr):
         """Verify the entire download.
         """
         request = self.request
@@ -1057,19 +1089,19 @@ class VerifyAPI(SyncBase):
             dbsession.query(TransferRecord.transfer_id)
             .filter(TransferRecord.owner_id == owner.id)
             .all())
-        old_transfer_ids = set(row[0] for row in rows)
+        stored_transfer_ids = set(row[0] for row in rows)
 
         rows = (
-            dbsession.query(TransferVerification.verified_transfer_ids)
+            dbsession.query(VerificationResult.verified)
             .filter(
-                TransferVerification.owner_id == owner.id,
-                TransferVerification.verification_id == itvf.verification_id,
+                VerificationResult.owner_id == owner.id,
+                VerificationResult.verification_id == ivr.verification_id,
             )
             .all())
-        new_transfer_ids = set.union(set(row[0]) for row in rows)
+        verified_transfer_ids = set.union(*(set(row[0]) for row in rows))
 
         missing_transfer_ids = (
-            old_transfer_ids.difference(new_transfer_ids))
+            stored_transfer_ids.difference(verified_transfer_ids))
 
         if not missing_transfer_ids:
             return
@@ -1086,7 +1118,7 @@ class VerifyAPI(SyncBase):
             "Total missing transfers: %d, verification ID: %s" % (
                 transfer_id,
                 len(missing_list),
-                itvf.verification_id,
+                ivr.verification_id,
             ))
         log.error(msg)
         raise VerificationFailure(msg, transfer_id=transfer_id)

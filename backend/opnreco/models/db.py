@@ -707,12 +707,12 @@ Index(
     unique=True)
 
 
-class TransferVerification(Base):
+class VerificationResult(Base):
     """A short lived record of a transfer integrity verification operation.
 
     The operation spans multiple rows.
     """
-    __tablename__ = 'transfer_verification'
+    __tablename__ = 'verification_result'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(String, nullable=False)
     verification_id = Column(String, nullable=False, index=True)
@@ -727,7 +727,8 @@ class TransferVerification(Base):
     sync_total = Column(BigInteger, nullable=True)
     sync_done = Column(BigInteger, nullable=True)
 
-    verified_transfer_ids = Column(JSONB, nullable=False)
+    # verified: {transfer_id: null or change_log as [{event_type, ...}]}
+    verified = Column(JSONB, nullable=False)
     expires = Column(DateTime, nullable=False, index=True)
 
 
