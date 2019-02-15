@@ -1,6 +1,7 @@
 
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { dashed } from '../../util/transferfmt';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
 import { withRouter } from 'react-router';
@@ -8,6 +9,7 @@ import { withStyles } from '@material-ui/core/styles';
 import { verifyShowDetails } from '../../reducer/verify';
 import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import FormControl from '@material-ui/core/FormControl';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
@@ -35,6 +37,11 @@ const styles = {
     margin: '16px auto',
     maxWidth: 800,
     padding: '16px',
+  },
+
+  tablePaper: {
+    margin: '16px auto',
+    maxWidth: 800,
   },
 
   introText: {
@@ -74,6 +81,30 @@ const styles = {
   resultButtons: {
     margin: '16px 0',
   },
+
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    color: '#000',
+  },
+
+  headCell: {
+    border: '1px solid #bbb',
+    padding: '4px 8px',
+    fontWeight: 'normal',
+    backgroundColor: '#ddd',
+    textAlign: 'left',
+  },
+
+  cell: {
+    border: '1px solid #bbb',
+    padding: '4px 8px',
+  },
+
+  moreCell: {
+    border: '1px solid #bbb',
+    padding: '16px 8px',
+  },
 };
 
 
@@ -102,6 +133,10 @@ class Verify extends React.Component {
     };
   }
 
+  componentWillUnmount() {
+    this.setState({running: false});
+  }
+
   handleCheckBox = attr => event => {
     this.setState({[attr]: event.target.checked});
   }
@@ -120,6 +155,11 @@ class Verify extends React.Component {
     } else {
       this.props.dispatch(verifyShowDetails(this.state.verification_id, 1));
     }
+  }
+
+  handleMoreDetails = () => {
+    this.props.dispatch(verifyShowDetails(
+      this.state.verification_id, this.props.detailURLs.length + 1));
   }
 
   handleVerify = () => {
@@ -191,7 +231,7 @@ class Verify extends React.Component {
             <FormHelperText className={classes.checkboxHelperText}>
               Re-download the transfers from OPN and compare them with
               the transfer records downloaded previously. Verify no
-              transfers have inappropriately changed.
+              transfers have changed inappropriately.
             </FormHelperText>
           </FormControl>
 
@@ -268,6 +308,108 @@ class Verify extends React.Component {
     );
   }
 
+  renderDetails() {
+    const {
+      classes,
+      detailURLs,
+      detailContent,
+      detailLoading,
+      showDetails,
+    } = this.props;
+
+    const cellClass = classes.cell;
+
+    if (!showDetails) {
+      return null;
+    }
+
+    const rows = [];
+
+    let key = 0;
+    let lastURL = null;
+    for (const url of detailURLs) {
+      const content = detailContent[url];
+      if (!content) {
+        const loading = detailLoading[url];
+        if (loading) {
+          rows.push(
+            <tr key={url}>
+              <td colSpan="2" className={cellClass}>
+                <CircularProgress size={24} />
+              </td>
+            </tr>
+          );
+        }
+        continue;
+      }
+
+      const verified = detailContent[url].verified;
+      if (!verified) {
+        continue;
+      }
+
+      const transferIDs = Object.keys(verified);
+      transferIDs.sort();
+
+      for (const transferID of transferIDs) {
+        const tid = dashed(transferID);
+        const changes = verified[transferID];
+        const changesText = changes ? JSON.stringify(changes) : '-';
+        rows.push(
+          <tr key={key}>
+            <td className={cellClass}>
+              {tid}
+            </td>
+            <td className={cellClass}>
+              {changesText}
+            </td>
+          </tr>
+        );
+        key += 1;
+      }
+
+      lastURL = url;
+    }
+
+    if (lastURL && detailContent[lastURL] && detailContent[lastURL].more) {
+      rows.push(
+        <tr key="more">
+          <td colSpan="2" className={classes.moreCell}>
+            <Button
+              className={classes.button}
+              variant="contained"
+              onClick={this.handleMoreDetails}
+            >
+              View More
+            </Button>
+          </td>
+        </tr>
+      );
+    }
+
+    return (
+      <Paper className={classes.tablePaper}>
+        <Typography className={classes.root} component="div">
+          <table className={classes.table}>
+            <thead>
+              <tr>
+                <th className={classes.headCell} width="10%">
+                  Transfer
+                </th>
+                <th className={classes.headCell} width="90%">
+                  Changes Detected
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows}
+            </tbody>
+          </table>
+        </Typography>
+      </Paper>
+    );
+  }
+
   render() {
     const {
       classes,
@@ -276,7 +418,12 @@ class Verify extends React.Component {
 
     let results = null;
     if (this.state.sync_total || this.state.running) {
-      results = this.renderResults();
+      results = (
+        <div>
+          {this.renderResults()}
+          {this.renderDetails()}
+        </div>
+      );
     }
 
     return (

@@ -78,7 +78,6 @@ class SyncBase:
         postdata = {
             'sync_ts': sync_ts_iso,
             'transfer_id': sync_transfer_id,
-            'limit': 10,
         }
         if count_remain:
             postdata['count_remain'] = 'true'
@@ -164,6 +163,10 @@ class SyncBase:
                     "Transfer %s: bundled_transfers should be None or a list, "
                     "not %s" % (transfer_id, repr(bundled_transfers)))
 
+            bundle_transfer_id = tsum.get('bundle_transfer_id')
+            if bundle_transfer_id:
+                bundle_transfer_id = str(bundle_transfer_id)
+
             changed = []
             kw = {
                 'workflow_type': tsum['workflow_type'],
@@ -181,7 +184,7 @@ class SyncBase:
                 'recipient_uid': tsum['recipient_uid'] or None,
                 'recipient_info': tsum['recipient_info'],
                 'bundled_transfers': bundled_transfers,
-                'bundle_transfer_id': tsum.get('bundle_transfer_id'),
+                'bundle_transfer_id': bundle_transfer_id,
             }
 
             record = record_map.get(transfer_id)
