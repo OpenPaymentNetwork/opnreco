@@ -714,18 +714,20 @@ class VerificationResult(Base):
     """
     __tablename__ = 'verification_result'
     id = Column(BigInteger, nullable=False, primary_key=True)
+    created = Column(DateTime, nullable=False, server_default=now_func)
     owner_id = Column(String, nullable=False)
     verification_id = Column(String, nullable=False, index=True)
     initial = Column(Boolean, nullable=False)
 
     # first_sync_ts, last_sync_ts, last_sync_transfer_id, sync_done,
-    # and sync_total are set only for the initial batch of a
+    # sync_total, and internal_result are set only for the initial batch of a
     # verify operation.
     first_sync_ts = Column(DateTime, nullable=True)
     last_sync_ts = Column(DateTime, nullable=True)
     last_sync_transfer_id = Column(String, nullable=True)
     sync_total = Column(BigInteger, nullable=True)
     sync_done = Column(BigInteger, nullable=True)
+    internal_result = Column(JSONB, nullable=True)
 
     # verified: {transfer_id: null or change_log as [{event_type, ...}]}
     verified = Column(JSONB, nullable=False)

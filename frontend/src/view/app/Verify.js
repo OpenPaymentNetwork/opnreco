@@ -123,13 +123,14 @@ class Verify extends React.Component {
     super(props);
     this.state = {
       verifySync: true,
-      verifyPeriods: true,
+      verifyInternal: true,
       running: false,
       sync_done: 0,
       sync_total: null,
       progress_percent: null,
       error: null,
       verification_id: null,
+      internal_ok: null,
     };
   }
 
@@ -172,12 +173,15 @@ class Verify extends React.Component {
       progress_percent: null,
       error: null,
       verification_id: null,
+      internal_ok: null,
     });
     dispatch(verifyShowDetails(null, 0));
 
     let verification_id = null;
     const verifyBatch = () => {
       const action = fOPNReco.fetchPath('/verify', {data: {
+        verify_sync: this.state.verifySync,
+        verify_internal: this.state.verifyInternal,
         verification_id: verification_id,
       }});
       dispatch(action).then(status => {
@@ -187,6 +191,7 @@ class Verify extends React.Component {
           sync_done: status.sync_done,
           sync_total: status.sync_total,
           progress_percent: status.progress_percent,
+          internal_ok: status.internal_ok,
         });
         if (status.more && this.state.running) {
           verifyBatch();
@@ -213,7 +218,7 @@ class Verify extends React.Component {
       <Paper className={classes.contentPaper}>
 
         <Typography variant="body1" className={classes.introText}>
-          Use this form to test the integrity of this tool and OPN.
+          Use this form to test OPN and this tool.
         </Typography>
 
         <FormGroup row>
@@ -232,6 +237,27 @@ class Verify extends React.Component {
               Re-download the transfers from OPN and compare them with
               the transfer records downloaded previously. Verify no
               transfers have changed inappropriately.
+            </FormHelperText>
+          </FormControl>
+
+        </FormGroup>
+
+        <FormGroup row>
+
+          <FormControl disabled={running} className={classes.field}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={state.verifyInternal}
+                  onChange={this.handleCheckBox('verifyInternal')}
+                />
+              }
+              label="Verify Tool State"
+            />
+            <FormHelperText className={classes.checkboxHelperText}>
+              Ensure all standard reconciliations in this tool are balanced
+              and all periods start with the same balances
+              as the end balances of the previous period.
             </FormHelperText>
           </FormControl>
 
@@ -270,6 +296,11 @@ class Verify extends React.Component {
       progressText = 'transfers verified';
     }
 
+    let internalText = null;
+    if (state.internal_ok) {
+      internalText = 'Tool state OK.';
+    }
+
     return (
       <Paper className={classes.resultsPaper}>
         <Typography variant="h6">Results</Typography>
@@ -279,7 +310,7 @@ class Verify extends React.Component {
             value={state.progress_percent || 0} />
           <Typography variant="body1" className={classes.progressNumber}>
             {state.sync_done || 0} / {state.sync_total || 0} {progressText} (
-            {state.progress_percent || 0}%)
+            {state.progress_percent || 0}%). {internalText}
           </Typography>
 
           <FormGroup row className={classes.resultButtons}>
@@ -417,7 +448,7 @@ class Verify extends React.Component {
     } = this.props;
 
     let results = null;
-    if (this.state.sync_total || this.state.running) {
+    if (this.state.sync_total !== null || this.state.running) {
       results = (
         <div>
           {this.renderResults()}

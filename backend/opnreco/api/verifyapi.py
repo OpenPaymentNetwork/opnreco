@@ -1,14 +1,20 @@
 
 from opnreco.models import perms
+from opnreco.models.db import AccountEntry
+from opnreco.models.db import Movement
+from opnreco.models.db import Period
+from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
 from opnreco.models.db import VerificationResult
 from opnreco.models.site import API
 from opnreco.syncbase import SyncBase
 from opnreco.syncbase import VerificationFailure
 from opnreco.util import to_datetime
+from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.httpexceptions import HTTPInsufficientStorage
 from pyramid.view import view_config
+from sqlalchemy import func
 import datetime
 import uuid
 import logging
@@ -31,7 +37,7 @@ class VerifyAPI(SyncBase):
         owner = request.owner
 
         self.now = datetime.datetime.utcnow()
-        self.expires = self.now + datetime.timedelta(days=7)
+        self.expires = self.now + datetime.timedelta(days=1)
         self.change_log = []
 
         # Expire old verification records.
@@ -40,14 +46,16 @@ class VerifyAPI(SyncBase):
             .filter(VerificationResult.expires <= self.now)
             .delete())
 
-        ivr, created = self.get_ivr()
-        transfers_download = self.download_batch(
-            sync_ts_iso=ivr.last_sync_ts.isoformat() + 'Z',
-            sync_transfer_id=ivr.last_sync_transfer_id,
-            count_remain=created)
-
         try:
-            self.import_transfer_records(transfers_download)
+            ivr = self.ivr
+            if request.json.get('verify_sync'):
+                progress_percent, more = self.verify_sync()
+            else:
+                self.verify_internal()
+                progress_percent = 100
+                more = False
+                ivr.sync_done = 0
+                ivr.sync_total = 0
         except VerificationFailure as e:
             # HTTP error 507 is reasonably close to
             # 'data verification error on the server'. HTTP error 507
@@ -58,34 +66,14 @@ class VerifyAPI(SyncBase):
                 'error_description': str(e),
             })
 
-        self.log_download(
-            ivr=ivr, created=created, transfers_download=transfers_download)
-
-        if transfers_download['more']:
-            # Note: avoid division by zero.
-            progress_percent = min(99, int(
-                100.0 * ivr.sync_done / ivr.sync_total
-                if ivr.sync_total else 0.0))
-        else:
-            try:
-                self.verify_final(ivr)
-            except VerificationFailure as e:
-                raise HTTPInsufficientStorage(json_body={
-                    'error': 'verification_failure',
-                    'error_description': str(e),
-                })
-            progress_percent = 100
-
         return {
             'verification_id': ivr.verification_id,
             'sync_done': ivr.sync_done,
             'sync_total': ivr.sync_total,
             'progress_percent': progress_percent,
             'change_count': self.change_count,
-            'download_count': len(transfers_download['results']),
-            'more': transfers_download['more'],
-            'first_sync_ts': transfers_download['first_sync_ts'],
-            'last_sync_ts': transfers_download['last_sync_ts'],
+            'more': more,
+            'internal_ok': not not ivr.internal_result,
         }
 
     def get_ivr(self):
@@ -115,7 +103,7 @@ class VerifyAPI(SyncBase):
                 expires=self.expires,
             )
             dbsession.add(ivr)
-            created = True
+            created_ivr = True
 
         else:
             # Continue a verification operation.
@@ -132,12 +120,50 @@ class VerifyAPI(SyncBase):
                 raise HTTPBadRequest(json_body={
                     'error': 'verification_id_not_found',
                 })
-            created = False
+            created_ivr = False
 
-        return ivr, created
+        return ivr, created_ivr
 
-    def log_download(self, ivr, created, transfers_download):
-        """Log the results of the transfer download."""
+    @reify
+    def ivr(self):
+        ivr, created_ivr = self.get_ivr()
+        self.created_ivr = created_ivr
+        return ivr
+
+    @reify
+    def created_ivr(self):
+        ivr, created_ivr = self.get_ivr()
+        self.ivr = ivr
+        return created_ivr
+
+    def verify_sync(self):
+        """Compare transfer records."""
+        ivr = self.ivr
+        created_ivr = self.created_ivr
+
+        transfers_download = self.download_batch(
+            sync_ts_iso=ivr.last_sync_ts.isoformat() + 'Z',
+            sync_transfer_id=ivr.last_sync_transfer_id,
+            count_remain=created_ivr)
+
+        self.import_transfer_records(transfers_download)
+
+        self.log_download(transfers_download=transfers_download)
+
+        if transfers_download['more']:
+            # Note: avoid division by zero.
+            progress_percent = min(99, int(
+                100.0 * ivr.sync_done / ivr.sync_total
+                if ivr.sync_total else 0.0))
+        else:
+            self.verify_final()
+            progress_percent = 100
+
+        more = transfers_download['more']
+        return progress_percent, more
+
+    def log_download(self, transfers_download):
+        """Log the results of the transfer download in a VerificationResult."""
         request = self.request
         dbsession = request.dbsession
         owner = request.owner
@@ -158,7 +184,8 @@ class VerifyAPI(SyncBase):
                 del entry_copy['transfer_id']
                 transfer_changes.append(entry_copy)
 
-        if created:
+        ivr = self.ivr
+        if self.created_ivr:
             ivr.first_sync_ts = to_datetime(
                 transfers_download['first_sync_ts'])
             ivr.sync_total = len_results + transfers_download['remain']
@@ -179,12 +206,13 @@ class VerifyAPI(SyncBase):
         ivr.last_sync_transfer_id = (
             transfers_download['results'][-1]['id'])
 
-    def verify_final(self, ivr):
+    def verify_final(self):
         """Verify the entire download.
         """
         request = self.request
         dbsession = request.dbsession
         owner = request.owner
+        ivr = self.ivr
 
         # Look for transfers
         # downloaded previously that were not included in the
@@ -224,6 +252,90 @@ class VerifyAPI(SyncBase):
                 ))
             log.error(msg)
             raise VerificationFailure(msg, transfer_id=transfer_id)
+
+        if request.json.get('verify_internal'):
+            self.verify_internal()
+
+    def verify_internal(self):
+        """Verify the internal state of this tool."""
+
+        # Ensure all standard recos sum to zero.
+        request = self.request
+        dbsession = request.dbsession
+        owner = request.owner
+
+        movement_delta_c = Movement.wallet_delta + Movement.vault_delta
+        movement_subq = (
+            dbsession.query(func.sum(movement_delta_c).label('delta'))
+            .filter(Movement.reco_id == Reco.id)
+            .correlate(Reco)
+            .as_scalar())
+
+        entry_subq = (
+            dbsession.query(func.sum(AccountEntry.delta).label('delta'))
+            .filter(AccountEntry.reco_id == Reco.id)
+            .correlate(Reco)
+            .as_scalar())
+
+        row = (
+            dbsession.query(Reco.id)
+            .filter(
+                Reco.owner_id == owner.id,
+                Reco.reco_type == 'standard',
+                movement_subq + entry_subq != 0,
+            )
+            .order_by(Reco.id)
+            .first())
+
+        if row is not None:
+            [reco_id] = row
+            msg = (
+                "Reconciliation verification failure: "
+                "standard reconciliation %s is unbalanced." % reco_id)
+            raise VerificationFailure(msg, transfer_id=None)
+
+        # Ensure the balance at the start of every period matches the end
+        # of the previous period.
+
+        periods = (
+            dbsession.query(Period)
+            .filter(Period.owner_id == owner.id)
+            .order_by(
+                Period.peer_id,
+                Period.loop_id,
+                Period.currency,
+                Period.start_date)
+            .all())
+
+        ploop = ()  # (peer_id, loop_id, currency)
+        prev_period = None
+
+        for period in periods:
+            new_ploop = (period.peer_id, period.loop_id, period.currency)
+            if ploop != new_ploop:
+                # Start of a new sequence
+                prev_period = period
+                ploop = new_ploop
+                continue
+
+            if (period.start_circ != prev_period.end_circ or
+                    period.start_surplus != prev_period.end_surplus):
+                msg = (
+                    "Period balance verification failure: "
+                    "Period %s (start date %s) starts with balances of "
+                    "%s (circulation) and %s (surplus), "
+                    "but the previous period ends with "
+                    "%s (circulation) and %s (surplus)." % (
+                        period.id,
+                        period.start_date.isoformat(),
+                        period.start_circ, period.start_surplus,
+                        prev_period.end_circ, prev_period.end_surplus,
+                    ))
+                raise VerificationFailure(msg, transfer_id=None)
+
+        self.ivr.internal_result = {
+            'recos_ok': True, 'periods_ok': True,
+        }
 
 
 @view_config(
