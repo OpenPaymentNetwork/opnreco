@@ -8,7 +8,7 @@ Build the software using Buildout:
     cd backend
     python3 -m venv .
     bin/pip install -r requirements.txt
-    bin/buildout
+    bin/buildout -c buildout-dev.cfg
     cd ..
 
 Once the backend is built successfully, build the frontend:
@@ -17,13 +17,13 @@ Once the backend is built successfully, build the frontend:
     npm i
     cd ..
 
-To run in development mode, open two terminals. The first terminal will run
-the backend:
+To run in development mode, open two terminals. Run the backend in the
+first terminal:
 
     cd backend
     bin/pserve --reload development.ini
 
-The second terminal will run the frontend:
+Run the frontend in a second terminal:
 
     cd frontend
     npm start
