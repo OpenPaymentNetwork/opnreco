@@ -1,4 +1,10 @@
 
+1.5.0 (2019-02-16)
+------------------
+
+- Added the Verify feature. It compares transfers previously downloaded
+  with OPN. It also tests the internal consistency of the tool.
+
 1.4.0 (2019-02-08)
 ------------------
 
