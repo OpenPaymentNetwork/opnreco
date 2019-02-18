@@ -66,6 +66,11 @@ const styles = {
     marginBottom: '16px',
   },
 
+  resultsProgress: {
+    marginLeft: '16px',
+    marginTop: '-4px',
+  },
+
   progressBox: {
     padding: '8px 0',
   },
@@ -303,7 +308,12 @@ class Verify extends React.Component {
 
     return (
       <Paper className={classes.resultsPaper}>
-        <Typography variant="h6">Results</Typography>
+        <Typography variant="h6">
+          Results
+          {state.running &&
+            <CircularProgress size={24} className={classes.resultsProgress} />
+          }
+        </Typography>
         <div className={classes.progressBox}>
           <LinearProgress
             variant="determinate"

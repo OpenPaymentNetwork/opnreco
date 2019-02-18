@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 class VerifyAPI(SyncBase):
     """Verify existing OPN transfer records have not changed."""
     write_enabled = False
+    batch_limit = 100
 
     def __call__(self):
         request = self.request
@@ -307,15 +308,20 @@ class VerifyAPI(SyncBase):
                 Period.start_date)
             .all())
 
-        ploop = ()  # (peer_id, loop_id, currency)
+        prev_ploop = ()  # (peer_id, loop_id, currency)
         prev_period = None
 
         for period in periods:
-            new_ploop = (period.peer_id, period.loop_id, period.currency)
-            if ploop != new_ploop:
+            ploop = (period.peer_id, period.loop_id, period.currency)
+            if ploop != prev_ploop:
                 # Start of a new sequence
+                prev_ploop = ploop
                 prev_period = period
-                ploop = new_ploop
+                continue
+
+            if not prev_period.closed:
+                # The previous balance is still fluctuating.
+                prev_period = period
                 continue
 
             if (period.start_circ != prev_period.end_circ or
@@ -332,6 +338,8 @@ class VerifyAPI(SyncBase):
                         prev_period.end_circ, prev_period.end_surplus,
                     ))
                 raise VerificationFailure(msg, transfer_id=None)
+
+            prev_period = period
 
         self.ivr.internal_result = {
             'recos_ok': True, 'periods_ok': True,

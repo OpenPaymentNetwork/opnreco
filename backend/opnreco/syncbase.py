@@ -42,6 +42,7 @@ class SyncBase:
     """
     write_enabled = True
     change_log = None  # A list for use in verification
+    batch_limit = None
 
     def __init__(self, request):
         self.request = request
@@ -81,6 +82,8 @@ class SyncBase:
         }
         if count_remain:
             postdata['count_remain'] = 'true'
+        if self.batch_limit:
+            postdata['limit'] = self.batch_limit
 
         r = requests.post(
             url,
