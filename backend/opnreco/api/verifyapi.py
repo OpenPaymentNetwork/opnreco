@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 class VerifyAPI(SyncBase):
     """Verify existing OPN transfer records have not changed."""
     write_enabled = False
-    batch_limit = 100
+    batch_limit = 250
 
     def __call__(self):
         request = self.request

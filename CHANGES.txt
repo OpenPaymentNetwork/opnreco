@@ -1,4 +1,16 @@
 
+1.5.2 (2019-02-19)
+------------------
+
+- Sped up verification by reducing the number of SQL round trips.
+
+- Clear the verification state when switching profiles.
+
+1.5.1 (2019-02-18)
+------------------
+
+- Corrected the internal state verification.
+
 1.5.0 (2019-02-16)
 ------------------
 

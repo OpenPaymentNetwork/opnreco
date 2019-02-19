@@ -107,11 +107,14 @@ class SyncBase:
 
         record_list = (
             dbsession.query(TransferRecord)
-            .filter(TransferRecord.owner_id == owner_id)
-            .filter(TransferRecord.transfer_id.in_(transfer_ids))
+            .filter(
+                TransferRecord.owner_id == owner_id,
+                TransferRecord.transfer_id.in_(transfer_ids),
+            )
             .all())
 
         record_map = {record.transfer_id: record for record in record_list}
+        existing_movements_map = self.get_existing_movements_map(transfer_ids)
 
         # peer_ids is the set of all peer IDs referenced by the transfers.
         peer_ids = set(['c'])  # Include the 'c' peer
@@ -249,9 +252,36 @@ class SyncBase:
                     changed=changed))
 
             if record is not None:
-                self.import_movements(record, tsum, new_record=new_record)
+                self.import_movements(
+                    record, tsum,
+                    new_record=new_record,
+                    existing_movements=existing_movements_map[record.id])
 
         dbsession.flush()
+
+    def get_existing_movements_map(self, transfer_ids):
+        """List all movements recorded for the given transfer IDs.
+
+        Return a defaultdict: {transfer_record_id: [Movement]}.
+        """
+        dbsession = self.request.dbsession
+        owner_id = self.owner_id
+
+        all_movements = (
+            dbsession.query(Movement)
+            .join(
+                TransferRecord,
+                TransferRecord.id == Movement.transfer_record_id)
+            .filter(
+                TransferRecord.owner_id == owner_id,
+                TransferRecord.transfer_id.in_(transfer_ids))
+            .all())
+
+        res = collections.defaultdict(list)
+        for m in all_movements:
+            res[m.transfer_record_id].append(m)
+
+        return res
 
     @reify
     def account_map(self):
@@ -378,24 +408,20 @@ class SyncBase:
                             'changes': changes,
                         }))
 
-    def import_movements(self, record, item, new_record):
+    def import_movements(self, record, item, new_record, existing_movements):
         transfer_id = item['id']
         dbsession = self.request.dbsession
         write_enabled = self.write_enabled
         change_log = self.change_log
 
         # Prepare movement_dict, a dict of movements already imported.
-        rows = (
-            dbsession.query(Movement)
-            .filter_by(transfer_record_id=record.id)
-            .all())
-        # movement_rows: {
+        # movement_dict: {
         #     (number, amount_index, peer_id, orig_peer_id,
         #      loop_id, currency, issuer_id):
         #     Movement
         # }
         movement_dict = {}
-        for movement in rows:
+        for movement in existing_movements:
             row_key = (
                 movement.number,
                 movement.amount_index,
@@ -478,6 +504,7 @@ class SyncBase:
                         )
                         dbsession.add(movement)
                         movement_dict[row_key] = movement
+                        existing_movements.append(movement)
 
                     self.change_count += 1
                     if change_log is not None:

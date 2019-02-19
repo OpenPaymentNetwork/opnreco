@@ -122,6 +122,7 @@ class Verify extends React.Component {
     detailURLs: PropTypes.array,
     detailContent: PropTypes.object,
     detailLoading: PropTypes.object,
+    loginId: PropTypes.string,
   };
 
   constructor(props) {
@@ -130,6 +131,12 @@ class Verify extends React.Component {
       verifySync: true,
       verifyInternal: true,
       running: false,
+      ...this.getStartState(),
+    };
+  }
+
+  getStartState() {
+    return {
       sync_done: 0,
       sync_total: null,
       progress_percent: null,
@@ -137,6 +144,16 @@ class Verify extends React.Component {
       verification_id: null,
       internal_ok: null,
     };
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.loginId !== this.props.loginId) {
+      // A different profile was selected. Reset the verification state.
+      this.setState({
+        running: false,
+        ...this.getStartState(),
+      });
+    }
   }
 
   componentWillUnmount() {
@@ -173,12 +190,7 @@ class Verify extends React.Component {
 
     this.setState({
       running: true,
-      sync_done: 0,
-      sync_total: null,
-      progress_percent: null,
-      error: null,
-      verification_id: null,
-      internal_ok: null,
+      ...this.getStartState(),
     });
     dispatch(verifyShowDetails(null, 0));
 
@@ -506,6 +518,7 @@ function mapStateToProps(state) {
     detailContent,
     detailLoading,
     showDetails: detailURLs.length > 0,
+    loginId: state.login.id,
   };
 }
 
