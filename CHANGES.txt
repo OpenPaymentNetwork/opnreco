@@ -1,4 +1,14 @@
 
+1.5.3 (2019-03-13)
+------------------
+
+- Statement upload now allows an empty content type. (Sometimes
+  browsers don't provide the content type.)
+
+- When the user sets an end date for a previously open-ended period,
+  and the app creates a new period, the app will now automatically
+  pull movements and account entries into the new period.
+
 1.5.2 (2019-02-19)
 ------------------
 

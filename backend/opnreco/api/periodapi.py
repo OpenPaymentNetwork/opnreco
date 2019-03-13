@@ -591,18 +591,30 @@ def edit_period(request, period, appstruct, event_type, adding_period=False):
     # If the user is editing the period (not adding) and there is no
     # longer an open-ended period, create it now.
     if not adding_period and end_date is not None:
-        if end_date is not None:
-            args = {
-                'request': request,
-                'peer_id': period.peer_id,
-                'loop_id': period.loop_id,
-                'currency': period.currency,
-            }
-            if not open_end_period_exists(**args):
-                add_open_period(
-                    event_type='add_period_on_edit',
-                    has_vault=period.has_vault,
-                    **args)
+        next_period_args = {
+            'request': request,
+            'peer_id': period.peer_id,
+            'loop_id': period.loop_id,
+            'currency': period.currency,
+        }
+        if not open_end_period_exists(**next_period_args):
+            next_period = add_open_period(
+                event_type='add_period_on_edit',
+                has_vault=period.has_vault,
+                **next_period_args)
+            # Pull unreconciled items into the automatically created period.
+            # (Feature requested by Lexi.)
+            configure_dblog(request, event_type='pull_unreco')
+            move_counts['pull_next_unreco_movements'] = (
+                pull_unreco_and_ineligible(
+                    request=request,
+                    period=next_period,
+                    op=movement_op))
+            move_counts['pull_next_unreco_account_entries'] = (
+                pull_unreco_and_ineligible(
+                    request=request,
+                    period=next_period,
+                    op=account_entry_op))
 
     dbsession.add(OwnerLog(
         owner_id=owner_id,

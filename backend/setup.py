@@ -21,7 +21,7 @@ requires = [
 
 setup(
     name='opnreco',
-    version='1.5.2',
+    version='1.5.3',
     description='OPN Reconciliation Tool',
     classifiers=[
         "Programming Language :: Python",
