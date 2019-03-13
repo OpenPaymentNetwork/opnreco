@@ -779,13 +779,15 @@ class StatementUploadSchema(colander.Schema):
     b64 = colander.SchemaNode(colander.String())
     name = colander.SchemaNode(
         colander.String(),
-        validator=colander.Length(max=1000))
+        validator=colander.Length(min=0, max=1000),
+        missing='')
     size = colander.SchemaNode(
         colander.Integer(),
         missing=None)
     type = colander.SchemaNode(
         colander.String(),
-        validator=colander.Length(max=1000))
+        validator=colander.Length(max=1000),
+        missing='')
 
 
 @view_config(
