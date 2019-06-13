@@ -170,10 +170,18 @@ class RecoPopover extends React.Component {
   }
 
   updatePopoverPosition = () => {
-    const {dragged, popoverActions} = this.state;
-    if (!dragged && popoverActions && popoverActions.updatePosition) {
-      popoverActions.updatePosition();
+    if (!this.state.dragged) {
+      // Trigger popup reposition
+      window.dispatchEvent(new Event('resize'));
     }
+    // Here is the old way that doesn't work as of Material-UI v4
+    // because the updatePosition() callback does nothing until
+    // the popover sees a browser resize event:
+    //
+    // const {dragged, popoverActions} = this.state;
+    // if (!dragged && popoverActions && popoverActions.updatePosition) {
+    //   popoverActions.updatePosition();
+    // }
   }
 
   /**
@@ -590,43 +598,44 @@ class RecoPopover extends React.Component {
 /**
  * Wrapper 1 for mixing Fade and Draggable
  */
-function FadeDrag1(props) {
-  const {children, onDragStart, ...rest} = props;
-  return (
-    <Fade {...rest}>
-      <FadeDrag2 onDragStart={onDragStart}>
-        {children}
-      </FadeDrag2>
-    </Fade>);
+class FadeDrag1 extends React.Component {
+  static propTypes = {
+    children: PropTypes.node.isRequired,
+    onDragStart: PropTypes.func,
+  }
+
+  render() {
+    const {children, onDragStart, ...rest} = this.props;
+    return (
+      <Fade {...rest}>
+        <FadeDrag2 onDragStart={onDragStart}>
+          {children}
+        </FadeDrag2>
+      </Fade>);
+  }
 }
-
-
-FadeDrag1.propTypes = {
-  children: PropTypes.node.isRequired,
-  onDragStart: PropTypes.func,
-};
-
 
 /**
  * Wrapper 2 for mixing Fade and Draggable
  */
-function FadeDrag2(props) {
-  // Render Draggable with specific props.
-  const {children, onDragStart, ...rest} = props;
-  return (
-    <Draggable
-      handle=".titlebar"
-      onStart={onDragStart}
-    >
-      {React.cloneElement(children, rest)}
-    </Draggable>);
+class FadeDrag2 extends React.Component {
+  static propTypes = {
+    children: PropTypes.node.isRequired,
+    onDragStart: PropTypes.func,
+  }
+
+  render() {
+    // Render Draggable with specific props.
+    const {children, onDragStart, ...rest} = this.props;
+    return (
+      <Draggable
+        handle=".titlebar"
+        onStart={onDragStart}
+      >
+        {React.cloneElement(children, rest)}
+      </Draggable>);
+  }
 }
-
-
-FadeDrag2.propTypes = {
-  children: PropTypes.node.isRequired,
-  onDragStart: PropTypes.func,
-};
 
 
 function mapStateToProps(state, ownProps) {
