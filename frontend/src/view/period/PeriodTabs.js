@@ -266,7 +266,7 @@ class PeriodTabs extends React.Component {
       <Tabs
         className={classes.tabs}
         value={tab}
-        scrollable
+        variant="scrollable"
         scrollButtons="auto"
         onChange={this.handleTabChange}
       >
