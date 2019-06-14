@@ -44,7 +44,8 @@ null = None
 
 
 class Owner(Base):
-    """Info about an OPN profile that has used this tool."""
+    """Info about an OPN profile (individual or business) who uses this tool.
+    """
     __tablename__ = 'owner'
     # id is an OPN profile ID.
     id = Column(String, nullable=False, primary_key=True)
@@ -63,13 +64,10 @@ class Owner(Base):
     # sync_done is the number of transfer records downloaded
     # successfully in this sync operation.
     sync_done = Column(BigInteger, nullable=False, default=0)
-    # If show_non_circ_with_circ is true, the owner can select
-    # both non-circulation and circulation peers.
-    show_non_circ_with_circ = Column(Boolean, nullable=False, default=False)
 
 
 class OwnerLog(Base):
-    """Log of an event related to an owner.
+    """Log of events related to an owner.
 
     Logging is done by the application rather than triggers because
     we often want only one log entry for a change to several tables.
@@ -110,7 +108,7 @@ class Peer(Base):
 
 
 class Loop(Base):
-    """Info about a cash design loop."""
+    """Info about a cash design (loop)."""
     __tablename__ = 'loop'
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, primary_key=True)
@@ -123,27 +121,37 @@ class Loop(Base):
     last_update = Column(DateTime, nullable=True)
 
 
+class File(Base):
+    """A reconciliation file.
+    """
+    __tablename__ = 'file'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
+    title = Column(Unicode, nullable=False)
+    currency = Column(String, nullable=False)
+    loop_id = Column(String, nullable=True)
+    peer_id = Column(String, nullable=True)
+
+    # has_vault becomes true if money ever moves in or out of the
+    # vault connected with this file.
+    has_vault = Column(Boolean, nullable=False, default=False)
+
+    removed = Column(Boolean, nullable=False, default=False)
+
+
 class Period(Base):
     """A time-boxed record of movements in OPN transfers.
 
-    Holds the reconciliations created for a peer loop during the specified
+    Holds the reconciliations created for a file during the specified
     time period.
     """
     __tablename__ = 'period'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    owner_id = Column(String, ForeignKey('owner.id'), nullable=False)
-    # peer_id is either an OPN holder ID or
-    # the letter 'c' for circulating.
-    peer_id = Column(String, nullable=False)
-    loop_id = Column(String, nullable=False)
-    currency = Column(String, nullable=False)
-
-    # has_vault becomes true if money ever moves in or out of the
-    # vault connected with this period. (has_vault is an attr of Period rather
-    # than Peer because an issuer might hold notes of multiple
-    # currencies / loops, but issue only one currency / loop.)
-    # The value of has_vault spreads to other periods of the same peer.
-    has_vault = Column(Boolean, nullable=False, default=False)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, index=True)
 
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -177,9 +185,7 @@ class Period(Base):
 Index(
     'ix_period_single_unbounded_start_date',
     Period.owner_id,
-    Period.peer_id,
-    Period.loop_id,
-    Period.currency,
+    Period.file_id,
     postgresql_where=(Period.start_date == null),
     unique=True)
 
@@ -187,20 +193,16 @@ Index(
 Index(
     'ix_period_single_unbounded_end_date',
     Period.owner_id,
-    Period.peer_id,
-    Period.loop_id,
-    Period.currency,
+    Period.file_id,
     postgresql_where=(Period.end_date == null),
     unique=True)
 
 
 Index(
     # This index is needed for foreign keys.
-    'ix_period_peer_fk_lookup',
+    'ix_period_file_fk_lookup',
     Period.id,
-    Period.peer_id,
-    Period.loop_id,
-    Period.currency,
+    Period.file_id,
     unique=True)
 
 
@@ -215,7 +217,8 @@ class TransferRecord(Base):
     """
     __tablename__ = 'transfer_record'
     id = Column(BigInteger, nullable=False, primary_key=True)
-    owner_id = Column(String, ForeignKey('owner.id'), nullable=False)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
     transfer_id = Column(String, nullable=False)
 
     workflow_type = Column(String, nullable=False)    # Never changes
@@ -286,22 +289,9 @@ class TransferDownloadRecord(Base):
 
 
 class Movement(Base):
-    """A movement in a transfer record.
-
-    Note: two rows are created for every movement, one for the actual peer,
-    and one for the 'c' peer ('c' means 'circulation' or 'common'). This
-    doubling reflects the fact that the user may need to run a separate
-    reconciliation for the circulation account and the peer account.
-
-    The UI should do what it can to show only one of the two reconciliations;
-    for example, if the peer has no vault, the circulation reconciliation
-    should not be shown; as another example, if the peer is a wallet rather
-    than a DFI account, the peer reconciliation should not be shown.
-
-    Note: most fields of Movement are immutable. Only period_id,
-    reco_id, and circ_reco_id are mutable.
+    """The immutable content of a movement in a transfer record.
     """
-    __tablename__ = 'movement'
+    __tablename__ = 'movement_content'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
@@ -316,23 +306,56 @@ class Movement(Base):
     # incrementing amount_index.
     amount_index = Column(Integer, nullable=False)
 
-    # peer_id is either an OPN profile ID or 'c' (for 'common' or
-    # 'circulation'). The 'c' row is the doubled row.
-    peer_id = Column(String, nullable=False)
-    # orig_peer_id is an OPN profile ID, never 'c'.
-    orig_peer_id = Column(
-        String, CheckConstraint(
-            "orig_peer_id != 'c'", name='orig_peer_id_not_c'),
-        nullable=False)
+    # # peer_id is either an OPN profile ID or 'c' (for 'common' or
+    # # 'circulation'). The 'c' row is the doubled row.
+    # peer_id = Column(String, nullable=False)
+
+    # # orig_peer_id is an OPN profile ID.
+    # orig_peer_id = Column(
+    #     String, CheckConstraint(
+    #         "orig_peer_id != 'c'", name='orig_peer_id_not_c'),
+    #     nullable=False)
+
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
     issuer_id = Column(String, nullable=False)
-
     from_id = Column(String, nullable=True)  # Null for issuance
     to_id = Column(String, nullable=False)
     amount = Column(Numeric, nullable=False)
     action = Column(String, nullable=False)
     ts = Column(DateTime, nullable=False)
+
+    transfer_record = relationship(TransferRecord)
+
+
+Index(
+    'ix_movement_unique',
+    Movement.transfer_record_id,
+    Movement.number,
+    Movement.amount_index,
+    Movement.loop_id,
+    Movement.currency,
+    Movement.issuer_id,
+    unique=True)
+
+
+class FileMovement(Base):
+    """A movement applied to a period in a file."""
+    __tablename__ = 'file_movement'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'), nullable=False)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False)
+
+    # peer_id is an OPN profile ID.
+    peer_id = Column(
+        # The peer_id_not_c constraint helps prevent bad migrations from
+        # a former design that used a peer_id of 'c'.
+        String, CheckConstraint("peer_id != 'c'", name='peer_id_not_c'),
+        nullable=False)
 
     # The delta is positive for movements into the wallet or vault
     # or negative for movements out of the wallet or vault.
@@ -356,19 +379,11 @@ class Movement(Base):
     # For vault_only, surplus_delta is equal to vault_delta,
     # meaning either money was circulated without adding to the account
     # (leading to a deficit, or decrease in surplus), or
-    # month was removed from circulation without removing it from the account
+    # money was removed from circulation without removing it from the account
     # (leading to an increase in surplus, or a reduction of the deficit).
     surplus_delta = Column(Numeric, nullable=False)
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            # This FK ensures the peer_id, loop_id, and currency
-            # match the period.
-            ['period_id', 'peer_id', 'loop_id', 'currency'],
-            ['period.id', 'period.peer_id', 'period.loop_id',
-             'period.currency'],
-            name='match_period',
-        ),
         ForeignKeyConstraint(
             # This FK ensures the period_id matches the reco.
             ['reco_id', 'period_id'],
@@ -386,39 +401,31 @@ class Movement(Base):
         ), name='surplus_delta_value'),
         {})
 
-    transfer_record = relationship(TransferRecord)
-
 
 Index(
-    'ix_movement_unique',
-    Movement.transfer_record_id,
-    Movement.number,
-    Movement.amount_index,
-    Movement.peer_id,
-    Movement.orig_peer_id,
-    Movement.loop_id,
-    Movement.currency,
-    Movement.issuer_id,
+    'ix_file_movement_unique',
+    FileMovement.movement_id,
+    FileMovement.file_id,
     unique=True)
 
 
-class MovementLog(Base):
-    """Log of changes to a movement.
+class FileMovementLog(Base):
+    """Log of changes to a file movement.
 
     Logging is done by a trigger because we want exhaustive logs for
     movement changes.
     """
-    __tablename__ = 'movement_log'
+    __tablename__ = 'file_movement_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
-    movement_id = Column(
-        BigInteger, ForeignKey('movement.id'),
+    file_movement_id = Column(
+        BigInteger, ForeignKey('file_movement.id'),
         nullable=False, index=True)
     # personal_id is the OPN personal profile ID.
     personal_id = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
 
-    # Mutable fields of movement rows
+    # Mutable fields of file movement rows
     period_id = Column(BigInteger, nullable=False, index=True)
     reco_id = Column(BigInteger, nullable=True, index=True)
     surplus_delta = Column(Numeric, nullable=False)
@@ -428,13 +435,13 @@ class MovementLog(Base):
 
 # See: https://stackoverflow.com/questions/1295795 (trigger format)
 # Also: https://stackoverflow.com/questions/7888846/trigger-in-sqlachemy
-movement_log_ddl = DDL("""
-create or replace function movement_log_process() returns trigger
+file_movement_log_ddl = DDL("""
+create or replace function file_movement_log_process() returns trigger
 as $triggerbody$
 begin
     if (TG_OP = 'DELETE') then
-        insert into movement_log (
-            movement_id,
+        insert into file_movement_log (
+            file_movement_id,
             personal_id,
             event_type,
             period_id,
@@ -449,8 +456,8 @@ begin
             old.surplus_delta;
         return old;
     elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
-        insert into movement_log (
-            movement_id,
+        insert into file_movement_log (
+            file_movement_id,
             personal_id,
             event_type,
             period_id,
@@ -469,11 +476,11 @@ begin
 end;
 $triggerbody$ language plpgsql;
 
-create trigger movement_log_trigger
-after insert or update or delete on movement
-    for each row execute procedure movement_log_process();
+create trigger file_movement_log_trigger
+after insert or update or delete on file_movement
+    for each row execute procedure file_movement_log_process();
 """)
-event.listen(Movement.__table__, 'after_create', movement_log_ddl)
+event.listen(FileMovement.__table__, 'after_create', file_movement_log_ddl)
 
 
 class Statement(Base):
@@ -482,14 +489,10 @@ class Statement(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
-    # peer_id is either an OPN holder ID or
-    # the letter 'c' for circulating.
-    peer_id = Column(String, nullable=False)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, index=True)
     period_id = Column(
-        BigInteger, ForeignKey('period.id'),
-        nullable=False, index=True)
-    loop_id = Column(String, nullable=False)
-    currency = Column(String, nullable=False)
+        BigInteger, ForeignKey('period.id'), nullable=False, index=True)
     source = Column(Unicode, nullable=True)  # 'manual' or some external ID
 
     # upload_ts, filename, content_type, and content are set on upload.
@@ -498,17 +501,6 @@ class Statement(Base):
     content_type = Column(String, nullable=True)
     content = deferred(Column(LargeBinary, nullable=True))
 
-    __table_args__ = (
-        ForeignKeyConstraint(
-            # This FK ensures the peer_id, loop_id, and currency
-            # match the period.
-            ['period_id', 'peer_id', 'loop_id', 'currency'],
-            ['period.id', 'period.peer_id', 'period.loop_id',
-             'period.currency'],
-            name='match_period',
-        ),
-        {})
-
 
 class AccountEntry(Base):
     """An entry in an account statement."""
@@ -516,11 +508,8 @@ class AccountEntry(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
-    peer_id = Column(String, nullable=False)
-    period_id = Column(BigInteger, nullable=False, index=True)
     statement_id = Column(
-        BigInteger, ForeignKey('statement.id'),
-        nullable=False, index=True)
+        BigInteger, ForeignKey('statement.id'), nullable=False, index=True)
     sheet = Column(String, nullable=True)
     row = Column(Integer, nullable=True)
 
@@ -546,14 +535,6 @@ class AccountEntry(Base):
     period = relationship(Period)
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            # This FK ensures the peer_id, loop_id, and currency
-            # match the period.
-            ['period_id', 'peer_id', 'loop_id', 'currency'],
-            ['period.id', 'period.peer_id', 'period.loop_id',
-             'period.currency'],
-            name='match_period',
-        ),
         ForeignKeyConstraint(
             # This FK ensures the period_id matches the reco.
             ['reco_id', 'period_id'],
@@ -585,7 +566,6 @@ class AccountEntryLog(Base):
 
     # Mutable fields of AccountEntry
 
-    period_id = Column(BigInteger, nullable=False, index=True)
     statement_id = Column(BigInteger, nullable=True, index=True)
     sheet = Column(String, nullable=True)
     row = Column(Integer, nullable=True)
@@ -604,7 +584,6 @@ begin
             account_entry_id,
             personal_id,
             event_type,
-            period_id,
             statement_id,
             sheet,
             row,
@@ -617,7 +596,6 @@ begin
             old.id,
             current_setting('opnreco.personal_id'),
             current_setting('opnreco.account_entry.event_type'),
-            old.period_id,
             old.statement_id,
             old.sheet,
             old.row,
@@ -631,7 +609,6 @@ begin
             account_entry_id,
             personal_id,
             event_type,
-            period_id,
             statement_id,
             sheet,
             row,
@@ -644,7 +621,6 @@ begin
             new.id,
             current_setting('opnreco.personal_id'),
             current_setting('opnreco.account_entry.event_type'),
-            new.period_id,
             new.statement_id,
             new.sheet,
             new.row,

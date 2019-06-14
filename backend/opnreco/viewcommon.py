@@ -506,8 +506,8 @@ def get_period_for_day(period_list, day, default_endless=True):
     return default
 
 
-def open_end_period_exists(request, peer_id, loop_id, currency):
-    """Return true if an open end period exists."""
+def open_end_period_exists(request, file_id):
+    """Return true if an open-ended period exists."""
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
@@ -516,29 +516,18 @@ def open_end_period_exists(request, peer_id, loop_id, currency):
         dbsession.query(func.count(Period.id))
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == peer_id,
-            Period.loop_id == loop_id,
-            Period.currency == currency,
+            Period.file_id == file_id,
             Period.end_date == null,
         )
         .one())
     return row[0]
 
 
-def add_open_period(
-        request,
-        peer_id,
-        loop_id,
-        currency,
-        event_type,
-        has_vault=False):
+def add_open_period(request, file_id, event_type):
     """Add a new period.
 
     Base it on the end date and end balances of the period with the
     newest end date.
-
-    The has_vault parameter is forced to true if the previous period has
-    a vault.
     """
     dbsession = request.dbsession
     owner = request.owner
@@ -548,17 +537,13 @@ def add_open_period(
         dbsession.query(Period)
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == peer_id,
-            Period.loop_id == loop_id,
-            Period.currency == currency,
+            Period.file_id == file_id,
             Period.end_date != null,
         )
         .order_by(Period.end_date.desc())
         .first())
 
     if prev is not None:
-        if prev.has_vault:
-            has_vault = True
         next_start_date = prev.end_date + datetime.timedelta(days=1)
         if prev.closed:
             next_start_circ = prev.end_circ
@@ -578,13 +563,10 @@ def add_open_period(
 
     period = Period(
         owner_id=owner_id,
-        peer_id=peer_id,
-        loop_id=loop_id,
-        currency=currency,
+        file_id=file_id,
         start_date=next_start_date,
         start_circ=next_start_circ,
-        start_surplus=next_start_surplus,
-        has_vault=has_vault)
+        start_surplus=next_start_surplus)
     dbsession.add(period)
     dbsession.flush()  # Assign period.id
 
@@ -594,9 +576,7 @@ def add_open_period(
         event_type=event_type,
         content={
             'period_id': period.id,
-            'peer_id': peer_id,
-            'loop_id': loop_id,
-            'currency': currency,
+            'file_id': file_id,
             'start_date': next_start_date,
             'start_circ': next_start_circ,
             'start_surplus': next_start_surplus,
@@ -616,9 +596,7 @@ def list_assignable_periods(dbsession, owner_id, period):
             dbsession.query(Period)
             .filter(
                 Period.owner_id == owner_id,
-                Period.peer_id == period.peer_id,
-                Period.currency == period.currency,
-                Period.loop_id == period.loop_id,
+                Period.file_id == period.file_id,
                 ~Period.closed,
             )
             .order_by(Period.start_date.desc())
@@ -646,7 +624,7 @@ def configure_dblog(
         event_type=None,
         movement_event_type=None,
         account_entry_event_type=None):
-    """Set variables for logging in database triggers."""
+    """Set the variables for trigger-driven logging."""
     columns = [
         func.set_config('opnreco.personal_id', request.personal_id, True),
     ]
