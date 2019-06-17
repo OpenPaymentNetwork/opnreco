@@ -1,7 +1,7 @@
 
 
 from opnreco.models.site import Site
-from opnreco.models.site import FrontendFile
+from opnreco.models.site import StaticFile
 from pyramid.httpexceptions import HTTPNotFound
 from pyramid.response import FileResponse
 from pyramid.response import Response
@@ -38,12 +38,12 @@ def index_html(request):
     return response
 
 
-@view_config(name='', context=FrontendFile)
-def frontend_file_view(context, request):
-    """Get a top level frontend file like favicon.ico"""
+@view_config(name='', context=StaticFile)
+def static_file_view(context, request):
+    """Get a top level static file like favicon.ico"""
     frontend_build = get_frontend_build()
     fn = os.path.join(frontend_build, context.__name__)
-    return make_file_response(fn, request)
+    return make_static_file_response(fn, request)
 
 
 @view_config(name='static', context=Site)
@@ -59,13 +59,13 @@ def static_file_view(context, request):
 
     fn = os.path.join(frontend_build, 'static', *subpath)
 
-    return make_file_response(fn, request, cache_control='public')
+    return make_static_file_response(fn, request, cache_control='public')
 
 
 gzip_cache = {}  # {frontend file name: {mtime, size, gzipped_content}}
 
 
-def make_file_response(fn, request, cache_control='no-store'):
+def make_static_file_response(fn, request, cache_control='no-store'):
     pos = fn.rfind('.')
     if pos >= 0:
         ext = fn[pos:]

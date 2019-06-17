@@ -1,5 +1,6 @@
 
 from opnreco.models import perms
+from opnreco.models.db import File
 from opnreco.models.db import Period
 from pyramid.decorator import reify
 from pyramid.security import Allow
@@ -8,7 +9,7 @@ from pyramid.security import DENY_ALL
 from weakref import ref
 import re
 
-frontend_file_re = re.compile(
+static_file_re = re.compile(
     r'^[a-zA-Z0-9\-.]+\.(json|js|ico|html|txt)$')
 
 
@@ -28,8 +29,8 @@ class Site:
     def __getitem__(self, name):
         if name == 'api':
             return self.api
-        elif frontend_file_re.match(name):
-            return FrontendFile(self, name)
+        elif static_file_re.match(name):
+            return StaticFile(self, name)
         raise KeyError(name)
 
     @reify
@@ -37,7 +38,7 @@ class Site:
         return API(self)
 
 
-class FrontendFile:
+class StaticFile:
     def __init__(self, site, name):
         self.__parent__ = site
         self.__name__ = name
@@ -53,11 +54,17 @@ class API:
     def __getitem__(self, name):
         if name == 'period':
             return self.periods
+        elif name == 'file':
+            return self.files
         raise KeyError(name)
 
     @reify
     def periods(self):
         return PeriodCollection(self, 'period')
+
+    @reify
+    def files(self):
+        return FileCollection(self, 'file')
 
 
 class ResourceCollection:
@@ -109,7 +116,7 @@ class PeriodResource:
         period = self.period
         if period.closed:
             return [
-                (Allow, self.period.owner_id, (
+                (Allow, period.owner_id, (
                     perms.view_period,
                     perms.reopen_period,
                 )),
@@ -117,9 +124,46 @@ class PeriodResource:
             ]
         else:
             return [
-                (Allow, self.period.owner_id, (
+                (Allow, period.owner_id, (
                     perms.view_period,
                     perms.edit_period,
                 )),
                 DENY_ALL,
             ]
+
+
+class FileCollection(ResourceCollection):
+    @reify
+    def __acl__(self):
+        return [
+            (Allow, Authenticated, perms.create_file),
+            DENY_ALL,
+        ]
+
+    def load(self, resource_id):
+        dbsession = self.request_ref().dbsession
+        row = (
+            dbsession.query(File)
+            .filter(File.id == resource_id)
+            .first()
+        )
+        if row is None:
+            return None
+        return FileResource(self, str(resource_id), row)
+
+
+class FileResource:
+    def __init__(self, parent, name, file):
+        self.__parent__ = parent
+        self.__name__ = name
+        self.file = file
+
+    @reify
+    def __acl__(self):
+        return [
+            (Allow, self.file.owner_id, (
+                perms.view_file,
+                perms.edit_file,
+            )),
+            DENY_ALL,
+        ]

@@ -41,7 +41,16 @@ class Test_detect_date_overlap(unittest.TestCase):
             username='testowner',
         )
         dbsession.add(owner)
+        dbsession.flush()
 
+        file = db.File(
+            id=1239,
+            owner_id=owner.id,
+            title='Test File',
+            currency='USD',
+            loop_id='0',
+            peer_id=None)
+        dbsession.add(file)
         dbsession.flush()
 
         peer = db.Peer(
@@ -60,10 +69,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         self.p2014 = p2014 = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
             start_date=None,
             end_date=datetime.date(2014, 12, 31),
         )
@@ -71,10 +77,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         self.p2016 = p2016 = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
             start_date=datetime.date(2016, 1, 1),
             end_date=datetime.date(2016, 12, 31),
         )
@@ -82,10 +85,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         self.p2018 = p2018 = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
             start_date=datetime.date(2018, 1, 1),
             end_date=None,
         )
@@ -100,10 +100,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -121,10 +118,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -142,10 +136,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -163,10 +154,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -184,10 +172,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -205,10 +190,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -226,10 +208,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -247,10 +226,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -268,10 +244,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -289,10 +262,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -310,10 +280,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -331,10 +298,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -352,10 +316,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -373,10 +334,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -405,10 +363,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(
@@ -426,10 +381,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
-            has_vault=True,
+            file_id=1239,
         )
 
         conflict_row = self._call(

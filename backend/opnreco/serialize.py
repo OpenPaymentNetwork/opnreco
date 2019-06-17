@@ -9,7 +9,7 @@ def serialize_period(period, end_amounts=None):
 
     end_amounts is an optional dict of {'circ', 'surplus'} containing
     the computed end_circ and end_surplus values. If end_amounts is not
-    provided and the end amounts are stored as null, The end amounts
+    provided and the end amounts are stored as null, the end amounts
     will be None.
     """
     end_circ = period.end_circ
@@ -30,10 +30,7 @@ def serialize_period(period, end_amounts=None):
     return {
         'id': str(period.id),
         'owner_id': period.owner_id,
-        'peer_id': period.peer_id,
-        'loop_id': period.loop_id,
-        'currency': period.currency,
-        'has_vault': period.has_vault,
+        'file_id': str(period.file_id),
         'start_date': period.start_date,
         'end_date': period.end_date,
         'start_circ': period.start_circ,

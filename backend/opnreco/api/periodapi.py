@@ -2,17 +2,16 @@
 from decimal import Decimal
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import now_func
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import Statement
-from opnreco.models.site import API
+from opnreco.models.site import FileResource
 from opnreco.models.site import PeriodResource
 from opnreco.param import get_offset_limit
 from opnreco.param import parse_amount
-from opnreco.param import parse_ploop_key
 from opnreco.reassign import AccountEntryReassignOp
 from opnreco.reassign import MovementReassignOp
 from opnreco.reassign import pull_recos
@@ -45,14 +44,14 @@ null = None
 
 @view_config(
     name='period-list',
-    context=API,
-    permission=perms.use_app,
+    context=FileResource,
+    permission=perms.view_file,
     renderer='json')
-def period_list_api(request):
+def period_list_api(context, request):
     """Return a page of periods for a ploop.
     """
     params = request.params
-    peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
+    file = context.file
     offset, limit = get_offset_limit(params)
 
     owner = request.owner
@@ -65,9 +64,7 @@ def period_list_api(request):
         dbsession.query(Period)
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == peer_id,
-            Period.loop_id == loop_id,
-            Period.currency == currency,
+            Period.file_id == file.id,
         )
         .order_by(func.coalesce(Period.start_date, future).desc())
     )
@@ -137,9 +134,7 @@ def period_list_api(request):
         )
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == peer_id,
-            Period.loop_id == loop_id,
-            Period.currency == currency,
+            Period.file_id == file.id,
         )
         .one())
     if last_end_row.endless:
@@ -220,20 +215,17 @@ def period_state_api(context, request):
                 case([
                     (and_(
                         # Ignore movements not eligible for reconciliation.
-                        Movement.vault_delta == 0,
-                        Movement.wallet_delta == 0,
+                        FileMovement.vault_delta == 0,
+                        FileMovement.wallet_delta == 0,
                     ), null),
                     (Reco.id == null, 1),
                 ], else_=null)).label('unreconciled'),
         )
-        .select_from(Movement)
-        .outerjoin(Reco, Reco.id == Movement.reco_id)
+        .select_from(FileMovement)
+        .outerjoin(Reco, Reco.id == FileMovement.reco_id)
         .filter(
-            Movement.owner_id == owner_id,
-            Movement.peer_id == period.peer_id,
-            Movement.loop_id == period.loop_id,
-            Movement.currency == period.currency,
-            Movement.period_id == period_id,
+            FileMovement.owner_id == owner_id,
+            FileMovement.period_id == period_id,
         )
         .one())
 
@@ -244,9 +236,6 @@ def period_state_api(context, request):
         )
         .filter(
             AccountEntry.owner_id == owner_id,
-            AccountEntry.peer_id == period.peer_id,
-            AccountEntry.loop_id == period.loop_id,
-            AccountEntry.currency == period.currency,
             AccountEntry.period_id == period_id,
         )
         .one())
@@ -373,9 +362,7 @@ def detect_date_overlap(dbsession, period, new_start_date, new_end_date):
         dbsession.query(Period.id)
         .filter(
             Period.owner_id == period.owner_id,
-            Period.peer_id == period.peer_id,
-            Period.currency == period.currency,
-            Period.loop_id == period.loop_id,
+            Period.file_id == period.file_id,
             Period.id != period.id,
             has_overlap(),
         )
@@ -442,15 +429,14 @@ def period_save(context, request):
 
 @view_config(
     name='period-add',
-    context=API,
-    permission=perms.use_app,
+    context=FileResource,
+    permission=perms.edit_file,
     renderer='json')
-def period_add_api(request):
+def period_add_api(context, request):
     """Add a period."""
-    params = request.params
-    peer_id, loop_id, currency = parse_ploop_key(params.get('ploop_key'))
+    file = context.file
 
-    schema = PeriodAddSchema().bind(currency=currency)
+    schema = PeriodAddSchema().bind(currency=file.currency)
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
@@ -458,28 +444,12 @@ def period_add_api(request):
 
     owner_id = request.owner.id
 
-    has_vault_count_row = (
-        request.dbsession.query(func.count(1))
-        .filter(
-            Period.owner_id == owner_id,
-            Period.peer_id == peer_id,
-            Period.loop_id == loop_id,
-            Period.currency == currency,
-            Period.has_vault,
-        )
-        .one())
-
-    has_vault = bool(has_vault_count_row[0])
-
     period = Period(
         owner_id=owner_id,
-        peer_id=peer_id,
-        loop_id=loop_id,
-        currency=currency,
+        file_id=file.id,
         start_date=appstruct['start_date'],
         end_date=appstruct['end_date'],
         closed=False,
-        has_vault=has_vault,
     )
 
     balances = get_prev_end_balances(request=request, next_period=period)
@@ -622,9 +592,7 @@ def edit_period(request, period, appstruct, event_type, adding_period=False):
         event_type=event_type,
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'start_date': period.start_date,
             'start_circ': period.start_circ,
             'start_surplus': period.start_surplus,
@@ -658,9 +626,7 @@ def update_next_period(request, prev_period, totals):
         dbsession.query(Period)
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == prev_period.peer_id,
-            Period.loop_id == prev_period.loop_id,
-            Period.currency == prev_period.currency,
+            Period.file_id == prev_period.file_id,
             Period.start_date > prev_period.end_date,
         )
         .order_by(Period.start_date)
@@ -676,8 +642,7 @@ def update_next_period(request, prev_period, totals):
             content={
                 'prev_period_id': prev_period.id,
                 'period_id': next_period.id,
-                'peer_id': next_period.peer_id,
-                'loop_id': next_period.loop_id,
+                'file_id': next_period.file_id,
                 'currency': next_period.currency,
                 'start_circ': next_period.start_circ,
                 'start_surplus': next_period.start_surplus,
@@ -700,9 +665,7 @@ def get_prev_end_balances(request, next_period):
             dbsession.query(Period)
             .filter(
                 Period.owner_id == owner_id,
-                Period.peer_id == next_period.peer_id,
-                Period.loop_id == next_period.loop_id,
-                Period.currency == next_period.currency,
+                Period.file_id == next_period.file_id,
                 Period.end_date < next_period.start_date,
             )
             .order_by(Period.end_date.desc())
@@ -753,9 +716,7 @@ def period_reopen(context, request):
         event_type='period_reopen',
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'start_date': period.start_date,
             'start_circ': period.start_circ,
             'start_surplus': period.start_surplus,
@@ -814,9 +775,7 @@ def period_delete(context, request):
         event_type='period_delete',
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'start_date': period.start_date,
             'start_circ': period.start_circ,
             'start_surplus': period.start_surplus,
