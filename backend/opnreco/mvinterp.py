@@ -5,6 +5,7 @@ from opnreco.models.db import Movement
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.viewcommon import add_open_period
+from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from pyramid.decorator import reify
 import collections
@@ -74,10 +75,21 @@ class MovementInterpreter:
 
         to_reconcile = []  # [(file_movement, movement)]
 
+        configured = False
+
         for movement in movements:
             file_movement = file_movements.get(movement.id)
             if file_movement is None:
                 kw = self.interpret(movement)
+                if not kw:
+                    # This movement has no effect on the reconciliation file.
+                    continue
+
+                if not configured:
+                    configure_dblog(
+                        request=self.request, movement_event_type='add')
+                    configured = True
+
                 file_movement = FileMovement(
                     owner_id=self.owner_id,
                     movement_id=movement.id,
@@ -86,6 +98,7 @@ class MovementInterpreter:
                 dbsession.add(file_movement)
             to_reconcile.append((file_movement, movement))
 
+        configure_dblog(request=self.request, movement_event_type='autoreco')
         self.autoreco(
             record=record,
             movement_rows=to_reconcile,
@@ -93,11 +106,15 @@ class MovementInterpreter:
 
     def interpret(self, movement):
         """Compute the FileMovement attrs for a Movement in this File.
-        """
-        day = movement.ts.replace(tzinfo=pytz.utc).astimezone(
-            self.timezone).date()
 
+        Return None if this movement has no effect on the reconciliation
+        in this File.
+        """
         from_id = movement.from_id
+        if not from_id:
+            # Issuance movement.
+            return None
+
         to_id = movement.to_id
         owner_id = self.owner_id
         issuer_id = movement.issuer_id
@@ -105,11 +122,7 @@ class MovementInterpreter:
         wallet_delta = zero
         vault_delta = zero
 
-        if not from_id:
-            # Issuance movement.
-            peer_id = to_id
-
-        elif from_id == owner_id and to_id != owner_id:
+        if from_id == owner_id and to_id != owner_id:
             peer_id = to_id
             if from_id == issuer_id:
                 # Notes were put into circulation.
@@ -130,9 +143,10 @@ class MovementInterpreter:
         else:
             # The owner is observing a movement, but the movement
             # does not involve the owner's wallet or vault.
-            # Use the issuer as the peer, but don't record any
-            # wallet or vault movement.
-            peer_id = issuer_id
+            return None
+
+        if not vault_delta and not wallet_delta:
+            return None
 
         loop_id = movement.loop_id
         currency = movement.currency
@@ -143,13 +157,11 @@ class MovementInterpreter:
         if currency != file.currency or (
                 file_loop_id and loop_id != file_loop_id) or (
                 file_peer_id and peer_id != file_peer_id):
-            # This movement is not applicable to this file,
-            # so include it, but not with any wallet or vault
-            # delta.
-            peer_id = issuer_id
-            wallet_delta = zero
-            vault_delta = zero
+            # This movement is not applicable to this file.
+            return None
 
+        day = movement.ts.replace(tzinfo=pytz.utc).astimezone(
+            self.timezone).date()
         period = self.get_open_period(day=day)
         period_id = period.id
 
@@ -201,12 +213,10 @@ class MovementInterpreter:
 
         self.period_list.append(period)
         self.periods[day] = period
-        self.change_count += 1
-        if self.change_log is not None:
-            self.change_log.append({
-                'event_type': 'add_period',
-                'period_id': period.id,
-            })
+        self.change_log.append({
+            'event_type': 'add_period',
+            'period_id': period.id,
+        })
 
         return period
 
@@ -265,7 +275,7 @@ class MovementInterpreter:
 
             reco = Reco(
                 owner_id=self.owner_id,
-                period_id=mvlist[0].period_id,
+                period_id=mvlist[0][0].period_id,
                 reco_type='standard',
                 internal=True)
             dbsession.add(reco)
@@ -277,12 +287,10 @@ class MovementInterpreter:
                 file_movement.reco_id = reco_id
 
         if added:
-            self.change_count += 1
-            if self.change_log is not None:
-                self.change_log.append({
-                    'event_type': 'reco_add',
-                    'reco_id': reco_id,
-                })
+            self.change_log.append({
+                'event_type': 'reco_add',
+                'reco_id': reco_id,
+            })
             dbsession.flush()
 
 
@@ -321,7 +329,7 @@ def find_internal_movements(movement_rows, done_file_movement_ids):
     for row in movement_rows:
         file_movement, movement = row
         if file_movement.wallet_delta or file_movement.vault_delta:
-            key = (movement.peer_id, movement.loop_id, movement.currency)
+            key = (file_movement.peer_id, movement.loop_id, movement.currency)
             groups[key].append(row)
 
     # all_internal_seqs is a list of movement sequences that

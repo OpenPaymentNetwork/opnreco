@@ -10,7 +10,6 @@ from opnreco.models.db import TransferRecord
 from opnreco.mvinterp import MovementInterpreter
 from opnreco.util import check_requests_response
 from opnreco.util import to_datetime
-from opnreco.viewcommon import configure_dblog
 from pyramid.decorator import reify
 import collections
 import logging
@@ -38,7 +37,6 @@ class SyncBase:
     movements have not changed.
     """
     write_enabled = True
-    change_log = None  # A list for use in verification
     batch_limit = None
 
     def __init__(self, request):
@@ -46,7 +44,7 @@ class SyncBase:
         self.owner = owner = request.owner
         self.owner_id = owner.id
         self.api_url = os.environ['opn_api_url']
-        self.change_count = 0
+        self.change_log = []
 
         # peers is a cache of {peer_id: Peer}.
         self.peers = {}
@@ -183,12 +181,10 @@ class SyncBase:
                     dbsession.add(record)
                     dbsession.flush()  # Assign record.id
                     record_map[transfer_id] = record
-                self.change_count += 1
-                if change_log is not None:
-                    change_log.append({
-                        'event_type': 'transfer_add',
-                        'transfer_id': transfer_id,
-                    })
+                change_log.append({
+                    'event_type': 'transfer_add',
+                    'transfer_id': transfer_id,
+                })
 
             else:
                 # Update a TransferRecord.
@@ -213,13 +209,11 @@ class SyncBase:
                         changed_map[attr] = value
                 if changed_map:
                     changed.append(changed_map)
-                    self.change_count += 1
-                    if change_log is not None:
-                        change_log.append({
-                            'event_type': 'transfer_changes',
-                            'transfer_id': transfer_id,
-                            'changes': sorted(changed_map.keys()),
-                        })
+                    change_log.append({
+                        'event_type': 'transfer_changes',
+                        'transfer_id': transfer_id,
+                        'changes': sorted(changed_map.keys()),
+                    })
 
             if write_enabled:
                 dbsession.add(TransferDownloadRecord(
@@ -320,12 +314,10 @@ class SyncBase:
                 last_update=now_func,
             )
             dbsession.add(peer)
-            self.change_count += 1
-            if self.change_log is not None:
-                self.change_log.append({
-                    'event_type': 'peer_add',
-                    'peer_id': peer_id,
-                })
+            self.change_log.append({
+                'event_type': 'peer_add',
+                'peer_id': peer_id,
+            })
             self.peers[peer_id] = peer
 
             dbsession.add(OwnerLog(
@@ -370,12 +362,10 @@ class SyncBase:
             if attrs_found:
                 peer.last_update = now_func
                 if changes:
-                    self.change_count += 1
-                    if self.change_log is not None:
-                        self.change_log.append({
-                            'event_type': 'peer_update',
-                            'peer_id': peer_id,
-                        })
+                    self.change_log.append({
+                        'event_type': 'peer_update',
+                        'peer_id': peer_id,
+                    })
                     dbsession.add(OwnerLog(
                         owner_id=self.owner_id,
                         personal_id=self.request.personal_id,
@@ -407,8 +397,6 @@ class SyncBase:
             )
             movement_dict[row_key] = movement
         movements_unseen = set(movement_dict.keys())
-
-        configure_dblog(request=self.request, movement_event_type='download')
 
         item_movements = item['movements'] or ()
 
@@ -473,13 +461,11 @@ class SyncBase:
                         movement_dict[row_key] = movement
                         existing_movements.append(movement)
 
-                    self.change_count += 1
-                    if change_log is not None:
-                        change_log.append({
-                            'event_type': 'movement_add',
-                            'transfer_id': transfer_id,
-                            'movement_number': number,
-                        })
+                    change_log.append({
+                        'event_type': 'movement_add',
+                        'transfer_id': transfer_id,
+                        'movement_number': number,
+                    })
 
         if movements_unseen:
             old_movement_numbers = sorted(
@@ -496,8 +482,6 @@ class SyncBase:
 
         if write_enabled:
             dbsession.flush()  # Assign the movement IDs and log the movements
-            configure_dblog(
-                request=self.request, movement_event_type='autoreco')
             for interpreter in self.interpreters:
                 interpreter.add_file_movements(
                     record=record,
@@ -592,6 +576,5 @@ class SyncBase:
             MovementInterpreter(
                 request=self.request,
                 file=file,
-                change_log=self.change_log,
-                write_enabled=self.write_enabled)
+                change_log=self.change_log)
             for file in files]

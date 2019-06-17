@@ -126,7 +126,7 @@ class SyncAPI(SyncBase):
             content={
                 'sync_ts': sync_ts_iso,
                 'progress_percent': progress_percent,
-                'change_count': self.change_count,
+                'change_count': len(self.change_log),
                 'transfers': {
                     'ids': sorted(
                         t['id'] for t in transfers_download['results']),
@@ -149,7 +149,7 @@ class SyncAPI(SyncBase):
 
         return {
             'progress_percent': progress_percent,
-            'change_count': self.change_count,
+            'change_count': len(self.change_log),
             'download_count': len(transfers_download['results']),
             'more': more,
             'first_sync_ts': transfers_download['first_sync_ts'],

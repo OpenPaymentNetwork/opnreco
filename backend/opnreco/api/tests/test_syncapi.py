@@ -37,6 +37,7 @@ class TestSyncAPI(unittest.TestCase):
 
     def _make(self, owner_id='11'):
         from opnreco.models.db import Owner
+        from opnreco.models.db import File
 
         owner = Owner(
             id=owner_id,
@@ -44,6 +45,16 @@ class TestSyncAPI(unittest.TestCase):
             username='testy',
         )
         self.dbsession.add(owner)
+        self.dbsession.flush()
+
+        file = File(
+            id=1239,
+            owner_id=owner_id,
+            title='Test File',
+            currency='USD',
+            loop_id='0',
+            peer_id=None)
+        self.dbsession.add(file)
         self.dbsession.flush()
 
         request = pyramid.testing.DummyRequest(
@@ -181,7 +192,6 @@ class TestSyncAPI(unittest.TestCase):
             'peer_add',
             'peer_add',
             'add_period_for_sync',
-            'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.owner_id)
@@ -219,44 +229,42 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('', peers[1].username)
         self.assertEqual(True, peers[1].is_dfi_account)
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .order_by(db.Period.peer_id).all())
-        self.assertEqual(2, len(periods))
+        periods = (self.dbsession.query(db.Period).all())
+        self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('11', period.owner_id)
-        self.assertEqual('1102', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='1102').all())
+            self.dbsession.query(db.FileMovement, db.Movement)
+            .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.FileMovement.id)
+            .all())
         self.assertEqual(2, len(movements))
-        m = movements[0]
+        fm, m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual(2, m.number)
-        self.assertEqual('1102', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual('19', m.issuer_id)
         self.assertEqual(datetime.datetime(2018, 1, 2, 5, 6, 7), m.ts)
-        self.assertEqual(Decimal('-1.00'), m.wallet_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('-1.00'), fm.wallet_delta)
 
-        m = movements[1]
+        fm, m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual(2, m.number)
-        self.assertEqual('1102', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
         self.assertEqual('20', m.issuer_id)
         self.assertEqual(datetime.datetime(2018, 1, 2, 5, 6, 7), m.ts)
-        self.assertEqual(Decimal('-0.25'), m.wallet_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('-0.25'), fm.wallet_delta)
 
-        events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(4, len(events))
+        events = self.dbsession.query(db.FileMovementLog).all()
+        self.assertEqual(2, len(events))
         event = events[0]
-        self.assertEqual('download', event.event_type)
+        self.assertEqual('add', event.event_type)
 
         recos = self.dbsession.query(db.Reco).all()
         self.assertEqual(0, len(recos))
@@ -323,7 +331,7 @@ class TestSyncAPI(unittest.TestCase):
         events = (
             self.dbsession.query(db.OwnerLog)
             .order_by(db.OwnerLog.id).all())
-        self.assertEqual(6, len(events))
+        self.assertEqual(5, len(events))
         event = events[0]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -348,36 +356,30 @@ class TestSyncAPI(unittest.TestCase):
 
         periods = (
             self.dbsession.query(db.Period)
-            .filter_by(peer_id='c')
             .all())
         self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('19', period.owner_id)
-        self.assertEqual('c', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
-
-        all_movements = (
-            self.dbsession.query(db.Movement)
-            .all())
-        self.assertEqual(2, len(all_movements))
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='c')
+            self.dbsession.query(db.FileMovement, db.Movement)
+            .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.FileMovement.id)
             .all())
         self.assertEqual(1, len(movements))
-        m = movements[0]
+
+        fm, m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.vault_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.vault_delta)
 
-        events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(2, len(events))
+        events = self.dbsession.query(db.FileMovementLog).all()
+        self.assertEqual(1, len(events))
         event = events[0]
-        self.assertEqual('download', event.event_type)
+        self.assertEqual('add', event.event_type)
 
         recos = self.dbsession.query(db.Reco).all()
         self.assertEqual(0, len(recos))
@@ -469,7 +471,6 @@ class TestSyncAPI(unittest.TestCase):
             'peer_add',
             'peer_add',
             'add_period_for_sync',
-            'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('11', event.owner_id)
@@ -508,40 +509,36 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual(None, peers[1].username)
         self.assertEqual(False, peers[1].is_dfi_account)
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .order_by(db.Period.peer_id).all())
-        self.assertEqual(2, len(periods))
+        periods = self.dbsession.query(db.Period).all()
+        self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('11', period.owner_id)
-        self.assertEqual('19', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='19')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.FileMovement, db.Movement)
+            .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.FileMovement.id)
             .all())
         self.assertEqual(2, len(movements))
-        m = movements[0]
+        fm, m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.wallet_delta)
+        self.assertEqual('19', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.wallet_delta)
 
-        m = movements[1]
+        fm, m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('0.25'), m.wallet_delta)
+        self.assertEqual('19', fm.peer_id)
+        self.assertEqual(Decimal('0.25'), fm.wallet_delta)
 
-        events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(4, len(events))
+        events = self.dbsession.query(db.FileMovementLog).all()
+        self.assertEqual(2, len(events))
         event = events[0]
-        self.assertEqual('download', event.event_type)
+        self.assertEqual('add', event.event_type)
 
     @responses.activate
     def test_grant_from_issuer_perspective(self):
@@ -635,8 +632,6 @@ class TestSyncAPI(unittest.TestCase):
             'peer_add',
             'peer_add',
             'add_period_for_sync',
-            'add_period_for_sync',
-            'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
         self.assertEqual('19', event.owner_id)
@@ -661,49 +656,45 @@ class TestSyncAPI(unittest.TestCase):
 
         periods = (
             self.dbsession.query(db.Period)
-            .filter_by(peer_id='c')
             .all())
         self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('19', period.owner_id)
-        self.assertEqual('c', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='c')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.Movement, db.FileMovement)
+            .outerjoin(
+                db.FileMovement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(3, len(movements))
-        m = movements[0]
+        m, fm = movements[0]
+        self.assertIsNone(fm)
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(zero, m.vault_delta)
-        self.assertEqual(zero, m.wallet_delta)
 
-        m = movements[1]
+        m, fm = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('-1.00'), m.vault_delta)
-        self.assertEqual(zero, m.wallet_delta)
+        self.assertEqual('11', fm.peer_id)
+        self.assertEqual(Decimal('-1.00'), fm.vault_delta)
+        self.assertEqual(zero, fm.wallet_delta)
 
-        m = movements[2]
+        m, fm = movements[2]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('-0.25'), m.vault_delta)
-        self.assertEqual(zero, m.wallet_delta)
+        self.assertEqual('11', fm.peer_id)
+        self.assertEqual(Decimal('-0.25'), fm.vault_delta)
+        self.assertEqual(zero, fm.wallet_delta)
 
-        events = self.dbsession.query(db.MovementLog).all()
-        self.assertEqual(6, len(events))
+        events = self.dbsession.query(db.FileMovementLog).all()
+        self.assertEqual(2, len(events))
         event = events[0]
-        self.assertEqual('download', event.event_type)
+        self.assertEqual('add', event.event_type)
 
     def test_redownload_with_updates(self):
         from opnreco.models import db
@@ -817,7 +808,7 @@ class TestSyncAPI(unittest.TestCase):
         events = (
             self.dbsession.query(db.OwnerLog)
             .order_by(db.OwnerLog.id).all())
-        self.assertEqual(7, len(events))
+        self.assertEqual(6, len(events))
         event = events[0]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -829,29 +820,25 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertFalse(records[0].canceled)
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .filter_by(peer_id='c')
-            .all())
+        periods = self.dbsession.query(db.Period).all()
         self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('19', period.owner_id)
-        self.assertEqual('c', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='c')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.FileMovement, db.Movement)
+            .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.FileMovement.id)
             .all())
+
         self.assertEqual(1, len(movements))
-        m = movements[0]
+        fm, m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.vault_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.vault_delta)
 
         # Simulate a failed redemption: the issuer re-issues cash to
         # the profile. Re-download.
@@ -904,7 +891,7 @@ class TestSyncAPI(unittest.TestCase):
         events = (
             self.dbsession.query(db.OwnerLog)
             .order_by(db.OwnerLog.id).all())
-        self.assertEqual(8, len(events))
+        self.assertEqual(7, len(events))
         event = events[-1]
         self.assertEqual('19', event.owner_id)
         self.assertEqual('opn_sync', event.event_type)
@@ -916,36 +903,31 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual(1, len(records))
         self.assertTrue(records[0].canceled)
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .filter_by(peer_id='c')
-            .all())
+        periods = self.dbsession.query(db.Period).all()
         self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('19', period.owner_id)
-        self.assertEqual('c', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='c')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.FileMovement, db.Movement)
+            .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.FileMovement.id)
             .all())
         self.assertEqual(2, len(movements))
-        m = movements[0]
+        fm, m = movements[0]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.vault_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.vault_delta)
 
-        m = movements[1]
+        fm, m = movements[1]
         self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('c', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('-1.00'), m.vault_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('-1.00'), fm.vault_delta)
 
     def test_redownload_with_no_movements_and_no_updates(self):
         from opnreco.models import db
@@ -1011,10 +993,7 @@ class TestSyncAPI(unittest.TestCase):
                 })
             obj()
 
-        movements = (
-            self.dbsession.query(db.Movement)
-            .order_by(db.Movement.number)
-            .all())
+        movements = self.dbsession.query(db.Movement).all()
         self.assertEqual(0, len(movements))
 
     def test_redownload_with_movements_but_no_updates(self):
@@ -1072,28 +1051,24 @@ class TestSyncAPI(unittest.TestCase):
             obj = self._make(owner_id='19')
             obj()
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .filter_by(peer_id='c')
-            .all())
+        periods = self.dbsession.query(db.Period).all()
         self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('19', period.owner_id)
-        self.assertEqual('c', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='c')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.Movement, db.FileMovement)
+            .outerjoin(
+                db.FileMovement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(1, len(movements))
-        m = movements[0]
-        self.assertEqual('c', m.peer_id)
+        m, fm = movements[0]
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.vault_delta)
+        self.assertEqual('1102', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.vault_delta)
 
         result1 = _make_transfer_result()
 
@@ -1110,7 +1085,7 @@ class TestSyncAPI(unittest.TestCase):
             obj()
 
         mss = self.dbsession.query(db.Movement).all()
-        self.assertEqual(2, len(mss))
+        self.assertEqual(1, len(mss))
 
     def test_redownload_with_profile_updates(self):
         from opnreco.models import db
@@ -1167,31 +1142,27 @@ class TestSyncAPI(unittest.TestCase):
             obj = self._make(owner_id='19')
             obj()
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .filter_by(peer_id='c')
-            .all())
+        periods = self.dbsession.query(db.Period).all()
         self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('19', period.owner_id)
-        self.assertEqual('c', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         mss = self.dbsession.query(db.Movement).all()
-        self.assertEqual(2, len(mss))
+        self.assertEqual(1, len(mss))
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='c')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.Movement, db.FileMovement)
+            .outerjoin(
+                db.FileMovement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(1, len(movements))
-        m = movements[0]
-        self.assertEqual('c', m.peer_id)
+        m, fm = movements[0]
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.vault_delta)
+        self.assertEqual('11', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.vault_delta)
 
         result1 = _make_transfer_result()
         result1['sender_info']['screen_name'] = 'somefella'
@@ -1209,7 +1180,7 @@ class TestSyncAPI(unittest.TestCase):
             obj()
 
         mss = self.dbsession.query(db.Movement).all()
-        self.assertEqual(2, len(mss))
+        self.assertEqual(1, len(mss))
 
         events = (
             self.dbsession.query(db.OwnerLog)
@@ -1220,7 +1191,6 @@ class TestSyncAPI(unittest.TestCase):
             'peer_add',
             'peer_add',
             'peer_add',
-            'add_period_for_sync',
             'add_period_for_sync',
             'opn_sync',
             'peer_update',
@@ -1363,7 +1333,7 @@ class TestSyncAPI(unittest.TestCase):
             self.assertGreaterEqual(download_status['progress_percent'], 0.0)
             self.assertLessEqual(download_status['progress_percent'], 100.0)
             self.assertEqual({
-                'change_count': 8,
+                'change_count': 6,
                 'download_count': 1,
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
@@ -1382,7 +1352,6 @@ class TestSyncAPI(unittest.TestCase):
             'peer_add',
             'peer_add',
             'add_period_for_sync',
-            'add_period_for_sync',
         ], [e.event_type for e in events])
 
         event = events[0]
@@ -1391,19 +1360,16 @@ class TestSyncAPI(unittest.TestCase):
             {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
             set(event.content.keys()))
 
-        period = (
-            self.dbsession.query(db.Period).filter_by(
-                peer_id='19').one())
+        period = self.dbsession.query(db.Period).one()
 
         mss = (
             self.dbsession.query(db.Movement)
-            .filter_by(peer_id='19', loop_id='0', currency='USD')
+            .filter_by(loop_id='0', currency='USD')
             .all())
         self.assertEqual(1, len(mss))
 
         mvlog_entries = (
-            self.dbsession.query(db.MovementLog)
-            .filter_by(movement_id=mss[0].id)
+            self.dbsession.query(db.FileMovementLog)
             .all())
         self.assertEqual(1, len(mvlog_entries))
 
@@ -1423,7 +1389,7 @@ class TestSyncAPI(unittest.TestCase):
                 })
             download_status = obj()
             self.assertEqual({
-                'change_count': 11,
+                'change_count': 8,
                 'download_count': 1,
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
@@ -1439,7 +1405,6 @@ class TestSyncAPI(unittest.TestCase):
             'peer_add',
             'peer_add',
             'peer_add',
-            'add_period_for_sync',
             'add_period_for_sync',
             'opn_sync',
         ], [e.event_type for e in events])
@@ -1457,43 +1422,40 @@ class TestSyncAPI(unittest.TestCase):
         self.assertFalse(record.canceled)
         self.assertEqual('502', record.transfer_id)
 
-        periods = (
-            self.dbsession.query(db.Period)
-            .order_by(db.Period.peer_id).all())
-        self.assertEqual(2, len(periods))
+        periods = self.dbsession.query(db.Period).all()
+        self.assertEqual(1, len(periods))
         period = periods[0]
         self.assertEqual('11', period.owner_id)
-        self.assertEqual('19', period.peer_id)
-        self.assertEqual('0', period.loop_id)
-        self.assertEqual('USD', period.currency)
+        self.assertEqual(1239, period.file_id)
 
         movements = (
-            self.dbsession.query(db.Movement)
-            .filter_by(peer_id='19', loop_id='0', currency='USD')
-            .order_by(db.Movement.number)
+            self.dbsession.query(db.Movement, db.FileMovement)
+            .outerjoin(
+                db.FileMovement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(2, len(movements))
-        m = movements[0]
+        m, fm = movements[0]
         self.assertEqual(records[0].id, m.transfer_record_id)
-        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.wallet_delta)
+        self.assertEqual('19', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.wallet_delta)
 
-        m = movements[1]
+        m, fm = movements[1]
         self.assertEqual(records[1].id, m.transfer_record_id)
-        self.assertEqual('19', m.peer_id)
         self.assertEqual('0', m.loop_id)
         self.assertEqual('USD', m.currency)
-        self.assertEqual(Decimal('1.00'), m.wallet_delta)
+        self.assertEqual('19', fm.peer_id)
+        self.assertEqual(Decimal('1.00'), fm.wallet_delta)
 
         mvlogs = (
-            self.dbsession.query(db.MovementLog)
-            .order_by(db.MovementLog.id)
+            self.dbsession.query(db.FileMovementLog)
+            .order_by(db.FileMovementLog.id)
             .all())
 
-        self.assertEqual(4, len(mvlogs))
+        self.assertEqual(2, len(mvlogs))
         mvlog = mvlogs[0]
-        self.assertEqual('download', mvlog.event_type)
+        self.assertEqual('add', mvlog.event_type)
         mvlog = mvlogs[1]
-        self.assertEqual('download', mvlog.event_type)
+        self.assertEqual('add', mvlog.event_type)

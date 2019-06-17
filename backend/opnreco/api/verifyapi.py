@@ -72,7 +72,7 @@ class VerifyAPI(SyncBase):
             'sync_done': ivr.sync_done,
             'sync_total': ivr.sync_total,
             'progress_percent': progress_percent,
-            'change_count': self.change_count,
+            'change_count': len(self.change_log),
             'more': more,
             'internal_ok': not not ivr.internal_result,
         }

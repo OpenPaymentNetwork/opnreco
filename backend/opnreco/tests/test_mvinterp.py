@@ -5,50 +5,48 @@ import unittest
 zero = Decimal()
 
 
+def vault_deltas(seqs):
+    return [
+        [file_movement.vault_delta for (file_movement, movement) in seq]
+        for seq in seqs]
+
+
 class Test_find_internal_movements(unittest.TestCase):
 
     def _call(self, *args, **kw):
-        from ..syncbase import find_internal_movements
+        from ..mvinterp import find_internal_movements
         return find_internal_movements(*args, **kw)
 
     def _make_movements(self, spec):
         res = []
 
         class DummyMovement:
-            wallet_delta = zero
-            vault_delta = zero
             amount_index = 0
 
-            def __repr__(self):
-                return (
-                    '<DummyMovement id=%s wallet_delta=%s vault_delta=%s>' % (
-                        self.id, self.wallet_delta, self.vault_delta))
-
-            def __eq__(self, other):
-                # This makes it easy to test movement sequences.
-                if isinstance(other, Decimal) and other == self.vault_delta:
-                    return True
-                if isinstance(other, DummyMovement):
-                    return vars(other) == vars(self)
-                return False
+        class DummyFileMovement:
+            wallet_delta = zero
+            vault_delta = zero
 
         for index, item in enumerate(spec):
             m = DummyMovement()
             m.id = 101 + index
             m.number = 1 + index
-            m.peer_id = 'c'
             m.loop_id = '0'
             m.currency = 'USD'
             m.action = 'testaction'
+
+            fm = DummyFileMovement()
+            fm.peer_id = 15
+            fm.id = 201 + index
 
             if isinstance(item, dict):
                 delta = item.pop('delta')
                 vars(m).update(item)
             else:
                 delta = item
-            m.vault_delta = Decimal(delta)
+            fm.vault_delta = Decimal(delta)
 
-            res.append(m)
+            res.append((fm, m))
 
         return res
 
@@ -72,21 +70,21 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_simple_valley(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 2])
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_hill_after_move(self):
         movements = self._make_movements([2, '4.1', '0.9', -5])
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_valley_and_hill_with_nothing_in_between(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 3, -3, 1])
@@ -94,7 +92,7 @@ class Test_find_internal_movements(unittest.TestCase):
         self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('3'), Decimal('-3')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_hill_valley_hill(self):
         movements = self._make_movements([
@@ -104,7 +102,7 @@ class Test_find_internal_movements(unittest.TestCase):
             [Decimal('3'), Decimal('-3')],
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('7'), Decimal('-6'), Decimal('-1')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_valley_hill_valley(self):
         movements = self._make_movements([
@@ -114,7 +112,7 @@ class Test_find_internal_movements(unittest.TestCase):
             [Decimal('-3'), Decimal('3')],
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
             [Decimal('-7'), Decimal('6'), Decimal('1')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_valley_and_hill_with_move_in_between(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 2, 3, -3, 1])
@@ -122,7 +120,7 @@ class Test_find_internal_movements(unittest.TestCase):
         self.assertEqual([
             [Decimal('-4.1'), Decimal('-0.9'), Decimal('5.0')],
             [Decimal('3'), Decimal('-3')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_hill_and_valley_with_move_in_between(self):
         movements = self._make_movements(['4.1', '0.9', -5, -2, -3, 3, -1])
@@ -130,7 +128,7 @@ class Test_find_internal_movements(unittest.TestCase):
         self.assertEqual([
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
             [Decimal('-3'), Decimal('3')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_hill_with_non_internal_action(self):
         movements = self._make_movements([
@@ -155,7 +153,7 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {2})
         self.assertEqual([
             [Decimal('7'), Decimal('-3'), Decimal('-4')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_valley_with_manual_reco_followed_by_valley(self):
         movements = self._make_movements([
@@ -164,7 +162,7 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {2})
         self.assertEqual([
             [Decimal('-7'), Decimal('3'), Decimal('4')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_equal_hill_and_hill(self):
         movements = self._make_movements(['0.25', '-0.25', '0.25', '-0.25'])
@@ -172,7 +170,7 @@ class Test_find_internal_movements(unittest.TestCase):
         self.assertEqual([
             [Decimal('0.25'), Decimal('-0.25')],
             [Decimal('0.25'), Decimal('-0.25')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_reorder_migrated_movements_when_needed(self):
         movements = self._make_movements([
@@ -184,7 +182,7 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('-100.00'), Decimal('99.75'), Decimal('0.25')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_reorder_migrated_movements_when_not_needed(self):
         movements = self._make_movements([
@@ -196,7 +194,7 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('-100.00'), Decimal('99.75'), Decimal('0.25')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_reorder_not_possible_because_no_movement_after(self):
         movements = self._make_movements([
@@ -217,7 +215,7 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('100.00'), Decimal('-99.75'), Decimal('-0.25')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_reorder_as_hill_based_on_movement_before(self):
         movements = self._make_movements([
@@ -228,7 +226,7 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('0.25'), Decimal('99.75'), Decimal('-100.00')],
-        ], iseqs)
+        ], vault_deltas(iseqs))
 
     def test_reorder_as_valley_based_on_movement_before(self):
         movements = self._make_movements([
@@ -239,4 +237,4 @@ class Test_find_internal_movements(unittest.TestCase):
         iseqs = self._call(movements, {})
         self.assertEqual([
             [Decimal('-0.25'), Decimal('-99.75'), Decimal('100.00')],
-        ], iseqs)
+        ], vault_deltas(iseqs))

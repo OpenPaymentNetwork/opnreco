@@ -291,7 +291,7 @@ class TransferDownloadRecord(Base):
 class Movement(Base):
     """The immutable content of a movement in a transfer record.
     """
-    __tablename__ = 'movement_content'
+    __tablename__ = 'movement'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
@@ -430,7 +430,7 @@ class FileMovementLog(Base):
     reco_id = Column(BigInteger, nullable=True, index=True)
     surplus_delta = Column(Numeric, nullable=False)
 
-    movement = relationship(Movement)
+    file_movement = relationship(FileMovement)
 
 
 # See: https://stackoverflow.com/questions/1295795 (trigger format)
@@ -508,6 +508,8 @@ class AccountEntry(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    period_id = Column(
+        BigInteger, ForeignKey('period.id'), nullable=False, index=True)
     statement_id = Column(
         BigInteger, ForeignKey('statement.id'), nullable=False, index=True)
     sheet = Column(String, nullable=True)
