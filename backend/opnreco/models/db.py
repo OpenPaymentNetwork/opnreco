@@ -369,8 +369,7 @@ class FileMovement(Base):
 
     # The delta is positive for movements into the wallet or vault
     # or negative for movements out of the wallet or vault.
-    # All movements with a nonzero wallet delta or vault delta are
-    # reconcilable.
+    # All FileMovements need a nonzero wallet delta or vault delta.
     wallet_delta = Column(Numeric, nullable=False)
     vault_delta = Column(Numeric, nullable=False)
 
@@ -411,6 +410,10 @@ class FileMovement(Base):
             name='match_reco',
             deferrable=True,
             initially='deferred',
+        ),
+        CheckConstraint(
+            or_(wallet_delta != 0, vault_delta != 0),
+            name='nonzero',
         ),
         CheckConstraint(or_(
             surplus_delta == -wallet_delta,
