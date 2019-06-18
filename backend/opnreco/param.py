@@ -8,26 +8,6 @@ import re
 null = None
 
 
-def parse_ploop_key(ploop_key):
-    """Parse the ploop_key param. Return (peer_id, loop_id, currency).
-
-    Raise HTTPBadRequest or HTTPNotFound as needed.
-
-    A ploop_key is a string containing 'peer_id-loop_id-currency'.
-    """
-    if not ploop_key:
-        raise HTTPBadRequest(
-            json_body={'error': 'ploop_key_required'})
-
-    match = re.match(
-        r'^(c|[0-9]{1,20})-([0-9]{1,20})-([A-Z]{3,50})$', ploop_key)
-    if match is None:
-        raise HTTPBadRequest(
-            json_body={'error': 'invalid_ploop_key'})
-    peer_id, loop_id, currency = match.groups()
-    return (peer_id, loop_id, currency)
-
-
 def get_offset_limit(params):
     """Get the offset and limit from request params."""
     offset_str = params.get('offset', '')
