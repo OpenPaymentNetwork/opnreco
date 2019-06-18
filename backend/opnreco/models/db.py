@@ -604,7 +604,10 @@ class AccountEntryLog(Base):
     sheet = Column(String, nullable=True)
     row = Column(Integer, nullable=True)
     entry_date = Column(Date, nullable=False)
-    delta = Column(Numeric, nullable=False)
+    delta = Column(
+        Numeric,
+        CheckConstraint('delta != 0', name='delta_nonzero'),
+        nullable=False)
     description = Column(String, nullable=False)
     reco_id = Column(BigInteger, nullable=True, index=True)
 
