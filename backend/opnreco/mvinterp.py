@@ -151,11 +151,9 @@ class MovementInterpreter:
         loop_id = movement.loop_id
         currency = movement.currency
         file = self.file
-        file_loop_id = file.loop_id
         file_peer_id = file.peer_id
 
-        if currency != file.currency or (
-                file_loop_id and loop_id != file_loop_id) or (
+        if currency != file.currency or loop_id != file.loop_id or (
                 file_peer_id and peer_id != file_peer_id):
             # This movement is not applicable to this file.
             return None
