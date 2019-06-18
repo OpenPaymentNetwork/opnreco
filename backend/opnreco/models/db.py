@@ -130,14 +130,19 @@ class File(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
     title = Column(Unicode, nullable=False)
     currency = Column(String, nullable=False)
-    loop_id = Column(String, nullable=True)
+    loop_id = Column(String, nullable=False)
     peer_id = Column(String, nullable=True)
-
-    # has_vault becomes true if money ever moves in or out of the
-    # vault connected with this file.
-    has_vault = Column(Boolean, nullable=False, default=False)
-
+    has_vault = Column(Boolean, nullable=False)
     removed = Column(Boolean, nullable=False, default=False)
+
+
+Index(
+    # This index is needed for foreign keys.
+    'ix_file_matchable',
+    File.id,
+    File.currency,
+    File.loop_id,
+    unique=True)
 
 
 class Period(Base):
@@ -195,14 +200,6 @@ Index(
     Period.owner_id,
     Period.file_id,
     postgresql_where=(Period.end_date == null),
-    unique=True)
-
-
-Index(
-    # This index is needed for foreign keys.
-    'ix_period_file_fk_lookup',
-    Period.id,
-    Period.file_id,
     unique=True)
 
 
@@ -339,21 +336,34 @@ Index(
     unique=True)
 
 
+Index(
+    # This index is needed for foreign keys.
+    'ix_movement_matchable',
+    Movement.id,
+    Movement.currency,
+    Movement.loop_id,
+    unique=True)
+
+
 class FileMovement(Base):
     """A movement applied to a period in a file."""
     __tablename__ = 'file_movement'
-    id = Column(BigInteger, nullable=False, primary_key=True)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'),
+        nullable=False, primary_key=True)
+    movement_id = Column(
+        BigInteger, ForeignKey('movement.id'),
+        nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
-    movement_id = Column(
-        BigInteger, ForeignKey('movement.id'), nullable=False)
-    file_id = Column(
-        BigInteger, ForeignKey('file.id'), nullable=False)
+
+    currency = Column(String, nullable=False)
+    loop_id = Column(String, nullable=False)
 
     # peer_id is an OPN profile ID.
     peer_id = Column(
-        # The peer_id_not_c constraint helps prevent bad migrations from
-        # a former design that used a peer_id of 'c'.
+        # The peer_id_not_c constraint helps ensure migration scripts
+        # don't keep the old special peer_id of 'c'.
         String, CheckConstraint("peer_id != 'c'", name='peer_id_not_c'),
         nullable=False)
 
@@ -385,6 +395,16 @@ class FileMovement(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(
+            ['file_id', 'currency', 'loop_id'],
+            ['file.id', 'file.currency', 'file.loop_id'],
+            name='match_file',
+        ),
+        ForeignKeyConstraint(
+            ['movement_id', 'currency', 'loop_id'],
+            ['movement.id', 'movement.currency', 'movement.loop_id'],
+            name='match_movement',
+        ),
+        ForeignKeyConstraint(
             # This FK ensures the period_id matches the reco.
             ['reco_id', 'period_id'],
             ['reco.id', 'reco.period_id'],
@@ -402,13 +422,6 @@ class FileMovement(Base):
         {})
 
 
-Index(
-    'ix_file_movement_unique',
-    FileMovement.movement_id,
-    FileMovement.file_id,
-    unique=True)
-
-
 class FileMovementLog(Base):
     """Log of changes to a file movement.
 
@@ -418,9 +431,8 @@ class FileMovementLog(Base):
     __tablename__ = 'file_movement_log'
     id = Column(BigInteger, nullable=False, primary_key=True)
     ts = Column(DateTime, nullable=False, server_default=now_func)
-    file_movement_id = Column(
-        BigInteger, ForeignKey('file_movement.id'),
-        nullable=False, index=True)
+    file_id = Column(BigInteger, nullable=False)
+    movement_id = Column(BigInteger, nullable=False)
     # personal_id is the OPN personal profile ID.
     personal_id = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
@@ -430,7 +442,13 @@ class FileMovementLog(Base):
     reco_id = Column(BigInteger, nullable=True, index=True)
     surplus_delta = Column(Numeric, nullable=False)
 
-    file_movement = relationship(FileMovement)
+    __table_args = (
+        ForeignKeyConstraint(
+            ['file_id', 'movement_id'],
+            ['file_movement.file_id', 'file_movement.movement_id'],
+            name='match_file_movement',
+        ),
+        {})
 
 
 # See: https://stackoverflow.com/questions/1295795 (trigger format)
@@ -441,14 +459,16 @@ as $triggerbody$
 begin
     if (TG_OP = 'DELETE') then
         insert into file_movement_log (
-            file_movement_id,
+            file_id,
+            movement_id,
             personal_id,
             event_type,
             period_id,
             reco_id,
             surplus_delta)
         select
-            old.id,
+            old.file_id,
+            old.movement_id,
             current_setting('opnreco.personal_id'),
             current_setting('opnreco.movement.event_type'),
             old.period_id,
@@ -457,14 +477,16 @@ begin
         return old;
     elsif (TG_OP = 'UPDATE' or TG_OP = 'INSERT') then
         insert into file_movement_log (
-            file_movement_id,
+            file_id,
+            movement_id,
             personal_id,
             event_type,
             period_id,
             reco_id,
             surplus_delta)
         select
-            new.id,
+            new.file_id,
+            new.movement_id,
             current_setting('opnreco.personal_id'),
             current_setting('opnreco.movement.event_type'),
             new.period_id,
@@ -508,6 +530,8 @@ class AccountEntry(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, index=True)
     period_id = Column(
         BigInteger, ForeignKey('period.id'), nullable=False, index=True)
     statement_id = Column(
@@ -537,6 +561,11 @@ class AccountEntry(Base):
     period = relationship(Period)
 
     __table_args__ = (
+        ForeignKeyConstraint(
+            ['file_id', 'currency', 'loop_id'],
+            ['file.id', 'file.currency', 'file.loop_id'],
+            name='match_file',
+        ),
         ForeignKeyConstraint(
             # This FK ensures the period_id matches the reco.
             ['reco_id', 'period_id'],

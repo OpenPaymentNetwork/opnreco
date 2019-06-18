@@ -169,6 +169,8 @@ class MovementInterpreter:
             self.file.has_vault = True
 
         return {
+            'currency': currency,
+            'loop_id': loop_id,
             'peer_id': peer_id,
             'wallet_delta': wallet_delta,
             'vault_delta': vault_delta,
@@ -228,11 +230,11 @@ class MovementInterpreter:
         if is_new_record:
             # No recos exist yet for this TransferRecord.
             reco_rows = ()
-            done_file_movement_ids = set()
+            done_movement_ids = set()
         else:
             # List the existing reconciled movements.
             reco_rows = (
-                dbsession.query(FileMovement.id)
+                dbsession.query(FileMovement.movement_id)
                 .join(Movement, FileMovement.movement_id == Movement.id)
                 .filter(
                     FileMovement.file_id == self.file.id,
@@ -240,11 +242,11 @@ class MovementInterpreter:
                     Movement.transfer_record_id == record.id,
                     )
                 .all())
-            done_file_movement_ids = set(row[0] for row in reco_rows)
+            done_movement_ids = set(row[0] for row in reco_rows)
 
         internal_seqs = find_internal_movements(
             movement_rows=movement_rows,
-            done_file_movement_ids=done_file_movement_ids)
+            done_movement_ids=done_movement_ids)
 
         added = False
 
@@ -256,7 +258,7 @@ class MovementInterpreter:
             wallet_total = zero
             vault_total = zero
             for file_movement, movement in mvlist:
-                if file_movement.id in done_file_movement_ids:
+                if movement.id in done_movement_ids:
                     # This auto-reco would conflict with an existing reco.
                     # Don't create this auto-reco.
                     conflict = True
@@ -294,7 +296,7 @@ class MovementInterpreter:
             dbsession.flush()
 
 
-def find_internal_movements(movement_rows, done_file_movement_ids):
+def find_internal_movements(movement_rows, done_movement_ids):
     """Find internal movements that can be auto-reconciled.
 
     Return [[(FileMovement, Movement)]].
@@ -352,7 +354,7 @@ def find_internal_movements(movement_rows, done_file_movement_ids):
 
         internal_seqs = find_internal_movements_for_group(
             group=group,
-            done_file_movement_ids=done_file_movement_ids)
+            done_movement_ids=done_movement_ids)
         if internal_seqs:
             all_internal_seqs.extend(internal_seqs)
 
@@ -442,7 +444,7 @@ def refine_movement_order(group):
 non_internal_actions = frozenset(('move',))
 
 
-def find_internal_movements_for_group(group, done_file_movement_ids):
+def find_internal_movements_for_group(group, done_movement_ids):
     # Note: group must be ordered by number and all movements
     # in the group must be for the same loop_id and currency.
     # internal_seqs: [[(FileMovement, Movement)]]
@@ -501,7 +503,7 @@ def find_internal_movements_for_group(group, done_file_movement_ids):
         delta = file_movement.wallet_delta + file_movement.vault_delta
         new_amount = prev_amount + delta
 
-        if (file_movement.id in done_file_movement_ids or
+        if (movement.id in done_movement_ids or
                 movement.action in non_internal_actions):
             # This movement is already reconciled or internal,
             # so don't detect any hill or valley that crosses it,

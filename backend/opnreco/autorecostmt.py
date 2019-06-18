@@ -1,6 +1,7 @@
 
 from decimal import Decimal
 from opnreco.models.db import AccountEntry
+from opnreco.models.db import FileMovement
 from opnreco.models.db import Movement
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
@@ -25,7 +26,7 @@ log = logging.getLogger(__name__)
 
 null = None
 max_autoreco_delay = datetime.timedelta(days=7)
-movement_delta = -(Movement.wallet_delta + Movement.vault_delta)
+movement_delta = -(FileMovement.wallet_delta + FileMovement.vault_delta)
 
 
 class SortableMatch:
@@ -35,6 +36,7 @@ class SortableMatch:
     of a match. Provides a corresponding sort_key.
     """
     def __init__(self, row):
+        # row is a candidate match.
         self.delta = row.delta
         self.account_entry_id = account_entry_id = row.account_entry_id
         self.entry_date = entry_date = row.entry_date
@@ -93,7 +95,8 @@ def build_single_movement_query(dbsession, owner, period):
             movement_delta.label('delta'),
             array([Movement.id]).label('movement_ids'),
         )
-        .select_from(Movement)
+        .select_from(FileMovement)
+        .join(Movement, Movement.id == FileMovement.movement_id)
         .join(TransferRecord, TransferRecord.id == Movement.transfer_record_id)
         .join(Period, Period.id == Movement.period_id)
         .filter(

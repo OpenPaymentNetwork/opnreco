@@ -49,7 +49,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             title='Test File',
             currency='USD',
             loop_id='0',
-            peer_id=None)
+            peer_id=None,
+            has_vault=True)
         dbsession.add(file)
         dbsession.flush()
 

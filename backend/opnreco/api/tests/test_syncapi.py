@@ -53,7 +53,8 @@ class TestSyncAPI(unittest.TestCase):
             title='Test File',
             currency='USD',
             loop_id='0',
-            peer_id=None)
+            peer_id=None,
+            has_vault=True)
         self.dbsession.add(file)
         self.dbsession.flush()
 
@@ -238,7 +239,7 @@ class TestSyncAPI(unittest.TestCase):
         movements = (
             self.dbsession.query(db.FileMovement, db.Movement)
             .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
-            .order_by(db.FileMovement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(2, len(movements))
         fm, m = movements[0]
@@ -365,7 +366,7 @@ class TestSyncAPI(unittest.TestCase):
         movements = (
             self.dbsession.query(db.FileMovement, db.Movement)
             .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
-            .order_by(db.FileMovement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(1, len(movements))
 
@@ -518,7 +519,7 @@ class TestSyncAPI(unittest.TestCase):
         movements = (
             self.dbsession.query(db.FileMovement, db.Movement)
             .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
-            .order_by(db.FileMovement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(2, len(movements))
         fm, m = movements[0]
@@ -829,7 +830,7 @@ class TestSyncAPI(unittest.TestCase):
         movements = (
             self.dbsession.query(db.FileMovement, db.Movement)
             .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
-            .order_by(db.FileMovement.id)
+            .order_by(db.Movement.id)
             .all())
 
         self.assertEqual(1, len(movements))
@@ -912,7 +913,7 @@ class TestSyncAPI(unittest.TestCase):
         movements = (
             self.dbsession.query(db.FileMovement, db.Movement)
             .join(db.Movement, db.FileMovement.movement_id == db.Movement.id)
-            .order_by(db.FileMovement.id)
+            .order_by(db.Movement.id)
             .all())
         self.assertEqual(2, len(movements))
         fm, m = movements[0]

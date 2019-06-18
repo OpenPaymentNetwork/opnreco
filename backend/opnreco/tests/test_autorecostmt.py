@@ -120,9 +120,6 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         self.period = period = db.Period(
             owner_id='102',
-            peer_id='c',
-            loop_id='0',
-            currency='USD',
             has_vault=True,
             start_date=datetime.date(2018, 1, 1),
             end_date=None,
