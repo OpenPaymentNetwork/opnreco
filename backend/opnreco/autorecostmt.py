@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 null = None
 max_autoreco_delay = datetime.timedelta(days=7)
-movement_delta = -(FileMovement.wallet_delta + FileMovement.vault_delta)
+file_movement_delta = -(FileMovement.wallet_delta + FileMovement.vault_delta)
 
 
 class SortableMatch:
@@ -76,8 +76,6 @@ def build_single_movement_query(dbsession, owner, period):
 
     - transfer_id
     - date
-    - currency
-    - loop_id
     - delta
     - movement_ids
     """
@@ -90,22 +88,18 @@ def build_single_movement_query(dbsession, owner, period):
         dbsession.query(
             TransferRecord.transfer_id,
             movement_date_c.label('date'),
-            Movement.currency,
-            Movement.loop_id,
-            movement_delta.label('delta'),
+            file_movement_delta.label('delta'),
             array([Movement.id]).label('movement_ids'),
         )
         .select_from(FileMovement)
         .join(Movement, Movement.id == FileMovement.movement_id)
         .join(TransferRecord, TransferRecord.id == Movement.transfer_record_id)
-        .join(Period, Period.id == Movement.period_id)
+        .join(Period, Period.id == FileMovement.period_id)
         .filter(
-            Movement.owner_id == owner.id,
-            Movement.peer_id == period.peer_id,
-            Movement.loop_id == period.loop_id,
-            Movement.currency == period.currency,
-            Movement.reco_id == null,
-            movement_delta != 0,
+            FileMovement.owner_id == owner.id,
+            FileMovement.file_id == period.file_id,
+            FileMovement.reco_id == null,
+            file_movement_delta != 0,
             ~Period.closed,
         ))
 
@@ -162,30 +156,26 @@ class BundleFinder:
 
         movement_rows = (
             dbsession.query(
-                Movement.currency,
-                Movement.loop_id,
                 Movement.issuer_id,
                 TransferRecord.transfer_id,
-                func.sum(movement_delta).label('delta'),
+                func.sum(file_movement_delta).label('delta'),
                 array_agg(Movement.id).label('movement_ids'),
             )
+            .select_from(FileMovement)
+            .join(Movement, Movement.id == FileMovement.movement_id)
             .join(
                 TransferRecord,
                 TransferRecord.id == Movement.transfer_record_id)
-            .join(Period, Period.id == Movement.period_id)
+            .join(Period, Period.id == FileMovement.period_id)
             .filter(
-                Movement.owner_id == owner.id,
-                Movement.peer_id == period.peer_id,
-                Movement.currency == period.currency,
-                Movement.loop_id == period.loop_id,
-                Movement.reco_id == null,
-                movement_delta != 0,
+                FileMovement.owner_id == owner.id,
+                FileMovement.file_id == period.file_id,
+                FileMovement.reco_id == null,
+                file_movement_delta != 0,
                 TransferRecord.bundle_transfer_id != null,
                 ~Period.closed,
             )
             .group_by(
-                Movement.currency,
-                Movement.loop_id,
                 Movement.issuer_id,
                 TransferRecord.transfer_id,
             )
@@ -196,12 +186,11 @@ class BundleFinder:
             len(movement_rows), period.id)
 
         # movement_list_lookup: {
-        #   (bundled_transfer_id, currency, loop_id, issuer_id):
-        #       (delta, movement_ids)
+        #     (bundled_transfer_id, issuer_id): (delta, movement_ids)
         # }
         movement_list_lookup = {}
         for row in movement_rows:
-            key = (row.transfer_id, row.currency, row.loop_id, row.issuer_id)
+            key = (row.transfer_id, row.issuer_id)
             movement_list_lookup[key] = (row.delta, row.movement_ids)
 
         return movement_list_lookup
@@ -214,21 +203,20 @@ class BundleFinder:
         period = self.period
 
         # bundle_transfer_ids_cte lists the bundle transfer IDs
-        # of the unreconciled bundled movements for this peer.
+        # of the unreconciled bundled movements for this file.
         bundle_transfer_ids_cte = (
             dbsession.query(TransferRecord.bundle_transfer_id)
-            .select_from(Movement)
+            .select_from(FileMovement)
+            .join(Movement, Movement.id == FileMovement.movement_id)
             .join(
                 TransferRecord,
                 TransferRecord.id == Movement.transfer_record_id)
-            .join(Period, Period.id == Movement.period_id)
+            .join(Period, Period.id == FileMovement.period_id)
             .filter(
-                Movement.owner_id == owner.id,
-                Movement.peer_id == period.peer_id,
-                Movement.currency == period.currency,
-                Movement.loop_id == period.loop_id,
-                Movement.reco_id == null,
-                movement_delta != 0,
+                FileMovement.owner_id == owner.id,
+                FileMovement.file_id == period.file_id,
+                FileMovement.reco_id == null,
+                file_movement_delta != 0,
                 TransferRecord.bundle_transfer_id != null,
                 ~Period.closed,
             )
@@ -272,8 +260,6 @@ class BundleFinder:
         Return [(
             bundle_transfer_id,
             date,
-            currency,
-            loop_id,
             delta,
             movement_ids,
         )].
@@ -284,23 +270,21 @@ class BundleFinder:
             # specs is the mapping of movements required for each bundle
             # to qualify for automatic bundle reconciliation.
             # specs:
-            # {(currency, loop_id, issuer_id): {bundled_transfer_id: delta}}
+            # {issuer_id: {bundled_transfer_id: delta}}
             specs = collections.defaultdict(
                 lambda: collections.defaultdict(Decimal))
             for t in bundle_record.bundled_transfers:
-                key = (t['currency'], t['loop_id'], t['issuer_id'])
+                key = t['issuer_id']
                 specs[key][t['transfer_id']] += Decimal(t['amount'])
 
-            for spec_key, spec in sorted(specs.items()):
-                # spec_key and spec describe a potentially reconcilable bundle.
-                # Do the unreconciled movements match the spec?
-                currency, loop_id, issuer_id = spec_key
+            for issuer_id, spec in sorted(specs.items()):
+                # issuer_id and spec describe a potentially reconcilable
+                # bundle. Do the unreconciled movements match the spec?
                 qualified = True
                 bundled_movement_ids = []
                 total_delta = Decimal()
                 for bundled_transfer_id, spec_delta in sorted(spec.items()):
-                    movement_key = (
-                        bundled_transfer_id, currency, loop_id, issuer_id)
+                    movement_key = (bundled_transfer_id, issuer_id)
                     movements_info = movement_list_lookup.get(movement_key)
                     if not movements_info:
                         # The bundle should not be reconciled
@@ -329,8 +313,6 @@ class BundleFinder:
                 qualified_bundles.append((
                     bundle_record.transfer_id,
                     bundle_record.date,
-                    currency,
-                    loop_id,
                     total_delta,
                     bundled_movement_ids,
                 ))
@@ -347,8 +329,6 @@ class BundleFinder:
             (
                 transfer_id,
                 date,
-                currency,
-                loop_id,
                 delta,
                 movement_ids,
             ) = tup
@@ -357,8 +337,6 @@ class BundleFinder:
                 stmts.append(select([
                     cast(literal(transfer_id), String).label('transfer_id'),
                     cast(literal(date), Date).label('date'),
-                    cast(literal(currency), String).label('currency'),
-                    cast(literal(loop_id), String).label('loop_id'),
                     cast(literal(delta), Numeric).label('delta'),
                     array(movement_ids, type_=BigInteger).label(
                         'movement_ids'),
@@ -369,8 +347,6 @@ class BundleFinder:
                 stmts.append(select([
                     literal(transfer_id),
                     literal(date),
-                    literal(currency),
-                    literal(loop_id),
                     literal(delta),
                     array(movement_ids),
                 ]))
@@ -422,10 +398,8 @@ def auto_reco_statement(dbsession, owner, period, statement):
         .join(Period, Period.id == AccountEntry.period_id)
         .filter(
             AccountEntry.owner_id == owner.id,
+            AccountEntry.file_id == period.file_id,
             AccountEntry.statement_id == statement.id,
-            AccountEntry.peer_id == period.peer_id,
-            AccountEntry.loop_id == period.loop_id,
-            AccountEntry.currency == period.currency,
             AccountEntry.reco_id == null,
             AccountEntry.delta != 0,
             ~Period.closed,
@@ -508,14 +482,16 @@ def auto_reco_statement(dbsession, owner, period, statement):
     dbsession.flush()
 
     # Get the movements and assign their reco_ids and period_ids.
-    movements = (
-        dbsession.query(Movement)
-        .filter(Movement.id.in_(movement_recos.keys()))
+    file_movements = (
+        dbsession.query(FileMovement)
+        .filter(
+            FileMovement.file_id == period.file_id,
+            FileMovement.movement_id.in_(movement_recos.keys()))
         .all())
-    for movement in movements:
-        reco = new_recos[movement_recos[movement.id]]
-        movement.reco_id = reco.id
-        movement.period_id = period.id
+    for fm in file_movements:
+        reco = new_recos[movement_recos[fm.movement_id]]
+        fm.reco_id = reco.id
+        fm.period_id = period.id
     dbsession.flush()
 
     # Get the account entries and assign their reco_ids.

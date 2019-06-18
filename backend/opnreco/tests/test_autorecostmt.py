@@ -98,6 +98,16 @@ class Test_auto_reco_statement(unittest.TestCase):
         dbsession.add(owner)
         dbsession.flush()
 
+        self.file = file = db.File(
+            id=1239,
+            owner_id=owner.id,
+            title="Test File",
+            currency='USD',
+            loop_id='0',
+            peer_id=None,
+            has_vault=True)
+        dbsession.add(file)
+
         dbsession.query(
             func.set_config('opnreco.personal_id', str(owner.id), True),
             func.set_config('opnreco.movement.event_type', 'test', True),
@@ -120,7 +130,7 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         self.period = period = db.Period(
             owner_id='102',
-            has_vault=True,
+            file_id=1239,
             start_date=datetime.date(2018, 1, 1),
             end_date=None,
         )
@@ -164,8 +174,6 @@ class Test_auto_reco_statement(unittest.TestCase):
             transfer_record_id=r.id,
             number=2,
             amount_index=0,
-            peer_id='c',
-            orig_peer_id='211',
             loop_id='0',
             currency='USD',
             issuer_id='19',
@@ -174,15 +182,26 @@ class Test_auto_reco_statement(unittest.TestCase):
             amount=Decimal(amount),
             action='deposit',
             ts=datetime.datetime(2018, 1, 15, 6, 0, 1),
+        )
+        dbsession.add(m)
+        dbsession.flush()
+
+        fm = db.FileMovement(
+            owner_id='102',
+            movement_id=m.id,
+            file_id=1239,
+            peer_id='211',
+            loop_id='0',
+            currency='USD',
             wallet_delta=0,
             vault_delta=Decimal(amount),
             period_id=self.period.id,
             surplus_delta=0,
         )
-        dbsession.add(m)
+        dbsession.add(fm)
         dbsession.flush()
 
-        return r, m
+        return r, m, fm
 
     def add_transfer_6510(
             self,
@@ -220,8 +239,6 @@ class Test_auto_reco_statement(unittest.TestCase):
             transfer_record_id=r.id,
             number=2,
             amount_index=0,
-            peer_id='c',
-            orig_peer_id='211',
             loop_id='0',
             currency='USD',
             issuer_id='19',
@@ -230,15 +247,26 @@ class Test_auto_reco_statement(unittest.TestCase):
             amount=Decimal(amount),
             action='deposit',
             ts=datetime.datetime(2018, 1, 15, 6, 0, 1),
+        )
+        dbsession.add(m)
+        dbsession.flush()
+
+        fm = db.FileMovement(
+            owner_id='102',
+            movement_id=m.id,
+            file_id=1239,
+            peer_id='211',
+            loop_id='0',
+            currency='USD',
             wallet_delta=0,
             vault_delta=Decimal(amount),
             period_id=self.period.id,
             surplus_delta=0,
         )
-        dbsession.add(m)
+        dbsession.add(fm)
         dbsession.flush()
 
-        return r, m
+        return r, m, fm
 
     def add_transfer_6512(
             self,
@@ -302,10 +330,8 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         self.statement = s = db.Statement(
             owner_id='102',
-            peer_id='c',
+            file_id=self.period.file_id,
             period_id=self.period.id,
-            loop_id='0',
-            currency='USD',
             source='TestSource',
         )
         dbsession.add(s)
@@ -313,7 +339,7 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         e = db.AccountEntry(
             owner_id='102',
-            peer_id='c',
+            file_id=self.period.file_id,
             period_id=self.period.id,
             statement_id=s.id,
             entry_date=e1date,
@@ -326,7 +352,7 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         e = db.AccountEntry(
             owner_id='102',
-            peer_id='c',
+            file_id=self.period.file_id,
             period_id=self.period.id,
             statement_id=s.id,
             entry_date=e2date,
@@ -355,13 +381,13 @@ class Test_auto_reco_statement(unittest.TestCase):
         if expect_recos is not None:
             self.assertEqual(expect_recos, len(recos))
 
-        rows = dbsession.query(db.Movement).all()
+        file_movements = dbsession.query(db.FileMovement).all()
         if expect_movements is not None:
-            self.assertEqual(expect_movements, len(rows))
+            self.assertEqual(expect_movements, len(file_movements))
 
         movements = collections.defaultdict(list)
-        for m in rows:
-            movements[m.reco_id].append(m)
+        for fm in file_movements:
+            movements[fm.reco_id].append(fm)
 
         rows = dbsession.query(db.AccountEntry).all()
         if expect_account_entries is not None:
@@ -373,8 +399,8 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         for reco in recos:
             m_total = sum((
-                m.vault_delta + m.wallet_delta
-                for m in movements[reco.id]), 0)
+                fm.vault_delta + fm.wallet_delta
+                for fm in movements[reco.id]), 0)
             e_total = sum((e.delta for e in account_entries[reco.id]), 0)
             self.assertEqual(0, m_total + e_total)
 
@@ -463,8 +489,8 @@ class Test_auto_reco_statement(unittest.TestCase):
     def test_same_amount_on_statement_resolved_by_transfer_id_to_6502(self):
         self.add_peer()
         self.add_period()
-        r2, m2 = self.add_transfer_6502()
-        r10, m10 = self.add_transfer_6510()
+        r2, m2, fm2 = self.add_transfer_6502()
+        r10, m10, fm10 = self.add_transfer_6510()
         self.add_statement(e2value='-2.00')  # same as e1value
         self._call(
             dbsession=self.dbsession,
@@ -476,14 +502,14 @@ class Test_auto_reco_statement(unittest.TestCase):
             expect_recos=1,
             expect_movements=2,
             expect_account_entries=2)
-        self.assertIsNotNone(m2.reco_id)
-        self.assertIsNone(m10.reco_id)
+        self.assertIsNotNone(fm2.reco_id)
+        self.assertIsNone(fm10.reco_id)
 
     def test_same_amount_on_statement_resolved_by_transfer_id_to_6510(self):
         self.add_peer()
         self.add_period()
-        r2, m2 = self.add_transfer_6502()
-        r10, m10 = self.add_transfer_6510()
+        r2, m2, fm2 = self.add_transfer_6502()
+        r10, m10, fm10 = self.add_transfer_6510()
         self.add_statement(e1value='-10.00')  # same as e2value
         self._call(
             dbsession=self.dbsession,
@@ -495,14 +521,14 @@ class Test_auto_reco_statement(unittest.TestCase):
             expect_recos=1,
             expect_movements=2,
             expect_account_entries=2)
-        self.assertIsNone(m2.reco_id)
-        self.assertIsNotNone(m10.reco_id)
+        self.assertIsNone(fm2.reco_id)
+        self.assertIsNotNone(fm10.reco_id)
 
     def test_same_amount_in_movements_resolved_by_transfer_id_to_6502(self):
         self.add_peer()
         self.add_period()
-        r2, m2 = self.add_transfer_6502(amount='2.00')
-        r10, m10 = self.add_transfer_6510(amount='2.00')
+        r2, m2, fm2 = self.add_transfer_6502(amount='2.00')
+        r10, m10, fm10 = self.add_transfer_6510(amount='2.00')
         self.add_statement()
         self._call(
             dbsession=self.dbsession,
@@ -514,8 +540,8 @@ class Test_auto_reco_statement(unittest.TestCase):
             expect_recos=1,
             expect_movements=2,
             expect_account_entries=2)
-        self.assertIsNotNone(m2.reco_id)
-        self.assertIsNone(m10.reco_id)
+        self.assertIsNotNone(fm2.reco_id)
+        self.assertIsNone(fm10.reco_id)
 
     def test_match_entry_on_same_day(self):
         self.add_peer()
@@ -587,7 +613,7 @@ class Test_auto_reco_statement(unittest.TestCase):
         from opnreco.models import db
         dbsession = self.dbsession
 
-        rows = dbsession.query(db.Movement).all()
+        rows = dbsession.query(db.FileMovement).all()
         reco_ids = set(row.reco_id for row in rows)
         self.assertEqual(1, len(reco_ids))
 
