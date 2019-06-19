@@ -1,13 +1,13 @@
 
 from decimal import Decimal
 from opnreco.models.db import AccountEntry
+from opnreco.models.db import FileMovement
 from opnreco.models.db import Loop
-from opnreco.models.db import Movement
-from opnreco.models.db import Reco
 from opnreco.models.db import now_func
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
 from opnreco.models.db import Period
+from opnreco.models.db import Reco
 from opnreco.util import check_requests_response
 from pyramid.httpexceptions import HTTPBadRequest
 from sqlalchemy import func
@@ -352,18 +352,18 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     # Gather the circulation amounts from reconciled movements.
     rows = (
         dbsession.query(
-            Movement.period_id,
+            FileMovement.period_id,
             Reco.internal,
-            func.sum(-Movement.vault_delta).label('circ'),
-            func.sum(Movement.surplus_delta).label('surplus'),
+            func.sum(-FileMovement.vault_delta).label('circ'),
+            func.sum(FileMovement.surplus_delta).label('surplus'),
         )
-        .join(Reco, Reco.id == Movement.reco_id)
+        .join(Reco, Reco.id == FileMovement.reco_id)
         .filter(
-            Movement.owner_id == owner_id,
-            Movement.reco_id != null,
-            Movement.period_id.in_(period_ids),
+            FileMovement.owner_id == owner_id,
+            FileMovement.reco_id != null,
+            FileMovement.period_id.in_(period_ids),
         )
-        .group_by(Movement.period_id, Reco.internal)
+        .group_by(FileMovement.period_id, Reco.internal)
         .all())
     for row in rows:
         if row.internal:
@@ -406,16 +406,16 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     # Gather the amounts from unreconciled movements.
     rows = (
         dbsession.query(
-            Movement.period_id,
-            func.sum(-Movement.vault_delta).label('circ'),
-            func.sum(Movement.surplus_delta).label('surplus'),
+            FileMovement.period_id,
+            func.sum(-FileMovement.vault_delta).label('circ'),
+            func.sum(FileMovement.surplus_delta).label('surplus'),
         )
         .filter(
-            Movement.owner_id == owner_id,
-            Movement.reco_id == null,
-            Movement.period_id.in_(period_ids),
+            FileMovement.owner_id == owner_id,
+            FileMovement.reco_id == null,
+            FileMovement.period_id.in_(period_ids),
         )
-        .group_by(Movement.period_id)
+        .group_by(FileMovement.period_id)
         .all())
     for row in rows:
         m = res[row.period_id]['unreco_movements_delta']
@@ -507,7 +507,7 @@ def get_period_for_day(period_list, day, default_endless=True):
 
 
 def open_end_period_exists(request, file_id):
-    """Return true if an open-ended period exists."""
+    """Return true if an open period exists with no end date."""
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id

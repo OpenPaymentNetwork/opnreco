@@ -1,7 +1,7 @@
 
 from decimal import Decimal
 from opnreco.models import perms
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import now_func
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
@@ -35,32 +35,32 @@ def internal_recos_api(context, request):
     owner_id = owner.id
 
     ts_c = (
-        dbsession.query(func.min(Movement.ts))
-        .filter(Movement.reco_id == Reco.id)
+        dbsession.query(func.min(FileMovement.ts))
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('ts')
     )
 
     vault_delta_c = (
-        dbsession.query(func.sum(Movement.vault_delta))
-        .filter(Movement.reco_id == Reco.id)
+        dbsession.query(func.sum(FileMovement.vault_delta))
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('vault_delta')
     )
 
     wallet_delta_c = (
-        dbsession.query(func.sum(Movement.wallet_delta))
-        .filter(Movement.reco_id == Reco.id)
+        dbsession.query(func.sum(FileMovement.wallet_delta))
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('wallet_delta')
     )
 
     movement_count_c = (
-        dbsession.query(func.count(Movement.id))
-        .filter(Movement.reco_id == Reco.id)
+        dbsession.query(func.count(FileMovement.movement_id))
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('movement_count')
@@ -125,22 +125,22 @@ def internal_recos_api(context, request):
         # Fill reco_movements_map.
         rows = (
             dbsession.query(
-                Movement.reco_id,
-                Movement.id.label('movement_id'),
-                Movement.ts,
-                Movement.vault_delta,
-                Movement.wallet_delta,
+                FileMovement.reco_id,
+                FileMovement.movement_id,
+                FileMovement.ts,
+                FileMovement.vault_delta,
+                FileMovement.wallet_delta,
                 TransferRecord.workflow_type,
                 TransferRecord.transfer_id,
             )
             .join(
                 TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
+                TransferRecord.id == FileMovement.transfer_record_id)
             .filter(
-                Movement.owner_id == owner_id,
-                Movement.reco_id.in_(query_reco_ids),
+                FileMovement.owner_id == owner_id,
+                FileMovement.reco_id.in_(query_reco_ids),
             )
-            .order_by(Movement.ts, Movement.id)
+            .order_by(FileMovement.ts, FileMovement.movement_id)
             .all())
         for row in rows:
             reco_movements_map[row.reco_id].append(row)

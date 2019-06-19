@@ -2,7 +2,7 @@
 from decimal import Decimal
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import now_func
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
@@ -24,8 +24,9 @@ null = None
 zero = Decimal()
 
 
-movement_delta_cols = -(Movement.wallet_delta + Movement.vault_delta)
-reco_movement_delta_cols = Movement.surplus_delta - Movement.vault_delta
+movement_delta_cols = -(FileMovement.wallet_delta + FileMovement.vault_delta)
+reco_movement_delta_cols = (
+    FileMovement.surplus_delta - FileMovement.vault_delta)
 
 
 @view_config(
@@ -64,8 +65,8 @@ def transactions_api(context, request):
     )
 
     ts_c = (
-        dbsession.query(func.min(Movement.ts))
-        .filter(Movement.reco_id == Reco.id)
+        dbsession.query(func.min(FileMovement.ts))
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('ts')
@@ -73,7 +74,7 @@ def transactions_api(context, request):
 
     movement_delta_c = (
         dbsession.query(func.sum(movement_delta_cols))
-        .filter(Movement.reco_id == Reco.id)
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('movement_delta')
@@ -81,7 +82,7 @@ def transactions_api(context, request):
 
     reco_movement_delta_c = (
         dbsession.query(func.sum(reco_movement_delta_cols))
-        .filter(Movement.reco_id == Reco.id)
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
         .label('reco_movement_delta')
@@ -134,12 +135,12 @@ def transactions_api(context, request):
 
         # Include the unreconciled movements.
         dbsession.query(
-            Movement.reco_id,
+            FileMovement.reco_id,
             cast(None, BigInteger).label('account_entry_id'),
             cast(None, Date).label('entry_date'),
             cast(None, Numeric).label('account_delta'),
-            Movement.id.label('movement_id'),
-            Movement.ts,
+            FileMovement.movement_id,
+            FileMovement.ts,
             movement_delta_cols.label('movement_delta'),
             reco_movement_delta_cols.label('reco_movement_delta'),
             TransferRecord.workflow_type,
@@ -147,12 +148,12 @@ def transactions_api(context, request):
         )
         .join(
             TransferRecord,
-            TransferRecord.id == Movement.transfer_record_id)
+            TransferRecord.id == FileMovement.transfer_record_id)
         .filter(
-            Movement.owner_id == owner_id,
-            Movement.period_id == period_id,
+            FileMovement.owner_id == owner_id,
+            FileMovement.period_id == period_id,
             movement_delta_cols != 0,
-            Movement.reco_id == null,
+            FileMovement.reco_id == null,
         ),
     )
 
@@ -220,9 +221,9 @@ def transactions_api(context, request):
         # Fill reco_movements_map and reco_entries_map.
         rows = (
             dbsession.query(
-                Movement.reco_id,
-                Movement.id.label('movement_id'),
-                Movement.ts,
+                FileMovement.reco_id,
+                FileMovement.movement_id,
+                FileMovement.ts,
                 movement_delta_cols.label('movement_delta'),
                 reco_movement_delta_cols.label('reco_movement_delta'),
                 TransferRecord.workflow_type,
@@ -230,12 +231,12 @@ def transactions_api(context, request):
             )
             .join(
                 TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
+                TransferRecord.id == FileMovement.transfer_record_id)
             .filter(
-                Movement.owner_id == owner_id,
-                Movement.reco_id.in_(query_reco_ids),
+                FileMovement.owner_id == owner_id,
+                FileMovement.reco_id.in_(query_reco_ids),
             )
-            .order_by(Movement.ts, Movement.id)
+            .order_by(FileMovement.ts, FileMovement.movement_id)
             .all())
         for row in rows:
             reco_movements_map[row.reco_id].append(row)

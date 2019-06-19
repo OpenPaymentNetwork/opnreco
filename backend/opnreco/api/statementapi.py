@@ -3,7 +3,7 @@ from defusedxml.common import EntitiesForbidden
 from opnreco.autorecostmt import auto_reco_statement
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import now_func
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
@@ -445,14 +445,14 @@ def statement_delete(context, request):
     # Cancel the reco_id of movements reconciled with any entry
     # in the statement.
     (
-        dbsession.query(Movement)
+        dbsession.query(FileMovement)
         .filter(
-            Movement.reco_id.in_(reco_ids),
+            FileMovement.reco_id.in_(reco_ids),
         )
         .update({
             'reco_id': None,
             # Also reset the surplus_delta for each movement.
-            'surplus_delta': -Movement.wallet_delta,
+            'surplus_delta': -FileMovement.wallet_delta,
         }, synchronize_session='fetch'))
 
     # Cancel the reco_id of account entries on other statements
@@ -695,14 +695,14 @@ def entry_delete(context, request):
     if entry.reco_id is not None:
         # Cancel the reco_id of movements reconciled with this entry.
         (
-            dbsession.query(Movement)
+            dbsession.query(FileMovement)
             .filter(
-                Movement.reco_id == entry.reco_id,
+                FileMovement.reco_id == entry.reco_id,
             )
             .update({
                 'reco_id': None,
                 # Also reset the surplus_delta for each movement.
-                'surplus_delta': -Movement.wallet_delta,
+                'surplus_delta': -FileMovement.wallet_delta,
             }, synchronize_session='fetch'))
 
         # Cancel the reco_id of account entries on other statements

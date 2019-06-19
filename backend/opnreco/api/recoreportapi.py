@@ -1,6 +1,6 @@
 
 from decimal import Decimal
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import now_func
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
@@ -27,12 +27,13 @@ def reco_report_api(context, request):
     dbsession = request.dbsession
     owner_id = request.owner.id
 
-    movement_delta_cols = -(Movement.wallet_delta + Movement.vault_delta)
+    movement_delta_cols = -(
+        FileMovement.wallet_delta + FileMovement.vault_delta)
 
     movement_filter = and_(
-        Movement.owner_id == owner_id,
-        Movement.period_id == period_id,
-        Movement.transfer_record_id == TransferRecord.id,
+        FileMovement.owner_id == owner_id,
+        FileMovement.period_id == period_id,
+        FileMovement.transfer_record_id == TransferRecord.id,
         movement_delta_cols != 0,
     )
 
@@ -47,11 +48,11 @@ def reco_report_api(context, request):
             func.sign(movement_delta_cols).label('sign'),
             TransferRecord.workflow_type,
         )
-        .outerjoin(Reco, Reco.id == Movement.reco_id)
+        .outerjoin(Reco, Reco.id == FileMovement.reco_id)
         .filter(
             movement_filter,
             or_(
-                Movement.reco_id == null,
+                FileMovement.reco_id == null,
                 ~Reco.internal,
             ))
         .group_by(
@@ -76,14 +77,14 @@ def reco_report_api(context, request):
             TransferRecord.workflow_type,
             TransferRecord.transfer_id,
             # circ_delta is always the negative of vault_delta.
-            (-Movement.vault_delta).label('circ_delta'),
-            Movement.surplus_delta,
-            Movement.ts,
-            Movement.id,
+            (-FileMovement.vault_delta).label('circ_delta'),
+            FileMovement.surplus_delta,
+            FileMovement.ts,
+            FileMovement.movement_id,
         )
         .filter(
             movement_filter,
-            Movement.reco_id == null)
+            FileMovement.reco_id == null)
         .all())
 
     # Create outstanding_map:
@@ -113,30 +114,6 @@ def reco_report_api(context, request):
             cd0 + circ_delta,
             sd0 + surplus_delta,
             td0 + combined_delta)
-
-    # # Include the effects of unreconciled account entries.
-    # unreco_entry_rows = (
-    #     dbsession.query(
-    #         func.sign(AccountEntry.delta).label('sign'),
-    #         func.sum(AccountEntry.delta).label('delta'),
-    #     )
-    #     .filter(
-    #         AccountEntry.owner_id == owner_id,
-    #         AccountEntry.period_id == period_id,
-    #         AccountEntry.reco_id == null,
-    #         AccountEntry.delta != zero,
-    #     )
-    #     .group_by(func.sign(AccountEntry.delta))
-    #     .all())
-
-    # for sign, delta in unreco_entry_rows:
-    #     str_sign = str_signs[sign]
-    #     workflow_type = '_account_credit' if sign > 0 else '_account_debit'
-    #     workflow_types_pre[(str_sign, workflow_type)] = (
-    #         zero,
-    #         delta,
-    #         delta,
-    #     )
 
     # Convert outstanding_map from defaultdicts to dicts for JSON encoding.
     for sign, m in list(outstanding_map.items()):

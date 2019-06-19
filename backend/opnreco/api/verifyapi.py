@@ -1,7 +1,7 @@
 
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
@@ -265,10 +265,10 @@ class VerifyAPI(SyncBase):
         dbsession = request.dbsession
         owner = request.owner
 
-        movement_delta_c = Movement.wallet_delta + Movement.vault_delta
+        movement_delta_c = FileMovement.wallet_delta + FileMovement.vault_delta
         movement_subq = (
             dbsession.query(func.sum(movement_delta_c).label('delta'))
-            .filter(Movement.reco_id == Reco.id)
+            .filter(FileMovement.reco_id == Reco.id)
             .correlate(Reco)
             .as_scalar())
 
@@ -302,9 +302,7 @@ class VerifyAPI(SyncBase):
             dbsession.query(Period)
             .filter(Period.owner_id == owner.id)
             .order_by(
-                Period.peer_id,
-                Period.loop_id,
-                Period.currency,
+                Period.file_id,
                 Period.start_date)
             .all())
 

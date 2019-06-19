@@ -25,7 +25,9 @@ class VerificationFailure(Exception):
 
 
 class MovementInterpreter:
-    """Interpret movements for a file. Includes auto-reconciliation.
+    """Interpret Movements for a file, creating FileMovements.
+
+    Also auto-reconcile within transfers.
     """
     def __init__(self, request, file, change_log):
         self.request = request
@@ -57,7 +59,7 @@ class MovementInterpreter:
         """
         dbsession = self.request.dbsession
 
-        file_movements = {}  # {Movement.id: FileMovement}
+        file_movements = {}  # {movement_id: FileMovement}
         if is_new_record:
             file_movements = {}
         else:

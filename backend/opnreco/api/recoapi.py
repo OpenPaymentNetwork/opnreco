@@ -10,7 +10,7 @@ from colander import String as ColanderString
 from decimal import Decimal
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
@@ -41,28 +41,29 @@ null = None
 def start_movement_query(dbsession, owner_id):
     return (
         dbsession.query(
-            Movement.id,
+            FileMovement.movement_id,
             Movement.number,
-            Movement.ts,
-            Movement.loop_id,
-            Movement.currency,
-            Movement.vault_delta,
-            Movement.wallet_delta,
-            Movement.reco_id,
+            FileMovement.ts,
+            FileMovement.loop_id,
+            FileMovement.currency,
+            FileMovement.vault_delta,
+            FileMovement.wallet_delta,
+            FileMovement.reco_id,
             TransferRecord.transfer_id)
         .join(
+            Movement,
+            Movement.id == FileMovement.movement_id)
+        .join(
             TransferRecord,
-            TransferRecord.id == Movement.transfer_record_id)
+            TransferRecord.id == FileMovement.transfer_record_id)
         .filter(
-            Movement.owner_id == owner_id,
-            # Note: movements of zero are not eligible for reconciliation.
-            or_(Movement.vault_delta != zero, Movement.wallet_delta != zero),
+            FileMovement.owner_id == owner_id,
         ))
 
 
 def serialize_movement_rows(movement_rows):
     return [{
-        'id': str(row.id),
+        'id': str(row.movement_id),
         'ts': row.ts,
         'loop_id': row.loop_id,
         'currency': row.currency,
@@ -129,7 +130,7 @@ def reco_api(context, request, final=False):
             movement_rows = (
                 start_movement_query(dbsession=dbsession, owner_id=owner_id)
                 .filter(
-                    Movement.id == movement_id,
+                    FileMovement.movement_id == movement_id,
                 )
                 .all())
             for row in movement_rows:
@@ -154,17 +155,15 @@ def reco_api(context, request, final=False):
         movement_rows = (
             start_movement_query(dbsession=dbsession, owner_id=owner_id)
             .filter(
-                Movement.reco_id == reco_id,
+                FileMovement.reco_id == reco_id,
             )
             .order_by(
-                Movement.ts,
+                FileMovement.ts,
                 TransferRecord.transfer_id,
                 Movement.number,
                 Movement.amount_index,
-                Movement.peer_id,
-                Movement.loop_id,
-                Movement.currency,
-                Movement.issuer_id,
+                FileMovement.file_id,
+                FileMovement.issuer_id,
             )
             .all())
 
@@ -263,32 +262,32 @@ def reco_search_movement(context, request, final=False):
         vault_sign_filters = ()
         wallet_sign_filters = ()
         if amount_parsed.sign < 0:
-            vault_sign_filters = ((Movement.vault_delta < 0),)
-            wallet_sign_filters = ((Movement.wallet_delta < 0),)
+            vault_sign_filters = ((FileMovement.vault_delta < 0),)
+            wallet_sign_filters = ((FileMovement.wallet_delta < 0),)
         elif amount_parsed.sign > 0:
-            vault_sign_filters = ((Movement.vault_delta > 0),)
-            wallet_sign_filters = ((Movement.wallet_delta > 0),)
+            vault_sign_filters = ((FileMovement.vault_delta > 0),)
+            wallet_sign_filters = ((FileMovement.wallet_delta > 0),)
 
         if '.' in amount_parsed.amount_input:
             # Exact amount.
             filters.append(or_(
                 and_(
-                    func.abs(Movement.vault_delta) == amount_abs,
+                    func.abs(FileMovement.vault_delta) == amount_abs,
                     *vault_sign_filters),
                 and_(
-                    func.abs(Movement.wallet_delta) == amount_abs,
+                    func.abs(FileMovement.wallet_delta) == amount_abs,
                     *wallet_sign_filters),
             ))
         else:
             # The search omitted the subunit value.
             filters.append(or_(
                 and_(
-                    func.abs(Movement.vault_delta) >= amount_abs,
-                    func.abs(Movement.vault_delta) < amount_abs + 1,
+                    func.abs(FileMovement.vault_delta) >= amount_abs,
+                    func.abs(FileMovement.vault_delta) < amount_abs + 1,
                     *vault_sign_filters),
                 and_(
-                    func.abs(Movement.wallet_delta) >= amount_abs,
-                    func.abs(Movement.wallet_delta) < amount_abs + 1,
+                    func.abs(FileMovement.wallet_delta) >= amount_abs,
+                    func.abs(FileMovement.wallet_delta) < amount_abs + 1,
                     *wallet_sign_filters),
             ))
 
@@ -296,7 +295,7 @@ def reco_search_movement(context, request, final=False):
     if match is not None:
         currency = match.group(0).upper()
         filters.append(
-            Movement.currency.like(func.concat('%', currency, '%')))
+            FileMovement.currency.like(func.concat('%', currency, '%')))
 
     if date_input and tzoffset_input:
         try:
@@ -307,24 +306,24 @@ def reco_search_movement(context, request, final=False):
         else:
             if parsed is not None:
                 ts = parsed + datetime.timedelta(seconds=tzoffset * 60)
-                filters.append(Movement.ts >= ts)
+                filters.append(FileMovement.ts >= ts)
                 colon_count = sum((1 for c in date_input if c == ':'), 0)
                 if colon_count >= 2:
                     # Query with second resolution
                     filters.append(
-                        Movement.ts < ts + datetime.timedelta(seconds=1))
+                        FileMovement.ts < ts + datetime.timedelta(seconds=1))
                 elif colon_count >= 1:
                     # Query with minute resolution
                     filters.append(
-                        Movement.ts < ts + datetime.timedelta(seconds=60))
+                        FileMovement.ts < ts + datetime.timedelta(seconds=60))
                 elif parsed.hour:
                     # Query with hour resolution
                     filters.append(
-                        Movement.ts < ts + datetime.timedelta(seconds=3600))
+                        FileMovement.ts < ts + datetime.timedelta(seconds=3600))
                 else:
                     # Query with day resolution
                     filters.append(
-                        Movement.ts < ts + datetime.timedelta(days=1))
+                        FileMovement.ts < ts + datetime.timedelta(days=1))
 
     match = re.search(r'[0-9\-]+', transfer_input)
     if match is not None:
@@ -338,34 +337,30 @@ def reco_search_movement(context, request, final=False):
         return []
 
     if seen_ids:
-        filters.append(~Movement.id.in_(seen_ids))
+        filters.append(~FileMovement.movement_id.in_(seen_ids))
 
     movement_rows = (
         start_movement_query(dbsession=dbsession, owner_id=owner_id)
-        .join(Period, Period.id == Movement.period_id)
+        .join(Period, Period.id == FileMovement.period_id)
         .filter(
             # Note: don't filter by period_id, otherwise, users won't be able
             # to reconcile entries across periods.
-            Movement.peer_id == period.peer_id,
-            Movement.currency == period.currency,
-            Movement.loop_id == period.loop_id,
+            FileMovement.file_id == period.file_id,
             or_(
-                Movement.reco_id == null,
-                Movement.reco_id == reco_id,
+                FileMovement.reco_id == null,
+                FileMovement.reco_id == reco_id,
             ),
             # Movements assigned to closed periods are not eligible.
             ~Period.closed,
             *filters
         )
         .order_by(
-            Movement.ts,
+            FileMovement.ts,
             TransferRecord.transfer_id,
             Movement.number,
             Movement.amount_index,
-            Movement.peer_id,
-            Movement.loop_id,
-            Movement.currency,
-            Movement.issuer_id,
+            FileMovement.file_id,
+            FileMovement.issuer_id,
         )
         .limit(5)
         .all())
@@ -601,21 +596,15 @@ class RecoSave:
         period = self.period
 
         new_movements = (
-            dbsession.query(Movement)
-            .join(Period, Period.id == Movement.period_id)
+            dbsession.query(FileMovement)
+            .join(Period, Period.id == FileMovement.period_id)
             .filter(
-                Movement.owner_id == owner_id,
-                Movement.id.in_(new_movement_ids),
-                Movement.peer_id == period.peer_id,
-                Movement.currency == period.currency,
-                Movement.loop_id == period.loop_id,
+                FileMovement.owner_id == owner_id,
+                FileMovement.movement_id.in_(new_movement_ids),
+                FileMovement.file_id == period.file_id,
                 or_(
-                    Movement.reco_id == null,
-                    Movement.reco_id == self.reco_id,
-                ),
-                or_(
-                    Movement.wallet_delta != zero,
-                    Movement.vault_delta != zero,
+                    FileMovement.reco_id == null,
+                    FileMovement.reco_id == self.reco_id,
                 ),
                 # Movements assigned to closed periods are not eligible.
                 ~Period.closed,
@@ -835,13 +824,14 @@ class RecoSave:
 
         filters = []
         if new_movements:
-            filters.append(~Movement.id.in_(m.id for m in new_movements))
+            filters.append(~FileMovement.movement_id.in_(
+                m.movement_id for m in new_movements))
 
         old_movements = (
-            dbsession.query(Movement)
+            dbsession.query(FileMovement)
             .filter(
-                Movement.owner_id == owner_id,
-                Movement.reco_id == self.reco_id,
+                FileMovement.owner_id == owner_id,
+                FileMovement.reco_id == self.reco_id,
                 *filters)
             .all())
 
@@ -932,17 +922,11 @@ class RecoSave:
                 # inversely to the wallet.
                 m.surplus_delta = -m.wallet_delta
 
-        created_account_entries = []
         for entry in new_account_entries:
+            assert entry.id is not None
             entry.reco_id = reco_id
             # Reassign the entry to the reco's period
             entry.period_id = period_id
-            if entry.id is None:
-                dbsession.add(entry)
-                created_account_entries.append(entry)
-
-        if created_account_entries:
-            dbsession.flush()  # Assign the entry IDs
 
         dbsession.add(OwnerLog(
             owner_id=owner_id,
@@ -956,16 +940,6 @@ class RecoSave:
                 'internal': internal,
                 'movement_ids': [m.id for m in new_movements],
                 'account_entry_ids': [e.id for e in new_account_entries],
-                'created_account_entries': [{
-                    'id': e.id,
-                    'owner_id': e.owner_id,
-                    'period_id': e.period_id,
-                    'entry_date': e.entry_date,
-                    'currency': e.currency,
-                    'loop_id': e.loop_id,
-                    'delta': e.delta,
-                    'description': e.description,
-                } for e in created_account_entries],
                 'period_id': period_id,
                 'file_id': self.period.file_id,
             },
