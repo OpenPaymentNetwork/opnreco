@@ -2,7 +2,6 @@
 from decimal import Decimal
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import FileMovement
-from opnreco.models.db import Movement
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.models.db import TransferRecord
@@ -81,7 +80,7 @@ def build_single_movement_query(dbsession, owner, period):
     """
     movement_date_c = func.date(func.timezone(
         get_tzname(owner),
-        func.timezone('UTC', Movement.ts)
+        func.timezone('UTC', FileMovement.ts)
     ))
 
     return (
@@ -89,11 +88,12 @@ def build_single_movement_query(dbsession, owner, period):
             TransferRecord.transfer_id,
             movement_date_c.label('date'),
             file_movement_delta.label('delta'),
-            array([Movement.id]).label('movement_ids'),
+            array([FileMovement.movement_id]).label('movement_ids'),
         )
         .select_from(FileMovement)
-        .join(Movement, Movement.id == FileMovement.movement_id)
-        .join(TransferRecord, TransferRecord.id == Movement.transfer_record_id)
+        .join(
+            TransferRecord,
+            TransferRecord.id == FileMovement.transfer_record_id)
         .join(Period, Period.id == FileMovement.period_id)
         .filter(
             FileMovement.owner_id == owner.id,
@@ -156,16 +156,15 @@ class BundleFinder:
 
         movement_rows = (
             dbsession.query(
-                Movement.issuer_id,
+                FileMovement.issuer_id,
                 TransferRecord.transfer_id,
                 func.sum(file_movement_delta).label('delta'),
-                array_agg(Movement.id).label('movement_ids'),
+                array_agg(FileMovement.movement_id).label('movement_ids'),
             )
             .select_from(FileMovement)
-            .join(Movement, Movement.id == FileMovement.movement_id)
             .join(
                 TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
+                TransferRecord.id == FileMovement.transfer_record_id)
             .join(Period, Period.id == FileMovement.period_id)
             .filter(
                 FileMovement.owner_id == owner.id,
@@ -176,7 +175,7 @@ class BundleFinder:
                 ~Period.closed,
             )
             .group_by(
-                Movement.issuer_id,
+                FileMovement.issuer_id,
                 TransferRecord.transfer_id,
             )
             .all())
@@ -207,10 +206,9 @@ class BundleFinder:
         bundle_transfer_ids_cte = (
             dbsession.query(TransferRecord.bundle_transfer_id)
             .select_from(FileMovement)
-            .join(Movement, Movement.id == FileMovement.movement_id)
             .join(
                 TransferRecord,
-                TransferRecord.id == Movement.transfer_record_id)
+                TransferRecord.id == FileMovement.transfer_record_id)
             .join(Period, Period.id == FileMovement.period_id)
             .filter(
                 FileMovement.owner_id == owner.id,

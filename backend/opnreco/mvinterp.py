@@ -1,7 +1,6 @@
 
 from decimal import Decimal
 from opnreco.models.db import FileMovement
-from opnreco.models.db import Movement
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.viewcommon import add_open_period
@@ -169,6 +168,9 @@ class MovementInterpreter:
         return {
             'currency': currency,
             'loop_id': loop_id,
+            'issuer_id': issuer_id,
+            'transfer_record_id': movement.transfer_record_id,
+            'ts': movement.ts,
             'peer_id': peer_id,
             'wallet_delta': wallet_delta,
             'vault_delta': vault_delta,
@@ -233,11 +235,10 @@ class MovementInterpreter:
             # List the existing reconciled movements.
             reco_rows = (
                 dbsession.query(FileMovement.movement_id)
-                .join(Movement, FileMovement.movement_id == Movement.id)
                 .filter(
                     FileMovement.file_id == self.file.id,
                     FileMovement.reco_id != null,
-                    Movement.transfer_record_id == record.id,
+                    FileMovement.transfer_record_id == record.id,
                     )
                 .all())
             done_movement_ids = set(row[0] for row in reco_rows)

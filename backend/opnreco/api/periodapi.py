@@ -15,7 +15,7 @@ from opnreco.param import parse_amount
 from opnreco.reassign import AccountEntryReassignOp
 from opnreco.reassign import MovementReassignOp
 from opnreco.reassign import pull_recos
-from opnreco.reassign import pull_unreco_and_ineligible
+from opnreco.reassign import pull_unreco
 from opnreco.reassign import push_recos
 from opnreco.reassign import push_unreco
 from opnreco.serialize import serialize_period
@@ -538,10 +538,10 @@ def edit_period(request, period, appstruct, event_type, adding_period=False):
         if not close:
             configure_dblog(request, event_type='pull_unreco')
             move_counts['pull_unreco_movements'] = (
-                pull_unreco_and_ineligible(
+                pull_unreco(
                     request=request, period=period, op=movement_op))
             move_counts['pull_unreco_account_entries'] = (
-                pull_unreco_and_ineligible(
+                pull_unreco(
                     request=request, period=period, op=account_entry_op))
 
         configure_dblog(request, event_type='push_recos')
@@ -576,12 +576,12 @@ def edit_period(request, period, appstruct, event_type, adding_period=False):
             # (Feature requested by Lexi.)
             configure_dblog(request, event_type='pull_unreco')
             move_counts['pull_next_unreco_movements'] = (
-                pull_unreco_and_ineligible(
+                pull_unreco(
                     request=request,
                     period=next_period,
                     op=movement_op))
             move_counts['pull_next_unreco_account_entries'] = (
-                pull_unreco_and_ineligible(
+                pull_unreco(
                     request=request,
                     period=next_period,
                     op=account_entry_op))

@@ -967,6 +967,7 @@ class RecoSave:
                     'description': e.description,
                 } for e in created_account_entries],
                 'period_id': period_id,
+                'file_id': self.period.file_id,
             },
         ))
         dbsession.flush()

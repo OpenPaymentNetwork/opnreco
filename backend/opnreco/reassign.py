@@ -5,7 +5,7 @@ to other open periods.
 """
 
 from opnreco.models.db import AccountEntry
-from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
@@ -19,7 +19,6 @@ from sqlalchemy import Date
 from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import literal
-from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import union_all
 import datetime
@@ -30,33 +29,24 @@ null = None
 class MovementReassignOp:
     """Operation config for (push|pull)_unreco to reassign movements.
     """
-    def __init__(self, owner, include_ineligible=False):
-        self.table = Movement
+    def __init__(self, owner):
+        self.table = FileMovement
         self.date_c = func.date(func.timezone(
             get_tzname(owner),
-            func.timezone('UTC', Movement.ts)
+            func.timezone('UTC', FileMovement.ts)
         ))
+        self.id_c = FileMovement.movement_id
         self.plural = 'movements'
-        if include_ineligible:
-            # Include movements not eligible for reconciliation.
-            self.nonzero_filter = None
-        else:
-            # Exclude movements not eligible for reconciliation.
-            self.nonzero_filter = or_(
-                Movement.vault_delta != 0, Movement.wallet_delta != 0)
 
 
 class AccountEntryReassignOp:
     """Operation config for (push|pull)_unreco to reassign account entries.
     """
-    def __init__(self, include_ineligible=False):
+    def __init__(self):
         self.table = AccountEntry
         self.date_c = AccountEntry.entry_date
+        self.id_c = AccountEntry.id
         self.plural = 'account_entries'
-        if include_ineligible:
-            self.nonzero_filter = None
-        else:
-            self.nonzero_filter = AccountEntry.delta != 0
 
 
 def make_day_period_cte(days, period_list, default_endless=True):
@@ -122,24 +112,18 @@ def push_unreco(request, period, op):
     owner_id = owner.id
     assert period.owner_id == owner_id
 
-    filters = [
+    item_filter = and_(
         op.table.owner_id == owner_id,
+        op.table.file_id == period.file_id,
         op.table.period_id == period.id,
         op.table.reco_id == null,
-    ]
-
-    if op.nonzero_filter is not None:
-        # If there is a nonzero filter for this operation, use it to filter
-        # out items that are not eligible for reconciliation.
-        filters.append(op.nonzero_filter)
-
-    item_filter = and_(*filters)
+    )
 
     # List the dates of all items in the period.
     unreco_query = (
         dbsession.query(
             op.date_c.label('day'),
-            op.table.id.label('item_id'),
+            op.id_c.label('item_id'),
         )
         .filter(item_filter)
     )
@@ -149,14 +133,12 @@ def push_unreco(request, period, op):
         # There are no unreconciled items in the period.
         return 0
 
-    # List the other open periods for the peer.
+    # List the other open periods for the file.
     period_list = (
         dbsession.query(Period)
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == period.peer_id,
-            Period.loop_id == period.loop_id,
-            Period.currency == period.currency,
+            Period.file_id == period.file_id,
             ~Period.closed,
             Period.id != period.id)
         .all())
@@ -179,11 +161,8 @@ def push_unreco(request, period, op):
     if missing_period:
         new_period = add_open_period(
             request=request,
-            peer_id=period.peer_id,
-            loop_id=period.loop_id,
-            currency=period.currency,
-            event_type='add_period_for_push_unreco_%s' % op.plural,
-            has_vault=period.has_vault)
+            file_id=period.file_id,
+            event_type='add_period_for_push_unreco_%s' % op.plural)
         new_period_id = new_period.id
     else:
         new_period_id = None
@@ -205,9 +184,7 @@ def push_unreco(request, period, op):
         event_type='push_unreco_%s' % op.plural,
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'item_ids': item_ids,
             'day_periods': day_periods,
             'new_period_id': new_period_id,
@@ -216,12 +193,8 @@ def push_unreco(request, period, op):
     return len(item_ids)
 
 
-def pull_unreco_and_ineligible(request, period, op):
+def pull_unreco(request, period, op):
     """Pull unreconciled items from other open periods into this period.
-
-    Items ineligible for reconciliation should be treated
-    as reconciled, and reconciled items should be pulled,
-    so this function also pulls items ineligible for reconciliation.
     """
     dbsession = request.dbsession
     owner = request.owner
@@ -230,14 +203,10 @@ def pull_unreco_and_ineligible(request, period, op):
 
     item_filter = and_(
         op.table.owner_id == owner_id,
-        op.table.peer_id == period.peer_id,
-        op.table.currency == period.currency,
-        op.table.loop_id == period.loop_id,
+        op.table.file_id == period.file_id,
         op.table.period_id != period.id,
         op.table.reco_id == null,
         ~Period.closed,
-        # Note: don't use nonzero_filter here because we need to
-        # include items ineligible for reconciliation in the pull.
     )
 
     # List the dates of all unreconciled items in other open periods
@@ -286,7 +255,10 @@ def pull_unreco_and_ineligible(request, period, op):
 
     # Reassign items.
     (dbsession.query(op.table)
-        .filter(op.table.id.in_(ids_query))
+        .filter(
+            op.id_c.in_(ids_query),
+            op.table.file_id == period.file_id,
+        )
         .update(
             {'period_id': period.id},
             synchronize_session='fetch'))
@@ -297,9 +269,7 @@ def pull_unreco_and_ineligible(request, period, op):
         event_type='pull_unreco_%s' % op.plural,
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'item_ids': item_ids,
             'day_periods': day_periods,
         }))
@@ -319,9 +289,7 @@ def pull_recos(request, period):
     reco_filter = and_(
         Reco.owner_id == owner_id,
         Reco.period_id != period.id,
-        Period.peer_id == period.peer_id,
-        Period.currency == period.currency,
-        Period.loop_id == period.loop_id,
+        Period.file_id == period.file_id,
         ~Period.closed,
     )
 
@@ -336,10 +304,10 @@ def pull_recos(request, period):
         dbsession.query(
             func.date(func.timezone(
                 get_tzname(owner),
-                func.timezone('UTC', func.min(Movement.ts))
+                func.timezone('UTC', func.min(FileMovement.ts))
             ))
         )
-        .filter(Movement.reco_id == Reco.id)
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
     )
@@ -401,8 +369,8 @@ def pull_recos(request, period):
             synchronize_session='fetch'))
 
     # Reassign the period_id of affected movements.
-    (dbsession.query(Movement)
-        .filter(Movement.reco_id.in_(reco_ids))
+    (dbsession.query(FileMovement)
+        .filter(FileMovement.reco_id.in_(reco_ids))
         .update(
             {'period_id': period.id},
             synchronize_session='fetch'))
@@ -420,9 +388,7 @@ def pull_recos(request, period):
         event_type='pull_recos',
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'reco_ids': reco_ids,
             'day_periods': day_periods,
         }))
@@ -453,10 +419,11 @@ def push_recos(request, period):
         dbsession.query(
             func.date(func.timezone(
                 get_tzname(owner),
-                func.timezone('UTC', func.min(Movement.ts))
+                func.timezone('UTC', func.min(FileMovement.ts))
             ))
         )
-        .filter(Movement.reco_id == Reco.id)
+        .select_from(FileMovement)
+        .filter(FileMovement.reco_id == Reco.id)
         .correlate(Reco)
         .as_scalar()
     )
@@ -488,9 +455,7 @@ def push_recos(request, period):
         dbsession.query(Period)
         .filter(
             Period.owner_id == owner_id,
-            Period.peer_id == period.peer_id,
-            Period.loop_id == period.loop_id,
-            Period.currency == period.currency,
+            Period.file_id == period.file_id,
             ~Period.closed,
             Period.id != period.id)
         .all())
@@ -513,9 +478,7 @@ def push_recos(request, period):
     if missing_period:
         new_period = add_open_period(
             request=request,
-            peer_id=period.peer_id,
-            loop_id=period.loop_id,
-            currency=period.currency,
+            file_id=period.file_id,
             event_type='add_period_for_push_reco',
             has_vault=period.has_vault)
         new_period_id = new_period.id
@@ -536,10 +499,10 @@ def push_recos(request, period):
     # Reassign the period_id of affected movements.
     subq = (
         dbsession.query(Reco.period_id)
-        .filter(Reco.id == Movement.reco_id)
+        .filter(Reco.id == FileMovement.reco_id)
         .as_scalar())
-    (dbsession.query(Movement)
-        .filter(Movement.reco_id.in_(reco_ids))
+    (dbsession.query(FileMovement)
+        .filter(FileMovement.reco_id.in_(reco_ids))
         .update(
             {'period_id': subq},
             synchronize_session='fetch'))
@@ -561,9 +524,7 @@ def push_recos(request, period):
         event_type='push_recos',
         content={
             'period_id': period.id,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
+            'file_id': period.file_id,
             'reco_ids': reco_ids,
             'day_periods': day_periods,
             'new_period_id': new_period_id,
@@ -593,13 +554,14 @@ def reassign_statement_period(
 
     # Reassign movements first because movement.period_id is not used
     # in move_reco_ids.
-    (dbsession.query(Movement)
-        .filter(Movement.reco_id.in_(move_reco_ids))
+    (dbsession.query(FileMovement)
+        .filter(FileMovement.reco_id.in_(move_reco_ids))
         .update(
             {'period_id': new_period_id},
             synchronize_session='fetch'))
 
-    # Reassign the recos. This affects move_reco_ids.
+    # Reassign the recos. This changes the results of the move_reco_ids
+    # subquery.
     (dbsession.query(Reco)
         .filter(Reco.id.in_(move_reco_ids))
         .update(

@@ -294,6 +294,11 @@ class Movement(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+
+    # The number field is provided by OPN. Each OPN movement has a distinct
+    # number, but this database can spread an OPN movement over multiple
+    # movement rows, so multiple rows can have the same number and
+    # transfer_record_id.
     number = Column(Integer, nullable=False)
 
     # An OPN movement can move multiple amounts, but this database needs to
@@ -302,16 +307,6 @@ class Movement(Base):
     # them first using loop_id, currency, and issuer_id, and finally by
     # incrementing amount_index.
     amount_index = Column(Integer, nullable=False)
-
-    # # peer_id is either an OPN profile ID or 'c' (for 'common' or
-    # # 'circulation'). The 'c' row is the doubled row.
-    # peer_id = Column(String, nullable=False)
-
-    # # orig_peer_id is an OPN profile ID.
-    # orig_peer_id = Column(
-    #     String, CheckConstraint(
-    #         "orig_peer_id != 'c'", name='orig_peer_id_not_c'),
-    #     nullable=False)
 
     loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
@@ -342,6 +337,9 @@ Index(
     Movement.id,
     Movement.currency,
     Movement.loop_id,
+    Movement.issuer_id,
+    Movement.transfer_record_id,
+    Movement.ts,
     unique=True)
 
 
@@ -357,10 +355,17 @@ class FileMovement(Base):
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
 
+    # Copy a few columns from the movement table. The copies help
+    # ensure integrity and reduce the complexity of FileMovement queries.
     currency = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
+    issuer_id = Column(String, nullable=False)
+    transfer_record_id = Column(BigInteger, nullable=False)
+    ts = Column(DateTime, nullable=False)
 
-    # peer_id is an OPN profile ID.
+    # peer_id is an OPN profile ID. It matches the from_id, to_id, or
+    # issuer_id column, depending on the file-specific movement
+    # interpretation.
     peer_id = Column(
         # The peer_id_not_c constraint helps ensure migration scripts
         # don't keep the old special peer_id of 'c'.
@@ -399,8 +404,22 @@ class FileMovement(Base):
             name='match_file',
         ),
         ForeignKeyConstraint(
-            ['movement_id', 'currency', 'loop_id'],
-            ['movement.id', 'movement.currency', 'movement.loop_id'],
+            [
+                'movement_id',
+                'currency',
+                'loop_id',
+                'issuer_id',
+                'transfer_record_id',
+                'ts',
+            ],
+            [
+                'movement.id',
+                'movement.currency',
+                'movement.loop_id',
+                'movement.issuer_id',
+                'movement.transfer_record_id',
+                'movement.ts',
+            ],
             name='match_movement',
         ),
         ForeignKeyConstraint(
