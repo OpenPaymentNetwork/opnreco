@@ -170,6 +170,7 @@ class Period(Base):
     closed = Column(Boolean, nullable=False, default=False)
 
     owner = relationship(Owner)
+    file = relationship(File)
 
     __table_args__ = (
         CheckConstraint(or_(

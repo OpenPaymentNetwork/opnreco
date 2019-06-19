@@ -256,7 +256,7 @@ def reco_search_movement(context, request, final=False):
     owner_id = owner.id
     filters = []
 
-    amount_parsed = parse_amount(amount_input, currency=period.currency)
+    amount_parsed = parse_amount(amount_input, currency=period.file.currency)
     if amount_parsed is not None:
         amount_abs = abs(amount_parsed)
         vault_sign_filters = ()
@@ -395,7 +395,7 @@ def reco_search_account_entries(context, request, final=False):
     owner_id = owner.id
     filters = []
 
-    delta_parsed = parse_amount(delta_input, currency=period.currency)
+    delta_parsed = parse_amount(delta_input, currency=period.file.currency)
     if delta_parsed is not None:
         delta_abs = abs(delta_parsed)
 
@@ -449,9 +449,7 @@ def reco_search_account_entries(context, request, final=False):
             AccountEntry.owner_id == owner_id,
             # Note: don't filter by period_id, otherwise, users won't be able
             # to reconcile entries across periods.
-            AccountEntry.peer_id == period.peer_id,
-            AccountEntry.currency == period.currency,
-            AccountEntry.loop_id == period.loop_id,
+            AccountEntry.file_id == period.file_id,
             or_(
                 AccountEntry.reco_id == null,
                 AccountEntry.reco_id == reco_id,
@@ -634,44 +632,6 @@ class RecoSave:
 
         return new_movements
 
-    @reify
-    def manual_statement_id(self):
-        """Get or create the manual statement ID for this period."""
-        request = self.request
-        dbsession = request.dbsession
-        owner = request.owner
-        owner_id = owner.id
-        period = self.period
-
-        statement_id = (
-            dbsession.query(Statement.id)
-            .filter(
-                Statement.owner_id == owner_id,
-                Statement.peer_id == period.peer_id,
-                Statement.period_id == period.id,
-                Statement.loop_id == period.loop_id,
-                Statement.currency == period.currency,
-                Statement.source == 'Manual Entries',
-            )
-            .order_by(Statement.id.desc())
-            .first()
-        )
-
-        if statement_id is None:
-            statement = Statement(
-                owner_id=owner_id,
-                peer_id=period.peer_id,
-                period_id=period.id,
-                loop_id=period.loop_id,
-                currency=period.currency,
-                source='Manual Entries',
-            )
-            dbsession.add(statement)
-            dbsession.flush()  # Assign statement.id
-            statement_id = statement.id
-
-        return statement_id
-
     def get_new_account_entries(self, new_entries):
         res = []  # [AccountEntry]
         reusing_ids = []  # [account_entry_id]
@@ -692,9 +652,7 @@ class RecoSave:
                 .filter(
                     AccountEntry.owner_id == owner_id,
                     AccountEntry.id.in_(reusing_ids),
-                    AccountEntry.peer_id == period.peer_id,
-                    AccountEntry.currency == period.currency,
-                    AccountEntry.loop_id == period.loop_id,
+                    AccountEntry.file_id == period.file_id,
                     or_(
                         AccountEntry.reco_id == null,
                         AccountEntry.reco_id == self.reco_id,
@@ -735,9 +693,7 @@ class RecoSave:
             dbsession.query(Period)
             .filter(
                 Period.owner_id == owner_id,
-                Period.peer_id == old_period.peer_id,
-                Period.currency == old_period.currency,
-                Period.loop_id == old_period.loop_id,
+                Period.file_id == old_period.file_id,
                 ~Period.closed,
                 Period.id == new_period_id,
             )

@@ -66,9 +66,7 @@ def statements_api(context, request):
         .outerjoin(AccountEntry, AccountEntry.statement_id == Statement.id)
         .filter(
             Statement.owner_id == owner_id,
-            Statement.peer_id == period.peer_id,
-            Statement.loop_id == period.loop_id,
-            Statement.currency == period.currency,
+            Statement.file_id == period.file_id,
             Statement.period_id == period.id,
         )
         .group_by(Statement.id)
@@ -308,9 +306,7 @@ def statement_save(context, request):
         .filter(
             Statement.owner_id == owner_id,
             Statement.id == appstruct['id'],
-            Statement.peer_id == period.peer_id,
-            Statement.currency == period.currency,
-            Statement.loop_id == period.loop_id,
+            Statement.file_id == period.file_id,
         )
         .first())
 
@@ -327,9 +323,7 @@ def statement_save(context, request):
             dbsession.query(Period)
             .filter(
                 Period.owner_id == owner_id,
-                Period.peer_id == period.peer_id,
-                Period.currency == period.currency,
-                Period.loop_id == period.loop_id,
+                Period.file_id == period.file_id,
                 ~Period.closed,
                 Period.id == appstruct['period_id'],
             )
@@ -404,9 +398,7 @@ def statement_delete(context, request):
         .filter(
             Statement.owner_id == owner_id,
             Statement.id == appstruct['id'],
-            Statement.peer_id == period.peer_id,
-            Statement.currency == period.currency,
-            Statement.loop_id == period.loop_id,
+            Statement.file_id == period.file_id,
         )
         .first())
 
@@ -530,6 +522,7 @@ class AccountEntryEditSchema(colander.Schema):
 def entry_save(context, request):
     """Save changes to an account entry."""
     period = context.period
+    file = period.file
     dbsession = request.dbsession
     owner = request.owner
     owner_id = owner.id
@@ -544,9 +537,7 @@ def entry_save(context, request):
         dbsession.query(Statement)
         .filter(
             Statement.owner_id == owner_id,
-            Statement.peer_id == period.peer_id,
-            Statement.currency == period.currency,
-            Statement.loop_id == period.loop_id,
+            Statement.file_id == period.file_id,
             Statement.id == appstruct['statement_id'],
         )
         .first())
@@ -559,8 +550,7 @@ def entry_save(context, request):
 
     delta_input = appstruct['delta']
     try:
-        appstruct['delta'] = parse_amount(
-            delta_input, currency=period.currency)
+        appstruct['delta'] = parse_amount(delta_input, currency=file.currency)
     except Exception as e:
         raise HTTPBadRequest(json_body={
             'error': 'amount_parse_error',
@@ -619,11 +609,11 @@ def entry_save(context, request):
 
         entry = AccountEntry(
             owner_id=owner_id,
-            peer_id=statement.peer_id,
+            file_id=period.file_id,
             period_id=period.id,
             statement_id=statement.id,
-            loop_id=statement.loop_id,
-            currency=statement.currency,
+            loop_id=file.loop_id,
+            currency=file.currency,
             reco_id=None,
             **{attr: appstruct[attr] for attr in attrs})
         dbsession.add(entry)
@@ -659,9 +649,7 @@ def entry_delete(context, request):
         dbsession.query(Statement)
         .filter(
             Statement.owner_id == owner_id,
-            Statement.peer_id == period.peer_id,
-            Statement.currency == period.currency,
-            Statement.loop_id == period.loop_id,
+            Statement.file_id == period.file_id,
             Statement.id == appstruct['statement_id'],
         )
         .first())
@@ -750,9 +738,7 @@ def statement_add_blank(context, request):
     statement = Statement(
         owner_id=owner_id,
         period_id=period.id,
-        peer_id=period.peer_id,
-        loop_id=period.loop_id,
-        currency=period.currency,
+        file_id=period.file_id,
         source=appstruct['source'],
     )
     dbsession.add(statement)
@@ -807,7 +793,7 @@ class StatementUploadAPI:
     def __init__(self, context, request):
         self.context = context
         self.request = request
-        self.currency = context.period.currency
+        self.currency = context.period.file.currency
         self.statement = None
 
     def __call__(self):
@@ -897,9 +883,7 @@ class StatementUploadAPI:
         statement = Statement(
             owner_id=owner_id,
             period_id=period.id,
-            peer_id=period.peer_id,
-            loop_id=period.loop_id,
-            currency=period.currency,
+            file_id=period.file_id,
             source=source,
             upload_ts=now_func,
             filename=name,
@@ -914,6 +898,7 @@ class StatementUploadAPI:
 
     def handle_excel(self):
         period = self.context.period
+        file = period.file
         dbsession = self.request.dbsession
         owner = self.request.owner
         owner_id = owner.id
@@ -1008,11 +993,11 @@ class StatementUploadAPI:
 
                 dbsession.add(AccountEntry(
                     owner_id=owner_id,
-                    peer_id=period.peer_id,
+                    file_id=period.file_id,
                     period_id=period.id,
                     statement_id=statement.id,
-                    loop_id=period.loop_id,
-                    currency=period.currency,
+                    loop_id=file.loop_id,
+                    currency=file.currency,
                     reco_id=None,
                     **attrs))
 

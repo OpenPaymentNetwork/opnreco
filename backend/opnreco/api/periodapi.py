@@ -252,9 +252,10 @@ def period_state_api(context, request):
     peers = get_peer_map(
         request=request, need_peer_ids=set([period.peer_id]), final=True)
 
-    if period.loop_id != '0':
+    file = period.file
+    if file.loop_id != '0':
         loops = get_loop_map(
-            request=request, need_loop_ids=set([period.loop_id]), final=True)
+            request=request, need_loop_ids=set([file.loop_id]), final=True)
     else:
         loops = {}
 
@@ -264,7 +265,7 @@ def period_state_api(context, request):
         'now': now,
         'period': serialize_period(period, end_amounts=end_amounts),
         'peer': peers[period.peer_id],
-        'loop': loops.get(period.loop_id),  # None for loop_id == '0'
+        'loop': loops.get(file.loop_id),  # None for loop_id == '0'
         'totals': totals,
         'counts': counts,
         'delete_conflicts': delete_conflicts,
@@ -414,7 +415,7 @@ def period_save(context, request):
     """Change the period."""
     period = context.period
 
-    schema = PeriodSaveSchema().bind(currency=period.currency)
+    schema = PeriodSaveSchema().bind(currency=period.file.currency)
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
@@ -561,17 +562,11 @@ def edit_period(request, period, appstruct, event_type, adding_period=False):
     # If the user is editing the period (not adding) and there is no
     # longer an open-ended period, create it now.
     if not adding_period and end_date is not None:
-        next_period_args = {
-            'request': request,
-            'peer_id': period.peer_id,
-            'loop_id': period.loop_id,
-            'currency': period.currency,
-        }
-        if not open_end_period_exists(**next_period_args):
+        if not open_end_period_exists(request=request, file_id=period.file_id):
             next_period = add_open_period(
-                event_type='add_period_on_edit',
-                has_vault=period.has_vault,
-                **next_period_args)
+                request=request,
+                file_id=period.file_id,
+                event_type='add_period_on_edit')
             # Pull unreconciled items into the automatically created period.
             # (Feature requested by Lexi.)
             configure_dblog(request, event_type='pull_unreco')
@@ -643,7 +638,6 @@ def update_next_period(request, prev_period, totals):
                 'prev_period_id': prev_period.id,
                 'period_id': next_period.id,
                 'file_id': next_period.file_id,
-                'currency': next_period.currency,
                 'start_circ': next_period.start_circ,
                 'start_surplus': next_period.start_surplus,
             },

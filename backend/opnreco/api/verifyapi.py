@@ -306,14 +306,14 @@ class VerifyAPI(SyncBase):
                 Period.start_date)
             .all())
 
-        prev_ploop = ()  # (peer_id, loop_id, currency)
+        prev_file_id = None
         prev_period = None
 
         for period in periods:
-            ploop = (period.peer_id, period.loop_id, period.currency)
-            if ploop != prev_ploop:
+            file_id = period.file_id
+            if file_id != prev_file_id:
                 # Start of a new sequence
-                prev_ploop = ploop
+                prev_file_id = file_id
                 prev_period = period
                 continue
 
