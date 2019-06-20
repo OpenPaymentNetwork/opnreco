@@ -130,8 +130,6 @@ class File(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
     title = Column(Unicode, nullable=False)
     currency = Column(String, nullable=False)
-    loop_id = Column(String, nullable=False)
-    peer_id = Column(String, nullable=True)
     has_vault = Column(Boolean, nullable=False)
     removed = Column(Boolean, nullable=False, default=False)
 
@@ -141,8 +139,36 @@ Index(
     'ix_file_matchable',
     File.id,
     File.currency,
-    File.loop_id,
     unique=True)
+
+
+class FileFilter(Base):
+    """Movements are included in a File if they match any of the filters."""
+    __tablename__ = 'file_filter'
+    id = Column(BigInteger, nullable=False, primary_key=True)
+    owner_id = Column(
+        String, ForeignKey('owner.id'), nullable=False, index=True)
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'), nullable=False, index=True)
+    loop_id = Column(String, nullable=False)
+    filter_type = Column(String, nullable=False)
+    peer_id = Column(String, nullable=True)
+    issuer_id = Column(String, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(or_(
+            and_(
+                filter_type == 'circulation',
+                peer_id == null,
+                issuer_id != null,
+            ),
+            and_(
+                filter_type == 'account',
+                peer_id != null,
+                issuer_id == null,
+            ),
+        ), name='filter_type_fields'),
+        {})
 
 
 class Period(Base):
@@ -400,8 +426,8 @@ class FileMovement(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(
-            ['file_id', 'currency', 'loop_id'],
-            ['file.id', 'file.currency', 'file.loop_id'],
+            ['file_id', 'currency'],
+            ['file.id', 'file.currency'],
             name='match_file',
         ),
         ForeignKeyConstraint(
@@ -585,8 +611,8 @@ class AccountEntry(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(
-            ['file_id', 'currency', 'loop_id'],
-            ['file.id', 'file.currency', 'file.loop_id'],
+            ['file_id', 'currency'],
+            ['file.id', 'file.currency'],
             name='match_file',
         ),
         ForeignKeyConstraint(
