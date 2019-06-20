@@ -1,6 +1,7 @@
 
 from decimal import Decimal
 from opnreco.models.db import Movement
+from opnreco.models.db import FileMovement
 from opnreco.models.db import TransferRecord
 from opnreco.models import perms
 from opnreco.models.site import PeriodResource
@@ -8,6 +9,7 @@ from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
+from sqlalchemy import and_
 import collections
 
 
@@ -28,7 +30,7 @@ def transfer_record_final_api(context, request):
 def transfer_record_api(context, request, final=False):
     """Prepare all the info for displaying a transfer record.
 
-    Requires peer_key, period_id, and transfer_id in the query string.
+    Requires period_id, transfer_id in the query string.
     Note that the period specified is used only to identify which
     reconciliation records to show.
 
@@ -45,8 +47,6 @@ def transfer_record_api(context, request, final=False):
     owner = request.owner
     owner_id = owner.id
     period = context.period
-    period_peer_id = period.peer_id
-    is_circ = period_peer_id == 'c'
 
     record = (
         dbsession.query(TransferRecord)
@@ -64,22 +64,17 @@ def transfer_record_api(context, request, final=False):
                 % (transfer_id_input, owner.title)),
         })
 
-    # Note: there are exactly two copies of every row in the Movement
-    # table because we store a movement row for both the original peer
-    # and the 'c' peer. Disambiguate.
-    if is_circ:
-        movement_filter = (Movement.peer_id == 'c')
-    else:
-        movement_filter = (Movement.peer_id != 'c')
-
     movement_rows = (
-        dbsession.query(Movement)
-        .filter(movement_filter)
-        .filter(Movement.transfer_record_id == record.id)
+        dbsession.query(Movement, FileMovement)
+        .outerjoin(FileMovement, and_(
+            FileMovement.movement_id == Movement.id,
+            FileMovement.file_id == period.file_id))
+        .filter(
+            Movement.owner_id == owner_id,
+            Movement.transfer_record_id == record.id)
         .order_by(
             Movement.number,
             Movement.amount_index,
-            Movement.orig_peer_id,
             Movement.loop_id,
             Movement.currency,
             Movement.issuer_id,
@@ -88,15 +83,17 @@ def transfer_record_api(context, request, final=False):
     need_peer_ids = set()
     need_loop_ids = set()
 
-    need_peer_ids.add(record.sender_id)
-    need_peer_ids.add(record.recipient_id)
+    if record.sender_id is not None:
+        need_peer_ids.add(record.sender_id)
+    if record.recipient_id is not None:
+        need_peer_ids.add(record.recipient_id)
 
     # peer_appearance is used for sorting the peers by order of
     # appearance in the transfer.
     # peer_appearance: {peer_id: [(movement_number, amount_index)]}
     peer_appearance = collections.defaultdict(list)
     to_or_from = set()  # set of peer_ids listed in to_id or from_id
-    for m in movement_rows:
+    for m, _fm in movement_rows:
         from_id = m.from_id
         to_id = m.to_id
         issuer_id = m.issuer_id
@@ -132,53 +129,51 @@ def transfer_record_api(context, request, final=False):
         'wallet': zero,
     })
 
-    for movement in movement_rows:
-        movement_id = movement.id
-        number = movement.number
-        amount_index = movement.amount_index
-        orig_peer_id = movement.orig_peer_id
-        loop_id = movement.loop_id
-        currency = movement.currency
-        issuer_id = movement.issuer_id
-        vault_delta = movement.vault_delta
-        wallet_delta = movement.wallet_delta
+    for m, fm in movement_rows:
+        currency = m.currency
+        loop_id = m.loop_id
+        issuer_id = m.issuer_id
 
-        reco_applicable = False
-        if (movement.currency == period.currency and
-                movement.loop_id == period.loop_id and
-                (is_circ or orig_peer_id == period_peer_id) and
-                (wallet_delta or vault_delta)):
+        if fm is not None:
             reco_applicable = True
+            vault_delta = fm.vault_delta
+            vault_delta_str = str(vault_delta)
+            wallet_delta = fm.wallet_delta
+            wallet_delta_str = str(wallet_delta)
+            reco_id = fm.reco_id
+            if vault_delta:
+                delta_totals[(currency, loop_id)]['vault'] += vault_delta
+            if wallet_delta:
+                delta_totals[(currency, loop_id)]['wallet'] += wallet_delta
 
-        reco_id = movement.reco_id
+        else:
+            reco_applicable = False
+            vault_delta_str = '0'
+            wallet_delta_str = '0'
+            reco_id = None
+
         movements_json.append({
-            'movement_id': str(movement_id),
-            'number': number,
-            'amount_index': amount_index,
-            'peer_id': orig_peer_id,
+            'movement_id': str(m.id),
+            'number': m.number,
+            'amount_index': m.amount_index,
             'loop_id': loop_id,
             'currency': currency,
-            'amount': str(movement.amount or '0'),
-            'issuer_id': movement.issuer_id,
-            'from_id': movement.from_id,
-            'to_id': movement.to_id,
-            'action': movement.action,
-            'ts': movement.ts.isoformat() + 'Z',
-            'wallet_delta': str(wallet_delta or '0'),
-            'vault_delta': str(vault_delta or '0'),
-            'reco_applicable': not not reco_applicable,
+            'amount': str(m.amount or '0'),
+            'issuer_id': issuer_id,
+            'from_id': m.from_id,
+            'to_id': m.to_id,
+            'action': m.action,
+            'ts': m.ts.isoformat() + 'Z',
+            'wallet_delta': wallet_delta_str,
+            'vault_delta': vault_delta_str,
+            'reco_applicable': reco_applicable,
             'reco_id': None if reco_id is None else str(reco_id),
         })
 
-        if vault_delta:
-            delta_totals[(currency, loop_id)]['vault'] += vault_delta
-        if wallet_delta:
-            delta_totals[(currency, loop_id)]['wallet'] += wallet_delta
-
-        if issuer_id == orig_peer_id:
+        if issuer_id in peers:
             # This peer is an issuer in this transfer.
-            # (Show an issuer icon.)
-            peers[orig_peer_id]['is_issuer'] = True
+            # (The front end will show an issuer icon.)
+            peers[issuer_id]['is_issuer'] = True
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
@@ -206,7 +201,7 @@ def transfer_record_api(context, request, final=False):
     peer_order = [y for x, y in peer_ordering]
     peer_index = {x: i for (i, x) in enumerate(peer_order)}
 
-    self_id = owner_id if is_circ else period.peer_id
+    self_id = period.file.peer_id or owner_id
 
     delta_totals_json = [{
         'currency': currency1,
@@ -235,7 +230,7 @@ def transfer_record_api(context, request, final=False):
         'peer_index': peer_index,
         'loops': loops,
         'delta_totals': delta_totals_json,
-        'show_vault': is_circ,
+        'show_vault': period.file.has_vault,
         'bundled_transfers': record.bundled_transfers,
         'bundle_transfer_id': record.bundle_transfer_id,
     }

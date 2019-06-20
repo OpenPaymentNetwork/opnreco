@@ -560,6 +560,7 @@ class SyncBase:
 
     @reify
     def interpreters(self):
+        """Prepare the owner's file-specific movement interpreters."""
         request = self.request
         dbsession = request.dbsession
         owner_id = self.owner_id

@@ -48,7 +48,7 @@ null = None
     permission=perms.view_file,
     renderer='json')
 def period_list_api(context, request):
-    """Return a page of periods for a ploop.
+    """Return a page of periods in a file.
     """
     params = request.params
     file = context.file

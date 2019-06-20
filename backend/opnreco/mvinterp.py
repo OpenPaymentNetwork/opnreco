@@ -53,9 +53,9 @@ class MovementInterpreter:
             return pytz.timezone('America/New_York')
 
     def add_file_movements(self, record, movements, is_new_record):
-        """Add the FileMovements for the movements in a record.
+        """Add the FileMovements for the movements in a TransferRecord.
 
-        Also auto-reconcile.
+        Also auto-reconcile if at least 2 movements fit the File.
         """
         dbsession = self.request.dbsession
 
@@ -99,11 +99,14 @@ class MovementInterpreter:
                 dbsession.add(file_movement)
             to_reconcile.append((file_movement, movement))
 
-        configure_dblog(request=self.request, movement_event_type='autoreco')
-        self.autoreco(
-            record=record,
-            movement_rows=to_reconcile,
-            is_new_record=is_new_record)
+        if len(to_reconcile) >= 2:
+            # Auto-reconciliation within the transfer might be possible.
+            configure_dblog(
+                request=self.request, movement_event_type='autoreco')
+            self.autoreco(
+                record=record,
+                movement_rows=to_reconcile,
+                is_new_record=is_new_record)
 
     def interpret(self, movement):
         """Compute the FileMovement attrs for a Movement in this File.
