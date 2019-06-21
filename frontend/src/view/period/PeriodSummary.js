@@ -57,7 +57,8 @@ class PeriodSummary extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
-    result: PropTypes.object,
+    file: PropTypes.object.isRequired,
+    result: PropTypes.object.isRequired,
   };
 
   handleClick = (event, path) => {
@@ -70,6 +71,7 @@ class PeriodSummary extends React.Component {
   render() {
     const {
       classes,
+      file,
       result: {
         period,
         totals,
@@ -77,10 +79,10 @@ class PeriodSummary extends React.Component {
       },
     } = this.props;
 
-    const showCirc = (period.peer_id === 'c');
+    const showCirc = file.has_vault;
     const columnCount = showCirc ? 6 : 4;
 
-    const cfmt = new getCurrencyFormatter(period.currency);
+    const cfmt = new getCurrencyFormatter(file.currency);
 
     const getAmountColumns = (rowname, options) => {
       let cellClass = classes.amountCell;

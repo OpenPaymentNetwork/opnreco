@@ -59,7 +59,7 @@ class PeriodOverview extends React.Component {
           />
         </Paper>
         <Paper className={classes.tablePaper}>
-          <PeriodSummary result={result} />
+          <PeriodSummary file={file} result={result} />
         </Paper>
       </div>
     );

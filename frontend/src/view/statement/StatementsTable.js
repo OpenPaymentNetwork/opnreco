@@ -104,7 +104,7 @@ class StatementsTable extends React.Component {
     const encPeriodId = encodeURIComponent(period.id);
 
     if (statements && statements.length) {
-      const cfmt = new getCurrencyFormatter(period.currency);
+      const cfmt = new getCurrencyFormatter(file.currency);
       rows = statements.map(statement => {
         const path = (
           `/period/${encPeriodId}` +
