@@ -142,33 +142,22 @@ Index(
     unique=True)
 
 
-class FileFilter(Base):
-    """Movements are included in a File if they match any of the filters."""
-    __tablename__ = 'file_filter'
+class FileRule(Base):
+    """Movements are included in a File if they match any of the rules."""
+    __tablename__ = 'file_rule'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
     file_id = Column(
         BigInteger, ForeignKey('file.id'), nullable=False, index=True)
     loop_id = Column(String, nullable=False)
-    filter_type = Column(String, nullable=False)
+    # self_id is usually owner_id, but may be a different profile ID when
+    # this profile is a distributor and we're reconciling notes from
+    # a particular issuer.
+    self_id = Column(String, nullable=False)
+    # peer_id is null for reconciling note circulation. When reconciling
+    # a deposit account, peer_id is the account holder ID.
     peer_id = Column(String, nullable=True)
-    issuer_id = Column(String, nullable=True)
-
-    __table_args__ = (
-        CheckConstraint(or_(
-            and_(
-                filter_type == 'circulation',
-                peer_id == null,
-                issuer_id != null,
-            ),
-            and_(
-                filter_type == 'account',
-                peer_id != null,
-                issuer_id == null,
-            ),
-        ), name='filter_type_fields'),
-        {})
 
 
 class Period(Base):
@@ -589,8 +578,8 @@ class AccountEntry(Base):
     row = Column(Integer, nullable=True)
 
     entry_date = Column(Date, nullable=False)
-    loop_id = Column(String, nullable=False)
     currency = Column(String, nullable=False)
+    loop_id = Column(String, nullable=False)  # Always '0'
 
     # The delta is positive for account increases and negative for decreases.
     # Note: we use the terms increase and decrease instead of debit/credit

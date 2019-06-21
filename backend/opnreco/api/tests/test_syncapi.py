@@ -38,6 +38,7 @@ class TestSyncAPI(unittest.TestCase):
     def _make(self, owner_id='11'):
         from opnreco.models.db import Owner
         from opnreco.models.db import File
+        from opnreco.models.db import FileRule
 
         owner = Owner(
             id=owner_id,
@@ -52,11 +53,16 @@ class TestSyncAPI(unittest.TestCase):
             owner_id=owner_id,
             title='Test File',
             currency='USD',
-            loop_id='0',
-            peer_id=None,
             has_vault=True)
         self.dbsession.add(file)
         self.dbsession.flush()
+
+        self.dbsession.add(FileRule(
+            id=123901,
+            owner_id=owner.id,
+            file_id=1239,
+            loop_id='0',
+            self_id=owner.id))
 
         request = pyramid.testing.DummyRequest(
             dbsession=self.dbsession,
@@ -265,7 +271,7 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.FileMovementLog).all()
         self.assertEqual(2, len(events))
         event = events[0]
-        self.assertEqual('add', event.event_type)
+        self.assertEqual('sync_file_movements', event.event_type)
 
         recos = self.dbsession.query(db.Reco).all()
         self.assertEqual(0, len(recos))
@@ -380,7 +386,7 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.FileMovementLog).all()
         self.assertEqual(1, len(events))
         event = events[0]
-        self.assertEqual('add', event.event_type)
+        self.assertEqual('sync_file_movements', event.event_type)
 
         recos = self.dbsession.query(db.Reco).all()
         self.assertEqual(0, len(recos))
@@ -539,7 +545,7 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.FileMovementLog).all()
         self.assertEqual(2, len(events))
         event = events[0]
-        self.assertEqual('add', event.event_type)
+        self.assertEqual('sync_file_movements', event.event_type)
 
     @responses.activate
     def test_grant_from_issuer_perspective(self):
@@ -695,7 +701,7 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.FileMovementLog).all()
         self.assertEqual(2, len(events))
         event = events[0]
-        self.assertEqual('add', event.event_type)
+        self.assertEqual('sync_file_movements', event.event_type)
 
     def test_redownload_with_updates(self):
         from opnreco.models import db
@@ -1457,6 +1463,6 @@ class TestSyncAPI(unittest.TestCase):
 
         self.assertEqual(2, len(mvlogs))
         mvlog = mvlogs[0]
-        self.assertEqual('add', mvlog.event_type)
+        self.assertEqual('sync_file_movements', mvlog.event_type)
         mvlog = mvlogs[1]
-        self.assertEqual('add', mvlog.event_type)
+        self.assertEqual('sync_file_movements', mvlog.event_type)

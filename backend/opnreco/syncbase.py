@@ -483,7 +483,7 @@ class SyncBase:
         if write_enabled:
             dbsession.flush()  # Assign the movement IDs and log the movements
             for interpreter in self.interpreters:
-                interpreter.add_file_movements(
+                interpreter.sync_file_movements(
                     record=record,
                     movements=movement_dict.values(),
                     is_new_record=is_new_record)

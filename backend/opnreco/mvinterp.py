@@ -1,6 +1,7 @@
 
 from decimal import Decimal
 from opnreco.models.db import FileMovement
+from opnreco.models.db import FileRule
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.viewcommon import add_open_period
@@ -8,6 +9,7 @@ from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from pyramid.decorator import reify
 import collections
+import itertools
 import logging
 import pytz
 
@@ -35,11 +37,8 @@ class MovementInterpreter:
         self.owner_id = file.owner_id
         self.change_log = change_log
 
-        # periods: {date: Period}
-        self.periods = {}
-
-        # period_list: [Period]
-        self.period_list = None
+        # open_periods: {date: open Period}
+        self.open_periods = {}
 
     @reify
     def timezone(self):
@@ -52,7 +51,40 @@ class MovementInterpreter:
         except Exception:
             return pytz.timezone('America/New_York')
 
-    def add_file_movements(self, record, movements, is_new_record):
+    @reify
+    def open_period_list(self):
+        """Get the list of open Periods for the File."""
+        return (
+            self.request.dbsession.query(Period)
+            .filter(
+                Period.owner_id == self.owner_id,
+                Period.file_id == self.file.id,
+                ~Period.closed)
+            .order_by(Period.id)
+            .all())
+
+    @reify
+    def open_period_ids(self):
+        """Get the set of open Period IDs for the File."""
+        return set(period.id for period in self.open_period_list)
+
+    @reify
+    def rules_by_loop_id(self):
+        rows = (
+            self.request.dbsession.query(FileRule)
+            .filter(
+                FileRule.owner_id == self.owner_id,
+                FileRule.file_id == self.file.id,
+            )
+            .order_by(FileRule.loop_id, FileRule.id)
+            .all())
+        return {
+            loop_id: list(rules)
+            for (loop_id, rules)
+            in itertools.groupby(rows, lambda row: row.loop_id)
+        }
+
+    def sync_file_movements(self, record, movements, is_new_record):
         """Add the FileMovements for the movements in a TransferRecord.
 
         Also auto-reconcile if at least 2 movements fit the File.
@@ -76,28 +108,62 @@ class MovementInterpreter:
 
         to_reconcile = []  # [(file_movement, movement)]
 
-        configured = False
+        configured = []
+
+        def configure():
+            if not configured:
+                configure_dblog(
+                    request=self.request,
+                    movement_event_type='sync_file_movements')
+                configured.append(True)
 
         for movement in movements:
             file_movement = file_movements.get(movement.id)
-            if file_movement is None:
-                kw = self.interpret(movement)
-                if not kw:
-                    # This movement has no effect on the reconciliation file.
-                    continue
+            kw = self.interpret(movement)
+            if kw and file_movement is None:
+                # Add a file movement.
+                configure()
 
-                if not configured:
-                    configure_dblog(
-                        request=self.request, movement_event_type='add')
-                    configured = True
+                day = movement.ts.replace(tzinfo=pytz.utc).astimezone(
+                    self.timezone).date()
+                period = self.get_open_period(day=day)
 
                 file_movement = FileMovement(
                     owner_id=self.owner_id,
                     movement_id=movement.id,
                     file_id=self.file.id,
+                    period_id=period.id,
                     **kw)
                 dbsession.add(file_movement)
-            to_reconcile.append((file_movement, movement))
+
+            elif (not kw and
+                    file_movement is not None and
+                    file_movement.reco_id is None and
+                    file_movement.period_id in self.open_period_ids):
+                # This movement no longer applies to the file
+                # and the file movement is safe to delete, so delete it.
+                configure()
+                dbsession.delete(file_movement, synchronize_session=True)
+                file_movement = None
+
+            elif (kw and
+                    file_movement is not None and
+                    file_movement.reco_id is None and
+                    file_movement.period_id in self.open_period_ids):
+                # Update the file movement if needed.
+                if file_movement.peer_id != kw['peer_id']:
+                    configure()
+                    file_movement.peer_id = kw['peer_id']
+                if file_movement.wallet_delta != kw['wallet_delta']:
+                    configure()
+                    file_movement.wallet_delta = kw['wallet_delta']
+                    file_movement.surplus_delta = kw['surplus_delta']
+                if file_movement.vault_delta != kw['vault_delta']:
+                    configure()
+                    file_movement.vault_delta = kw['vault_delta']
+
+            if file_movement is not None:
+                to_reconcile.append((file_movement, movement))
 
         if len(to_reconcile) >= 2:
             # Auto-reconciliation within the transfer might be possible.
@@ -119,56 +185,53 @@ class MovementInterpreter:
             # Issuance movement.
             return None
 
+        currency = movement.currency
+        if currency != self.file.currency:
+            # This movement is not applicable to this file.
+            return None
+
+        loop_id = movement.loop_id
+        rules = self.rules_by_loop_id.get(loop_id, ())
+        if not rules:
+            # No rule matches.
+            return None
+
         to_id = movement.to_id
-        owner_id = self.owner_id
         issuer_id = movement.issuer_id
         amount = movement.amount
         wallet_delta = zero
         vault_delta = zero
 
-        if from_id == owner_id and to_id != owner_id:
-            peer_id = to_id
-            if from_id == issuer_id:
-                # Notes were put into circulation.
-                vault_delta = -amount
-            else:
-                # Notes were sent to an account or other wallet.
-                wallet_delta = -amount
+        for rule in rules:
+            rule_self_id = rule.self_id
 
-        elif to_id == owner_id and from_id != owner_id:
-            peer_id = from_id
-            if to_id == issuer_id:
-                # Notes were taken out of circulation.
-                vault_delta = amount
-            else:
-                # Notes were received from an account or other wallet.
-                wallet_delta = amount
+            if from_id == rule_self_id and to_id != rule_self_id:
+                rule_peer_id = rule.peer_id
+                if not rule_peer_id or rule_peer_id == to_id:
+                    peer_id = to_id
+                    if from_id == issuer_id:
+                        # Notes were put into circulation.
+                        vault_delta = -amount
+                    else:
+                        # Notes were sent to an account or other wallet.
+                        wallet_delta = -amount
+                    break
 
-        else:
-            # The owner is observing a movement, but the movement
-            # does not involve the owner's wallet or vault.
-            return None
+            elif to_id == rule_self_id and from_id != rule_self_id:
+                rule_peer_id = rule.peer_id
+                if not rule_peer_id or rule_peer_id == from_id:
+                    peer_id = from_id
+                    if to_id == issuer_id:
+                        # Notes were taken out of circulation.
+                        vault_delta = amount
+                    else:
+                        # Notes were received from an account or other wallet.
+                        wallet_delta = amount
+                    break
 
         if not vault_delta and not wallet_delta:
+            # No rule matches.
             return None
-
-        loop_id = movement.loop_id
-        currency = movement.currency
-        file = self.file
-        file_peer_id = file.peer_id
-
-        if currency != file.currency or loop_id != file.loop_id or (
-                file_peer_id and peer_id != file_peer_id):
-            # This movement is not applicable to this file.
-            return None
-
-        day = movement.ts.replace(tzinfo=pytz.utc).astimezone(
-            self.timezone).date()
-        period = self.get_open_period(day=day)
-        period_id = period.id
-
-        if vault_delta and not self.file.has_vault:
-            self.file.has_vault = True
 
         return {
             'currency': currency,
@@ -179,34 +242,20 @@ class MovementInterpreter:
             'peer_id': peer_id,
             'wallet_delta': wallet_delta,
             'vault_delta': vault_delta,
-            'period_id': period_id,
             'surplus_delta': -wallet_delta,
         }
 
     def get_open_period(self, day):
         """Get an open Period for a movement_date.
         """
-        period = self.periods.get(day)
+        period = self.open_periods.get(day)
         if period is not None:
             return period
 
-        dbsession = self.request.dbsession
-        owner_id = self.owner_id
-
-        period_list = self.period_list
-        if not period_list:
-            # Get the list of matching open Periods that already exist.
-            period_list = (
-                dbsession.query(Period)
-                .filter(
-                    Period.owner_id == owner_id,
-                    Period.file_id == self.file.id,
-                    ~Period.closed)
-                .all())
-            self.period_list = period_list
+        open_period_list = self.open_period_list
 
         # See if any of the existing periods match.
-        period = get_period_for_day(period_list, day)
+        period = get_period_for_day(open_period_list, day)
         if period is not None:
             # Found a matching open period.
             self.periods[day] = period
@@ -218,8 +267,9 @@ class MovementInterpreter:
             file_id=self.file.id,
             event_type='add_period_for_sync')
 
-        self.period_list.append(period)
-        self.periods[day] = period
+        self.open_period_list.append(period)
+        self.open_periods[day] = period
+        self.open_period_ids.add(period.id)
         self.change_log.append({
             'event_type': 'add_period',
             'period_id': period.id,

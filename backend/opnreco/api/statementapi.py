@@ -612,7 +612,7 @@ def entry_save(context, request):
             file_id=period.file_id,
             period_id=period.id,
             statement_id=statement.id,
-            loop_id=file.loop_id,
+            loop_id='0',
             currency=file.currency,
             reco_id=None,
             **{attr: appstruct[attr] for attr in attrs})
@@ -996,7 +996,7 @@ class StatementUploadAPI:
                     file_id=period.file_id,
                     period_id=period.id,
                     statement_id=statement.id,
-                    loop_id=file.loop_id,
+                    loop_id='0',
                     currency=file.currency,
                     reco_id=None,
                     **attrs))

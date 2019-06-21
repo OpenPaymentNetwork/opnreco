@@ -103,10 +103,16 @@ class Test_auto_reco_statement(unittest.TestCase):
             owner_id=owner.id,
             title="Test File",
             currency='USD',
-            loop_id='0',
-            peer_id=None,
             has_vault=True)
         dbsession.add(file)
+        dbsession.flush()
+
+        dbsession.add(db.FileRule(
+            id=123901,
+            owner_id=owner.id,
+            file_id=file.id,
+            loop_id='0',
+            self_id=owner.id))
 
         dbsession.query(
             func.set_config('opnreco.personal_id', str(owner.id), True),

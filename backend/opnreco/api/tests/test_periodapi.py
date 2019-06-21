@@ -52,13 +52,12 @@ class Test_detect_date_overlap(unittest.TestCase):
         dbsession.add(file)
         dbsession.flush()
 
-        dbsession.add(db.FileFilter(
+        dbsession.add(db.FileRule(
             id=123901,
             owner_id=owner.id,
             file_id=1239,
             loop_id='0',
-            filter_type='circulation',
-            issuer_id=owner.id))
+            self_id=owner.id))
 
         peer = db.Peer(
             owner_id='102',

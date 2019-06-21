@@ -179,7 +179,7 @@ def get_delete_conflicts(dbsession, period):
     permission=perms.view_period,
     renderer='json')
 def period_state_api(context, request):
-    """Return info about the period, its peer, and its loop."""
+    """Return info about the period."""
     period = context.period
 
     dbsession = request.dbsession
@@ -252,12 +252,19 @@ def period_state_api(context, request):
     peers = get_peer_map(
         request=request, need_peer_ids=set([period.peer_id]), final=True)
 
-    file = period.file
-    if file.loop_id != '0':
-        loops = get_loop_map(
-            request=request, need_loop_ids=set([file.loop_id]), final=True)
-    else:
-        loops = {}
+    # need_loop_rows = (
+    #     dbsession.query(FileRule.loop_id)
+    #     .filter(
+    #         FileRule.owner_id == owner_id,
+    #         FileRule.file_id == period.file_id,
+    #         FileRule.loop_id != '0',
+    #     ).all())
+    # need_loop_ids = set(row[0] for row in need_loop_rows)
+    # if need_loop_ids:
+    #     loops = get_loop_map(
+    #         request=request, need_loop_ids=need_loop_ids, final=True)
+    # else:
+    #     loops = {}
 
     delete_conflicts = get_delete_conflicts(dbsession=dbsession, period=period)
 
@@ -265,7 +272,7 @@ def period_state_api(context, request):
         'now': now,
         'period': serialize_period(period, end_amounts=end_amounts),
         'peer': peers[period.peer_id],
-        'loop': loops.get(file.loop_id),  # None for loop_id == '0'
+        # 'loops': loops,
         'totals': totals,
         'counts': counts,
         'delete_conflicts': delete_conflicts,
