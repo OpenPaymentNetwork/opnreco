@@ -1,20 +1,13 @@
 
 import Button from '@material-ui/core/Button';
-import InternalRecoReport from '../report/InternalRecoReport';
-import PeriodOverview from './PeriodOverview';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
-import RecoReport from '../report/RecoReport';
-import StatementView from '../statement/StatementView';
-import TransactionReport from '../report/TransactionReport';
-import TransferSummary from '../report/TransferSummary';
 
 
-export default class PeriodTabContent extends React.Component {
+export default class FileTabContent extends React.Component {
   static propTypes = {
     file: PropTypes.object,
-    period: PropTypes.object,
     tab: PropTypes.string,
   };
 
@@ -27,12 +20,12 @@ export default class PeriodTabContent extends React.Component {
 
   componentDidCatch(error, info) {
     /* eslint {"no-console": 0} */
-    const {file, period, tab} = this.props;
+    const {file, tab} = this.props;
 
     if (typeof console !== 'undefined') {
       console.error(
-        'PeriodTabContent render error',
-        {error, info, file, period, tab});
+        'FileTabContent render error',
+        {error, info, file, tab});
     }
     this.setState({errorTab: this.props.tab});
   }
@@ -68,22 +61,19 @@ export default class PeriodTabContent extends React.Component {
       );
     }
 
-    const {file, period, tab} = this.props;
+    return null;
+    /*
+    const {file, tab} = this.props;
     switch(tab) {
-    case 'reco':
-      return <RecoReport file={file} period={period} />;
-    case 'transactions':
-      return <TransactionReport file={file} period={period} />;
-    case 't':
-      return <TransferSummary file={file} period={period} />;
-    case 'overview':
-      return <PeriodOverview file={file} period={period} />;
-    case 'statement':
-      return <StatementView file={file} period={period} />;
-    case 'internal':
-       return <InternalRecoReport file={file} period={period} />;
+    case 'edit':
+      return <FileEdit file={file} />;
+    case 'rules':
+      return <FileRules file={file} />;
+    case 'periods':
+      return <FilePeriods file={file} />;
     default:
       return null;
     }
+    */
   }
 }

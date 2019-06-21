@@ -1,7 +1,7 @@
 
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReco, ploopsURL, selectableURL } from '../../util/fetcher';
+import { fOPNReco, filesURL, selectableURL } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -33,8 +33,8 @@ class AuthenticatedHome extends React.Component {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    ploops: PropTypes.object,
-    defaultPloop: PropTypes.string,
+    files: PropTypes.object,
+    defaultFileId: PropTypes.string,
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
@@ -51,22 +51,24 @@ class AuthenticatedHome extends React.Component {
 
   tryRedirect() {
     const {
-      ploops,
-      defaultPloop,
+      files,
+      defaultFileId,
     } = this.props;
 
-    if (defaultPloop && !this.redirected) {
-      const ploop = ploops[defaultPloop];
-      const periodId = ploop.periods[ploop.period_order[0]].id;
-      this.redirected = true;
-      this.props.history.push(`/period/${encodeURIComponent(periodId)}`);
+    if (!this.redirected) {
+      if (defaultFileId) {
+        const file = files[defaultFileId];
+        const periodId = file.periods[file.period_order[0]].id;
+        this.redirected = true;
+        this.props.history.push(`/period/${encodeURIComponent(periodId)}`);
+      }
     }
   }
 
   render() {
     const {
       classes,
-      defaultPloop,
+      defaultFileId,
       loading,
       loadError,
       syncProgress,
@@ -74,13 +76,13 @@ class AuthenticatedHome extends React.Component {
     } = this.props;
 
     let progressMessage = '';
-    if (defaultPloop) {
+    if (defaultFileId) {
       progressMessage = <span>Loading&hellip;</span>;
     } else {
       if (loading) {
-        progressMessage = <span>Loading accounts&hellip;</span>;
+        progressMessage = <span>Loading files&hellip;</span>;
       } else if (loadError) {
-        progressMessage = <span>Unable to load account list.</span>;
+        progressMessage = <span>Unable to load file list.</span>;
       } else if (syncProgress !== null) {
         let syncMessage;
         if (syncProgress < 0) {
@@ -93,19 +95,19 @@ class AuthenticatedHome extends React.Component {
         if (profileTitle) {
           progressMessage = (
             <span>
-              There are no accounts for your
+              There are no files for your
               profile, {profileTitle}.
               Try switching to a different profile.
             </span>);
         } else {
-          progressMessage = <span>No accounts found for your profile.</span>;
+          progressMessage = <span>No files found for your profile.</span>;
         }
       }
     }
 
     return (
       <div className={classes.root}>
-        <Require fetcher={fOPNReco} urls={[ploopsURL, selectableURL]} />
+        <Require fetcher={fOPNReco} urls={[filesURL, selectableURL]} />
         <LayoutConfig title="OPN Reconciliation" />
 
         <OPNAppBar />
@@ -127,9 +129,9 @@ class AuthenticatedHome extends React.Component {
 
 
 function mapStateToProps(state) {
-  const fetched = fetchcache.get(state, ploopsURL) || {};
-  const loading = fetchcache.fetching(state, ploopsURL);
-  const loadError = !!fetchcache.getError(state, ploopsURL);
+  const fetched = fetchcache.get(state, filesURL) || {};
+  const loading = fetchcache.fetching(state, filesURL);
+  const loadError = !!fetchcache.getError(state, filesURL);
 
   let profileTitle = '';
   const selectable = fetchcache.get(state, selectableURL);
@@ -144,8 +146,8 @@ function mapStateToProps(state) {
   }
 
   return {
-    ploops: fetched.ploops || {},
-    defaultPloop: fetched.default_ploop || '',
+    files: fetched.files || {},
+    defaultFileId: fetched.default_file_id || '',
     loading,
     loadError,
     syncProgress: state.app.syncProgress,

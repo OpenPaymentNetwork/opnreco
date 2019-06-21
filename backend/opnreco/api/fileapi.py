@@ -58,8 +58,10 @@ def list_files(context, request):
     for file_row in file_rows:
         file_id_str = str(file_row.id)
         files[file_id_str] = {
-            'file_id': file_id_str,
+            'id': file_id_str,
             'title': file_row.title,
+            'currency': file_row.currency,
+            'has_vault': file_row.has_vault,
             'periods': {},
             'period_order': [],
         }
@@ -84,6 +86,7 @@ def list_files(context, request):
         'files': files,
         'file_order': file_order,
         'period_to_file_id': period_to_file_id,
+        'default_file_id': file_order[0] if len(file_order) == 1 else None,
     }
 
 

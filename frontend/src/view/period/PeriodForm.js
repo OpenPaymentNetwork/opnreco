@@ -1,5 +1,5 @@
 
-import { clearWithPloops } from '../../reducer/clearmost';
+import { clearWithFiles } from '../../reducer/clearmost';
 import { fOPNReco } from '../../util/fetcher';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -54,7 +54,7 @@ class PeriodOverview extends React.Component {
     period: PropTypes.object,
     add: PropTypes.bool,
     onClose: PropTypes.func,     // Required for add mode
-    ploopKey: PropTypes.string.isRequired,
+    fileId: PropTypes.string.isRequired,
     deleteConflicts: PropTypes.object,
   };
 
@@ -122,7 +122,7 @@ class PeriodOverview extends React.Component {
       dispatch,
       history,
       period,
-      ploopKey,
+      fileId,
     } = this.props;
 
     const encPeriodId = encodeURIComponent(period.id);
@@ -131,9 +131,9 @@ class PeriodOverview extends React.Component {
     const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
     this.setState({deleting: true});
     promise.then(() => {
-      dispatch(clearWithPloops());
+      dispatch(clearWithFiles());
       this.setState({deleting: false});
-      const newPath = `/periods/${encodeURIComponent(ploopKey)}`;
+      const newPath = `/file/${encodeURIComponent(fileId)}/periods`;
       history.push(newPath);
     }).catch(() => {
       this.setState({deleting: false});
@@ -150,7 +150,7 @@ class PeriodOverview extends React.Component {
     let url;
     if (add) {
       url = fOPNReco.pathToURL(
-        `/period-add?ploop_key=${encodeURIComponent(this.props.ploopKey)}`);
+        `/file/${encodeURIComponent(this.props.fileId)}/period-add`);
     } else {
       url = fOPNReco.pathToURL(
         `/period/${encodeURIComponent(period.id)}/${viewName}`);
@@ -169,7 +169,7 @@ class PeriodOverview extends React.Component {
         },
         saving: false,
       });
-      dispatch(clearWithPloops());
+      dispatch(clearWithFiles());
       if (this.props.add && this.props.onClose) {
         this.props.onClose();
       }

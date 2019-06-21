@@ -105,7 +105,7 @@ class TransactionReport extends React.Component {
     report: PropTypes.object,
     loading: PropTypes.bool,
     period: PropTypes.object,
-    ploop: PropTypes.object,
+    file: PropTypes.object,
     pagerName: PropTypes.string.isRequired,
     initialRowsPerPage: PropTypes.number.isRequired,
   };
@@ -121,7 +121,7 @@ class TransactionReport extends React.Component {
     const {
       classes,
       period,
-      ploop,
+      file,
       report: {all_shown},
       dispatch,
     } = this.props;
@@ -139,7 +139,7 @@ class TransactionReport extends React.Component {
     const txtGroupEndCell = `${txtCell} ${groupEndCell}`;
     const numGroupEndCell = `${numCell} ${groupEndCell}`;
     const activityHeadCell = `${cell} ${classes.activityHeadCell}`;
-    const fmt = getCurrencyFormatter(ploop.currency);
+    const fmt = getCurrencyFormatter(file.currency);
     const encPeriodId = encodeURIComponent(period.id);
 
     const rows = [];
@@ -159,7 +159,7 @@ class TransactionReport extends React.Component {
             Account Activity
           </th>
           <th className={`${activityHeadCell} ${groupEndCell}`} colSpan="4">
-            {ploop.peer_id === 'c' ?
+            {file.has_vault ?
               'Wallet and Vault Activity' : 'Wallet Activity'}
           </th>
           <th className={activityHeadCell}>
@@ -373,7 +373,7 @@ class TransactionReport extends React.Component {
       report,
       loading,
       period,
-      ploop,
+      file,
       pagerName,
       initialRowsPerPage,
     } = this.props;
@@ -397,11 +397,9 @@ class TransactionReport extends React.Component {
                 <th className={`${classes.cell} ${classes.headCell}`}
                   colSpan="7"
                 >
-                  {ploop.peer_title} Transaction Report
+                  {file.title} Transaction Report
                   <div>
-                    {ploop.currency}
-                    {' '}{ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title}
-                    {' - '}{reportDate}
+                    {file.currency} - {reportDate}
                   </div>
                 </th>
               </tr>

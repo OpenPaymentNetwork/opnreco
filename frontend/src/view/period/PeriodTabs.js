@@ -2,7 +2,7 @@
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
-import { fOPNReco, ploopsURL } from '../../util/fetcher';
+import { fOPNReco, filesURL } from '../../util/fetcher';
 import { injectIntl, intlShape } from 'react-intl';
 import { isSimpleClick } from '../../util/click';
 import { renderPeriodDateString } from '../../util/reportrender';
@@ -59,18 +59,18 @@ const styles = theme => ({
 class PeriodTabs extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    defaultPloop: PropTypes.string,
+    defaultFileId: PropTypes.string,
     dispatch: PropTypes.func.isRequired,
-    gotAllPloops: PropTypes.bool,
+    gotAllFiles: PropTypes.bool,
     history: PropTypes.object.isRequired,
     intl: intlShape.isRequired,
     match: PropTypes.object.isRequired,
     period: PropTypes.object,
     periodId: PropTypes.string,
-    ploop: PropTypes.object,
-    ploops: PropTypes.object,
-    ploopOrder: PropTypes.array,
-    ploopsURLMod: PropTypes.string.isRequired,
+    file: PropTypes.object,
+    files: PropTypes.object,
+    fileOrder: PropTypes.array,
+    filesURLMod: PropTypes.string.isRequired,
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
@@ -92,34 +92,34 @@ class PeriodTabs extends React.Component {
   }
 
   fixURL() {
-    let {period, ploop} = this.props;
-    if (period && ploop) {
+    let {period, file} = this.props;
+    if (period && file) {
       // The URL is good.
       return;
     }
 
     const {
-      gotAllPloops,
-      ploopOrder,
-      defaultPloop,
-      ploops,
+      gotAllFiles,
+      fileOrder,
+      defaultFileId,
+      files,
     } = this.props;
 
-    if (!gotAllPloops || !ploopOrder || !ploopOrder.length) {
-      // Not all the ploops are loaded yet or
-      // the owner has no available ploops.
+    if (!gotAllFiles || !fileOrder || !fileOrder.length) {
+      // Not all the files are loaded yet or
+      // the owner has no available files.
       return;
     }
 
-    if (!ploop) {
-      // Fall back to the default ploop.
-      if (defaultPloop) {
-        ploop = ploops[defaultPloop];
+    if (!file) {
+      // Fall back to the default file.
+      if (defaultFileId) {
+        file = files[defaultFileId];
       }
     }
 
-    if (ploop.period_order && ploop.period_order.length) {
-      period = ploop.periods[ploop.period_order[0]];
+    if (file.period_order && file.period_order.length) {
+      period = file.periods[file.period_order[0]];
     }
 
     if (period) {
@@ -132,25 +132,18 @@ class PeriodTabs extends React.Component {
   redirectToPeriod = (periodId) => {
     let path = null;
 
-    if (periodId === 'periods') {
-      // Redirect to the period list for the current ploop.
-      const {ploop} = this.props;
-      path = `/periods/${encodeURIComponent(ploop.ploop_key)}`;
-
-    } else {
-      // Redirect to the same tab in a different period.
-      const {match} = this.props;
-      const {tab} = match.params;
-      const tabs = this.getTabs(periodId);
-      for (const tabinfo of tabs) {
-        if (tab === tabinfo.value) {
-          path = tabinfo.path;
-          break;
-        }
+    // Redirect to the same tab in a different period.
+    const {match} = this.props;
+    const {tab} = match.params;
+    const tabs = this.getTabs(periodId);
+    for (const tabinfo of tabs) {
+      if (tab === tabinfo.value) {
+        path = tabinfo.path;
+        break;
       }
-      if (!path) {
-        path = tabs[0].path;
-      }
+    }
+    if (!path) {
+      path = tabs[0].path;
     }
 
     if (path) {
@@ -238,10 +231,10 @@ class PeriodTabs extends React.Component {
       classes,
       period,
       match,
-      ploop,
-      ploops,
-      ploopsURLMod,
-      ploopOrder,
+      file,
+      files,
+      filesURLMod,
+      fileOrder,
       loading,
       loadError,
       syncProgress,
@@ -285,9 +278,9 @@ class PeriodTabs extends React.Component {
       <div className={classes.periodSelectorBox}>
         <PeriodSelector
           period={period}
-          ploop={ploop}
-          ploops={ploops}
-          ploopOrder={ploopOrder}
+          file={file}
+          files={files}
+          fileOrder={fileOrder}
           loading={loading}
           loadError={loadError}
           syncProgress={syncProgress}
@@ -298,27 +291,15 @@ class PeriodTabs extends React.Component {
 
     let tabContent;
 
-    if (ploop && period) {
-      tabContent = <PeriodTabContent tab={tab} ploop={ploop} period={period} />;
-
-      let peerType;
-      if (ploop.peer_id === 'c') {
-        peerType = 'Circulation';
-      } else if (ploop.peer_is_dfi_account) {
-        peerType = 'DFI Account';
-      } else {
-        peerType = 'Wallet';
-      }
+    if (file && period) {
+      tabContent = <PeriodTabContent tab={tab} file={file} period={period} />;
 
       titleParts.push('-');
       titleParts.push(renderPeriodDateString(period, intl));
       titleParts.push('-');
-      titleParts.push(ploop.peer_title);
-      titleParts.push(`(${peerType})`);
+      titleParts.push(file.title);
       titleParts.push('-');
-      titleParts.push(ploop.currency);
-      titleParts.push(
-        ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title);
+      titleParts.push(file.currency);
 
     } else if (loading || syncProgress !== null) {
       tabContent = (
@@ -333,7 +314,7 @@ class PeriodTabs extends React.Component {
 
     return (
       <div className={classes.root}>
-        <Require fetcher={fOPNReco} urls={[ploopsURL, ploopsURLMod]} />
+        <Require fetcher={fOPNReco} urls={[filesURL, filesURLMod]} />
         <LayoutConfig title={titleParts.join(' ')} />
 
         <div className={classes.appbar}>
@@ -361,45 +342,45 @@ class PeriodTabs extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  let ploop = null;
+  let file = null;
   let period = null;
   const periodId = ownProps.match.params.periodId;
 
-  // Unlike ploopsURL, ploopsURLMod ensures the selected period is
+  // Unlike filesURL, filesURLMod ensures the selected period is
   // included in the period selector (if it's available.)
-  const ploopsURLMod = (
-    ploopsURL + `?period_id=${encodeURIComponent(periodId)}`);
+  const filesURLMod = (
+    filesURL + `?period_id=${encodeURIComponent(periodId)}`);
 
-  let gotAllPloops = false;
+  let gotAllFiles = false;
 
-  let fetched = fetchcache.get(state, ploopsURLMod);
+  let fetched = fetchcache.get(state, filesURLMod);
   if (fetched) {
-    // All the ploops requested have been loaded.
-    gotAllPloops = true;
+    // All the files requested have been loaded.
+    gotAllFiles = true;
   } else {
-    fetched = fetchcache.get(state, ploopsURL) || {};
+    fetched = fetchcache.get(state, filesURL) || {};
   }
 
-  if (fetched.ploop_order && fetched.ploop_order.length) {
-    let ploopKey;
-    ploopKey = fetched.ploop_keys[periodId];
-    if (ploopKey) {
-      ploop = fetched.ploops[ploopKey];
-      if (ploop && ploop.periods) {
-        period = ploop.periods[periodId];
+  if (fetched.file_order && fetched.file_order.length) {
+    let fileId;
+    fileId = fetched.period_to_file_id[periodId];
+    if (fileId) {
+      file = fetched.files[fileId];
+      if (file && file.periods) {
+        period = file.periods[periodId];
       }
     }
   }
-  const loading = fetchcache.fetching(state, ploopsURL);
-  const loadError = !!fetchcache.getError(state, ploopsURL);
+  const loading = fetchcache.fetching(state, filesURL);
+  const loadError = !!fetchcache.getError(state, filesURL);
 
   return {
     periodId,
-    ploopsURLMod,
-    ploops: fetched.ploops,
-    ploopOrder: fetched.ploop_order,
-    defaultPloop: fetched.default_ploop,
-    ploop,
+    filesURLMod,
+    files: fetched.filess,
+    fileOrder: fetched.file_order,
+    defaultFileId: fetched.default_file_id,
+    file,
     period,
     statementId: state.app.statementId,
     statementPeriodId: state.app.statementPeriodId,
@@ -407,7 +388,7 @@ function mapStateToProps(state, ownProps) {
     syncProgress: state.app.syncProgress,
     loading,
     loadError,
-    gotAllPloops,
+    gotAllFiles,
   };
 }
 

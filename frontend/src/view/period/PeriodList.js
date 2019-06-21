@@ -1,6 +1,6 @@
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { fOPNReco, ploopsURL } from '../../util/fetcher';
+import { fOPNReco, filesURL } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
@@ -157,7 +157,7 @@ class PeriodList extends React.Component {
     contentURL: PropTypes.string,
     content: PropTypes.object,
     loading: PropTypes.bool,
-    ploop: PropTypes.object,
+    file: PropTypes.object,
     pagerName: PropTypes.string.isRequired,
     initialRowsPerPage: PropTypes.number.isRequired,
     period: PropTypes.object,
@@ -192,10 +192,10 @@ class PeriodList extends React.Component {
       classes,
       content,
       dispatch,
-      ploop,
+      file,
     } = this.props;
 
-    const cfmt = new getCurrencyFormatter(ploop.currency);
+    const cfmt = new getCurrencyFormatter(file.currency);
     const rows = [];
     const ccStartDate = classes.cell;
     const ccEndDate = classes.cellRight;
@@ -275,7 +275,7 @@ class PeriodList extends React.Component {
               add
               dispatch={dispatch}
               onClose={this.handleAddClose}
-              ploopKey={ploop.ploop_key}
+              fileId={file.id}
               period={{
                 id: 'add',
                 pull: true,
@@ -303,16 +303,14 @@ class PeriodList extends React.Component {
   renderTable() {
     const {
       classes,
-      ploop,
+      file,
     } = this.props;
-
-    const {currency, loop_id} = ploop;
 
     let circHead0 = null;
     let circHead1 = null;
     let columnCount;
 
-    const showCirc = (ploop.peer_id === 'c');
+    const showCirc = file.has_vault;
 
     if (showCirc) {
       columnCount = 8;
@@ -357,10 +355,9 @@ class PeriodList extends React.Component {
           <thead>
             <tr>
               <th className={classes.titleCell} colSpan={columnCount}>
-                {ploop.peer_title} Reconciliation Periods
+                {file.title} Reconciliation Periods
                 <div>
-                  {currency}
-                  {' '}{loop_id === '0' ? 'Open Loop' : ploop.loop_title}
+                  {file.currency}
                   {' - '}
                   <FormattedDate
                     value={new Date()}
@@ -417,7 +414,7 @@ class PeriodList extends React.Component {
     return (
       <div className={classes.root}>
         <LayoutConfig title="Reconciliation Periods" />
-        <Require fetcher={fOPNReco} urls={[contentURL, ploopsURL]} />
+        <Require fetcher={fOPNReco} urls={[contentURL, filesURL]} />
 
         <OPNAppBar />
 
@@ -438,7 +435,7 @@ class PeriodList extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {ploopKey} = ownProps.match.params;
+  const {fileId} = ownProps.match.params;
   const pagerName = 'PeriodsView';
   const {
     rowsPerPage,
@@ -447,15 +444,15 @@ function mapStateToProps(state, ownProps) {
   } = getPagerState(state, pagerName, 100);
 
   const contentURL = fOPNReco.pathToURL(
-    `/period-list?ploop_key=${encodeURIComponent(ploopKey)}` +
-    `&offset=${encodeURIComponent(pageIndex * rowsPerPage)}` +
-    `&limit=${encodeURIComponent(rowsPerPage || 'none')}`);
+    `/file/${encodeURIComponent(fileId)}/period-list?` +
+    `offset=${encodeURIComponent(pageIndex * rowsPerPage)}&` +
+    `limit=${encodeURIComponent(rowsPerPage || 'none')}`);
   const content = fetchcache.get(state, contentURL);
   const loading = fetchcache.fetching(state, contentURL);
   const loadError = !!fetchcache.getError(state, contentURL);
 
-  const ploops = (fetchcache.get(state, ploopsURL) || {}).ploops || {};
-  const ploop = ploops[ploopKey] || {};
+  const files = (fetchcache.get(state, filesURL) || {}).files || {};
+  const file = files[fileId] || {};
 
   return {
     contentURL,
@@ -464,7 +461,7 @@ function mapStateToProps(state, ownProps) {
     loadError,
     pagerName,
     initialRowsPerPage,
-    ploop,
+    file,
   };
 }
 

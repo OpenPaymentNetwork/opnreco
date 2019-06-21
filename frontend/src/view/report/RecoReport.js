@@ -103,7 +103,7 @@ class RecoReport extends React.Component {
     recoReportURL: PropTypes.string,
     recoReport: PropTypes.object,
     loading: PropTypes.bool,
-    ploop: PropTypes.object,
+    file: PropTypes.object,
     period: PropTypes.object,
     expanded: PropTypes.object,  // a Map or undefined
   };
@@ -120,11 +120,11 @@ class RecoReport extends React.Component {
   }
 
   renderOutstanding(sign, cfmt) {
-    const {classes, recoReport, expanded, ploop, period} = this.props;
+    const {classes, recoReport, expanded, file, period} = this.props;
     const {workflow_types, outstanding_map} = recoReport;
 
     const wfTypes = workflow_types[sign] || {};
-    const showCirc = (ploop.peer_id === 'c');
+    const showCirc = file.has_vault;
     const encPeriodId = encodeURIComponent(period.id);
 
     const sortable = [];
@@ -262,11 +262,11 @@ class RecoReport extends React.Component {
       recoReportURL,
       recoReport,
       loading,
-      ploop,
+      file,
       period,
     } = this.props;
-    if (!recoReportURL || !ploop) {
-      // No peer loop selected.
+    if (!recoReportURL || !file) {
+      // No period or file selected.
       return null;
     }
 
@@ -293,13 +293,13 @@ class RecoReport extends React.Component {
 
     const reportDate = renderReportDate(period, recoReport.now);
 
-    const cfmt = new getCurrencyFormatter(ploop.currency);
+    const cfmt = new getCurrencyFormatter(file.currency);
 
     const labelCellCN = `${classes.cell} ${classes.labelCell}`;
     const amountCellCN = `${classes.cell} ${classes.amountCell}`;
 
     let headRow, recoTotalRow, outstandingTotalRow, columnCount;
-    if (ploop.peer_id === 'c') {
+    if (file.has_vault) {
       columnCount = 4;
       headRow = (
         <tr>
@@ -374,8 +374,6 @@ class RecoReport extends React.Component {
       );
     }
 
-    const {peer_title, currency, loop_id, loop_title} = ploop;
-
     return (
       <Typography className={classes.root} component="div">
         {require}
@@ -385,11 +383,9 @@ class RecoReport extends React.Component {
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`}
                     colSpan={columnCount}>
-                  {peer_title} Reconciliation Report
+                  {file.title} Reconciliation Report
                   <div>
-                    {currency}
-                    {' '}{loop_id === '0' ? 'Open Loop' : loop_title}
-                    {' - '}{reportDate}
+                    {file.currency} - {reportDate}
                   </div>
                 </th>
               </tr>

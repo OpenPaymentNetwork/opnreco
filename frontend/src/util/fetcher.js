@@ -175,5 +175,5 @@ export const fOPNReco = new OPNFetcher(
 /* Commonly used API URLs */
 
 export const selectableURL = fOPN.pathToURL('/token/selectable');
-export const ploopsURL = fOPNReco.pathToURL('/ploops');
+export const filesURL = fOPNReco.pathToURL('/files');
 export const settingsURL = fOPNReco.pathToURL('/settings');

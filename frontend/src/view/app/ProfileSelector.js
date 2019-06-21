@@ -1,4 +1,4 @@
-import { clearWithPloops } from '../../reducer/clearmost';
+import { clearWithFiles } from '../../reducer/clearmost';
 import { closeDrawer, triggerResync } from '../../reducer/app';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
@@ -68,7 +68,7 @@ class ProfileSelector extends React.Component {
       // in a transitional state.
       dispatch(fetchcache.suspend());
       dispatch(switchProfile(token, profileId));
-      dispatch(clearWithPloops());
+      dispatch(clearWithFiles());
       dispatch(triggerResync());
       dispatch(closeDrawer());
       // Resume fetchcache.

@@ -88,7 +88,7 @@ class InternalRecoReport extends React.Component {
     report: PropTypes.object,
     loading: PropTypes.bool,
     period: PropTypes.object,
-    ploop: PropTypes.object,
+    file: PropTypes.object,
     pagerName: PropTypes.string.isRequired,
     initialRowsPerPage: PropTypes.number.isRequired,
   };
@@ -104,7 +104,7 @@ class InternalRecoReport extends React.Component {
     const {
       classes,
       period,
-      ploop,
+      file,
       report: {all_shown},
       dispatch,
     } = this.props;
@@ -118,7 +118,7 @@ class InternalRecoReport extends React.Component {
     const txtCell = `${cell} ${classes.textCell}`;
     const numCell = `${cell} ${classes.numberCell}`;
     const chkCell = `${cell} ${classes.checkCell}`;
-    const fmt = getCurrencyDeltaFormatter(ploop.currency);
+    const fmt = getCurrencyDeltaFormatter(file.currency);
     const encPeriodId = encodeURIComponent(period.id);
 
     const rows = [];
@@ -288,7 +288,7 @@ class InternalRecoReport extends React.Component {
       report,
       loading,
       period,
-      ploop,
+      file,
       pagerName,
       initialRowsPerPage,
     } = this.props;
@@ -314,11 +314,9 @@ class InternalRecoReport extends React.Component {
                 <th className={`${classes.cell} ${classes.headCell}`}
                   colSpan={colCount}
                 >
-                  {ploop.peer_title} Internal Reconciliations
+                  {file.title} Internal Reconciliations
                   <div>
-                    {ploop.currency}
-                    {' '}{ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title}
-                    {' - '}{reportDate}
+                    {file.currency} - {reportDate}
                   </div>
                 </th>
               </tr>

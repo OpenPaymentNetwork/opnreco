@@ -1,30 +1,30 @@
 
-import { ploopsURL, selectableURL, settingsURL } from '../util/fetcher';
+import { filesURL, selectableURL, settingsURL } from '../util/fetcher';
 import { fetchcache } from './fetchcache';
 
 
 /**
- * Clear most of the fetch cache except /token/selectable and /ploops
+ * Clear most of the fetch cache except /token/selectable and /files
  * (which we'll re-fetch, but keep the data while waiting.)
  */
 export function clearMost() {
   const keep = (url) => (
-    url === selectableURL || (url && url.startsWith(ploopsURL)));
+    url === selectableURL || (url && url.startsWith(filesURL)));
   return fetchcache.invalidate(keep);
 }
 
 /**
  * Clear most of the fetch cache except /token/selectable.
- * /ploops must be cleared.
+ * /files must be cleared.
  */
-export function clearWithPloops() {
+export function clearWithFiles() {
   const keep = (url) => (url === selectableURL);
   return fetchcache.invalidate(keep);
 }
 
 /**
  * Clear most of the fetch cache except /token/selectable and /settings.
- * /ploops must be cleared.
+ * /files must be cleared.
  */
 export function clearForSettings() {
   const keep = (url) => (url === selectableURL || url === settingsURL);

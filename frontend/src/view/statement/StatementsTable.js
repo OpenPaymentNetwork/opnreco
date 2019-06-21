@@ -66,7 +66,7 @@ class StatementsTable extends React.Component {
     history: PropTypes.object.isRequired,
     now: PropTypes.string,
     period: PropTypes.object,
-    ploop: PropTypes.object,
+    file: PropTypes.object,
     statements: PropTypes.array,
   };
 
@@ -95,7 +95,7 @@ class StatementsTable extends React.Component {
       classes,
       now,
       period,
-      ploop,
+      file,
       statements,
     } = this.props;
 
@@ -171,7 +171,6 @@ class StatementsTable extends React.Component {
     }
 
     const reportDate = now ? renderReportDate(period, now) : null;
-    const {peer_title, currency, loop_id, loop_title} = ploop;
 
     let dialog = null;
 
@@ -195,11 +194,9 @@ class StatementsTable extends React.Component {
               <th className={classes.headCell}
                 colSpan={colCount}
               >
-                {peer_title} Account Statements
+                {file.title} Account Statements
                 <div>
-                  {currency}
-                  {' '}{loop_id === '0' ? 'Open Loop' : loop_title}
-                  {' - '}{reportDate}
+                  {file.currency} - {reportDate}
                 </div>
               </th>
             </tr>

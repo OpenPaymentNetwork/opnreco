@@ -42,11 +42,11 @@ class PeriodOverview extends React.Component {
     periodId: PropTypes.string,
     queryURL: PropTypes.string.isRequired,
     result: PropTypes.object,
-    ploop: PropTypes.object.isRequired,
+    file: PropTypes.object.isRequired,
   };
 
   renderContent() {
-    const {classes, dispatch, history, result, ploop} = this.props;
+    const {classes, dispatch, history, result, file} = this.props;
     return (
       <div>
         <Paper className={classes.paperContent}>
@@ -55,7 +55,7 @@ class PeriodOverview extends React.Component {
             period={result.period}
             deleteConflicts={result.delete_conflicts}
             history={history}
-            ploopKey={ploop.ploop_key}
+            fileId={file.id}
           />
         </Paper>
         <Paper className={classes.tablePaper}>

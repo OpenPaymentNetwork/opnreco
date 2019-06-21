@@ -22,7 +22,7 @@ const styles = {
   controlBox: {
     padding: '4px 16px',
   },
-  ploopSelect: {
+  fileSelect: {
     width: 400,
   },
   selectRoot: {
@@ -49,23 +49,23 @@ class PeriodSelector extends React.Component {
     classes: PropTypes.object.isRequired,
     intl: intlShape.isRequired,
     period: PropTypes.object,
-    ploop: PropTypes.object,
-    ploops: PropTypes.object,
-    ploopOrder: PropTypes.array,
+    file: PropTypes.object,
+    files: PropTypes.object,
+    fileOrder: PropTypes.array,
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
     redirectToPeriod: PropTypes.func.isRequired,
   };
 
-  handlePloopChange = (event) => {
+  handleFileChange = (event) => {
     const {
       redirectToPeriod,
-      ploops,
+      files,
     } = this.props;
 
-    const ploopKey = event.target.value;
-    const periodId = ploops[ploopKey].period_order[0];
+    const fileId = event.target.value;
+    const periodId = files[fileId].period_order[0];
     redirectToPeriod(periodId);
   }
 
@@ -75,31 +75,21 @@ class PeriodSelector extends React.Component {
     redirectToPeriod(periodId);
   }
 
-  renderPloopSelections() {
+  renderFileSelections() {
     const {
-      ploops,
-      ploopOrder,
+      files,
+      fileOrder,
       loading,
       loadError,
       syncProgress,
     } = this.props;
 
-    if (ploopOrder && ploopOrder.length) {
-      return ploopOrder.map(ploopKey => {
-        const ploop = ploops[ploopKey];
-        let peerType;
-        if (ploop.peer_id === 'c') {
-          peerType = 'Circulation';
-        } else if (ploop.peer_is_dfi_account) {
-          peerType = 'DFI Account';
-        } else {
-          peerType = 'Wallet';
-        }
+    if (fileOrder && fileOrder.length) {
+      return fileOrder.map(fileId => {
+        const file = files[fileId];
         return (
-          <MenuItem value={ploopKey} key={ploopKey}>
-            {ploop.peer_title} ({peerType}) -
-            {' '}{ploop.currency}
-            {' '}{ploop.loop_id === '0' ? 'Open Loop' : ploop.loop_title}
+          <MenuItem value={fileId} key={fileId}>
+            {file.title} - {file.currency}
           </MenuItem>
         );
       });
@@ -107,9 +97,9 @@ class PeriodSelector extends React.Component {
     } else {
       let errorMessage;
       if (loading) {
-        errorMessage = <em>Loading accounts&hellip;</em>;
+        errorMessage = <em>Loading files&hellip;</em>;
       } else if (loadError) {
-        errorMessage = <em>Unable to load account list</em>;
+        errorMessage = <em>Unable to load file list</em>;
       } else if (syncProgress !== null) {
         let syncMessage;
         if (syncProgress < 0) {
@@ -119,7 +109,7 @@ class PeriodSelector extends React.Component {
         }
         errorMessage = <em>Syncing ({syncMessage})&hellip;</em>;
       } else {
-        errorMessage = <em>No accounts found for your profile</em>;
+        errorMessage = <em>No files found for your profile</em>;
       }
       return [
         <MenuItem value="#error" key="#error">
@@ -132,15 +122,15 @@ class PeriodSelector extends React.Component {
   renderPeriodSelections() {
     const {
       classes,
-      ploop,
+      file,
       intl,
     } = this.props;
 
-    if (ploop && ploop.period_order && ploop.period_order.length) {
+    if (file && file.period_order && file.period_order.length) {
       const periodMenuItem = classes.periodMenuItem;
       const selectIcon = classes.selectIcon;
-      const res = ploop.period_order.map(periodId => {
-        const period = ploop.periods[periodId];
+      const res = file.period_order.map(periodId => {
+        const period = file.periods[periodId];
         if (!period) {
           return null;
         }
@@ -173,28 +163,28 @@ class PeriodSelector extends React.Component {
   render() {
     const {
       classes,
-      ploop,
-      ploopOrder,
+      file,
+      fileOrder,
       period,
     } = this.props;
 
-    const ploopSelections = this.renderPloopSelections();
+    const fileSelections = this.renderFileSelections();
     const periodSelections = this.renderPeriodSelections();
 
-    let ploopValue;
-    if (ploop) {
-      ploopValue = ploop.ploop_key;
-    } else if (ploopOrder && ploopOrder.length) {
-      ploopValue = ploopOrder[0];
+    let fileValue;
+    if (file) {
+      fileValue = file.id;
+    } else if (fileOrder && fileOrder.length) {
+      fileValue = fileOrder[0];
     } else {
-      ploopValue = '#error';
+      fileValue = '#error';
     }
 
     let periodValue;
     if (period) {
       periodValue = period.id;
-    } else if (ploop && ploop.period_order && ploop.period_order.length) {
-      periodValue = ploop.period_order[0];
+    } else if (file && file.period_order && file.period_order.length) {
+      periodValue = file.period_order[0];
     } else {
       periodValue = '';
     }
@@ -204,16 +194,16 @@ class PeriodSelector extends React.Component {
         <div className={classes.controlBox}>
           <FormControl>
             <Select
-              className={classes.ploopSelect}
+              className={classes.fileSelect}
               classes={{root: classes.selectRoot}}
-              value={ploopValue}
-              onChange={this.handlePloopChange}
+              value={fileValue}
+              onChange={this.handleFileChange}
               inputProps={{
-                id: 'filter-ploop',
+                id: 'select-file',
               }}
               disableUnderline
             >
-              {ploopSelections}
+              {fileSelections}
             </Select>
           </FormControl>
         </div>
@@ -225,7 +215,7 @@ class PeriodSelector extends React.Component {
               value={periodValue}
               onChange={this.handlePeriodChange}
               inputProps={{
-                id: 'filter-period',
+                id: 'select-period',
               }}
               disableUnderline
             >

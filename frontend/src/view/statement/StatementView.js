@@ -68,7 +68,7 @@ class StatementView extends React.Component {
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     period: PropTypes.object.isRequired,
-    ploop: PropTypes.object.isRequired,
+    file: PropTypes.object.isRequired,
     recordURL: PropTypes.string,
     record: PropTypes.object,
     loading: PropTypes.bool,
@@ -178,7 +178,7 @@ class StatementView extends React.Component {
       dispatch,
       recordURL,
       period,
-      ploop,
+      file,
       statementsURL,
       statementsRecord,
     } = this.props;
@@ -198,7 +198,7 @@ class StatementView extends React.Component {
           <StatementsTable
             dispatch={dispatch}
             period={period}
-            ploop={ploop}
+            file={file}
             statements={statementsRecord.statements}
             now={statementsRecord.now} />
         </Paper>

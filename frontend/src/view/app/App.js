@@ -7,6 +7,7 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import AuthenticatedHome from '../home/AuthenticatedHome';
 import CssBaseline from '@material-ui/core/CssBaseline';
+import FileTabs from '../file/FileTabs';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
 import LoginView from '../login/LoginView';
@@ -14,7 +15,6 @@ import LogoutDialog from './LogoutDialog';
 import NotFound from './NotFound';
 import OAuth2CallbackView from '../login/OAuth2CallbackView';
 import OPNDrawer from './OPNDrawer';
-import PeriodList from '../period/PeriodList';
 import PeriodTabs from '../period/PeriodTabs';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -24,6 +24,7 @@ import Settings from '../settings/Settings';
 import TokenRefreshDialog from './TokenRefreshDialog';
 import Verify from './Verify';
 
+//import PeriodList from '../period/PeriodList';
 
 /* Theme based on https://material.io/tools/color/#!/
    ?view.left=0&view.right=0&primary.color=1B5E20&secondary.color=FDD835
@@ -109,7 +110,7 @@ class App extends React.Component {
                 <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview|statement|internal)"
                   component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
-                <Route path="/periods/:ploopKey([A-Za-z0-9-]+)" component={PeriodList} />
+                <Route path="/file/:fileId([0-9]+)/:tab(|edit|rules|periods)" component={FileTabs} />
                 <Route path="/" component={AuthenticatedHome} exact />
                 <Route component={NotFound} />
               </Switch>
