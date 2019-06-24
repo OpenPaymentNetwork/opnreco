@@ -510,11 +510,11 @@ class RecoSaveSchema(Schema):
     reco = RecoSchema()
 
 
-movement_matches_required = (
-    ('currency', "currency", "currencies"),
-    ('loop_id', "cash design", "cash designs"),
-    ('peer_id', "peer", "peers"),
-)
+# movement_matches_required = (
+#     ('currency', "currency", "currencies"),
+#     ('loop_id', "cash design", "cash designs"),
+#     ('peer_id', "peer", "peers"),
+# )
 
 
 @view_config(
@@ -616,16 +616,16 @@ class RecoSave:
                     "Try re-syncing with OPN."),
             })
 
-        for attr, singular, plural in movement_matches_required:
-            value_set = set(getattr(m, attr) for m in new_movements)
-            if len(value_set) > 1:
-                raise HTTPBadRequest(json_body={
-                    'error': 'multiple_%s' % attr,
-                    'error_description': (
-                        "Multiple %s detected. All movements in a "
-                        "reconciliation must be for the same %s."
-                        % (plural, singular)),
-                })
+        # for attr, singular, plural in movement_matches_required:
+        #     value_set = set(getattr(m, attr) for m in new_movements)
+        #     if len(value_set) > 1:
+        #         raise HTTPBadRequest(json_body={
+        #             'error': 'multiple_%s' % attr,
+        #             'error_description': (
+        #                 "Multiple %s detected. All movements in a "
+        #                 "reconciliation must be for the same %s."
+        #                 % (plural, singular)),
+        #         })
 
         return new_movements
 
