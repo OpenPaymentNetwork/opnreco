@@ -37,7 +37,7 @@ zero = Decimal()
 null = None
 
 
-def start_movement_query(dbsession, owner_id):
+def start_movement_query(dbsession, owner_id, file_id):
     return (
         dbsession.query(
             FileMovement.movement_id,
@@ -57,6 +57,7 @@ def start_movement_query(dbsession, owner_id):
             TransferRecord.id == FileMovement.transfer_record_id)
         .filter(
             FileMovement.owner_id == owner_id,
+            FileMovement.file_id == file_id,
         ))
 
 
@@ -127,7 +128,10 @@ def reco_api(context, request, final=False):
     if reco_id is None:
         if movement_id is not None:
             movement_rows = (
-                start_movement_query(dbsession=dbsession, owner_id=owner_id)
+                start_movement_query(
+                    dbsession=dbsession,
+                    owner_id=owner_id,
+                    file_id=period.file_id)
                 .filter(
                     FileMovement.movement_id == movement_id,
                 )
@@ -152,7 +156,10 @@ def reco_api(context, request, final=False):
 
     if reco_id is not None:
         movement_rows = (
-            start_movement_query(dbsession=dbsession, owner_id=owner_id)
+            start_movement_query(
+                dbsession=dbsession,
+                owner_id=owner_id,
+                file_id=period.file_id)
             .filter(
                 FileMovement.reco_id == reco_id,
             )
@@ -337,12 +344,14 @@ def reco_search_movement(context, request, final=False):
         filters.append(~FileMovement.movement_id.in_(seen_ids))
 
     movement_rows = (
-        start_movement_query(dbsession=dbsession, owner_id=owner_id)
+        start_movement_query(
+            dbsession=dbsession,
+            owner_id=owner_id,
+            file_id=period.file_id)
         .join(Period, Period.id == FileMovement.period_id)
         .filter(
             # Note: don't filter by period_id, otherwise, users won't be able
             # to reconcile entries across periods.
-            FileMovement.file_id == period.file_id,
             or_(
                 FileMovement.reco_id == null,
                 FileMovement.reco_id == reco_id,
