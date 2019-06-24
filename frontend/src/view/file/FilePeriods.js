@@ -11,10 +11,8 @@ import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Fab from '@material-ui/core/Fab';
-import LayoutConfig from '../app/LayoutConfig';
 import Lock from '@material-ui/icons/Lock';
 import LockOpen from '@material-ui/icons/LockOpen';
-import OPNAppBar from '../app/OPNAppBar';
 import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
 import PeriodForm from '../period/PeriodForm';
@@ -285,6 +283,7 @@ class FilePeriods extends React.Component {
               dispatch={dispatch}
               onClose={this.handleAddClose}
               fileId={file.id}
+              history={this.props.history}
               period={{
                 id: 'add',
                 pull: true,
@@ -418,7 +417,6 @@ class FilePeriods extends React.Component {
     return (
       <div>
         <Paper className={classes.pagerPaper}>
-          <LayoutConfig title="Reconciliation Periods" />
           <Require fetcher={fOPNReco} urls={[contentURL, filesURL]} />
           <Pager
             name={pagerName}

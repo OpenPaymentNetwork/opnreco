@@ -55,24 +55,18 @@ class PeriodSelector extends React.Component {
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
     syncProgress: PropTypes.any,
+    redirectToFile: PropTypes.func.isRequired,
     redirectToPeriod: PropTypes.func.isRequired,
   };
 
   handleFileChange = (event) => {
-    const {
-      redirectToPeriod,
-      files,
-    } = this.props;
-
     const fileId = event.target.value;
-    const periodId = files[fileId].period_order[0];
-    redirectToPeriod(periodId);
+    this.props.redirectToFile(fileId);
   }
 
   handlePeriodChange = (event) => {
     const periodId = event.target.value;
-    const {redirectToPeriod} = this.props;
-    redirectToPeriod(periodId);
+    this.props.redirectToPeriod(periodId);
   }
 
   renderFileSelections() {
@@ -85,7 +79,7 @@ class PeriodSelector extends React.Component {
     } = this.props;
 
     if (fileOrder && fileOrder.length) {
-      return fileOrder.map(fileId => {
+      const res = fileOrder.map(fileId => {
         const file = files[fileId];
         return (
           <MenuItem value={fileId} key={fileId}>
@@ -93,6 +87,14 @@ class PeriodSelector extends React.Component {
           </MenuItem>
         );
       });
+
+      res.push(
+        <MenuItem value="" key="files">
+          File List&hellip;
+        </MenuItem>
+      );
+
+      return res;
 
     } else {
       let errorMessage;
@@ -150,7 +152,7 @@ class PeriodSelector extends React.Component {
           </MenuItem>);
       });
       res.push(
-        <MenuItem value='' key='periods'>
+        <MenuItem value="" key="periods">
           Period List&hellip;
         </MenuItem>
       );

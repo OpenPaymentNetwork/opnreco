@@ -111,6 +111,7 @@ class App extends React.Component {
                   component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
                 <Route path="/file/:fileId([0-9]+)/:tab(|edit|rules|periods)" component={FileTabs} />
+                <Route path="/file/:fileId([0-9]+)" component={FileTabs} />
                 <Route path="/" component={AuthenticatedHome} exact />
                 <Route component={NotFound} />
               </Switch>

@@ -15,7 +15,7 @@ export function clearMost() {
 
 /**
  * Clear most of the fetch cache except /token/selectable.
- * /files must be cleared.
+ * The files URL must be cleared.
  */
 export function clearWithFiles() {
   const keep = (url) => (url === selectableURL);

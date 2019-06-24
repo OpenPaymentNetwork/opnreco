@@ -9,6 +9,7 @@ import { renderPeriodDateString } from '../../util/reportrender';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import AppBar from '@material-ui/core/AppBar';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import IconButton from '@material-ui/core/IconButton';
 import LayoutConfig from '../app/LayoutConfig';
@@ -22,13 +23,10 @@ import Tab from '@material-ui/core/Tab';
 import Tabs from '@material-ui/core/Tabs';
 
 
-const styles = theme => ({
+const styles = {
   root: {
   },
   appbar: {
-    backgroundColor: theme.palette.primary.main,
-    color: '#fff',
-    paddingLeft: 32,
     minHeight: '100px',
     position: 'relative',
   },
@@ -53,7 +51,7 @@ const styles = theme => ({
     padding: '16px',
     textAlign: 'center',
   },
-});
+};
 
 
 class PeriodTabs extends React.Component {
@@ -146,6 +144,7 @@ class PeriodTabs extends React.Component {
       if (!path) {
         path = tabs[0].path;
       }
+
     } else {
       // Redirect to the period list for the file.
       const {file} = this.props;
@@ -157,6 +156,20 @@ class PeriodTabs extends React.Component {
         this.props.history.push(path);
       }, 0);
     }
+  }
+
+  redirectToFile = (fileId) => {
+    let path = null;
+
+    if (fileId) {
+      path = `/file/${encodeURIComponent(fileId)}`;
+    } else {
+      path = '/file';
+    }
+
+    window.setTimeout(() => {
+      this.props.history.push(path);
+    }, 0);
   }
 
   getTabs(periodId) {
@@ -290,6 +303,7 @@ class PeriodTabs extends React.Component {
           loading={loading}
           loadError={loadError}
           syncProgress={syncProgress}
+          redirectToFile={this.redirectToFile}
           redirectToPeriod={this.redirectToPeriod}
           />
       </div>
@@ -323,7 +337,7 @@ class PeriodTabs extends React.Component {
         <Require fetcher={fOPNReco} urls={[filesURL, filesURLMod]} />
         <LayoutConfig title={titleParts.join(' ')} />
 
-        <div className={classes.appbar}>
+        <AppBar position="static" classes={{root: classes.appbar}}>
 
           <IconButton
             className={classes.menuButton}
@@ -338,7 +352,7 @@ class PeriodTabs extends React.Component {
 
           {tabs}
 
-        </div>
+        </AppBar>
 
         {tabContent}
       </div>
@@ -400,7 +414,7 @@ function mapStateToProps(state, ownProps) {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles),
   withRouter,
   injectIntl,
   connect(mapStateToProps),

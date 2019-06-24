@@ -46,7 +46,7 @@ const styles = {
 };
 
 
-class PeriodOverview extends React.Component {
+class PeriodForm extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -131,8 +131,8 @@ class PeriodOverview extends React.Component {
     const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
     this.setState({deleting: true});
     promise.then(() => {
-      dispatch(clearWithFiles());
       this.setState({deleting: false});
+      dispatch(clearWithFiles());
       const newPath = `/file/${encodeURIComponent(fileId)}/periods`;
       history.push(newPath);
     }).catch(() => {
@@ -400,4 +400,4 @@ class PeriodOverview extends React.Component {
   }
 }
 
-export default withStyles(styles)(PeriodOverview);
+export default withStyles(styles)(PeriodForm);

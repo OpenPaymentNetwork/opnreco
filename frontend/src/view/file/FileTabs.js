@@ -7,6 +7,7 @@ import { isSimpleClick } from '../../util/click';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import AppBar from '@material-ui/core/AppBar';
 import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -19,24 +20,20 @@ import React from 'react';
 import Require from '../../util/Require';
 import Tab from '@material-ui/core/Tab';
 import Tabs from '@material-ui/core/Tabs';
+import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
 
 
-const styles = theme => ({
+const styles = {
   root: {
   },
   appbar: {
-    backgroundColor: theme.palette.primary.main,
-    color: '#fff',
-    paddingLeft: 32,
     minHeight: '100px',
     position: 'relative',
   },
   menuButton: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    color: '#fff',
+    marginLeft: -12,
+    marginRight: 20,
   },
   tabs: {
     position: 'absolute',
@@ -48,7 +45,7 @@ const styles = theme => ({
     padding: '16px',
     textAlign: 'center',
   },
-});
+};
 
 
 class FileTabs extends React.Component {
@@ -185,20 +182,25 @@ class FileTabs extends React.Component {
         <Require fetcher={fOPNReco} urls={[fileURL]} />
         <LayoutConfig title={titleParts.join(' ')} />
 
-        <div className={classes.appbar}>
+        <AppBar position="static" classes={{root: classes.appbar}}>
+          <Toolbar>
+            <IconButton
+              className={classes.menuButton}
+              color="inherit"
+              aria-label="Menu"
+              onClick={this.handleToggleDrawer}
+            >
+              <MenuIcon />
+            </IconButton>
 
-          <IconButton
-            className={classes.menuButton}
-            color="inherit"
-            aria-label="Menu"
-            onClick={this.handleToggleDrawer}
-          >
-            <MenuIcon />
-          </IconButton>
+            <Typography variant="h6" color="inherit" className={classes.title}>
+              {file ? file.title : ''}
+            </Typography>
+          </Toolbar>
 
           {tabs}
 
-        </div>
+        </AppBar>
 
         {tabContent}
       </div>
@@ -226,7 +228,7 @@ function mapStateToProps(state, ownProps) {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles),
   withRouter,
   connect(mapStateToProps),
 )(FileTabs);

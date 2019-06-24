@@ -758,8 +758,8 @@ def period_delete(context, request):
 
     move_counts = {}
 
-    movement_op = MovementReassignOp(owner=owner, include_ineligible=True)
-    account_entry_op = AccountEntryReassignOp(include_ineligible=True)
+    movement_op = MovementReassignOp(owner=owner)
+    account_entry_op = AccountEntryReassignOp()
 
     # Push all the unreconciled movements and account entries in this period
     # to other open periods of the same peer loop.

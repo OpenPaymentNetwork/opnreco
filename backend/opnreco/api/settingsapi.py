@@ -29,7 +29,6 @@ def settings_api(request):
     res = {
         'tzname': owner.tzname or 'America/New_York',
         'tznames': get_tznames(),
-        'show_non_circ_with_circ': owner.show_non_circ_with_circ,
     }
 
     return res
@@ -57,30 +56,6 @@ def set_tzname(request):
         user_agent=request.user_agent,
         content={
             'tzname': tzname,
-        },
-    ))
-
-    return settings_api(request)
-
-
-@view_config(
-    name='set-show-non-circ',
-    context=API,
-    permission=perms.use_app,
-    renderer='json')
-def set_show_non_circ(request):
-    show_non_circ_with_circ = bool(request.json.get('show_non_circ_with_circ'))
-
-    owner = request.owner
-    owner.show_non_circ_with_circ = show_non_circ_with_circ
-    request.dbsession.add(OwnerLog(
-        owner_id=owner.id,
-        personal_id=request.personal_id,
-        event_type='show_non_circ_with_circ_change',
-        remote_addr=request.remote_addr,
-        user_agent=request.user_agent,
-        content={
-            'show_non_circ_with_circ': owner.show_non_circ_with_circ,
         },
     ))
 

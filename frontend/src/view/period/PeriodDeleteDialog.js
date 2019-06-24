@@ -11,7 +11,7 @@ import React from 'react';
 
 class PeriodDeleteDialog extends React.Component {
   static propTypes = {
-    deleteConflicts: PropTypes.number.isRequired,
+    deleteConflicts: PropTypes.object,
     onCancel: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
     deleting: PropTypes.bool,

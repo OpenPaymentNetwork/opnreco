@@ -14,7 +14,6 @@ import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Require from '../../util/Require';
-import ShowNonCircCard from './ShowNonCircCard';
 import TimeZoneCard from './TimeZoneCard';
 
 
@@ -67,12 +66,6 @@ class Settings extends React.Component {
       cards.push(
         <TimeZoneCard
           key="tz"
-          settings={settings}
-          updateSettings={updateSettings}
-        />);
-      cards.push(
-        <ShowNonCircCard
-          key="noncirc"
           settings={settings}
           updateSettings={updateSettings}
         />);
