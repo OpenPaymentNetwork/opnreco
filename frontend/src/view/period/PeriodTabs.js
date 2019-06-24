@@ -132,18 +132,24 @@ class PeriodTabs extends React.Component {
   redirectToPeriod = (periodId) => {
     let path = null;
 
-    // Redirect to the same tab in a different period.
-    const {match} = this.props;
-    const {tab} = match.params;
-    const tabs = this.getTabs(periodId);
-    for (const tabinfo of tabs) {
-      if (tab === tabinfo.value) {
-        path = tabinfo.path;
-        break;
+    if (periodId) {
+      // Redirect to the same tab in a different period.
+      const {match} = this.props;
+      const {tab} = match.params;
+      const tabs = this.getTabs(periodId);
+      for (const tabinfo of tabs) {
+        if (tab === tabinfo.value) {
+          path = tabinfo.path;
+          break;
+        }
       }
-    }
-    if (!path) {
-      path = tabs[0].path;
+      if (!path) {
+        path = tabs[0].path;
+      }
+    } else {
+      // Redirect to the period list for the file.
+      const {file} = this.props;
+      path = `/file/${encodeURIComponent(file.id)}/periods`;
     }
 
     if (path) {

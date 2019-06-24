@@ -58,6 +58,7 @@ class FileTabs extends React.Component {
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
     file: PropTypes.object,
+    fileId: PropTypes.string.isRequired,
     fileURL: PropTypes.string.isRequired,
     loading: PropTypes.bool,
     loadError: PropTypes.bool,
@@ -68,8 +69,8 @@ class FileTabs extends React.Component {
     this.props.dispatch(toggleDrawer());
   }
 
-  getTabs(fileId) {
-
+  getTabs() {
+    const {fileId} = this.props;
     const encFileId = encodeURIComponent(fileId);
 
     return [
@@ -209,7 +210,7 @@ class FileTabs extends React.Component {
 function mapStateToProps(state, ownProps) {
   const fileId = ownProps.match.params.fileId;
   const fileURL = fOPNReco.pathToURL(`/file/${encodeURIComponent(fileId)}`);
-  const file = fetchcache.get(fileURL);
+  const file = fetchcache.get(state, fileURL);
   const loading = fetchcache.fetching(state, fileURL);
   const loadError = !!fetchcache.getError(state, fileURL);
 

@@ -379,7 +379,7 @@ class TransactionReport extends React.Component {
     } = this.props;
 
     if (!reportURL || !period) {
-      // No peer loop or period selected.
+      // No file or period selected.
       return null;
     }
 

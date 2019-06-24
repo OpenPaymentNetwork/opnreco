@@ -17,7 +17,7 @@ import LockOpen from '@material-ui/icons/LockOpen';
 import OPNAppBar from '../app/OPNAppBar';
 import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
-import PeriodForm from './PeriodForm';
+import PeriodForm from '../period/PeriodForm';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
@@ -84,28 +84,24 @@ const styles = {
   },
   cell: {
     border: '1px solid #bbb',
-    padding: '4px 8px',
   },
   cellLeft: {
     borderLeft: '4px solid #bbb',
     borderRight: '1px solid #bbb',
     borderTop: '1px solid #bbb',
     borderBottom: '1px solid #bbb',
-    padding: '4px 8px',
   },
   cellRight: {
     borderRight: '4px solid #bbb',
     borderLeft: '1px solid #bbb',
     borderTop: '1px solid #bbb',
     borderBottom: '1px solid #bbb',
-    padding: '4px 8px',
   },
   cellLeftRight: {
     borderLeft: '4px solid #bbb',
     borderRight: '4px solid #bbb',
     borderTop: '1px solid #bbb',
     borderBottom: '1px solid #bbb',
-    padding: '4px 8px',
   },
   center: {
     textAlign: 'center',
@@ -116,7 +112,6 @@ const styles = {
   amountCell: {
     border: '1px solid #bbb',
     textAlign: 'right',
-    padding: '4px 8px',
   },
   periodRow: {
     cursor: 'pointer',
@@ -127,11 +122,8 @@ const styles = {
   clickableCell: {
     color: '#000',
     display: 'block',
-    textAlign: 'center',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#ddd',
-    },
+    textDecoration: 'none',
+    padding: '4px 8px',
   },
   cellIcon: {
     display: 'block',
@@ -149,12 +141,12 @@ const styles = {
 };
 
 
-class PeriodList extends React.Component {
+class FilePeriods extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    contentURL: PropTypes.string,
+    contentURL: PropTypes.string.isRequired,
     content: PropTypes.object,
     loading: PropTypes.bool,
     file: PropTypes.object,
@@ -197,6 +189,7 @@ class PeriodList extends React.Component {
 
     const cfmt = new getCurrencyFormatter(file.currency);
     const rows = [];
+    const ccClickableCell = classes.clickableCell;
     const ccStartDate = classes.cell;
     const ccEndDate = classes.cellRight;
     const ccStartCirc = `${classes.cellLeft} ${classes.right}`;
@@ -209,14 +202,14 @@ class PeriodList extends React.Component {
 
     for (const period of content.periods) {
       const reportsPath = `/period/${encodeURIComponent(period.id)}/reco`;
-      const closedPath = `/period/${encodeURIComponent(period.id)}/overview`;
+      const overviewPath = `/period/${encodeURIComponent(period.id)}/overview`;
 
-      const onClickCell = () => {
-        this.handleClickCell(reportsPath);
+      const onClickAnchor = (event) => {
+        this.handleClickAnchor(event, reportsPath);
       };
 
-      const onClickClosedCell = () => {
-        this.handleClickCell(closedPath);
+      const onClickOverviewAnchor = (event) => {
+        this.handleClickAnchor(event, overviewPath);
       };
 
       rows.push(
@@ -225,43 +218,59 @@ class PeriodList extends React.Component {
           data-period-id={period.id}
           className={classes.periodRow}
         >
-          <td className={ccStartDate} width="15%" onClick={onClickCell}>
-            {period.start_date ?
-              <FormattedDate value={period.start_date}
-                day="numeric" month="short" year="numeric"
-                timeZone="UTC" />
-              : 'Initial'}
+          <td className={ccStartDate} width="15%">
+            <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+              {period.start_date ?
+                <FormattedDate value={period.start_date}
+                  day="numeric" month="short" year="numeric"
+                  timeZone="UTC" />
+                : 'Initial'}
+            </a>
           </td>
-          <td className={ccEndDate} width="15%" onClick={onClickCell}>
-            {period.end_date ?
-              <FormattedDate value={period.end_date}
-                day="numeric" month="short" year="numeric"
-                timeZone="UTC" />
-              : 'In progress'}
+          <td className={ccEndDate} width="15%">
+            <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+              {period.end_date ?
+                <FormattedDate value={period.end_date}
+                  day="numeric" month="short" year="numeric"
+                  timeZone="UTC" />
+                : 'In progress'}
+            </a>
           </td>
           {showCirc ?
-            <td className={ccStartCirc} width="10%" onClick={onClickCell}>
-              {cfmt(period.start_circ)}
+            <td className={ccStartCirc} width="10%">
+              <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+                {cfmt(period.start_circ)}
+              </a>
             </td>
             : null}
           {showCirc ?
-            <td className={ccEndCirc} width="10%" onClick={onClickCell}>
-              {cfmt(period.end_circ)}
+            <td className={ccEndCirc} width="10%">
+              <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+                {cfmt(period.end_circ)}
+              </a>
             </td>
             : null}
-          <td className={ccStartCombined} width="10%" onClick={onClickCell}>
-            {cfmt(period.start_combined)}
+          <td className={ccStartCombined} width="10%">
+            <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+              {cfmt(period.start_combined)}
+            </a>
           </td>
-          <td className={ccEndCombined} width="10%" onClick={onClickCell}>
-            {period.end_combined ? cfmt(period.end_combined) : 'In progress'}
+          <td className={ccEndCombined} width="10%">
+            <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+              {period.end_combined ? cfmt(period.end_combined) : 'In progress'}
+            </a>
           </td>
-          <td className={ccStatements} width="10%" onClick={onClickCell}>
-            {period.statement_count}
+          <td className={ccStatements} width="10%">
+            <a className={ccClickableCell} href={reportsPath} onClick={onClickAnchor}>
+              {period.statement_count}
+            </a>
           </td>
-          <td className={ccClosed} width="10%" onClick={onClickClosedCell}>
-            {period.closed ?
-              <span title="Closed"><Lock className={cIcon}/></span> :
-              <span title="Open"><LockOpen className={cIcon} /></span>}
+          <td className={ccClosed} width="10%">
+            <a className={ccClickableCell} href={overviewPath} onClick={onClickOverviewAnchor}>
+              {period.closed ?
+                <span title="Closed"><Lock className={cIcon}/></span> :
+                <span title="Open"><LockOpen className={cIcon} /></span>}
+            </a>
           </td>
         </tr>
       );
@@ -384,11 +393,6 @@ class PeriodList extends React.Component {
       initialRowsPerPage,
     } = this.props;
 
-    if (!contentURL) {
-      // No peer loop selected.
-      return null;
-    }
-
     let pageContent, rowcount;
 
     if (!content) {
@@ -412,13 +416,10 @@ class PeriodList extends React.Component {
     }
 
     return (
-      <div className={classes.root}>
-        <LayoutConfig title="Reconciliation Periods" />
-        <Require fetcher={fOPNReco} urls={[contentURL, filesURL]} />
-
-        <OPNAppBar />
-
+      <div>
         <Paper className={classes.pagerPaper}>
+          <LayoutConfig title="Reconciliation Periods" />
+          <Require fetcher={fOPNReco} urls={[contentURL, filesURL]} />
           <Pager
             name={pagerName}
             initialRowsPerPage={initialRowsPerPage}
@@ -435,7 +436,7 @@ class PeriodList extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {fileId} = ownProps.match.params;
+  const {file} = ownProps;
   const pagerName = 'PeriodsView';
   const {
     rowsPerPage,
@@ -444,15 +445,14 @@ function mapStateToProps(state, ownProps) {
   } = getPagerState(state, pagerName, 100);
 
   const contentURL = fOPNReco.pathToURL(
-    `/file/${encodeURIComponent(fileId)}/period-list?` +
+    `/file/${encodeURIComponent(file.id)}/period-list?` +
     `offset=${encodeURIComponent(pageIndex * rowsPerPage)}&` +
     `limit=${encodeURIComponent(rowsPerPage || 'none')}`);
   const content = fetchcache.get(state, contentURL);
   const loading = fetchcache.fetching(state, contentURL);
   const loadError = !!fetchcache.getError(state, contentURL);
 
-  const files = (fetchcache.get(state, filesURL) || {}).files || {};
-  const file = files[fileId] || {};
+  // const files = (fetchcache.get(state, filesURL) || {}).files || {};
 
   return {
     contentURL,
@@ -470,4 +470,4 @@ export default compose(
   withStyles(styles),
   withRouter,
   connect(mapStateToProps),
-)(PeriodList);
+)(FilePeriods);

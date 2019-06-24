@@ -115,7 +115,7 @@ def get_peer_map(request, need_peer_ids, final):
     """Given a list of peer_ids, get a map of peers.
 
     Return:
-    {peer_id: {'title', 'username', 'is_dfi_account', ['is_circ']}}.
+    {peer_id: {'title', 'username', 'is_dfi_account'}}.
 
     Update old peers from OPN if the 'final' param is true.
     """

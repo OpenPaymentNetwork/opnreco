@@ -242,7 +242,7 @@ def pull_unreco(request, period, op):
 
     # Make a subquery that lists the items to reassign.
     ids_query = (
-        select([op.table.id])
+        select([op.id_c])
         .select_from(
             op.table.__table__
             .join(Period, Period.id == op.table.period_id)

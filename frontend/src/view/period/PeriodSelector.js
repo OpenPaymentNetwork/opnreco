@@ -150,7 +150,7 @@ class PeriodSelector extends React.Component {
           </MenuItem>);
       });
       res.push(
-        <MenuItem value='periods' key='periods'>
+        <MenuItem value='' key='periods'>
           Period List&hellip;
         </MenuItem>
       );

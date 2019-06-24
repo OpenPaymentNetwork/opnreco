@@ -1,5 +1,6 @@
 
 import Button from '@material-ui/core/Button';
+import FilePeriods from './FilePeriods';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -61,19 +62,16 @@ export default class FileTabContent extends React.Component {
       );
     }
 
-    return null;
-    /*
     const {file, tab} = this.props;
     switch(tab) {
-    case 'edit':
-      return <FileEdit file={file} />;
-    case 'rules':
-      return <FileRules file={file} />;
+    // case 'edit':
+    //   return <FileEdit file={file} />;
+    // case 'rules':
+    //   return <FileRules file={file} />;
     case 'periods':
       return <FilePeriods file={file} />;
     default:
       return null;
     }
-    */
   }
 }

@@ -4,6 +4,7 @@ from opnreco.models import perms
 from opnreco.models.db import Period
 from opnreco.models.db import File
 from opnreco.models.site import FileCollection
+from opnreco.models.site import FileResource
 from pyramid.view import view_config
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -87,6 +88,21 @@ def list_files(context, request):
         'file_order': file_order,
         'period_to_file_id': period_to_file_id,
         'default_file_id': file_order[0] if len(file_order) == 1 else None,
+    }
+
+
+@view_config(
+    name='',
+    context=FileResource,
+    permission=perms.view_file,
+    renderer='json')
+def file_state(context, request):
+    file = context.file
+    return {
+        'id': str(file.id),
+        'title': file.title,
+        'currency': file.currency,
+        'has_vault': file.has_vault,
     }
 
 
