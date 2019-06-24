@@ -96,10 +96,8 @@ def serialize_statement(statement):
     return {
         'id': str(statement.id),
         'owner_id': statement.owner_id,
-        'peer_id': statement.peer_id,
+        'file_id': statement.file_id,
         'period_id': str(statement.period_id),
-        'loop_id': statement.loop_id,
-        'currency': statement.currency,
         'source': statement.source,
         'upload_ts': statement.upload_ts,
         'filename': statement.filename,
@@ -110,7 +108,7 @@ def serialize_statement(statement):
 def serialize_entry(entry):
     return {
         'id': str(entry.id),
-        'peer_id': entry.peer_id,
+        'file_id': entry.file_id,
         'period_id': str(entry.period_id),
         'sheet': entry.sheet,
         'row': entry.row,

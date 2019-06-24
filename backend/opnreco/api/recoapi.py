@@ -11,10 +11,10 @@ from decimal import Decimal
 from opnreco.models import perms
 from opnreco.models.db import AccountEntry
 from opnreco.models.db import FileMovement
+from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
-from opnreco.models.db import Statement
 from opnreco.models.db import TransferRecord
 from opnreco.models.site import PeriodResource
 from opnreco.param import parse_amount
@@ -22,7 +22,6 @@ from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import list_assignable_periods
-from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_
@@ -195,10 +194,8 @@ def reco_api(context, request, final=False):
             reco_type = reco.reco_type
 
     need_loop_ids = set()
-    show_vault = period.peer_id == 'c'
+    show_vault = period.file.has_vault
     for row in movement_rows:
-        if row.vault_delta:
-            show_vault = True
         need_loop_ids.add(row.loop_id)
 
     movements_json = serialize_movement_rows(movement_rows)
@@ -894,7 +891,7 @@ class RecoSave:
                 'reco_id': reco_id,
                 'reco': params['reco'],
                 'internal': internal,
-                'movement_ids': [m.id for m in new_movements],
+                'movement_ids': [m.movement_id for m in new_movements],
                 'account_entry_ids': [e.id for e in new_account_entries],
                 'period_id': period_id,
                 'file_id': self.period.file_id,

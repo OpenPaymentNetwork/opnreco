@@ -21,6 +21,7 @@ const styles = {
     border: '1px solid #bbb',
     padding: '2px 8px',
     textAlign: 'right',
+    whiteSpace: 'nowrap',
   },
   candidateCell: {
     backgroundColor: '#ffc',

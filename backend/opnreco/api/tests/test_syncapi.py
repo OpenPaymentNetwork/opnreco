@@ -197,7 +197,6 @@ class TestSyncAPI(unittest.TestCase):
             'opn_sync',
             'peer_add',
             'peer_add',
-            'peer_add',
             'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
@@ -222,7 +221,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('wingcash:1102', record.recipient_uid)
 
         peers = self.dbsession.query(db.Peer).order_by(db.Peer.peer_id).all()
-        self.assertEqual(3, len(peers))
+        self.assertEqual(2, len(peers))
 
         self.assertEqual('11', peers[0].owner_id)
         self.assertEqual('11', peers[0].peer_id)
@@ -476,7 +475,6 @@ class TestSyncAPI(unittest.TestCase):
             'opn_sync',
             'peer_add',
             'peer_add',
-            'peer_add',
             'add_period_for_sync',
         ], [e.event_type for e in events])
         event = events[0]
@@ -502,7 +500,7 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('wingcash:11', record.recipient_uid)
 
         peers = self.dbsession.query(db.Peer).order_by(db.Peer.peer_id).all()
-        self.assertEqual(3, len(peers))
+        self.assertEqual(2, len(peers))
 
         self.assertEqual('11', peers[0].owner_id)
         self.assertEqual('11', peers[0].peer_id)
@@ -635,7 +633,6 @@ class TestSyncAPI(unittest.TestCase):
             .all())
         self.assertEqual([
             'opn_sync',
-            'peer_add',
             'peer_add',
             'peer_add',
             'add_period_for_sync',
@@ -1197,7 +1194,6 @@ class TestSyncAPI(unittest.TestCase):
             'opn_sync',
             'peer_add',
             'peer_add',
-            'peer_add',
             'add_period_for_sync',
             'opn_sync',
             'peer_update',
@@ -1340,7 +1336,7 @@ class TestSyncAPI(unittest.TestCase):
             self.assertGreaterEqual(download_status['progress_percent'], 0.0)
             self.assertLessEqual(download_status['progress_percent'], 100.0)
             self.assertEqual({
-                'change_count': 6,
+                'change_count': 5,
                 'download_count': 1,
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
@@ -1355,7 +1351,6 @@ class TestSyncAPI(unittest.TestCase):
         events = self.dbsession.query(db.OwnerLog).all()
         self.assertEqual([
             'opn_sync',
-            'peer_add',
             'peer_add',
             'peer_add',
             'add_period_for_sync',
@@ -1396,7 +1391,7 @@ class TestSyncAPI(unittest.TestCase):
                 })
             download_status = obj()
             self.assertEqual({
-                'change_count': 8,
+                'change_count': 7,
                 'download_count': 1,
                 'first_sync_ts': '2018-08-01T04:05:10Z',
                 'last_sync_ts': '2018-08-01T04:05:11Z',
@@ -1409,7 +1404,6 @@ class TestSyncAPI(unittest.TestCase):
             .order_by(db.OwnerLog.id).all())
         self.assertEqual([
             'opn_sync',
-            'peer_add',
             'peer_add',
             'peer_add',
             'add_period_for_sync',

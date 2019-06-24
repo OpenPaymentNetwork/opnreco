@@ -108,21 +108,21 @@ class MovementInterpreter:
 
         to_reconcile = []  # [(file_movement, movement)]
 
-        configured = []
+        configured_logging = []
 
-        def configure():
-            if not configured:
+        def configure_logging():
+            if not configured_logging:
                 configure_dblog(
                     request=self.request,
                     movement_event_type='sync_file_movements')
-                configured.append(True)
+                configured_logging.append(True)
 
         for movement in movements:
             file_movement = file_movements.get(movement.id)
             kw = self.interpret(movement)
             if kw and file_movement is None:
                 # Add a file movement.
-                configure()
+                configure_logging()
 
                 day = movement.ts.replace(tzinfo=pytz.utc).astimezone(
                     self.timezone).date()
@@ -142,7 +142,7 @@ class MovementInterpreter:
                     file_movement.period_id in self.open_period_ids):
                 # This movement no longer applies to the file
                 # and the file movement is safe to delete, so delete it.
-                configure()
+                configure_logging()
                 dbsession.delete(file_movement, synchronize_session=True)
                 file_movement = None
 
@@ -152,14 +152,14 @@ class MovementInterpreter:
                     file_movement.period_id in self.open_period_ids):
                 # Update the file movement if needed.
                 if file_movement.peer_id != kw['peer_id']:
-                    configure()
+                    configure_logging()
                     file_movement.peer_id = kw['peer_id']
                 if file_movement.wallet_delta != kw['wallet_delta']:
-                    configure()
+                    configure_logging()
                     file_movement.wallet_delta = kw['wallet_delta']
                     file_movement.surplus_delta = kw['surplus_delta']
                 if file_movement.vault_delta != kw['vault_delta']:
-                    configure()
+                    configure_logging()
                     file_movement.vault_delta = kw['vault_delta']
 
             if file_movement is not None:

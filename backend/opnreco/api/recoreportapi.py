@@ -106,7 +106,7 @@ def reco_report_api(context, request):
             'surplus': str(surplus_delta) if surplus_delta else '0',
             'combined': str(combined_delta) if combined_delta else '0',
             'ts': r.ts.isoformat() + 'Z',
-            'movement_id': str(r.id),
+            'movement_id': str(r.movement_id),
         })
         # Add the deltas to workflow_types_pre.
         cd0, sd0, td0 = workflow_types_pre[(str_sign, workflow_type)]

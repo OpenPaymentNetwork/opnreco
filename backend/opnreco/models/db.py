@@ -94,7 +94,9 @@ class Peer(Base):
     __tablename__ = 'peer'
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, primary_key=True)
-    peer_id = Column(String, nullable=False, primary_key=True)
+    peer_id = Column(
+        String, CheckConstraint("peer_id != 'c'", name='peer_id_not_c'),
+        nullable=False, primary_key=True)
 
     title = Column(Unicode, nullable=True)
     username = Column(String, nullable=True)

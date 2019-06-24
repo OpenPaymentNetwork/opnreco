@@ -58,9 +58,11 @@ class AuthenticatedHome extends React.Component {
     if (!this.redirected) {
       if (defaultFileId) {
         const file = files[defaultFileId];
-        const periodId = file.periods[file.period_order[0]].id;
-        this.redirected = true;
-        this.props.history.push(`/period/${encodeURIComponent(periodId)}`);
+        if (file.period_order.length) {
+          const periodId = file.periods[file.period_order[0]].id;
+          this.redirected = true;
+          this.props.history.push(`/period/${encodeURIComponent(periodId)}`);
+        }
       }
     }
   }
@@ -69,6 +71,7 @@ class AuthenticatedHome extends React.Component {
     const {
       classes,
       defaultFileId,
+      files,
       loading,
       loadError,
       syncProgress,
@@ -77,7 +80,11 @@ class AuthenticatedHome extends React.Component {
 
     let progressMessage = '';
     if (defaultFileId) {
-      progressMessage = <span>Loading&hellip;</span>;
+      if (files[defaultFileId].period_order.length) {
+        progressMessage = <span>Loading&hellip;</span>;
+      } else {
+        progressMessage = <span>The default file has no periods.</span>;
+      }
     } else {
       if (loading) {
         progressMessage = <span>Loading files&hellip;</span>;

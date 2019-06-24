@@ -136,6 +136,7 @@ class FileCollection(ResourceCollection):
     @reify
     def __acl__(self):
         return [
+            (Allow, Authenticated, perms.use_app),
             (Allow, Authenticated, perms.create_file),
             DENY_ALL,
         ]

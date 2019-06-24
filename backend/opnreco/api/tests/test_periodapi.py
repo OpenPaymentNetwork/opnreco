@@ -61,7 +61,7 @@ class Test_detect_date_overlap(unittest.TestCase):
 
         peer = db.Peer(
             owner_id='102',
-            peer_id='c',
+            peer_id='102',
             title="Testy Owner",
             username='testowner',
         )

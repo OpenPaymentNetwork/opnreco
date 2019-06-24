@@ -249,8 +249,8 @@ def period_state_api(context, request):
             account_entry_counts.all - account_entry_counts.reconciled),
     }
 
-    peers = get_peer_map(
-        request=request, need_peer_ids=set([period.peer_id]), final=True)
+    # peers = get_peer_map(
+    #     request=request, need_peer_ids=set([period.peer_id]), final=True)
 
     # need_loop_rows = (
     #     dbsession.query(FileRule.loop_id)
@@ -271,7 +271,7 @@ def period_state_api(context, request):
     res = {
         'now': now,
         'period': serialize_period(period, end_amounts=end_amounts),
-        'peer': peers[period.peer_id],
+        # 'peer': peers[period.peer_id],
         # 'loops': loops,
         'totals': totals,
         'counts': counts,

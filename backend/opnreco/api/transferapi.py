@@ -201,7 +201,7 @@ def transfer_record_api(context, request, final=False):
     peer_order = [y for x, y in peer_ordering]
     peer_index = {x: i for (i, x) in enumerate(peer_order)}
 
-    self_id = period.file.peer_id or owner_id
+    self_id = owner_id
 
     delta_totals_json = [{
         'currency': currency1,

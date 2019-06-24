@@ -119,7 +119,7 @@ class SyncBase:
             self.peers[peer.peer_id] = peer
 
         if write_enabled:
-            self.import_peer('c', None)  # Create or update the 'c' peer
+            self.import_peer(self.owner_id, None)
 
         for tsum in transfers_download['results']:
             if write_enabled:
@@ -272,7 +272,7 @@ class SyncBase:
             # disabled.
             return
 
-        if peer_id == self.owner_id or peer_id == 'c':
+        if peer_id == self.owner_id:
             # Get better info from the owner profile.
             info = {
                 'title': self.owner.title,

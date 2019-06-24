@@ -377,7 +377,7 @@ function mapStateToProps(state, ownProps) {
   return {
     periodId,
     filesURLMod,
-    files: fetched.filess,
+    files: fetched.files,
     fileOrder: fetched.file_order,
     defaultFileId: fetched.default_file_id,
     file,

@@ -51,6 +51,18 @@ class SyncAPI(SyncBase):
         request = self.request
         owner = self.owner
 
+        if not self.interpreters:
+            # No files have been set up for the owner. Don't bother
+            # syncing until the first file is created.
+            return {
+                'progress_percent': 100,
+                'change_count': 0,
+                'download_count': 0,
+                'more': False,
+                'first_sync_ts': '1970-01-01T00:00:00Z',
+                'last_sync_ts': '1970-01-01T00:00:00Z',
+            }
+
         self.set_tzname()
 
         if owner.first_sync_ts is None:

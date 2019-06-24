@@ -122,7 +122,7 @@ class Test_auto_reco_statement(unittest.TestCase):
 
         self.peer = peer = db.Peer(
             owner_id='102',
-            peer_id='c',
+            peer_id='102',
             title="Testy Owner",
             username='testowner',
         )
