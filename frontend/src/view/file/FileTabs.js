@@ -73,7 +73,7 @@ class FileTabs extends React.Component {
     return [
       {
         value: 'edit',
-        label: 'Edit',
+        label: 'Edit File',
         path: `/file/${encFileId}/edit`,
       },
       {

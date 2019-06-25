@@ -97,7 +97,10 @@ class PeriodCollection(ResourceCollection):
         dbsession = self.request_ref().dbsession
         row = (
             dbsession.query(Period)
-            .filter(Period.id == resource_id)
+            .join(File, Period.file_id == File.id)
+            .filter(
+                Period.id == resource_id,
+                ~File.removed)
             .first()
         )
         if row is None:
@@ -145,7 +148,7 @@ class FileCollection(ResourceCollection):
         dbsession = self.request_ref().dbsession
         row = (
             dbsession.query(File)
-            .filter(File.id == resource_id)
+            .filter(File.id == resource_id, ~File.removed)
             .first()
         )
         if row is None:

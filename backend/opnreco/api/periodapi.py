@@ -22,8 +22,6 @@ from opnreco.serialize import serialize_period
 from opnreco.viewcommon import add_open_period
 from opnreco.viewcommon import compute_period_totals
 from opnreco.viewcommon import configure_dblog
-from opnreco.viewcommon import get_loop_map
-from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import handle_invalid
 from opnreco.viewcommon import open_end_period_exists
 from pyramid.httpexceptions import HTTPBadRequest

@@ -159,7 +159,7 @@ class PeriodForm extends React.Component {
       ...this.state.form,
       close,
     };
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    const promise = dispatch(fOPNReco.fetch(url, {data}));
     this.setState({saving: true});
     promise.then((response) => {
       this.setState({

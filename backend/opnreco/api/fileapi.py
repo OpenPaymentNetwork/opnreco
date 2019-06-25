@@ -1,14 +1,17 @@
 
 
 from opnreco.models import perms
-from opnreco.models.db import Period
 from opnreco.models.db import File
+from opnreco.models.db import OwnerLog
+from opnreco.models.db import Period
 from opnreco.models.site import FileCollection
 from opnreco.models.site import FileResource
+from opnreco.viewcommon import handle_invalid
 from pyramid.view import view_config
 from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
+import colander
 
 
 @view_config(
@@ -24,7 +27,9 @@ def list_files(context, request):
 
     file_rows = (
         dbsession.query(File)
-        .filter(File.owner_id == owner_id)
+        .filter(
+            File.owner_id == owner_id,
+            ~File.removed)
         .order_by(File.title)
         .all())
 
@@ -40,7 +45,10 @@ def list_files(context, request):
                 order_by=Period.start_date.desc(),
             ).label('rownum'),
         )
-        .filter(Period.owner_id == owner_id)
+        .join(File, File.id == Period.file_id)
+        .filter(
+            Period.owner_id == owner_id,
+            ~File.removed)
         .subquery('subq'))
 
     period_alias = aliased(Period, subq)
@@ -91,13 +99,7 @@ def list_files(context, request):
     }
 
 
-@view_config(
-    name='',
-    context=FileResource,
-    permission=perms.view_file,
-    renderer='json')
-def file_state(context, request):
-    file = context.file
+def serialize_file(file):
     return {
         'id': str(file.id),
         'title': file.title,
@@ -107,10 +109,69 @@ def file_state(context, request):
 
 
 @view_config(
-    name='suggested-files',
-    context=FileCollection,
-    permission=perms.use_app,
+    name='',
+    context=FileResource,
+    permission=perms.view_file,
     renderer='json')
-def list_suggested_files(context, request):
-    return {}
+def file_state(context, request):
+    return serialize_file(context.file)
 
+
+class FileSaveSchema(colander.Schema):
+    title = colander.SchemaNode(
+        colander.String(), validator=colander.Length(max=50))
+
+
+@view_config(
+    name='save',
+    context=FileResource,
+    permission=perms.edit_file,
+    renderer='json')
+def file_save(context, request):
+    """Change the file."""
+    file = context.file
+
+    schema = FileSaveSchema()
+    try:
+        appstruct = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        handle_invalid(e, schema=schema)
+
+    file.title = appstruct['title']
+
+    request.dbsession.add(OwnerLog(
+        owner_id=request.owner.id,
+        personal_id=request.personal_id,
+        event_type='edit_file',
+        content={
+            'file_id': file.id,
+            'title': file.title,
+        }))
+
+    return serialize_file(file)
+
+
+@view_config(
+    name='delete',
+    context=FileResource,
+    permission=perms.edit_file,
+    renderer='json')
+def file_delete(context, request):
+    """Delete the file.
+
+    This merely marks the file as removed, making it unavailable until
+    the user restores it.
+    """
+    file = context.file
+    file.removed = True
+
+    request.dbsession.add(OwnerLog(
+        owner_id=request.owner.id,
+        personal_id=request.personal_id,
+        event_type='delete_file',
+        content={
+            'file_id': file.id,
+            'removed': True,
+        }))
+
+    return serialize_file(file)
