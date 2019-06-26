@@ -152,11 +152,13 @@ class FileRule(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
     file_id = Column(
         BigInteger, ForeignKey('file.id'), nullable=False, index=True)
+    rule_type = Column(
+        String,
+        CheckConstraint(
+            "rule_type = 'circulation' or rule_type = 'account'",
+            name='rule_type_vocab'),
+        nullable=False)
     loop_id = Column(String, nullable=False)
-    # self_id is usually owner_id, but may be a different profile ID when
-    # this profile is a distributor and we're reconciling notes from
-    # a particular issuer.
-    self_id = Column(String, nullable=False)
     # peer_id is null for reconciling note circulation. When reconciling
     # a deposit account, peer_id is the account holder ID.
     peer_id = Column(String, nullable=True)
