@@ -152,16 +152,26 @@ class FileRule(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
     file_id = Column(
         BigInteger, ForeignKey('file.id'), nullable=False, index=True)
-    rule_type = Column(
-        String,
-        CheckConstraint(
-            "rule_type = 'circulation' or rule_type = 'account'",
-            name='rule_type_vocab'),
-        nullable=False)
+    rule_type = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
-    # peer_id is null for reconciling note circulation. When reconciling
-    # a deposit account, peer_id is the account holder ID.
-    peer_id = Column(String, nullable=True)
+    profile_id = Column(String, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(or_(
+            and_(
+                rule_type == 'circulation',
+                # For open loop circulation, profile_id is the issuer ID
+                # and is normally equal to owner_id.
+                # For closed loop circulation, profile_id is normally unset.
+            ),
+            and_(
+                rule_type == 'account',
+                profile_id != null,
+                profile_id != '',
+            ),
+        ), name='rule_type_fields'),
+        {},
+    )
 
 
 class Period(Base):
