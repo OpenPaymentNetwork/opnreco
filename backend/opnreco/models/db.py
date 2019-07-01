@@ -130,10 +130,39 @@ class File(Base):
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
+    file_type = Column(String, nullable=False)
     title = Column(Unicode, nullable=False)
     currency = Column(String, nullable=False)
     has_vault = Column(Boolean, nullable=False)
+    peer_id = Column(String, nullable=True)
+    auto_enable_loops = Column(Boolean, nullable=False, default=False)
     removed = Column(Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        CheckConstraint(or_(
+            and_(
+                file_type == 'open_circ',
+                peer_id == null,
+                has_vault,
+                ~auto_enable_loops,
+            ),
+            and_(
+                file_type == 'closed_circ',
+                peer_id == null,
+                has_vault,
+                # For closed_circ files, auto_enable_loops is enabled by
+                # default. It causes new cash designs to be reconciled
+                # automatically.
+            ),
+            and_(
+                file_type == 'account',
+                peer_id != null,
+                ~has_vault,
+                ~auto_enable_loops,
+            ),
+        ), name='file_type_fields'),
+        {},
+    )
 
 
 Index(
@@ -144,34 +173,17 @@ Index(
     unique=True)
 
 
-class FileRule(Base):
-    """Movements are included in a File if they match any of the rules."""
-    __tablename__ = 'file_rule'
+class FileLoop(Base):
+    """The list of loops for closed_circ files."""
+    __tablename__ = 'file_loop'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
     file_id = Column(
         BigInteger, ForeignKey('file.id'), nullable=False, index=True)
-    rule_type = Column(String, nullable=False)
+    issuer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
-    profile_id = Column(String, nullable=True)
-
-    __table_args__ = (
-        CheckConstraint(or_(
-            and_(
-                rule_type == 'circulation',
-                # For open loop circulation, profile_id is the issuer ID
-                # and is normally equal to owner_id.
-                # For closed loop circulation, profile_id is normally unset.
-            ),
-            and_(
-                rule_type == 'account',
-                profile_id != null,
-                profile_id != '',
-            ),
-        ), name='rule_type_fields'),
-        {},
-    )
+    enabled = Column(Boolean, nullable=False)
 
 
 class Period(Base):
