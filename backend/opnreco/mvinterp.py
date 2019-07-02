@@ -1,7 +1,8 @@
 
 from decimal import Decimal
 from opnreco.models.db import FileMovement
-from opnreco.models.db import FileRule
+from opnreco.models.db import FileLoopConfig
+from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
 from opnreco.viewcommon import add_open_period
@@ -9,7 +10,6 @@ from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from pyramid.decorator import reify
 import collections
-import itertools
 import logging
 import pytz
 
@@ -69,20 +69,51 @@ class MovementInterpreter:
         return set(period.id for period in self.open_period_list)
 
     @reify
-    def rules_by_loop_id(self):
+    def loops_enabled(self):
+        """Get {(loop_id, issuer_id): enabled}."""
         rows = (
-            self.request.dbsession.query(FileRule)
+            self.request.dbsession.query(FileLoopConfig)
             .filter(
-                FileRule.owner_id == self.owner_id,
-                FileRule.file_id == self.file.id,
+                FileLoopConfig.owner_id == self.owner_id,
+                FileLoopConfig.file_id == self.file.id,
             )
-            .order_by(FileRule.loop_id, FileRule.id)
             .all())
         return {
-            loop_id: list(rules)
-            for (loop_id, rules)
-            in itertools.groupby(rows, lambda row: row.loop_id)
-        }
+            (row.loop_id, row.file_id): row.enabled
+            for row in rows}
+
+    def include_closed_loop(self, loop_id, issuer_id):
+        """Return true if movements for the given loop_id + issuer_id combo
+        should be reconciled in this file."""
+        enabled = self.loops_enabled.get((loop_id, issuer_id))
+        if enabled is not None:
+            return enabled
+        # Add a FileLoopConfig for a newly discovered
+        # loop_id + issuer_id combo. Enable it if auto_enable_loops is true.
+        enabled = self.file.auto_enable_loops
+        row = FileLoopConfig(
+            owner_id=self.owner_id,
+            file_id=self.file.id,
+            loop_id=loop_id,
+            issuer_id=issuer_id,
+            enabled=enabled)
+        dbsession = self.request.dbsession
+        dbsession.add(row)
+        dbsession.flush()
+        self.loops_enabled[(loop_id, issuer_id)] = enabled
+
+        dbsession.add(OwnerLog(
+            owner_id=self.owner_id,
+            personal_id=self.request.personal_id,
+            event_type='add_file_loop_config',
+            content={
+                'file_id': self.file.id,
+                'loop_id': loop_id,
+                'issuer_id': issuer_id,
+                'enabled': enabled,
+            }))
+
+        return enabled
 
     def sync_file_movements(self, record, movements, is_new_record):
         """Add the FileMovements for the movements in a TransferRecord.
@@ -185,29 +216,27 @@ class MovementInterpreter:
             # Issuance movement.
             return None
 
+        file = self.file
         currency = movement.currency
-        if currency != self.file.currency:
+        if currency != file.currency:
             # This movement is not applicable to this file.
-            return None
-
-        loop_id = movement.loop_id
-        rules = self.rules_by_loop_id.get(loop_id, ())
-        if not rules:
-            # No rule matches.
             return None
 
         to_id = movement.to_id
         issuer_id = movement.issuer_id
+        file_type = file.file_type
+        owner_id = self.owner_id
+        loop_id = movement.loop_id
         amount = movement.amount
         wallet_delta = zero
         vault_delta = zero
 
-        for rule in rules:
-            rule_self_id = rule.self_id
-
-            if from_id == rule_self_id and to_id != rule_self_id:
-                rule_peer_id = rule.peer_id
-                if not rule_peer_id or rule_peer_id == to_id:
+        if file_type == 'open_circ':
+            # The file owner is an issuer of open loop notes.
+            # This file reconciles an account with the circulation of
+            # open loop notes issued by this issuer.
+            if loop_id == '0':
+                if from_id == owner_id and to_id != owner_id:
                     peer_id = to_id
                     if from_id == issuer_id:
                         # Notes were put into circulation.
@@ -215,11 +244,7 @@ class MovementInterpreter:
                     else:
                         # Notes were sent to an account or other wallet.
                         wallet_delta = -amount
-                    break
-
-            elif to_id == rule_self_id and from_id != rule_self_id:
-                rule_peer_id = rule.peer_id
-                if not rule_peer_id or rule_peer_id == from_id:
+                elif to_id == owner_id and from_id != owner_id:
                     peer_id = from_id
                     if to_id == issuer_id:
                         # Notes were taken out of circulation.
@@ -227,10 +252,49 @@ class MovementInterpreter:
                     else:
                         # Notes were received from an account or other wallet.
                         wallet_delta = amount
-                    break
+
+        elif file_type == 'account':
+            # The file owner has a linked account.
+            # This file reconciles an account with the movement of notes
+            # between the owner's wallet and the account.
+            peer_id = file.peer_id
+            if from_id == owner_id and to_id == peer_id:
+                # Notes were sent to the account.
+                wallet_delta = -amount
+            elif from_id == peer_id and to_id == owner_id:
+                # Notes were received from the account.
+                wallet_delta = amount
+
+        elif file_type == 'closed_circ':
+            # The file owner is a distributor of closed loop notes.
+            # This file reconciles an account with the distribution and
+            # redemption of closed loop notes.
+            if loop_id != '0':
+                # Reconcile movement of specific closed loops
+                # as vault movements.
+                if self.include_closed_loop(loop_id, issuer_id):
+                    if from_id == issuer_id and to_id != issuer_id:
+                        peer_id = to_id
+                        # Notes were put into circulation.
+                        vault_delta = -amount
+                    elif to_id == issuer_id and from_id != issuer_id:
+                        peer_id = from_id
+                        # Notes were taken out of circulation.
+                        vault_delta = amount
+            else:
+                # Reconcile all movement of open loop notes to/from the
+                # owner as wallet movements.
+                if from_id == owner_id and to_id != owner_id:
+                    # The owner sent open loop notes from the wallet.
+                    peer_id = to_id
+                    wallet_delta = -amount
+                elif to_id == owner_id and from_id != owner_id:
+                    # The owner receoved open loop notes into the wallet.
+                    peer_id = from_id
+                    wallet_delta = amount
 
         if not vault_delta and not wallet_delta:
-            # No rule matches.
+            # This movement should not be reconciled in this file.
             return None
 
         return {

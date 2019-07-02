@@ -46,18 +46,12 @@ class Test_detect_date_overlap(unittest.TestCase):
         file = db.File(
             id=1239,
             owner_id=owner.id,
+            file_type='open_circ',
             title='Test File',
             currency='USD',
             has_vault=True)
         dbsession.add(file)
         dbsession.flush()
-
-        dbsession.add(db.FileRule(
-            id=123901,
-            owner_id=owner.id,
-            file_id=1239,
-            loop_id='0',
-            self_id=owner.id))
 
         peer = db.Peer(
             owner_id='102',

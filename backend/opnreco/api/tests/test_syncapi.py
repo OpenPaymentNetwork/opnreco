@@ -35,10 +35,13 @@ class TestSyncAPI(unittest.TestCase):
         from ..syncapi import SyncAPI
         return SyncAPI
 
-    def _make(self, owner_id='11'):
+    def _make(
+            self,
+            owner_id='11',
+            file_type='open_circ',
+            auto_enable_loops=False):
         from opnreco.models.db import Owner
         from opnreco.models.db import File
-        from opnreco.models.db import FileRule
 
         owner = Owner(
             id=owner_id,
@@ -51,18 +54,13 @@ class TestSyncAPI(unittest.TestCase):
         file = File(
             id=1239,
             owner_id=owner_id,
+            file_type=file_type,
             title='Test File',
             currency='USD',
-            has_vault=True)
+            has_vault=True,
+            auto_enable_loops=auto_enable_loops)
         self.dbsession.add(file)
         self.dbsession.flush()
-
-        self.dbsession.add(FileRule(
-            id=123901,
-            owner_id=owner.id,
-            file_id=1239,
-            loop_id='0',
-            self_id=owner.id))
 
         request = pyramid.testing.DummyRequest(
             dbsession=self.dbsession,
@@ -1460,3 +1458,187 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('sync_file_movements', mvlog.event_type)
         mvlog = mvlogs[1]
         self.assertEqual('sync_file_movements', mvlog.event_type)
+
+    @responses.activate
+    def test_closed_loop_send_design(self):
+        # Reconcile closed loop cash for the distributor (profile 12).
+        # The issuer is profile 15 and the recipient is profile 11.
+        from opnreco.models import db
+
+        responses.add(
+            responses.POST,
+            'https://opn.example.com:9999/wallet/history_sync',
+            json={
+                'results': [{
+                    'id': '501',
+                    'workflow_type': 'send_design',
+                    'start': '2018-08-01T04:05:06Z',
+                    'currency': 'USD',
+                    'amount': '1.25',
+                    'timestamp': '2018-08-01T04:05:08Z',
+                    'next_activity': 'completed',
+                    'completed': True,
+                    'canceled': False,
+                    'sender_id': '12',
+                    'sender_uid': 'wingcash:12',
+                    'sender_info': {
+                        'title': "Issuer",
+                    },
+                    'recipient_id': '11',
+                    'recipient_uid': 'wingcash:11',
+                    'recipient_info': {
+                        'title': "Some Tester",
+                    },
+                    'movements': [
+                        {
+                            # Note creation movement
+                            'number': 1,
+                            'timestamp': '2018-08-02T05:06:06Z',
+                            'action': 'issue',
+                            'from_id': None,
+                            'to_id': '15',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '41',
+                                'amount': '1.25',
+                                'issuer_id': '15',
+                            }],
+                        }, {
+                            # Issued $1.00 to the distributor (profile 12)
+                            'number': 2,
+                            'timestamp': '2018-08-02T05:06:07Z',
+                            'action': 'issue',
+                            'from_id': '15',
+                            'to_id': '12',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '41',
+                                'amount': '1.00',
+                                'issuer_id': '15',
+                            }],
+                        }, {
+                            # Issued $0.25 to the distributor (profile 12)
+                            'number': 3,
+                            'timestamp': '2018-08-02T05:06:07Z',
+                            'action': 'issue',
+                            'from_id': '15',
+                            'to_id': '12',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '41',
+                                'amount': '0.25',
+                                'issuer_id': '15',
+                            }],
+                        }, {
+                            # Sent from the distributor (profile 12)
+                            # to the recipient (profile 11)
+                            'number': 4,
+                            'timestamp': '2018-08-02T05:06:07Z',
+                            'action': 'send',
+                            'from_id': '12',
+                            'to_id': '11',
+                            'loops': [{
+                                'currency': 'USD',
+                                'loop_id': '41',
+                                'amount': '1.25',
+                                'issuer_id': '15',
+                            }],
+                        },
+                    ],
+                }],
+                'more': False,
+                'first_sync_ts': '2018-08-01T04:05:10Z',
+                'last_sync_ts': '2018-08-01T04:05:11Z',
+            })
+        # This is file is a reconciliation for the distributor (profile 12).
+        obj = self._make(
+            owner_id='12',
+            file_type='closed_circ',
+            auto_enable_loops=True)
+        obj()
+
+        downloads = self.dbsession.query(db.OPNDownload).all()
+        self.assertEqual(1, len(downloads))
+        self.assertEqual('12', downloads[0].owner_id)
+
+        events = (
+            self.dbsession.query(db.OwnerLog)
+            .order_by(db.OwnerLog.id)
+            .all())
+        self.assertEqual([
+            'opn_sync',
+            'peer_add',
+            'peer_add',
+            'add_file_loop_config',
+            'add_period_for_sync',
+        ], [e.event_type for e in events])
+        event = events[0]
+        self.assertEqual('12', event.owner_id)
+        self.assertEqual(
+            {'sync_ts', 'progress_percent', 'transfers', 'change_count'},
+            set(event.content.keys()))
+
+        records = self.dbsession.query(db.TransferRecord).all()
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertEqual('send_design', record.workflow_type)
+        self.assertEqual(
+            datetime.datetime(2018, 8, 1, 4, 5, 6), record.start)
+        self.assertEqual(
+            datetime.datetime(2018, 8, 1, 4, 5, 8), record.timestamp)
+        self.assertEqual(True, record.completed)
+        self.assertEqual(False, record.canceled)
+        self.assertEqual('12', record.sender_id)
+        self.assertEqual('wingcash:12', record.sender_uid)
+        self.assertEqual('11', record.recipient_id)
+        self.assertEqual('wingcash:11', record.recipient_uid)
+
+        periods = (
+            self.dbsession.query(db.Period)
+            .all())
+        self.assertEqual(1, len(periods))
+        period = periods[0]
+        self.assertEqual('12', period.owner_id)
+        self.assertEqual(1239, period.file_id)
+
+        movements = (
+            self.dbsession.query(db.Movement, db.FileMovement)
+            .outerjoin(
+                db.FileMovement, db.FileMovement.movement_id == db.Movement.id)
+            .order_by(db.Movement.id)
+            .all())
+        self.assertEqual(4, len(movements))
+        m, fm = movements[0]
+        self.assertIsNone(fm)  # Don't reconcile the note creation
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('41', m.loop_id)
+        self.assertEqual('USD', m.currency)
+
+        m, fm = movements[1]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('41', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual('12', fm.peer_id)
+        self.assertEqual(Decimal('-1.00'), fm.vault_delta)
+        self.assertEqual(zero, fm.wallet_delta)
+
+        m, fm = movements[2]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('41', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual('12', fm.peer_id)
+        self.assertEqual(Decimal('-0.25'), fm.vault_delta)
+        self.assertEqual(zero, fm.wallet_delta)
+
+        m, fm = movements[3]
+        # The movement of the note from the distributor to the recipient
+        # is not a reconcileable movement.
+        self.assertIsNone(fm)
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('41', m.loop_id)
+        self.assertEqual('USD', m.currency)
+
+        events = self.dbsession.query(db.FileMovementLog).all()
+        self.assertEqual(2, len(events))
+        event = events[0]
+        self.assertEqual('sync_file_movements', event.event_type)

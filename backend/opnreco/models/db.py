@@ -173,16 +173,16 @@ Index(
     unique=True)
 
 
-class FileLoop(Base):
-    """The list of loops for closed_circ files."""
-    __tablename__ = 'file_loop'
+class FileLoopConfig(Base):
+    """The configuration of loops for closed_circ files."""
+    __tablename__ = 'file_loop_config'
     id = Column(BigInteger, nullable=False, primary_key=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
     file_id = Column(
         BigInteger, ForeignKey('file.id'), nullable=False, index=True)
-    issuer_id = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
+    issuer_id = Column(String, nullable=False)
     enabled = Column(Boolean, nullable=False)
 
 
