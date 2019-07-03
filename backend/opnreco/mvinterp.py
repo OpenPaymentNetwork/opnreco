@@ -322,7 +322,7 @@ class MovementInterpreter:
         period = get_period_for_day(open_period_list, day)
         if period is not None:
             # Found a matching open period.
-            self.periods[day] = period
+            self.open_periods[day] = period
             return period
 
         # Create a new open period.
