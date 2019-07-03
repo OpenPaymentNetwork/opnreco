@@ -2,7 +2,7 @@
 
 from opnreco.models import perms
 from opnreco.models.db import File
-from opnreco.models.db import FileRule
+from opnreco.models.db import FileLoopConfig
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.site import FileCollection
@@ -180,62 +180,62 @@ def file_delete(context, request):
     return serialize_file(file)
 
 
-def serialize_rules(request, file, final):
-    """List the rules for the file. Include profile and loop info."""
-    rules = (
-        request.dbsession.query(FileRule)
-        .filter(
-            FileRule.file_id == file.id,
-            FileRule.owner_id == request.owner.id,
-        )
-        .order_by(FileRule.id)
-        .all())
+# def serialize_rules(request, file, final):
+#     """List the rules for the file. Include profile and loop info."""
+#     rules = (
+#         request.dbsession.query(FileRule)
+#         .filter(
+#             FileRule.file_id == file.id,
+#             FileRule.owner_id == request.owner.id,
+#         )
+#         .order_by(FileRule.id)
+#         .all())
 
-    need_peer_ids = set()
-    need_loop_ids = set()
-    for rule in rules:
-        need_peer_ids.add(rule.self_id)
-        peer_id = rule.peer_id
-        if peer_id:
-            need_peer_ids.add(peer_id)
-        loop_id = rule.loop_id
-        if loop_id and loop_id != '0':
-            need_loop_ids.add(loop_id)
-    peer_map = get_peer_map(
-        request=request, need_peer_ids=need_peer_ids, final=final)
-    loop_map = get_loop_map(
-        request=request, need_loop_ids=need_loop_ids, final=final)
+#     need_peer_ids = set()
+#     need_loop_ids = set()
+#     for rule in rules:
+#         need_peer_ids.add(rule.self_id)
+#         peer_id = rule.peer_id
+#         if peer_id:
+#             need_peer_ids.add(peer_id)
+#         loop_id = rule.loop_id
+#         if loop_id and loop_id != '0':
+#             need_loop_ids.add(loop_id)
+#     peer_map = get_peer_map(
+#         request=request, need_peer_ids=need_peer_ids, final=final)
+#     loop_map = get_loop_map(
+#         request=request, need_loop_ids=need_loop_ids, final=final)
 
-    res = []
-    for rule in rules:
-        self_id = rule.self_id
-        peer_id = rule.peer_id
-        loop_id = rule.loop_id
-        res.append({
-            'id': rule.id,
-            'self_id': self_id,
-            'peer_id': peer_id,
-            'loop_id': loop_id,
-            'self': peer_map[self_id],
-            'peer': peer_map[peer_id] if peer_id else None,
-            'loop': loop_map[loop_id] if loop_id and loop_id != '0' else None,
-        })
-    return res
-
-
-@view_config(
-    name='rules',
-    context=FileResource,
-    permission=perms.view_file,
-    renderer='json')
-def file_rules_final_api(context, request):
-    return serialize_rules(request=request, file=context.file, final=False)
+#     res = []
+#     for rule in rules:
+#         self_id = rule.self_id
+#         peer_id = rule.peer_id
+#         loop_id = rule.loop_id
+#         res.append({
+#             'id': rule.id,
+#             'self_id': self_id,
+#             'peer_id': peer_id,
+#             'loop_id': loop_id,
+#             'self': peer_map[self_id],
+#             'peer': peer_map[peer_id] if peer_id else None,
+#             'loop': loop_map[loop_id] if loop_id and loop_id != '0' else None,
+#         })
+#     return res
 
 
-@view_config(
-    name='rules-final',
-    context=FileResource,
-    permission=perms.view_file,
-    renderer='json')
-def file_rules_api(context, request):
-    return serialize_rules(request=request, file=context.file, final=True)
+# @view_config(
+#     name='rules',
+#     context=FileResource,
+#     permission=perms.view_file,
+#     renderer='json')
+# def file_rules_final_api(context, request):
+#     return serialize_rules(request=request, file=context.file, final=False)
+
+
+# @view_config(
+#     name='rules-final',
+#     context=FileResource,
+#     permission=perms.view_file,
+#     renderer='json')
+# def file_rules_api(context, request):
+#     return serialize_rules(request=request, file=context.file, final=True)
