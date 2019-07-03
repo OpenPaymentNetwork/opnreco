@@ -177,14 +177,14 @@ def transfer_record_api(context, request, final=False):
 
     peer_ordering = []
     for peer_id, peer_info in peers.items():
-        # Show the sender and recipient first, then order by first
+        # Show the sender first and recipient last, then order by first
         # appearance in the movement log and finally alphabetically.
         # This is intended to create a stable order that looks the
         # same for all owners.
         if peer_id == record.sender_id:
             sort_key = (0,)
         elif peer_id == record.recipient_id:
-            sort_key = (1,)
+            sort_key = (9,)
         else:
             if peer_id not in to_or_from:
                 # Don't include this peer in the order.
