@@ -169,6 +169,15 @@ export class FetchCache {
   }
 
   /**
+   * Get the derived state from the given URL.
+   * Return null if the state is not available or there is no derived state.
+   */
+  getDerived(state, url, name) {
+    const meta = this.getMeta(state, url);
+    return meta ? (meta.derived || null) : null;
+  }
+
+  /**
    * shouldFetch() returns true if the given object should be fetched.
    */
   shouldFetch(state, url, options, ignoreExpiration) {
@@ -371,6 +380,7 @@ export class FetchCache {
           fetchId,
           fetchExpires,
           options,
+          derived: options.clear ? undefined : oldMeta.derived,
         };
         return {
           meta: {
@@ -387,12 +397,14 @@ export class FetchCache {
       [actionTypes.RECEIVE]: (state, action) => {
         const {options, url, body} = action.payload;
         const expires = Date.now() + this.expires_ms;
+        const derived = (options.deriver ? options.deriver(body) : undefined);
         return {
           meta: {
             ...state.meta,
             [url]: {
               expires,
               options,
+              derived,
             },
           },
           data: {
@@ -422,12 +434,14 @@ export class FetchCache {
           // state object.
           newObj = {...(oldObj || {}), ...body};
         }
+        const derived = (options.deriver ? options.deriver(newObj) : undefined);
         return {
           meta: {
             ...state.meta,
             [url]: {
               expires,
               options,
+              derived,
             },
           },
           data: {
