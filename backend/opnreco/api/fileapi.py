@@ -17,67 +17,106 @@ from sqlalchemy.orm import aliased
 import colander
 
 
+def serialize_file(file):
+    return {
+        'id': str(file.id),
+        'file_type': file.file_type,
+        'title': file.title,
+        'owner_title': file.owner.title,
+        'currency': file.currency,
+        'has_vault': file.has_vault,
+        'peer_id': file.peer_id,
+        'auto_enable_loops': file.auto_enable_loops,
+        'removed': file.removed,
+    }
+
+
 @view_config(
     name='',
     context=FileCollection,
     permission=perms.use_app,
     renderer='json')
-def list_files(context, request):
+def list_files(context, request, removed=False):
     owner = request.owner
     owner_id = owner.id
     dbsession = request.dbsession
     selected_period_id = request.params.get('period_id')
 
+    file_filter = File.removed if removed else ~File.removed
+
+    open_subq = (
+        dbsession.query(func.count())
+        .select_from(Period)
+        .filter(
+            Period.file_id == File.id,
+            ~Period.closed,
+        )
+        .as_scalar())
+
+    closed_subq = (
+        dbsession.query(func.count())
+        .select_from(Period)
+        .filter(
+            Period.file_id == File.id,
+            Period.closed,
+        )
+        .as_scalar())
+
     file_rows = (
-        dbsession.query(File)
+        dbsession.query(
+            File,
+            open_subq,
+            closed_subq)
         .filter(
             File.owner_id == owner_id,
-            ~File.removed)
+            file_filter)
         .order_by(File.title)
         .all())
 
-    # Now list some of the periods in each file.
-    # Get up to 10 periods per file, plus the selected period, if any.
-    # (To access more of the periods, the user should select the period
-    # using the Periods tab.)
-    subq = (
-        dbsession.query(
-            Period,
-            func.row_number().over(
-                partition_by=(Period.file_id,),
-                order_by=Period.start_date.desc(),
-            ).label('rownum'),
-        )
-        .join(File, File.id == Period.file_id)
-        .filter(
-            Period.owner_id == owner_id,
-            ~File.removed)
-        .subquery('subq'))
+    if removed:
+        period_rows = []
+    else:
+        # Now list some of the periods in each file.
+        # Get up to 10 periods per file, plus the selected period, if any.
+        # (To access more of the periods, the user should select the period
+        # using the Periods tab.)
+        subq = (
+            dbsession.query(
+                Period,
+                func.row_number().over(
+                    partition_by=(Period.file_id,),
+                    order_by=Period.start_date.desc(),
+                ).label('rownum'),
+            )
+            .join(File, File.id == Period.file_id)
+            .filter(
+                Period.owner_id == owner_id,
+                ~File.removed)
+            .subquery('subq'))
 
-    period_alias = aliased(Period, subq)
-    period_filters = [subq.c.rownum <= 10]
-    if selected_period_id:
-        period_filters.append(subq.c.id == int(selected_period_id))
-    period_rows = (
-        dbsession.query(period_alias)
-        .filter(or_(*period_filters))
-        .all())
+        period_alias = aliased(Period, subq)
+        period_filters = [subq.c.rownum <= 10]
+        if selected_period_id:
+            period_filters.append(subq.c.id == int(selected_period_id))
+        period_rows = (
+            dbsession.query(period_alias)
+            .filter(or_(*period_filters))
+            .all())
 
     # files: {str(file_id): {periods, period_order, ...}}
     files = {}
     file_order = []
 
-    for file_row in file_rows:
+    for file_row, open_period_count, closed_period_count in file_rows:
         file_id_str = str(file_row.id)
-        files[file_id_str] = {
-            'id': file_id_str,
-            'title': file_row.title,
-            'owner_title': owner.title,
-            'currency': file_row.currency,
-            'has_vault': file_row.has_vault,
+        serialized = serialize_file(file_row)
+        serialized.update({
             'periods': {},
             'period_order': [],
-        }
+            'open_period_count': open_period_count,
+            'closed_period_count': closed_period_count,
+        })
+        files[file_id_str] = serialized
         file_order.append(file_id_str)
 
     period_to_file_id = {}  # {str(period_id): str(file_id)}
@@ -103,14 +142,13 @@ def list_files(context, request):
     }
 
 
-def serialize_file(file):
-    return {
-        'id': str(file.id),
-        'title': file.title,
-        'owner_title': file.owner.title,
-        'currency': file.currency,
-        'has_vault': file.has_vault,
-    }
+@view_config(
+    name='removed',
+    context=FileCollection,
+    permission=perms.use_app,
+    renderer='json')
+def list_removed_files(context, request):
+    return list_files(context, request, removed=True)
 
 
 @view_config(
@@ -157,12 +195,12 @@ def file_save(context, request):
 
 
 @view_config(
-    name='delete',
+    name='remove',
     context=FileResource,
     permission=perms.edit_file,
     renderer='json')
-def file_delete(context, request):
-    """Delete the file.
+def file_remove(context, request):
+    """Remove the file.
 
     This merely marks the file as removed, making it unavailable until
     the user restores it.
@@ -173,7 +211,7 @@ def file_delete(context, request):
     request.dbsession.add(OwnerLog(
         owner_id=request.owner.id,
         personal_id=request.personal_id,
-        event_type='delete_file',
+        event_type='remove_file',
         content={
             'file_id': file.id,
             'removed': True,

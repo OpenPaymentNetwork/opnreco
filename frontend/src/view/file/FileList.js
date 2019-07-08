@@ -2,47 +2,68 @@
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
-import { fOPNReco, filesURL } from '../../util/fetcher';
+import { fOPNReco } from '../../util/fetcher';
 import { isSimpleClick } from '../../util/click';
-import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
-import AppBar from '@material-ui/core/AppBar';
 import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import IconButton from '@material-ui/core/IconButton';
-import LayoutConfig from '../app/LayoutConfig';
-import MenuIcon from '@material-ui/icons/Menu';
+import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
-import Tab from '@material-ui/core/Tab';
-import Tabs from '@material-ui/core/Tabs';
-import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
 
 
+const tableWidth = 800;
+
 const styles = {
-  root: {
-  },
-  appbar: {
-    minHeight: '100px',
-    position: 'relative',
-  },
-  menuButton: {
-    marginLeft: -12,
-    marginRight: 20,
-  },
-  tabs: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    width: '100%',
-  },
   content: {
     padding: '16px',
     textAlign: 'center',
+  },
+  tablePaper: {
+    margin: '16px auto',
+    maxWidth: tableWidth,
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    color: '#000',
+  },
+  titleCell: {
+    border: '1px solid #bbb',
+    padding: '4px 8px',
+    fontWeight: 'normal',
+    backgroundColor: '#ddd',
+  },
+  headCell: {
+    border: '1px solid #bbb',
+    padding: '4px 8px',
+    backgroundColor: '#eee',
+    textAlign: 'left',
+  },
+  fileRow: {
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: '#eee',
+    },
+  },
+  cell: {
+    border: '1px solid #bbb',
+  },
+  cellLink: {
+    color: '#000',
+    display: 'block',
+    textDecoration: 'none',
+    padding: '4px 8px',
+  },
+  cellLinkRemoved: {
+    color: '#000',
+    display: 'block',
+    textDecoration: 'line-through',
+    padding: '4px 8px',
   },
 };
 
@@ -50,151 +71,124 @@ const styles = {
 class FileList extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
+    contentURL: PropTypes.string.isRequired,
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    match: PropTypes.object.isRequired,
-    files: PropTypes.object,
+    content: PropTypes.object,
     loading: PropTypes.bool,
-    loadError: PropTypes.bool,
-    syncProgress: PropTypes.any,
   };
 
-  handleToggleDrawer = () => {
-    this.props.dispatch(toggleDrawer());
-  }
-
-  getTabs() {
-    return [
-      {
-        value: 'list',
-        label: 'List',
-        path: '/file/list',
-      },
-      {
-        value: 'add',
-        label: 'Add',
-        path: '/file/add',
-      },
-      {
-        value: 'removed',
-        label: 'Removed',
-        path: '/file/removed',
-      },
-    ];
-  }
-
-  handleTabChange = (event, value) => {
-    for (const tabinfo of this.getTabs()) {
-      if (value === tabinfo.value) {
-        this.props.history.push(tabinfo.path);
-      }
-    }
-  }
-
-  handleTabClick = (event) => {
+  handleClickAnchor = (event, path) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
+      this.props.history.push(path);
     }
   }
 
   render() {
     const {
       classes,
-      match,
-      files,
+      content,
+      contentURL,
       loading,
-      syncProgress,
     } = this.props;
 
-    const tab = match.params.tab || 'list';
-    const handleTabClick = this.handleTabClick;
+    const rows = [];
 
-    const tabs = (
-      <Tabs
-        className={classes.tabs}
-        value={tab}
-        variant="scrollable"
-        scrollButtons="auto"
-        onChange={this.handleTabChange}
-      >
-        {this.getTabs().map(tabinfo => (
-          <Tab
-            key={tabinfo.value}
-            value={tabinfo.value}
-            label={tabinfo.label}
-            href={tabinfo.path}
-            onClick={handleTabClick} />
-        ))}
-      </Tabs>
-    );
+    const requirements = (
+        <Require fetcher={fOPNReco} urls={[contentURL]} />);
 
-    let tabContent;
+    if (!content) {
+      if (loading) {
+        return (
+          <div className={classes.content}>
+            {requirements}
+            <CircularProgress size={24} className={classes.waitSpinner}/>
+          </div>
+        );
+      } else {
+        return (
+          <div className={classes.content}>
+            {requirements}
+            <Card className={classes.card}>
+              <CardContent>
+                <Typography variant="h6" component="p">
+                  Unable to load the list of files.
+                </Typography>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+    }
 
-    if (files) {
-      tabContent = '';  // <FileTabContent tab={tab} file={file} />;
+    for (const fileId of content.file_order) {
+      const file = content.files[fileId];
+      const filePath = `/file/${encodeURIComponent(fileId)}`;
 
-    } else if (loading || syncProgress !== null) {
-      tabContent = (
-        <div className={classes.content}>
-          <CircularProgress size={24} className={classes.waitSpinner}/>
-        </div>
-      );
-    } else {
-      tabContent = (
-        <div className={classes.content}>
-          <Card className={classes.card}>
-            <CardContent>
-              <Typography variant="h6" component="p">
-                Unable to load the list of files.
-              </Typography>
-            </CardContent>
-          </Card>
-        </div>
-      );
+      const handleClickFile = (event) => {
+        this.handleClickAnchor(event, filePath);
+      };
+
+      const linkClass = (
+        file.removed ? classes.cellLinkRemoved : classes.cellLink);
+
+      rows.push(<tr className={classes.fileRow} key={fileId}>
+        <td className={classes.cell}>
+          <a className={linkClass} href={filePath} onClick={handleClickFile}>
+            {file.title}
+          </a>
+        </td>
+        <td className={classes.cell}>
+          <a className={classes.cellLink} href={filePath} onClick={handleClickFile}>
+            {file.open_period_count}
+          </a>
+        </td>
+        <td className={classes.cell}>
+          <a className={classes.cellLink} href={filePath} onClick={handleClickFile}>
+            {file.closed_period_count}
+          </a>
+        </td>
+      </tr>);
     }
 
     return (
-      <div className={classes.root}>
-        <Require fetcher={fOPNReco} urls={[filesURL]} />
-        <LayoutConfig title="Files" />
-
-        <AppBar position="static" classes={{root: classes.appbar}}>
-          <Toolbar>
-            <IconButton
-              className={classes.menuButton}
-              color="inherit"
-              aria-label="Menu"
-              onClick={this.handleToggleDrawer}
-            >
-              <MenuIcon />
-            </IconButton>
-
-            <Typography variant="h6" color="inherit" className={classes.title}>
-              Files
-            </Typography>
-          </Toolbar>
-
-          {tabs}
-
-        </AppBar>
-
-        {tabContent}
-      </div>
+      <Paper className={classes.tablePaper}>
+        {requirements}
+        <table className={classes.table}>
+          <thead>
+            <tr>
+              <th className={classes.titleCell} colSpan="3">
+                Files
+              </th>
+            </tr>
+            <tr>
+              <th width="60%" className={classes.headCell}>Title</th>
+              <th width="20%" className={classes.headCell}>Open Periods</th>
+              <th width="20%" className={classes.headCell}>Closed Periods</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows}
+          </tbody>
+        </table>
+      </Paper>
     );
+
   }
+
 }
 
 
-function mapStateToProps(state) {
-  const files = fetchcache.get(state, filesURL);
-  const loading = fetchcache.fetching(state, filesURL);
-  const loadError = !!fetchcache.getError(state, filesURL);
+function mapStateToProps(state, ownProps) {
+  const contentURL = ownProps.contentURL;
+  const content = fetchcache.get(state, contentURL);
+  const loading = fetchcache.fetching(state, contentURL);
 
   return {
-    files,
-    syncProgress: state.app.syncProgress,
+    content,
+    contentURL,
     loading,
-    loadError,
   };
 }
 

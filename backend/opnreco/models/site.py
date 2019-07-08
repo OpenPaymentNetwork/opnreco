@@ -145,10 +145,11 @@ class FileCollection(ResourceCollection):
         ]
 
     def load(self, resource_id):
+        # Note: allow removed files so the user can restore them.
         dbsession = self.request_ref().dbsession
         row = (
             dbsession.query(File)
-            .filter(File.id == resource_id, ~File.removed)
+            .filter(File.id == resource_id)
             .first()
         )
         if row is None:

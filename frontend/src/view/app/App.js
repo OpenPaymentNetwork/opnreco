@@ -7,7 +7,7 @@ import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import AuthenticatedHome from '../home/AuthenticatedHome';
 import CssBaseline from '@material-ui/core/CssBaseline';
-import FileList from '../file/FileList';
+import FileListTabs from '../file/FileListTabs';
 import FileTabs from '../file/FileTabs';
 import Linger from '../../util/Linger';
 import LoginRedirect from '../login/LoginRedirect';
@@ -111,10 +111,10 @@ class App extends React.Component {
                 <Route path="/period/:periodId([0-9]+)/:tab(|reco|transactions|t|overview|statement|internal)"
                   component={PeriodTabs} />
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
-                <Route path="/file/:fileId([0-9]+)/:tab(|edit|rules|periods)" component={FileTabs} />
+                <Route path="/file/:fileId([0-9]+)/:tab(|edit|designs|periods)" component={FileTabs} />
                 <Route path="/file/:fileId([0-9]+)" component={FileTabs} />
-                <Route path="/file/:tab(|list|add|removed)" component={FileList} />
-                <Route path="/file" component={FileList} />
+                <Route path="/file/:tab(|list|add|removed)" component={FileListTabs} />
+                <Route path="/file" component={FileListTabs} />
                 <Route path="/" component={AuthenticatedHome} exact />
                 <Route component={NotFound} />
               </Switch>

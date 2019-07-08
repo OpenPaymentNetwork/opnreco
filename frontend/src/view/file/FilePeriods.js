@@ -6,7 +6,7 @@ import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
 import { isSimpleClick } from '../../util/click';
-import { renderReportDate, renderReportHead } from '../../util/reportrender';
+import { renderReportHead } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';

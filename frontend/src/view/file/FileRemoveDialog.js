@@ -9,18 +9,18 @@ import PropTypes from 'prop-types';
 import React from 'react';
 
 
-class FileDeleteDialog extends React.Component {
+class FileRemoveDialog extends React.Component {
   static propTypes = {
     onCancel: PropTypes.func.isRequired,
-    onDelete: PropTypes.func.isRequired,
-    deleting: PropTypes.bool,
+    onRemove: PropTypes.func.isRequired,
+    removing: PropTypes.bool,
   };
 
   render() {
     const {
       onCancel,
-      onDelete,
-      deleting,
+      onRemove,
+      removing,
       ...otherProps
     } = this.props;
 
@@ -30,20 +30,20 @@ class FileDeleteDialog extends React.Component {
         aria-labelledby="form-dialog-title"
         {...otherProps}
       >
-        <DialogTitle id="form-dialog-title">Delete File</DialogTitle>
+        <DialogTitle id="form-dialog-title">Remove File</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this file?
+            Are you sure you want to remove this file?
             Reconciliation records, periods, and statements will no longer
             be available unless you restore the file.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCancel} color="primary" disabled={deleting}>
+          <Button onClick={onCancel} color="primary" disabled={removing}>
             Cancel
           </Button>
-          <Button onClick={onDelete} color="primary" disabled={deleting}>
-            Delete
+          <Button onClick={onRemove} color="primary" disabled={removing}>
+            Remove
           </Button>
         </DialogActions>
       </Dialog>
@@ -52,4 +52,4 @@ class FileDeleteDialog extends React.Component {
 }
 
 
-export default FileDeleteDialog;
+export default FileRemoveDialog;

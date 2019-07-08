@@ -10,6 +10,7 @@ import CompareArrows from '@material-ui/icons/CompareArrows';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Divider from '@material-ui/core/Divider';
 import ExitToApp from '@material-ui/icons/ExitToApp';
+import Folder from '@material-ui/icons/Folder';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
@@ -198,6 +199,11 @@ class OPNDrawer extends React.Component {
     this.props.dispatch(closeDrawer());
   }
 
+  handleFiles = () => {
+    this.props.dispatch(closeDrawer());
+    this.props.history.push('/file');
+  }
+
   handleReports = () => {
     this.props.dispatch(closeDrawer());
     this.props.history.push('/');
@@ -227,6 +233,14 @@ class OPNDrawer extends React.Component {
       </div>
       <Divider style={{marginTop: -1}} />
       <List component="nav">
+
+        <ListItem
+          button
+          onClick={this.handleFiles}
+        >
+          <ListItemIcon><Folder/></ListItemIcon>
+          <ListItemText primary="Files" />
+        </ListItem>
 
         <ListItem
           button

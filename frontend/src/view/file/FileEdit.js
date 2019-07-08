@@ -1,7 +1,7 @@
 
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import FileDeleteDialog from './FileDeleteDialog';
+import FileRemoveDialog from './FileRemoveDialog';
 import FormGroup from '@material-ui/core/FormGroup';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -81,15 +81,15 @@ class FileEdit extends React.Component {
     });
   }
 
-  handleDelete = () => {
-    this.setState({deleteExists: true, deleteShown: true});
+  handleRemove = () => {
+    this.setState({removeExists: true, removeShown: true});
   }
 
-  handleDeleteCancel = () => {
-    this.setState({deleteShown: false});
+  handleRemoveCancel = () => {
+    this.setState({removeShown: false});
   }
 
-  handleDeleteConfirmed = () => {
+  handleRemoveConfirmed = () => {
     const {
       dispatch,
       history,
@@ -97,16 +97,16 @@ class FileEdit extends React.Component {
     } = this.props;
 
     const encFileId = encodeURIComponent(file.id);
-    const url = fOPNReco.pathToURL(`/file/${encFileId}/delete`);
+    const url = fOPNReco.pathToURL(`/file/${encFileId}/remove`);
     const data = {};
     const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({deleting: true});
+    this.setState({removing: true});
     promise.then(() => {
-      this.setState({deleting: false});
+      this.setState({removing: false});
       dispatch(clearWithFiles());
       history.push('/file');
     }).catch(() => {
-      this.setState({deleting: false});
+      this.setState({removing: false});
     });
   }
 
@@ -119,9 +119,9 @@ class FileEdit extends React.Component {
     const {
       form,
       saving,
-      deleteExists,
-      deleteShown,
-      deleting,
+      removeExists,
+      removeShown,
+      removing,
     } = this.state;
 
     let spinner = null;
@@ -129,14 +129,14 @@ class FileEdit extends React.Component {
       spinner = <CircularProgress size="24px" className={classes.progress} />;
     }
 
-    let deleteDialog = null;
-    if (deleteExists) {
-      deleteDialog = (
-        <FileDeleteDialog
-          onCancel={this.handleDeleteCancel}
-          onDelete={this.handleDeleteConfirmed}
-          open={deleteShown}
-          deleting={deleting}
+    let removeDialog = null;
+    if (removeExists) {
+      removeDialog = (
+        <FileRemoveDialog
+          onCancel={this.handleRemoveCancel}
+          onRemove={this.handleRemoveConfirmed}
+          open={removeShown}
+          removing={removing}
         />);
     }
 
@@ -145,7 +145,7 @@ class FileEdit extends React.Component {
         <div className={classes.content}>
           <Paper className={classes.paperContent}>
             <form className={classes.form} noValidate>
-              {deleteDialog}
+              {removeDialog}
 
               <FormGroup className={classes.formGroup}>
                 <TextField
@@ -184,9 +184,9 @@ class FileEdit extends React.Component {
 
                 <Button
                   className={classes.button}
-                  onClick={this.handleDelete}
+                  onClick={this.handleRemove}
                 >
-                  Delete
+                  Remove
                 </Button>
 
                 {spinner}
