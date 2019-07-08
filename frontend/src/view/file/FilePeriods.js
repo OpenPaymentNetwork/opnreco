@@ -6,6 +6,7 @@ import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
 import { isSimpleClick } from '../../util/click';
+import { renderReportDate, renderReportHead } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';
@@ -357,20 +358,17 @@ class FilePeriods extends React.Component {
       </tr>
     );
 
+    const reportDate = (
+        <FormattedDate value={new Date()}
+          day="numeric" month="short" year="numeric" />);
+
     return (
       <Paper className={classes.tablePaper}>
         <table className={classes.table}>
           <thead>
             <tr>
               <th className={classes.titleCell} colSpan={columnCount}>
-                {file.title} Reconciliation Periods
-                <div>
-                  {file.currency}
-                  {' - '}
-                  <FormattedDate
-                    value={new Date()}
-                    day="numeric" month="short" year="numeric" />
-                </div>
+                {renderReportHead(file, 'Reconciliation Periods', reportDate)}
               </th>
             </tr>
             {headRow0}

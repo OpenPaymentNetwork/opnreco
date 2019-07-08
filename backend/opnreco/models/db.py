@@ -138,6 +138,8 @@ class File(Base):
     auto_enable_loops = Column(Boolean, nullable=False, default=False)
     removed = Column(Boolean, nullable=False, default=False)
 
+    owner = relationship(Owner)
+
     __table_args__ = (
         CheckConstraint(or_(
             and_(

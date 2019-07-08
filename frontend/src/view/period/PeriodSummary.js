@@ -2,6 +2,7 @@
 import { compose } from '../../util/functional';
 import { getCurrencyFormatter } from '../../util/currency';
 import { isSimpleClick } from '../../util/click';
+import { renderReportDate, renderReportHead } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
@@ -76,6 +77,7 @@ class PeriodSummary extends React.Component {
         period,
         totals,
         counts,
+        now,
       },
     } = this.props;
 
@@ -120,6 +122,7 @@ class PeriodSummary extends React.Component {
 
     const encPeriodId = encodeURIComponent(period.id);
     const internalReportPath = `/period/${encPeriodId}/internal`;
+    const reportDate = renderReportDate(period, now);
 
     return (
       <Typography className={classes.root} component="div">
@@ -127,7 +130,9 @@ class PeriodSummary extends React.Component {
           <thead>
             <tr>
               <th className={classes.headCell}
-                colSpan={columnCount}>Period Summary</th>
+                  colSpan={columnCount}>
+                {renderReportHead(file, 'Period Summary', reportDate)}
+              </th>
             </tr>
             <tr>
               <th className={classes.columnHeadCell}></th>

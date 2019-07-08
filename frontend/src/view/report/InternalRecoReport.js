@@ -5,7 +5,7 @@ import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyDeltaFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
-import { renderReportDate } from '../../util/reportrender';
+import { renderReportDate, renderReportHead } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -314,10 +314,7 @@ class InternalRecoReport extends React.Component {
                 <th className={`${classes.cell} ${classes.headCell}`}
                   colSpan={colCount}
                 >
-                  {file.title} Internal Reconciliations
-                  <div>
-                    {file.currency} - {reportDate}
-                  </div>
+                  {renderReportHead(file, 'Internal Reconciliations', reportDate)}
                 </th>
               </tr>
             </thead>

@@ -1,22 +1,22 @@
 
-import { compose } from '../../util/functional';
-import { connect } from 'react-redux';
-import { fOPNReco } from '../../util/fetcher';
-import { fetchcache } from '../../reducer/fetchcache';
-import { getCurrencyFormatter } from '../../util/currency';
-import { renderReportDate } from '../../util/reportrender';
-import { toggleNode } from '../../reducer/tree';
-import { withRouter } from 'react-router';
-import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
-import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
+import { fetchcache } from '../../reducer/fetchcache';
+import { fOPNReco } from '../../util/fetcher';
 import { FormattedDate } from 'react-intl';
+import { getCurrencyFormatter } from '../../util/currency';
 import { isSimpleClick } from '../../util/click';
+import { renderReportDate, renderReportHead } from '../../util/reportrender';
+import { toggleNode } from '../../reducer/tree';
+import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { withRouter } from 'react-router';
+import { withStyles } from '@material-ui/core/styles';
 
 
 const styles = {
@@ -383,10 +383,7 @@ class RecoReport extends React.Component {
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`}
                     colSpan={columnCount}>
-                  {file.title} Reconciliation Report
-                  <div>
-                    {file.currency} - {reportDate}
-                  </div>
+                  {renderReportHead(file, 'Reconciliation Report', reportDate)}
                 </th>
               </tr>
               {headRow}

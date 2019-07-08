@@ -5,7 +5,7 @@ import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getCurrencyFormatter } from '../../util/currency';
 import { getPagerState } from '../../reducer/pager';
-import { renderReportDate } from '../../util/reportrender';
+import { renderReportDate, renderReportHead } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CircularProgress from '@material-ui/core/CircularProgress';
@@ -397,10 +397,7 @@ class TransactionReport extends React.Component {
                 <th className={`${classes.cell} ${classes.headCell}`}
                   colSpan="7"
                 >
-                  {file.title} Transaction Report
-                  <div>
-                    {file.currency} - {reportDate}
-                  </div>
+                  {renderReportHead(file, 'Transaction Report', reportDate)}
                 </th>
               </tr>
             </thead>

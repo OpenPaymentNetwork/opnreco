@@ -83,7 +83,7 @@ class PeriodSelector extends React.Component {
         const file = files[fileId];
         return (
           <MenuItem value={fileId} key={fileId}>
-            {file.title} - {file.currency}
+            {file.title} ({file.currency})
           </MenuItem>
         );
       });

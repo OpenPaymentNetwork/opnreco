@@ -44,6 +44,18 @@ export function renderReportDate(period, now) {
 }
 
 
+export function renderReportHead(file, reportTitle, reportDate) {
+  return (
+    <React.Fragment>
+      {reportTitle} - {file.owner_title}
+      <div>
+        {file.title} ({file.currency}) - {reportDate}
+      </div>
+    </React.Fragment>
+  );
+}
+
+
 export function renderPeriodDateString(period, intl) {
   const dateOptions = {
     day: 'numeric',

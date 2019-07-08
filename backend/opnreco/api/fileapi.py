@@ -72,6 +72,7 @@ def list_files(context, request):
         files[file_id_str] = {
             'id': file_id_str,
             'title': file_row.title,
+            'owner_title': owner.title,
             'currency': file_row.currency,
             'has_vault': file_row.has_vault,
             'periods': {},
@@ -106,6 +107,7 @@ def serialize_file(file):
     return {
         'id': str(file.id),
         'title': file.title,
+        'owner_title': file.owner.title,
         'currency': file.currency,
         'has_vault': file.has_vault,
     }

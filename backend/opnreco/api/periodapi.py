@@ -247,30 +247,11 @@ def period_state_api(context, request):
             account_entry_counts.all - account_entry_counts.reconciled),
     }
 
-    # peers = get_peer_map(
-    #     request=request, need_peer_ids=set([period.peer_id]), final=True)
-
-    # need_loop_rows = (
-    #     dbsession.query(FileRule.loop_id)
-    #     .filter(
-    #         FileRule.owner_id == owner_id,
-    #         FileRule.file_id == period.file_id,
-    #         FileRule.loop_id != '0',
-    #     ).all())
-    # need_loop_ids = set(row[0] for row in need_loop_rows)
-    # if need_loop_ids:
-    #     loops = get_loop_map(
-    #         request=request, need_loop_ids=need_loop_ids, final=True)
-    # else:
-    #     loops = {}
-
     delete_conflicts = get_delete_conflicts(dbsession=dbsession, period=period)
 
     res = {
         'now': now,
         'period': serialize_period(period, end_amounts=end_amounts),
-        # 'peer': peers[period.peer_id],
-        # 'loops': loops,
         'totals': totals,
         'counts': counts,
         'delete_conflicts': delete_conflicts,

@@ -2,7 +2,7 @@
 import { compose } from '../../util/functional';
 import { getCurrencyFormatter } from '../../util/currency';
 import { isSimpleClick } from '../../util/click';
-import { renderReportDate } from '../../util/reportrender';
+import { renderReportDate, renderReportHead } from '../../util/reportrender';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';
@@ -194,10 +194,7 @@ class StatementsTable extends React.Component {
               <th className={classes.headCell}
                 colSpan={colCount}
               >
-                {file.title} Account Statements
-                <div>
-                  {file.currency} - {reportDate}
-                </div>
+                {renderReportHead(file, 'Account Statements', reportDate)}
               </th>
             </tr>
             <tr>
