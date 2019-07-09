@@ -104,6 +104,7 @@ class RecoPopover extends React.Component {
     open: PropTypes.bool,
     anchorEl: PropTypes.object,
     periodClosed: PropTypes.bool,
+    fileArchived: PropTypes.bool,
     periods: PropTypes.array,
     recoId: PropTypes.string,
     recoURL: PropTypes.string.isRequired,
@@ -370,6 +371,7 @@ class RecoPopover extends React.Component {
       closeDialog,
       showVault,
       periodClosed,
+      fileArchived,
     } = this.props;
 
     const {
@@ -397,7 +399,7 @@ class RecoPopover extends React.Component {
       resetCount: resetCount,
       showVault: showVault,
       updatePopoverPosition: this.updatePopoverPosition,
-      disabled: periodClosed,
+      disabled: periodClosed || fileArchived,
     };
 
     let accountEntryTableBody = null;
@@ -447,6 +449,7 @@ class RecoPopover extends React.Component {
       recoURL,
       recoFinalURL,
       periodClosed,
+      fileArchived,
       periods,
     } = this.props;
 
@@ -458,7 +461,7 @@ class RecoPopover extends React.Component {
       saving,
     } = this.state;
 
-    const disabled = periodClosed || !reco;
+    const disabled = periodClosed || fileArchived || !reco;
 
     let require = null;
     if (recoURL && open) {
@@ -658,6 +661,7 @@ function mapStateToProps(state, ownProps) {
     loops,
     show_vault: showVault,
     period_closed: periodClosed,
+    file_archived: fileArchived,
     periods,
   } = content;
 
@@ -669,6 +673,7 @@ function mapStateToProps(state, ownProps) {
     loops,
     showVault,
     periodClosed,
+    fileArchived,
   };
 }
 

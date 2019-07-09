@@ -275,35 +275,38 @@ class FilePeriods extends React.Component {
       );
     }
 
-    if (this.state.adding) {
-      rows.push(
-        <tr key="add">
-          <td colSpan={columnCount} className={classes.addFormCell}>
-            <PeriodForm
-              add
-              dispatch={dispatch}
-              onClose={this.handleAddClose}
-              fileId={file.id}
-              history={this.props.history}
-              period={{
-                id: 'add',
-                pull: true,
-                start_date: content.next_start_date,
-              }} />
-          </td>
-        </tr>
-      );
-    } else {
-      rows.push(
-        <tr key="add">
-          <td colSpan={columnCount} className={classes.addCell}>
-            <Fab size="small" color="primary" aria-label="Add a period"
-              onClick={this.handleAddButton}>
-              <Add />
-            </Fab>
-          </td>
-        </tr>
-      );
+    if (!file.archived) {
+      if (this.state.adding) {
+        rows.push(
+          <tr key="add">
+            <td colSpan={columnCount} className={classes.addFormCell}>
+              <PeriodForm
+                add
+                dispatch={dispatch}
+                onClose={this.handleAddClose}
+                fileId={file.id}
+                archived={file.archived}
+                history={this.props.history}
+                period={{
+                  id: 'add',
+                  pull: true,
+                  start_date: content.next_start_date,
+                }} />
+            </td>
+          </tr>
+        );
+      } else {
+        rows.push(
+          <tr key="add">
+            <td colSpan={columnCount} className={classes.addCell}>
+              <Fab size="small" color="primary" aria-label="Add a period"
+                onClick={this.handleAddButton}>
+                <Add />
+              </Fab>
+            </td>
+          </tr>
+        );
+      }
     }
 
     return <tbody>{rows}</tbody>;

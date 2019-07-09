@@ -157,7 +157,7 @@ class StatementsTable extends React.Component {
       ];
     }
 
-    if (statements && !period.closed) {
+    if (statements && !period.closed && !file.archived) {
       rows.push(
         <tr key="add">
           <td colSpan={colCount} className={classes.addCell}>

@@ -59,7 +59,7 @@ const styles = {
     textDecoration: 'none',
     padding: '4px 8px',
   },
-  cellLinkRemoved: {
+  cellLinkArchived: {
     color: '#000',
     display: 'block',
     textDecoration: 'line-through',
@@ -131,7 +131,7 @@ class FileList extends React.Component {
       };
 
       const linkClass = (
-        file.removed ? classes.cellLinkRemoved : classes.cellLink);
+        file.archived ? classes.cellLinkArchived : classes.cellLink);
 
       rows.push(<tr className={classes.fileRow} key={fileId}>
         <td className={classes.cell}>

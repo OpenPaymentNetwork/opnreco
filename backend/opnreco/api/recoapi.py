@@ -229,6 +229,7 @@ def reco_api(context, request, final=False):
         'show_vault': show_vault,
         'periods': periods,
         'period_closed': period.closed,
+        'file_archived': period.file.archived,
     }
 
 

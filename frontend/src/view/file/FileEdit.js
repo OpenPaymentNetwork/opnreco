@@ -1,7 +1,7 @@
 
 import Button from '@material-ui/core/Button';
 import CircularProgress from '@material-ui/core/CircularProgress';
-import FileRemoveDialog from './FileRemoveDialog';
+import FileArchiveDialog from './FileArchiveDialog';
 import FormGroup from '@material-ui/core/FormGroup';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
@@ -81,15 +81,15 @@ class FileEdit extends React.Component {
     });
   }
 
-  handleRemove = () => {
-    this.setState({removeExists: true, removeShown: true});
+  handleArchive = () => {
+    this.setState({archiveDialogExists: true, archiveDialogShown: true});
   }
 
-  handleRemoveCancel = () => {
-    this.setState({removeShown: false});
+  handleArchiveCancel = () => {
+    this.setState({archiveDialogShown: false});
   }
 
-  handleRemoveConfirmed = () => {
+  handleArchiveConfirmed = () => {
     const {
       dispatch,
       history,
@@ -97,16 +97,16 @@ class FileEdit extends React.Component {
     } = this.props;
 
     const encFileId = encodeURIComponent(file.id);
-    const url = fOPNReco.pathToURL(`/file/${encFileId}/remove`);
+    const url = fOPNReco.pathToURL(`/file/${encFileId}/archive`);
     const data = {};
     const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({removing: true});
+    this.setState({archiving: true});
     promise.then(() => {
-      this.setState({removing: false});
+      this.setState({archiving: false});
       dispatch(clearWithFiles());
       history.push('/file');
     }).catch(() => {
-      this.setState({removing: false});
+      this.setState({archiving: false});
     });
   }
 
@@ -119,25 +119,67 @@ class FileEdit extends React.Component {
     const {
       form,
       saving,
-      removeExists,
-      removeShown,
-      removing,
+      archiveDialogExists,
+      archiveDialogShown,
+      archiving,
     } = this.state;
+
+    const {archived} = file;
 
     let spinner = null;
     if (saving) {
       spinner = <CircularProgress size="24px" className={classes.progress} />;
     }
 
-    let removeDialog = null;
-    if (removeExists) {
-      removeDialog = (
-        <FileRemoveDialog
-          onCancel={this.handleRemoveCancel}
-          onRemove={this.handleRemoveConfirmed}
-          open={removeShown}
-          removing={removing}
+    let archiveDialog = null;
+    if (archiveDialogExists) {
+      archiveDialog = (
+        <FileArchiveDialog
+          onCancel={this.handleArchiveCancel}
+          onArchive={this.handleArchiveConfirmed}
+          open={archiveDialogShown}
+          archiving={archiving}
         />);
+    }
+
+    let buttons = null;
+
+    if (archived) {
+      buttons = (
+        <FormGroup row>
+          <Button
+            className={classes.button}
+            variant="contained"
+            onClick={this.handleUnarchive}
+          >
+            Unarchive
+          </Button>
+
+          {spinner}
+        </FormGroup>
+      );
+    } else {
+      buttons = (
+        <FormGroup row>
+          <Button
+            className={classes.button}
+            color="primary"
+            variant="contained"
+            onClick={this.handleSave}
+          >
+            Save
+          </Button>
+
+          <Button
+            className={classes.button}
+            onClick={this.handleArchive}
+          >
+            Archive
+          </Button>
+
+          {spinner}
+        </FormGroup>
+      );
     }
 
     return (
@@ -145,7 +187,7 @@ class FileEdit extends React.Component {
         <div className={classes.content}>
           <Paper className={classes.paperContent}>
             <form className={classes.form} noValidate>
-              {removeDialog}
+              {archiveDialog}
 
               <FormGroup className={classes.formGroup}>
                 <TextField
@@ -156,6 +198,7 @@ class FileEdit extends React.Component {
                   InputLabelProps={{
                     shrink: true,
                   }}
+                  disabled={archived}
                 />
               </FormGroup>
 
@@ -172,26 +215,7 @@ class FileEdit extends React.Component {
                 />
               </FormGroup>
 
-              <FormGroup row>
-                <Button
-                  className={classes.button}
-                  color="primary"
-                  variant="contained"
-                  onClick={this.handleSave}
-                >
-                  Save
-                </Button>
-
-                <Button
-                  className={classes.button}
-                  onClick={this.handleRemove}
-                >
-                  Remove
-                </Button>
-
-                {spinner}
-              </FormGroup>
-
+              {buttons}
 
             </form>
           </Paper>

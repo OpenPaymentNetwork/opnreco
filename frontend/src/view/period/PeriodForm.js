@@ -56,6 +56,7 @@ class PeriodForm extends React.Component {
     onClose: PropTypes.func,     // Required for add mode
     fileId: PropTypes.string.isRequired,
     deleteConflicts: PropTypes.object,
+    archived: PropTypes.bool,
   };
 
   constructor(props) {
@@ -184,6 +185,7 @@ class PeriodForm extends React.Component {
       deleteConflicts,
       period,
       add,
+      archived,
     } = this.props;
 
     const {
@@ -203,7 +205,10 @@ class PeriodForm extends React.Component {
 
     let topLine;
     let buttons;
-    if (add) {
+    if (archived) {
+      buttons = null;
+    }
+    else if (add) {
       buttons = (
         <FormGroup row>
           <Button
@@ -311,6 +316,8 @@ class PeriodForm extends React.Component {
         />);
     }
 
+    const disabled = closed || archived;
+
     return (
       <form className={classes.form} noValidate>
         {deleteDialog}
@@ -331,7 +338,7 @@ class PeriodForm extends React.Component {
             InputLabelProps={{
               shrink: true,
             }}
-            disabled={closed}
+            disabled={disabled}
           />
 
           <TextField
@@ -344,7 +351,7 @@ class PeriodForm extends React.Component {
             InputLabelProps={{
               shrink: true,
             }}
-            disabled={closed}
+            disabled={disabled}
           />
         </FormGroup>
 
@@ -359,7 +366,7 @@ class PeriodForm extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={closed}
+              disabled={disabled}
             />
 
             <TextField
@@ -371,28 +378,30 @@ class PeriodForm extends React.Component {
               InputLabelProps={{
                 shrink: true,
               }}
-              disabled={closed}
+              disabled={disabled}
             />
           </FormGroup>
         }
 
-        <FormGroup row>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={form.pull || false}
-                onChange={this.handleChangePull}
-                disabled={closed}
-              />
-            }
-            label={
-              <div>
-                Pull account entries and movements in the specified
-                date range into this period.
-              </div>
-            }
-          />
-        </FormGroup>
+        {archived ? null :
+          <FormGroup row>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.pull || false}
+                  onChange={this.handleChangePull}
+                  disabled={disabled}
+                />
+              }
+              label={
+                <div>
+                  Pull account entries and movements in the specified
+                  date range into this period.
+                </div>
+              }
+            />
+          </FormGroup>
+        }
 
         {buttons}
       </form>

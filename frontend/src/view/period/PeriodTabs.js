@@ -366,7 +366,7 @@ function mapStateToProps(state, ownProps) {
   let period = null;
   const periodId = ownProps.match.params.periodId;
 
-  // Unlike filesURL, filesURLMod ensures the selected period is
+  // Unlike filesURL, filesURLMod ensures the selected period and file are
   // included in the period selector (if it's available.)
   const filesURLMod = (
     filesURL + `?period_id=${encodeURIComponent(periodId)}`);
@@ -378,6 +378,7 @@ function mapStateToProps(state, ownProps) {
     // All the files requested have been loaded.
     gotAllFiles = true;
   } else {
+    // Fall back to the generic list of files and periods.
     fetched = fetchcache.get(state, filesURL) || {};
   }
 

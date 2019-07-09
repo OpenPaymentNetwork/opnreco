@@ -96,28 +96,37 @@ class PeriodCollection(ResourceCollection):
     def load(self, resource_id):
         dbsession = self.request_ref().dbsession
         row = (
-            dbsession.query(Period)
+            dbsession.query(Period, File.archived)
             .join(File, Period.file_id == File.id)
-            .filter(
-                Period.id == resource_id,
-                ~File.removed)
+            .filter(Period.id == resource_id)
             .first()
         )
         if row is None:
             return None
-        return PeriodResource(self, str(resource_id), row)
+        period, file_archived = row
+        return PeriodResource(self, str(resource_id), period, file_archived)
 
 
 class PeriodResource:
-    def __init__(self, parent, name, period):
+    def __init__(self, parent, name, period, file_archived):
         self.__parent__ = parent
         self.__name__ = name
         self.period = period
+        self.file_archived = file_archived
 
     @reify
     def __acl__(self):
         period = self.period
-        if period.closed:
+        if self.file_archived:
+            # Allow view only (no edit or reopen)
+            return [
+                (Allow, period.owner_id, (
+                    perms.view_period,
+                )),
+                DENY_ALL,
+            ]
+        elif period.closed:
+            # Allow view and reopen (no edit)
             return [
                 (Allow, period.owner_id, (
                     perms.view_period,
@@ -126,6 +135,7 @@ class PeriodResource:
                 DENY_ALL,
             ]
         else:
+            # Allow view and edit
             return [
                 (Allow, period.owner_id, (
                     perms.view_period,
@@ -145,7 +155,8 @@ class FileCollection(ResourceCollection):
         ]
 
     def load(self, resource_id):
-        # Note: allow removed files so the user can restore them.
+        # Note: users can view archived files, but to
+        # change them, they must unarchive them.
         dbsession = self.request_ref().dbsession
         row = (
             dbsession.query(File)
@@ -165,10 +176,20 @@ class FileResource:
 
     @reify
     def __acl__(self):
-        return [
-            (Allow, self.file.owner_id, (
-                perms.view_file,
-                perms.edit_file,
-            )),
-            DENY_ALL,
-        ]
+        file = self.file
+        if file.archived:
+            return [
+                (Allow, self.file.owner_id, (
+                    perms.view_file,
+                    perms.unarchive_file,
+                )),
+                DENY_ALL,
+            ]
+        else:
+            return [
+                (Allow, self.file.owner_id, (
+                    perms.view_file,
+                    perms.edit_file,
+                )),
+                DENY_ALL,
+            ]

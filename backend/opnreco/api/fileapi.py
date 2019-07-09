@@ -2,13 +2,10 @@
 
 from opnreco.models import perms
 from opnreco.models.db import File
-from opnreco.models.db import FileLoopConfig
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.site import FileCollection
 from opnreco.models.site import FileResource
-from opnreco.viewcommon import get_loop_map
-from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import handle_invalid
 from pyramid.view import view_config
 from sqlalchemy import func
@@ -27,7 +24,7 @@ def serialize_file(file):
         'has_vault': file.has_vault,
         'peer_id': file.peer_id,
         'auto_enable_loops': file.auto_enable_loops,
-        'removed': file.removed,
+        'archived': file.archived,
     }
 
 
@@ -36,13 +33,24 @@ def serialize_file(file):
     context=FileCollection,
     permission=perms.use_app,
     renderer='json')
-def list_files(context, request, removed=False):
+def list_files(context, request, archived=False):
     owner = request.owner
     owner_id = owner.id
     dbsession = request.dbsession
     selected_period_id = request.params.get('period_id')
 
-    file_filter = File.removed if removed else ~File.removed
+    file_filter = File.archived if archived else ~File.archived
+    if selected_period_id:
+        # Include the file for the specified period.
+        row = (
+            dbsession.query(Period.file_id)
+            .filter(
+                Period.owner_id == owner_id,
+                Period.id == int(selected_period_id)
+            )
+            .first())
+        if row:
+            file_filter = or_(file_filter, File.id == row[0])
 
     open_subq = (
         dbsession.query(func.count())
@@ -72,36 +80,33 @@ def list_files(context, request, removed=False):
             file_filter)
         .order_by(File.title)
         .all())
+    file_ids = [file.id for (file, _, _) in file_rows]
 
-    if removed:
-        period_rows = []
-    else:
-        # Now list some of the periods in each file.
-        # Get up to 10 periods per file, plus the selected period, if any.
-        # (To access more of the periods, the user should select the period
-        # using the Periods tab.)
-        subq = (
-            dbsession.query(
-                Period,
-                func.row_number().over(
-                    partition_by=(Period.file_id,),
-                    order_by=Period.start_date.desc(),
-                ).label('rownum'),
-            )
-            .join(File, File.id == Period.file_id)
-            .filter(
-                Period.owner_id == owner_id,
-                ~File.removed)
-            .subquery('subq'))
+    # Now list some of the periods in each file.
+    # Get up to 10 periods per file, plus the selected period, if any.
+    # (To access more of the periods, the user should select the period
+    # using the Periods tab.)
+    subq = (
+        dbsession.query(
+            Period,
+            func.row_number().over(
+                partition_by=(Period.file_id,),
+                order_by=Period.start_date.desc(),
+            ).label('rownum'),
+        )
+        .join(File, File.id == Period.file_id)
+        .filter(Period.owner_id == owner_id, File.id.in_(file_ids))
+        .subquery('subq'))
 
-        period_alias = aliased(Period, subq)
-        period_filters = [subq.c.rownum <= 10]
-        if selected_period_id:
-            period_filters.append(subq.c.id == int(selected_period_id))
-        period_rows = (
-            dbsession.query(period_alias)
-            .filter(or_(*period_filters))
-            .all())
+    period_alias = aliased(Period, subq)
+    period_filter = subq.c.rownum <= 10
+    if selected_period_id:
+        period_filter = or_(
+            period_filter, subq.c.id == int(selected_period_id))
+    period_rows = (
+        dbsession.query(period_alias)
+        .filter(period_filter)
+        .all())
 
     # files: {str(file_id): {periods, period_order, ...}}
     files = {}
@@ -143,12 +148,12 @@ def list_files(context, request, removed=False):
 
 
 @view_config(
-    name='removed',
+    name='archived',
     context=FileCollection,
     permission=perms.use_app,
     renderer='json')
-def list_removed_files(context, request):
-    return list_files(context, request, removed=True)
+def list_archived_files(context, request):
+    return list_files(context, request, archived=True)
 
 
 @view_config(
@@ -195,26 +200,26 @@ def file_save(context, request):
 
 
 @view_config(
-    name='remove',
+    name='archive',
     context=FileResource,
     permission=perms.edit_file,
     renderer='json')
-def file_remove(context, request):
-    """Remove the file.
+def file_archive(context, request):
+    """Archive the file.
 
-    This merely marks the file as removed, making it unavailable until
-    the user restores it.
+    This merely marks the file as archived, preventing changes until
+    the user unarchives it.
     """
     file = context.file
-    file.removed = True
+    file.archived = True
 
     request.dbsession.add(OwnerLog(
         owner_id=request.owner.id,
         personal_id=request.personal_id,
-        event_type='remove_file',
+        event_type='archive_file',
         content={
             'file_id': file.id,
-            'removed': True,
+            'archived': True,
         }))
 
     return serialize_file(file)

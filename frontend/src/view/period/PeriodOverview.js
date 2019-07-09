@@ -56,6 +56,7 @@ class PeriodOverview extends React.Component {
             deleteConflicts={result.delete_conflicts}
             history={history}
             fileId={file.id}
+            archived={file.archived}
           />
         </Paper>
         <Paper className={classes.tablePaper}>

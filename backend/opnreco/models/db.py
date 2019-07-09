@@ -136,7 +136,7 @@ class File(Base):
     has_vault = Column(Boolean, nullable=False)
     peer_id = Column(String, nullable=True)
     auto_enable_loops = Column(Boolean, nullable=False, default=False)
-    removed = Column(Boolean, nullable=False, default=False)
+    archived = Column(Boolean, nullable=False, default=False)
 
     owner = relationship(Owner)
 
@@ -387,8 +387,19 @@ Index(
     unique=True)
 
 
+class FileSync(Base):
+    """The record of which TransferRecords have been synced with a File."""
+    __tablename__ = 'file_sync'
+    file_id = Column(
+        BigInteger, ForeignKey('file.id'),
+        nullable=False, primary_key=True)
+    transfer_record_id = Column(
+        BigInteger, ForeignKey('transfer_record.id'),
+        nullable=False, primary_key=True)
+
+
 class FileMovement(Base):
-    """A movement applied to a period in a file."""
+    """A movement applied to a file."""
     __tablename__ = 'file_movement'
     file_id = Column(
         BigInteger, ForeignKey('file.id'),
@@ -400,7 +411,8 @@ class FileMovement(Base):
         String, ForeignKey('owner.id'), nullable=False, index=True)
 
     # Copy a few columns from the movement table. The copies help
-    # ensure integrity and reduce the complexity of FileMovement queries.
+    # ensure database integrity and reduce the complexity of
+    # FileMovement queries.
     currency = Column(String, nullable=False)
     loop_id = Column(String, nullable=False)
     issuer_id = Column(String, nullable=False)

@@ -152,6 +152,8 @@ class SyncAPI(SyncBase):
 
         try:
             self.import_transfer_records(transfers_download)
+            if not more:
+                self.sync_missing()
         except VerificationFailure as e:
             # HTTP Error 507 is reasonably close to 'data verification error'.
             raise HTTPInsufficientStorage(json_body={

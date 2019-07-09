@@ -77,6 +77,7 @@ class StatementForm extends React.Component {
     statement: PropTypes.object.isRequired,
     deleteConflicts: PropTypes.object,
     accessToken: PropTypes.string.isRequired,
+    archived: PropTypes.bool,
   };
 
   constructor(props) {
@@ -255,6 +256,7 @@ class StatementForm extends React.Component {
 
   render() {
     const {
+      archived,
       classes,
       deleteConflicts,
       period,
@@ -273,7 +275,7 @@ class StatementForm extends React.Component {
     const {closed} = period;
 
     let changed = false;
-    if (!closed) {
+    if (!closed && !archived) {
       for (const attr of Object.keys(form)) {
         if (form[attr] !== statement[attr]) {
           changed = true;
@@ -305,7 +307,7 @@ class StatementForm extends React.Component {
         {deleteDialog}
 
         <FormGroup row className={classes.formLine}>
-          <FormControl className={classes.sourceControl} disabled={closed}>
+          <FormControl className={classes.sourceControl} disabled={closed || archived}>
             <InputLabel shrink htmlFor="statement_source">
               Source
             </InputLabel>
@@ -317,7 +319,7 @@ class StatementForm extends React.Component {
             />
           </FormControl>
 
-          <FormControl className={classes.periodControl} disabled={closed}>
+          <FormControl className={classes.periodControl} disabled={closed || archived}>
             <InputLabel shrink htmlFor="statement_period_id">
               Period
             </InputLabel>
@@ -340,7 +342,7 @@ class StatementForm extends React.Component {
             className={classes.button}
             color="primary"
             variant="contained"
-            disabled={closed || !changed || saving}
+            disabled={closed || archived || !changed || saving}
             onClick={this.handleSave}
           >
             Save Changes
@@ -350,7 +352,7 @@ class StatementForm extends React.Component {
             className={classes.button}
             color="default"
             variant="contained"
-            disabled={closed || !changed || saving}
+            disabled={closed || archived || !changed || saving}
             onClick={this.handleCancel}
           >
             Cancel
@@ -359,7 +361,7 @@ class StatementForm extends React.Component {
           <Button
             className={classes.button}
             color="default"
-            disabled={closed || saving}
+            disabled={closed || archived || saving}
             onClick={this.handleDelete}
           >
             Delete

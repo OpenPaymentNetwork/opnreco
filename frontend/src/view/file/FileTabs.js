@@ -45,6 +45,9 @@ const styles = {
     padding: '16px',
     textAlign: 'center',
   },
+  archivedFileName: {
+    textDecoration: 'line-through',
+  },
 };
 
 
@@ -194,7 +197,9 @@ class FileTabs extends React.Component {
             </IconButton>
 
             <Typography variant="h6" color="inherit" className={classes.title}>
-              {file ? file.title : ''}
+              File: <span className={file && file.archived ? classes.archivedFileName : null}>
+                {file ? file.title : ''}
+              </span>
             </Typography>
           </Toolbar>
 

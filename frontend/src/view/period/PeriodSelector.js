@@ -41,6 +41,9 @@ const styles = {
     left: '0',
     top: '0',
   },
+  archivedFileName: {
+    textDecoration: 'line-through',
+  },
 };
 
 
@@ -71,6 +74,7 @@ class PeriodSelector extends React.Component {
 
   renderFileSelections() {
     const {
+      classes,
       files,
       fileOrder,
       loading,
@@ -81,11 +85,12 @@ class PeriodSelector extends React.Component {
     if (fileOrder && fileOrder.length) {
       const res = fileOrder.map(fileId => {
         const file = files[fileId];
-        return (
-          <MenuItem value={fileId} key={fileId}>
-            {file.title} ({file.currency})
-          </MenuItem>
-        );
+        let fileName = `${file.title} (${file.currency})`;
+        if (file.archived) {
+          fileName = (
+            <span className={classes.archivedFileName}>{fileName}</span>);
+        }
+        return (<MenuItem value={fileId} key={fileId}>{fileName}</MenuItem>);
       });
 
       res.push(

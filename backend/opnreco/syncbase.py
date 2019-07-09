@@ -560,16 +560,17 @@ class SyncBase:
 
     @reify
     def interpreters(self):
-        """Prepare the owner's file-specific movement interpreters."""
+        """Prepare the owner's file-specific movement interpreters.
+
+        Ignore all archived Files.
+        """
         request = self.request
         dbsession = request.dbsession
         owner_id = self.owner_id
 
         files = (
             dbsession.query(File)
-            .filter(
-                File.owner_id == owner_id,
-                ~File.removed)
+            .filter(File.owner_id == owner_id, ~File.archived)
             .order_by(File.id)
             .all())
 
@@ -579,3 +580,9 @@ class SyncBase:
                 file=file,
                 change_log=self.change_log)
             for file in files]
+
+    def sync_missing(self):
+        """Fill in any missing transfer interpretations for the user's Files.
+        """
+        for interpreter in self.interpreters:
+            interpreter.sync_missing()

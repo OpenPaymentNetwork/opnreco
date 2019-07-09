@@ -65,9 +65,9 @@ class FileListTabs extends React.Component {
         path: '/file/add',
       },
       {
-        value: 'removed',
-        label: 'Removed',
-        path: '/file/removed',
+        value: 'archived',
+        label: 'Archived',
+        path: '/file/archived',
       },
     ];
   }
@@ -125,9 +125,9 @@ class FileListTabs extends React.Component {
 
     if (tab === 'list') {
       tabContent = <FileList contentURL={filesURL} />;
-    } else if (tab == 'removed') {
-      const removedFilesURL = fOPNReco.pathToURL('/file/removed');
-      tabContent = <FileList contentURL={removedFilesURL} />;
+    } else if (tab === 'archived') {
+      const archivedFilesURL = fOPNReco.pathToURL('/file/archived');
+      tabContent = <FileList contentURL={archivedFilesURL} />;
     }
 
     return (

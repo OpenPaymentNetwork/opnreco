@@ -94,6 +94,7 @@ const styles = theme => ({
 
 class AccountEntryTableContent extends React.Component {
   static propTypes = {
+    archived: PropTypes.bool,
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
     intl: intlShape.isRequired,
@@ -394,6 +395,7 @@ class AccountEntryTableContent extends React.Component {
 
   renderEntry(entry, cfmt) {
     const {
+      archived,
       classes,
       period,
       dispatch,
@@ -404,7 +406,7 @@ class AccountEntryTableContent extends React.Component {
     let numInputField = null;
     let textInputField = null;
     let {numCell, textCell} = classes;
-    if (!period.closed) {
+    if (!period.closed && !archived) {
       editing = this.state.editingEntries[entry.id];
       if (editing) {
         numInputField = classes.numInputField;
@@ -558,6 +560,7 @@ class AccountEntryTableContent extends React.Component {
 
   render() {
     const {
+      archived,
       classes,
       record,
       period,
@@ -575,7 +578,7 @@ class AccountEntryTableContent extends React.Component {
       }
     }
 
-    if (!period.closed) {
+    if (!period.closed && !archived) {
       if (this.state.adding) {
         const x = this.renderEntry({id: 'add'}, cfmt);
         rows.push(x.main);

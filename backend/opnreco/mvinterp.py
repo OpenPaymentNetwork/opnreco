@@ -1,15 +1,20 @@
 
 from decimal import Decimal
-from opnreco.models.db import FileMovement
 from opnreco.models.db import FileLoopConfig
+from opnreco.models.db import FileMovement
+from opnreco.models.db import FileSync
+from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Period
 from opnreco.models.db import Reco
+from opnreco.models.db import TransferRecord
 from opnreco.viewcommon import add_open_period
 from opnreco.viewcommon import configure_dblog
 from opnreco.viewcommon import get_period_for_day
 from pyramid.decorator import reify
+from sqlalchemy import and_
 import collections
+import itertools
 import logging
 import pytz
 
@@ -124,8 +129,10 @@ class MovementInterpreter:
 
         file_movements = {}  # {movement_id: FileMovement}
         if is_new_record:
+            # There should be no existing FileMovements for this record.
             file_movements = {}
         else:
+            # Fill file_movements with the existing FileMovements.
             movement_ids = [movement.id for movement in movements]
             rows = (
                 dbsession.query(FileMovement)
@@ -196,6 +203,25 @@ class MovementInterpreter:
             if file_movement is not None:
                 to_reconcile.append((file_movement, movement))
 
+        # The TransferRecord is now reflected in this File.
+        # Is there a FileSync record yet?
+        if is_new_record:
+            # It's safe to assume there isn't a FileSync record yet.
+            add_sync_record = True
+        else:
+            row = (
+                dbsession.query(FileSync.transfer_record_id)
+                .filter(
+                    FileSync.file_id == self.file.id,
+                    FileSync.transfer_record_id == record.id)
+                .first())
+            add_sync_record = row is None
+
+        if add_sync_record:
+            # Add the FileSync record.
+            dbsession.add(FileSync(
+                file_id=self.file.id, transfer_record_id=record.id))
+
         if len(to_reconcile) >= 2:
             # Auto-reconciliation within the transfer might be possible.
             configure_dblog(
@@ -204,6 +230,59 @@ class MovementInterpreter:
                 record=record,
                 movement_rows=to_reconcile,
                 is_new_record=is_new_record)
+
+    def sync_missing(self):
+        """Fill in any missing TransferRecord interpretations for this File.
+        """
+        dbsession = self.request.dbsession
+
+        while True:
+            record_batch = (
+                dbsession.query(TransferRecord)
+                .outerjoin(FileSync, and_(
+                    FileSync.file_id == self.file.id,
+                    FileSync.transfer_record_id == TransferRecord.id,
+                ))
+                .filter(
+                    TransferRecord.owner_id == self.owner_id,
+                    FileSync.transfer_record_id == null,
+                )
+                .order_by(TransferRecord.id)
+                .limit(100)
+                .all())
+
+            if not record_batch:
+                break
+
+            record_ids = [record.id for record in record_batch]
+            movement_batch = (
+                dbsession.query(Movement)
+                .filter(
+                    Movement.owner_id == self.owner_id,
+                    Movement.transfer_record_id.in_(record_ids))
+                .order_by(
+                    Movement.transfer_record_id,
+                    Movement.id)
+                .all())
+
+            movement_dict = itertools.groupby(
+                movement_batch,
+                key=lambda movement: movement.transfer_record_id)
+
+            file_movement_batch = (
+                dbsession.query(FileMovement.transfer_record_id)
+                .filter(
+                    FileMovement.owner_id == self.owner_id,
+                    FileMovement.transfer_record_id.in_(record_ids),
+                )
+                .all())
+            existing_record_ids = {row[0] for row in file_movement_batch}
+
+            for record in record_batch:
+                self.sync_file_movements(
+                    record=record,
+                    movements=movement_dict.get(record.id, ()),
+                    is_new_record=(record.id not in existing_record_ids))
 
     def interpret(self, movement):
         """Compute the FileMovement attrs for a Movement in this File.

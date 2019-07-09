@@ -9,18 +9,18 @@ import PropTypes from 'prop-types';
 import React from 'react';
 
 
-class FileRemoveDialog extends React.Component {
+class FileArchiveDialog extends React.Component {
   static propTypes = {
     onCancel: PropTypes.func.isRequired,
-    onRemove: PropTypes.func.isRequired,
-    removing: PropTypes.bool,
+    onArchive: PropTypes.func.isRequired,
+    archiving: PropTypes.bool,
   };
 
   render() {
     const {
       onCancel,
-      onRemove,
-      removing,
+      onArchive,
+      archiving,
       ...otherProps
     } = this.props;
 
@@ -30,20 +30,20 @@ class FileRemoveDialog extends React.Component {
         aria-labelledby="form-dialog-title"
         {...otherProps}
       >
-        <DialogTitle id="form-dialog-title">Remove File</DialogTitle>
+        <DialogTitle id="form-dialog-title">Archive File</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to remove this file?
-            Reconciliation records, periods, and statements will no longer
-            be available unless you restore the file.
+            Are you sure you want to archive this file?
+            (Files can not be changed while archived, but they can be
+            unarchived.)
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCancel} color="primary" disabled={removing}>
+          <Button onClick={onCancel} color="primary" disabled={archiving}>
             Cancel
           </Button>
-          <Button onClick={onRemove} color="primary" disabled={removing}>
-            Remove
+          <Button onClick={onArchive} color="primary" disabled={archiving}>
+            Archive
           </Button>
         </DialogActions>
       </Dialog>
@@ -52,4 +52,4 @@ class FileRemoveDialog extends React.Component {
 }
 
 
-export default FileRemoveDialog;
+export default FileArchiveDialog;

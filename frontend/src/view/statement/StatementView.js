@@ -96,6 +96,7 @@ class StatementView extends React.Component {
     const {
       classes,
       dispatch,
+      file,
       loading,
       loadError,
       period,
@@ -103,6 +104,8 @@ class StatementView extends React.Component {
       recordURL,
       statementId,
     } = this.props;
+
+    const {archived} = file;
 
     if (!statementId) {
       return null;
@@ -156,7 +159,8 @@ class StatementView extends React.Component {
                     period={period}
                     periods={record.periods}
                     statement={record.statement}
-                    deleteConflicts={record.delete_conflicts} />
+                    deleteConflicts={record.delete_conflicts}
+                    archived={archived} />
                 </td>
               </tr>
             </tbody>
@@ -165,6 +169,7 @@ class StatementView extends React.Component {
               period={period}
               record={record}
               recordURL={recordURL}
+              archived={archived}
             />
           </table>
         </Typography>
