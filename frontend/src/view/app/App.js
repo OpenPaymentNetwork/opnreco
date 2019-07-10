@@ -113,7 +113,7 @@ class App extends React.Component {
                 <Route path="/period/:periodId([0-9]+)" component={PeriodTabs} />
                 <Route path="/file/:fileId([0-9]+)/:tab(|edit|designs|periods)" component={FileTabs} />
                 <Route path="/file/:fileId([0-9]+)" component={FileTabs} />
-                <Route path="/file/:tab(|list|add|archived)" component={FileListTabs} />
+                <Route path="/file/:tab(|list|archived)" component={FileListTabs} />
                 <Route path="/file" component={FileListTabs} />
                 <Route path="/" component={AuthenticatedHome} exact />
                 <Route component={NotFound} />

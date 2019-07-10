@@ -81,6 +81,25 @@ class FileEdit extends React.Component {
     });
   }
 
+  handleUnarchive = () => {
+    const {
+      dispatch,
+      file,
+    } = this.props;
+
+    const url = fOPNReco.pathToURL(
+        `/file/${encodeURIComponent(file.id)}/unarchive`);
+    const data = this.state.form;
+    const promise = dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({saving: true});
+    promise.then(() => {
+      this.setState({saving: false});
+      dispatch(clearWithFiles());
+    }).catch(() => {
+      this.setState({saving: false});
+    });
+  }
+
   handleArchive = () => {
     this.setState({archiveDialogExists: true, archiveDialogShown: true});
   }

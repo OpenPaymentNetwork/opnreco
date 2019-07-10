@@ -1,12 +1,16 @@
 
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
+import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco, filesURL } from '../../util/fetcher';
 import { isSimpleClick } from '../../util/click';
 import { toggleDrawer } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
+import Add from '@material-ui/icons/Add';
 import AppBar from '@material-ui/core/AppBar';
+import Fab from '@material-ui/core/Fab';
+import FileAddForm from './FileAddForm';
 import FileList from './FileList';
 import IconButton from '@material-ui/core/IconButton';
 import LayoutConfig from '../app/LayoutConfig';
@@ -37,6 +41,11 @@ const styles = {
     bottom: 0,
     width: '100%',
   },
+  addButtonLine: {
+    maxWidth: '800px',
+    margin: '16px auto',
+    textAlign: 'right',
+  }
 };
 
 
@@ -44,6 +53,7 @@ class FileListTabs extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
+    noFiles: PropTypes.bool.isRequired,
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
   };
@@ -52,17 +62,17 @@ class FileListTabs extends React.Component {
     this.props.dispatch(toggleDrawer());
   }
 
+  constructor(props) {
+    super(props);
+    this.state = {};
+  }
+
   getTabs() {
     return [
       {
         value: 'list',
         label: 'List',
         path: '/file/list',
-      },
-      {
-        value: 'add',
-        label: 'Add',
-        path: '/file/add',
       },
       {
         value: 'archived',
@@ -93,11 +103,24 @@ class FileListTabs extends React.Component {
     }
   }
 
+  handleAddButton = () => {
+    this.setState({adding: true});
+  }
+
+  handleAddCancel = () => {
+    this.setState({adding: false});
+  }
+
   render() {
     const {
       classes,
+      noFiles,
       match,
     } = this.props;
+
+    const {
+      adding,
+    } = this.state;
 
     const tab = match.params.tab || 'list';
     const handleTabClick = this.handleTabClick;
@@ -124,7 +147,28 @@ class FileListTabs extends React.Component {
     let tabContent = null;
 
     if (tab === 'list') {
-      tabContent = <FileList contentURL={filesURL} />;
+      if (noFiles) {
+        tabContent = <FileAddForm />;
+      } else {
+        let addContent;
+        if (adding) {
+          addContent = <FileAddForm onCancel={this.handleAddCancel} />;
+        } else {
+          addContent = (
+            <div className={classes.addButtonLine}>
+              <Fab size="small" color="primary" aria-label="Add a file"
+                  onClick={this.handleAddButton}>
+                <Add />
+              </Fab>
+            </div>
+          );
+        }
+
+        tabContent = (<div>
+          <FileList contentURL={filesURL} />
+          {addContent}
+        </div>);
+      }
     } else if (tab === 'archived') {
       const archivedFilesURL = fOPNReco.pathToURL('/file/archived');
       tabContent = <FileList contentURL={archivedFilesURL} />;
@@ -162,8 +206,17 @@ class FileListTabs extends React.Component {
 }
 
 
+function mapStateToProps(state) {
+  const content = fetchcache.get(state, filesURL);
+  const noFiles = content ? !content.file_order.length : false;
+  return {
+    noFiles,
+  };
+}
+
+
 export default compose(
   withStyles(styles),
   withRouter,
-  connect(),
+  connect(mapStateToProps),
 )(FileListTabs);

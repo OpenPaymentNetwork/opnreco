@@ -225,6 +225,28 @@ def file_archive(context, request):
     return serialize_file(file)
 
 
+@view_config(
+    name='unarchive',
+    context=FileResource,
+    permission=perms.unarchive_file,
+    renderer='json')
+def file_unarchive(context, request):
+    """Unarchive the file.
+    """
+    file = context.file
+    file.archived = False
+
+    request.dbsession.add(OwnerLog(
+        owner_id=request.owner.id,
+        personal_id=request.personal_id,
+        event_type='unarchive_file',
+        content={
+            'file_id': file.id,
+            'archived': False,
+        }))
+
+    return serialize_file(file)
+
 # def serialize_rules(request, file, final):
 #     """List the rules for the file. Include profile and loop info."""
 #     rules = (
