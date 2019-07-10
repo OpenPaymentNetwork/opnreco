@@ -1,11 +1,24 @@
 
+import { allCurrencies } from '../../util/currency';
+import { compose } from '../../util/functional';
+import { connect } from 'react-redux';
+import { fOPNReco } from '../../util/fetcher';
+import { fetchcache } from '../../reducer/fetchcache';
+import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
+import Checkbox from '@material-ui/core/Checkbox';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import FormControl from '@material-ui/core/FormControl';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Require from '../../util/Require';
+import Select from '@material-ui/core/Select';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 
@@ -18,7 +31,7 @@ const styles = {
   },
   field: {
     margin: '16px 16px 16px 0',
-    minWidth: '250px',
+    minWidth: '320px',
   },
   button: {
     margin: '16px 16px 16px 0',
@@ -29,6 +42,9 @@ const styles = {
   addTopLine: {
     marginTop: '0',
   },
+  formLine: {
+    marginTop: '16px',
+  },
 };
 
 
@@ -38,12 +54,19 @@ class FileAddForm extends React.Component {
     dispatch: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     onCancel: PropTypes.func,
+    ownerTitle: PropTypes.string,
+    peerContentURL: PropTypes.string.isRequired,
+    peerContent: PropTypes.object,
+    peerContentLoading: PropTypes.bool,
   };
 
   constructor(props) {
     super(props);
     this.state = {
-      form: {},
+      form: {
+        currency: 'USD',
+        auto_enable_loops: true,
+      },
     };
   }
 
@@ -56,10 +79,49 @@ class FileAddForm extends React.Component {
     });
   }
 
+  handleChangeAutoEnableLoops = (event) => {
+    this.setState({
+      form: {
+        ...this.state.form,
+        auto_enable_loops: event.target.checked,
+      },
+    });
+  }
+
+  getTitle() {
+    let title = this.state.form.title;
+    if (title) {
+      return title;
+    }
+
+    const file_type = this.state.form.file_type;
+
+    if (file_type) {
+      if (file_type === 'open_circ') {
+        return 'Open Loop Circulation';
+      } else if (file_type === 'closed_circ') {
+        return 'Closed Loop Circulation';
+      } else if (file_type === 'account') {
+        const peer_id = this.state.form.peer_id;
+        if (peer_id) {
+          const peer = this.props.peerContent.peers[peer_id];
+          if (peer && peer.title) {
+            return `Account ${peer.title}`;
+          }
+        }
+      }
+    }
+
+    return '';
+  }
+
   render() {
     const {
       classes,
-      onCancel
+      onCancel,
+      ownerTitle,
+      peerContent,
+      peerContentURL,
     } = this.props;
 
     const {
@@ -101,44 +163,111 @@ class FileAddForm extends React.Component {
 
     topLine = (
       <Typography variant="h6" className={classes.addTopLine}>
-        Add a File
+        Add a Reconciliation File {ownerTitle ? `for ${ownerTitle}` : ''}
       </Typography>
     );
 
-
     return (
       <Paper className={classes.content}>
+        <Require fetcher={fOPNReco} urls={[peerContentURL]} />
+
         <form className={classes.form} noValidate>
           <FormGroup row>
             {topLine}
           </FormGroup>
 
+          <FormGroup row className={classes.formLine}>
+            <FormControl>
+              <InputLabel shrink htmlFor="file_type">
+                Type
+              </InputLabel>
+              <Select
+                  id="file_type"
+                  name="file_type"
+                  value={form.file_type || ''}
+                  onChange={(event) => this.handleChangeText(event, 'file_type')}
+                  className={classes.field}
+                  displayEmpty>
+                <MenuItem value="open_circ">Open Loop Circulation</MenuItem>
+                <MenuItem value="closed_circ">Closed Loop Circulation</MenuItem>
+                <MenuItem value="account">Personal or Business Account</MenuItem>
+              </Select>
+            </FormControl>
+          </FormGroup>
+
+          <FormGroup row className={classes.formLine}>
+            <FormControl>
+              <InputLabel shrink htmlFor="currency">
+                Currency
+              </InputLabel>
+              <Select
+                  id="currency"
+                  name="currency"
+                  value={form.currency || ''}
+                  onChange={(event) => this.handleChangeText(event, 'currency')}
+                  className={classes.field}
+                  displayEmpty>
+                {allCurrencies.map(currency => (
+                  <MenuItem value={currency} key={currency}>
+                    {currency}
+                  </MenuItem>))}
+              </Select>
+            </FormControl>
+          </FormGroup>
+
+          {!form.file_type || form.file_type === 'account' ?
+            <FormGroup row className={classes.formLine}>
+              <FormControl disabled={form.file_type !== 'account'}>
+                <InputLabel shrink htmlFor="peer_id">
+                  Account
+                </InputLabel>
+                <Select
+                    id="peer_id"
+                    name="peer_id"
+                    value={form.peer_id || ''}
+                    onChange={(event) => this.handleChangeText(event, 'peer_id')}
+                    className={classes.field}
+                    displayEmpty>
+                  {peerContent ? peerContent.peer_order.map(peerId => (
+                    <MenuItem value={peerId} key={peerId}>
+                      {peerContent.peers[peerId].title}
+                    </MenuItem>)) : null}
+                </Select>
+              </FormControl>
+            </FormGroup>
+          : null}
+
           <FormGroup row>
-
             <TextField
-              id="start_date"
-              label="Start Date"
-              type="date"
-              value={form.start_date || ''}
-              onChange={(event) => this.handleChangeText(event, 'start_date')}
-              className={classes.field}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-
-            <TextField
-              id="end_date"
-              label="End Date"
-              type="date"
-              value={form.end_date || ''}
-              onChange={(event) => this.handleChangeText(event, 'end_date')}
+              id="title"
+              label="Title"
+              value={this.getTitle()}
+              onChange={(event) => this.handleChangeText(event, 'title')}
               className={classes.field}
               InputLabelProps={{
                 shrink: true,
               }}
             />
           </FormGroup>
+
+          {form.file_type === 'closed_circ' ?
+            <FormGroup row>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.auto_enable_loops || false}
+                    onChange={this.handleChangeAutoEnableLoops}
+                  />
+                }
+                label={
+                  <div>
+                    Automatically enable the reconciliation of all
+                    newly discovered closed loop note designs
+                  </div>
+                }
+              />
+            </FormGroup>
+          : null}
 
           {buttons}
         </form>
@@ -147,4 +276,20 @@ class FileAddForm extends React.Component {
   }
 }
 
-export default withStyles(styles)(FileAddForm);
+function mapStateToProps(state) {
+  const peerContentURL = fOPNReco.pathToURL('/file/account_peers');
+  const peerContent = fetchcache.get(state, peerContentURL);
+  const peerContentLoading = fetchcache.fetching(state, peerContentURL);
+
+  return {
+    peerContent,
+    peerContentURL,
+    peerContentLoading,
+  };
+}
+
+export default compose(
+  withStyles(styles),
+  withRouter,
+  connect(mapStateToProps),
+)(FileAddForm);

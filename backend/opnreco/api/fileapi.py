@@ -3,6 +3,7 @@
 from opnreco.models import perms
 from opnreco.models.db import File
 from opnreco.models.db import OwnerLog
+from opnreco.models.db import Peer
 from opnreco.models.db import Period
 from opnreco.models.site import FileCollection
 from opnreco.models.site import FileResource
@@ -144,6 +145,7 @@ def list_files(context, request, archived=False):
         'file_order': file_order,
         'period_to_file_id': period_to_file_id,
         'default_file_id': file_order[0] if len(file_order) == 1 else None,
+        'owner_title': owner.title,
     }
 
 
@@ -246,6 +248,35 @@ def file_unarchive(context, request):
         }))
 
     return serialize_file(file)
+
+
+@view_config(
+    name='account_peers',
+    context=FileCollection,
+    permission=perms.use_app,
+    renderer='json')
+def account_peers(context, request):
+    owner = request.owner
+    owner_id = owner.id
+    dbsession = request.dbsession
+
+    peers = (
+        dbsession.query(Peer)
+        .filter(
+            Peer.owner_id == owner_id,
+            Peer.is_dfi_account,
+            Peer.is_own_dfi_account,
+            ~Peer.removed,
+        )
+        .order_by(Peer.title, Peer.peer_id)
+        .all())
+
+    json_peers = {peer.peer_id: {'title': peer.title} for peer in peers}
+    return {
+        'peer_order': [peer.peer_id for peer in peers],
+        'peers': json_peers,
+    }
+
 
 # def serialize_rules(request, file, final):
 #     """List the rules for the file. Include profile and loop info."""

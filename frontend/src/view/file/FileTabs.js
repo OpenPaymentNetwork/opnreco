@@ -70,26 +70,31 @@ class FileTabs extends React.Component {
   }
 
   getTabs() {
-    const {fileId} = this.props;
+    const {fileId, file} = this.props;
     const encFileId = encodeURIComponent(fileId);
 
-    return [
-      {
-        value: 'edit',
-        label: 'Edit File',
-        path: `/file/${encFileId}/edit`,
-      },
-      {
-        value: 'designs',
-        label: 'Designs',
-        path: `/file/${encFileId}/designs`,
-      },
+    const res = [
       {
         value: 'periods',
         label: 'Periods',
         path: `/file/${encFileId}/periods`,
       },
+      {
+        value: 'edit',
+        label: 'Edit File',
+        path: `/file/${encFileId}/edit`,
+      },
     ];
+
+    if (file && file.file_type === 'closed_circ') {
+      res.push({
+        value: 'designs',
+        label: 'Designs',
+        path: `/file/${encFileId}/designs`,
+      });
+    }
+
+    return res;
   }
 
   handleTabChange = (event, value) => {
@@ -116,7 +121,7 @@ class FileTabs extends React.Component {
       syncProgress,
     } = this.props;
 
-    const tab = match.params.tab || 'edit';
+    const tab = match.params.tab || 'periods';
     const handleTabClick = this.handleTabClick;
     const titleParts = [];
 

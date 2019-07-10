@@ -63,6 +63,9 @@ class AuthenticatedHome extends React.Component {
           this.redirected = true;
           this.props.history.push(`/period/${encodeURIComponent(periodId)}`);
         }
+      } else if (files) {
+        this.redirected = true;
+        this.props.history.push('/file');
       }
     }
   }
@@ -104,7 +107,6 @@ class AuthenticatedHome extends React.Component {
             <span>
               There are no files for your
               profile, {profileTitle}.
-              Try switching to a different profile.
             </span>);
         } else {
           progressMessage = <span>No files found for your profile.</span>;

@@ -56,6 +56,7 @@ class FileListTabs extends React.Component {
     noFiles: PropTypes.bool.isRequired,
     history: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
+    ownerTitle: PropTypes.string,
   };
 
   handleToggleDrawer = () => {
@@ -114,6 +115,7 @@ class FileListTabs extends React.Component {
   render() {
     const {
       classes,
+      ownerTitle,
       noFiles,
       match,
     } = this.props;
@@ -148,11 +150,14 @@ class FileListTabs extends React.Component {
 
     if (tab === 'list') {
       if (noFiles) {
-        tabContent = <FileAddForm />;
+        tabContent = <FileAddForm ownerTitle={ownerTitle} />;
       } else {
         let addContent;
         if (adding) {
-          addContent = <FileAddForm onCancel={this.handleAddCancel} />;
+          addContent = (
+            <FileAddForm
+              ownerTitle={ownerTitle}
+              onCancel={this.handleAddCancel} />);
         } else {
           addContent = (
             <div className={classes.addButtonLine}>
@@ -165,13 +170,13 @@ class FileListTabs extends React.Component {
         }
 
         tabContent = (<div>
-          <FileList contentURL={filesURL} />
+          <FileList archived={false} contentURL={filesURL} />
           {addContent}
         </div>);
       }
     } else if (tab === 'archived') {
       const archivedFilesURL = fOPNReco.pathToURL('/file/archived');
-      tabContent = <FileList contentURL={archivedFilesURL} />;
+      tabContent = <FileList archived contentURL={archivedFilesURL} />;
     }
 
     return (
@@ -209,7 +214,9 @@ class FileListTabs extends React.Component {
 function mapStateToProps(state) {
   const content = fetchcache.get(state, filesURL);
   const noFiles = content ? !content.file_order.length : false;
+  const ownerTitle = content ? content.owner_title : null;
   return {
+    ownerTitle,
     noFiles,
   };
 }

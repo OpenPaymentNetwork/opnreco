@@ -53,6 +53,10 @@ const styles = {
   cell: {
     border: '1px solid #bbb',
   },
+  emptyCell: {
+    border: '1px solid #bbb',
+    padding: '4px 8px',
+  },
   cellLink: {
     color: '#000',
     display: 'block',
@@ -70,6 +74,7 @@ const styles = {
 
 class FileList extends React.Component {
   static propTypes = {
+    archived: PropTypes.bool.isRequired,
     classes: PropTypes.object.isRequired,
     contentURL: PropTypes.string.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -87,6 +92,7 @@ class FileList extends React.Component {
 
   render() {
     const {
+      archived,
       classes,
       content,
       contentURL,
@@ -122,34 +128,47 @@ class FileList extends React.Component {
       }
     }
 
-    for (const fileId of content.file_order) {
-      const file = content.files[fileId];
-      const filePath = `/file/${encodeURIComponent(fileId)}`;
+    if (content.file_order.length) {
+      for (const fileId of content.file_order) {
+        const file = content.files[fileId];
+        const filePath = `/file/${encodeURIComponent(fileId)}`;
 
-      const handleClickFile = (event) => {
-        this.handleClickAnchor(event, filePath);
-      };
+        const handleClickFile = (event) => {
+          this.handleClickAnchor(event, filePath);
+        };
 
-      const linkClass = (
-        file.archived ? classes.cellLinkArchived : classes.cellLink);
+        const linkClass = (
+          file.archived ? classes.cellLinkArchived : classes.cellLink);
 
-      rows.push(<tr className={classes.fileRow} key={fileId}>
-        <td className={classes.cell}>
-          <a className={linkClass} href={filePath} onClick={handleClickFile}>
-            {file.title}
-          </a>
-        </td>
-        <td className={classes.cell}>
-          <a className={classes.cellLink} href={filePath} onClick={handleClickFile}>
-            {file.open_period_count}
-          </a>
-        </td>
-        <td className={classes.cell}>
-          <a className={classes.cellLink} href={filePath} onClick={handleClickFile}>
-            {file.closed_period_count}
-          </a>
-        </td>
-      </tr>);
+        rows.push(
+          <tr className={classes.fileRow} key={fileId}>
+            <td className={classes.cell}>
+              <a className={linkClass} href={filePath} onClick={handleClickFile}>
+                {file.title}
+              </a>
+            </td>
+            <td className={classes.cell}>
+              <a className={classes.cellLink} href={filePath} onClick={handleClickFile}>
+                {file.open_period_count}
+              </a>
+            </td>
+            <td className={classes.cell}>
+              <a className={classes.cellLink} href={filePath} onClick={handleClickFile}>
+                {file.closed_period_count}
+              </a>
+            </td>
+          </tr>);
+      }
+    } else {
+      rows.push(
+        <tr className={classes.fileRow} key="empty">
+          <td colSpan="3" className={classes.emptyCell}>
+            <em>
+              No {archived ? 'archived' : 'current'}
+              {' '}reconciliation files are stored for {content.owner_title}.
+            </em>
+          </td>
+        </tr>);
     }
 
     return (
@@ -159,7 +178,7 @@ class FileList extends React.Component {
           <thead>
             <tr>
               <th className={classes.titleCell} colSpan="3">
-                Files
+                {archived ? 'Archived' : ''} Reconciliation Files - {content.owner_title}
               </th>
             </tr>
             <tr>
