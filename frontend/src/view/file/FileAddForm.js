@@ -1,5 +1,6 @@
 
 import { allCurrencies } from '../../util/currency';
+import { clearWithFiles } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -88,6 +89,26 @@ class FileAddForm extends React.Component {
     });
   }
 
+  handleAdd = () => {
+    const {
+      dispatch,
+      history,
+    } = this.props;
+    const url = fOPNReco.pathToURL('/file/add');
+    const data = {
+      ...this.state.form,
+      title: this.getTitle(),
+    };
+    const promise = dispatch(fOPNReco.fetch(url, {data}));
+    this.setState({saving: true});
+    promise.then((response) => {
+      dispatch(clearWithFiles());
+      history.push(`/file/${encodeURIComponent(response.file.id)}`);
+    }).catch(() => {
+      this.setState({saving: false});
+    });
+  }
+
   getTitle() {
     let title = this.state.form.title;
     if (title) {
@@ -142,7 +163,7 @@ class FileAddForm extends React.Component {
           className={classes.button}
           color="primary"
           variant="contained"
-          onClick={this.handleSave}
+          onClick={this.handleAdd}
         >
           Add
         </Button>

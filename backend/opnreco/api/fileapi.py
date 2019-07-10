@@ -7,6 +7,7 @@ from opnreco.models.db import Peer
 from opnreco.models.db import Period
 from opnreco.models.site import FileCollection
 from opnreco.models.site import FileResource
+from opnreco.param import all_currencies
 from opnreco.viewcommon import handle_invalid
 from pyramid.view import view_config
 from sqlalchemy import func
@@ -337,3 +338,66 @@ def account_peers(context, request):
 #     renderer='json')
 # def file_rules_api(context, request):
 #     return serialize_rules(request=request, file=context.file, final=True)
+
+
+class FileAddSchema(colander.Schema):
+    file_type = colander.SchemaNode(
+        colander.String(), validator=colander.OneOf([
+            'open_circ', 'closed_circ', 'account',
+        ]))
+    currency = colander.SchemaNode(
+        colander.String(), validator=colander.OneOf(all_currencies))
+    title = colander.SchemaNode(
+        colander.String(), validator=colander.Length(max=100))
+    peer_id = colander.SchemaNode(
+        colander.String(), validator=colander.Length(max=50), missing=None)
+    auto_enable_loops = colander.SchemaNode(
+        colander.Boolean(), missing=False)
+
+
+def validate_file_add(node, appstruct):
+    if appstruct is colander.null:
+        return appstruct
+
+    file_type = appstruct['file_type']
+    if file_type == 'account' and not appstruct['peer_id']:
+        error = colander.Invalid(node)
+        error['peer_id'] = "Required"
+        raise error
+
+
+@view_config(
+    name='add',
+    context=FileCollection,
+    permission=perms.use_app,
+    renderer='json')
+def add_file(context, request):
+    owner = request.owner
+    owner_id = owner.id
+    dbsession = request.dbsession
+
+    schema = FileAddSchema(validator=validate_file_add)
+    try:
+        params = schema.deserialize(request.json)
+    except colander.Invalid as e:
+        handle_invalid(e, schema=schema)
+
+    file_type = params['file_type']
+    has_vault = file_type in ('open_circ', 'closed_circ')
+    peer_id = params['peer_id'] if file_type == 'account' else None
+    auto_enable_loops = (
+        params['auto_enable_loops'] if file_type == 'closed_circ' else None)
+
+    file = File(
+        owner_id=owner_id,
+        file_type=file_type,
+        title=params['title'],
+        currency=params['currency'],
+        has_vault=has_vault,
+        peer_id=peer_id,
+        auto_enable_loops=auto_enable_loops,
+        archived=False)
+    dbsession.add(file)
+    dbsession.flush()  # Assign file.id
+
+    return serialize_file(file)
