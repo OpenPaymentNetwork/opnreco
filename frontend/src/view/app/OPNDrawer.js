@@ -21,7 +21,6 @@ import React from 'react';
 import Settings from '@material-ui/icons/Settings';
 import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
-import TableChart from '@material-ui/icons/TableChart';
 
 
 /* global process: false */
@@ -204,11 +203,6 @@ class OPNDrawer extends React.Component {
     this.props.history.push('/file');
   }
 
-  handleReports = () => {
-    this.props.dispatch(closeDrawer());
-    this.props.history.push('/');
-  }
-
   handleSettings = () => {
     this.props.dispatch(closeDrawer());
     this.props.history.push('/settings');
@@ -240,14 +234,6 @@ class OPNDrawer extends React.Component {
         >
           <ListItemIcon><Folder/></ListItemIcon>
           <ListItemText primary="Files" />
-        </ListItem>
-
-        <ListItem
-          button
-          onClick={this.handleReports}
-        >
-          <ListItemIcon><TableChart/></ListItemIcon>
-          <ListItemText primary="Reports" />
         </ListItem>
 
         <ListItem

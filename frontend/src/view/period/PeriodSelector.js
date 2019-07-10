@@ -90,7 +90,8 @@ class PeriodSelector extends React.Component {
           fileName = (
             <span className={classes.archivedFileName}>{fileName}</span>);
         }
-        return (<MenuItem value={fileId} key={fileId}>{fileName}</MenuItem>);
+        return (
+          <MenuItem value={fileId} key={fileId}>File: {fileName}</MenuItem>);
       });
 
       res.push(
