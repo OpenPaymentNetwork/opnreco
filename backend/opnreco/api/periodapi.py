@@ -137,8 +137,10 @@ def period_list_api(context, request):
         .one())
     if last_end_row.endless:
         next_start_date = None
-    else:
+    elif last_end_row.end_date is not None:
         next_start_date = last_end_row.end_date + datetime.timedelta(days=1)
+    else:
+        next_start_date = None
 
     return {
         'periods': periods,

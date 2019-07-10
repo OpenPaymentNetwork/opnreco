@@ -265,9 +265,9 @@ class MovementInterpreter:
                     Movement.id)
                 .all())
 
-            movement_dict = itertools.groupby(
+            movement_dict = dict(itertools.groupby(
                 movement_batch,
-                key=lambda movement: movement.transfer_record_id)
+                key=lambda movement: movement.transfer_record_id))
 
             file_movement_batch = (
                 dbsession.query(FileMovement.transfer_record_id)
