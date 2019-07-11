@@ -159,7 +159,7 @@ class FileTabs extends React.Component {
     if (file) {
       tabContent = <FileTabContent tab={tab} file={file} />;
 
-      titleParts.push('-');
+      titleParts.push('- File:');
       titleParts.push(file.title);
       titleParts.push('-');
       titleParts.push(file.currency);

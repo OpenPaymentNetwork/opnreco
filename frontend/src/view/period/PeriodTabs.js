@@ -21,6 +21,8 @@ import React from 'react';
 import Require from '../../util/Require';
 import Tab from '@material-ui/core/Tab';
 import Tabs from '@material-ui/core/Tabs';
+import Toolbar from '@material-ui/core/Toolbar';
+import Typography from '@material-ui/core/Typography';
 
 
 const styles = {
@@ -36,10 +38,8 @@ const styles = {
     top: '8px',
   },
   menuButton: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    color: '#fff',
+    marginLeft: -12,
+    marginRight: 20,
   },
   tabs: {
     position: 'absolute',
@@ -310,16 +310,20 @@ class PeriodTabs extends React.Component {
     );
 
     let tabContent;
+    let appTitle = null;
 
     if (file && period) {
       tabContent = <PeriodTabContent tab={tab} file={file} period={period} />;
+      const periodDate = renderPeriodDateString(period, intl);
 
       titleParts.push('-');
-      titleParts.push(renderPeriodDateString(period, intl));
+      titleParts.push(periodDate);
       titleParts.push('-');
       titleParts.push(file.title);
       titleParts.push('-');
       titleParts.push(file.currency);
+
+      appTitle = periodDate;
 
     } else if (loading || syncProgress !== null) {
       tabContent = (
@@ -338,15 +342,20 @@ class PeriodTabs extends React.Component {
         <LayoutConfig title={titleParts.join(' ')} />
 
         <AppBar position="static" classes={{root: classes.appbar}}>
+          <Toolbar>
+            <IconButton
+              className={classes.menuButton}
+              color="inherit"
+              aria-label="Menu"
+              onClick={this.handleToggleDrawer}
+            >
+              <MenuIcon />
+            </IconButton>
 
-          <IconButton
-            className={classes.menuButton}
-            color="inherit"
-            aria-label="Menu"
-            onClick={this.handleToggleDrawer}
-          >
-            <MenuIcon />
-          </IconButton>
+            <Typography variant="h6" color="inherit" className={classes.appTitle}>
+              {appTitle}
+            </Typography>
+          </Toolbar>
 
           {selectorBox}
 

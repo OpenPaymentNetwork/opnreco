@@ -5,6 +5,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
+import { triggerResync } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -103,6 +104,7 @@ class FileAddForm extends React.Component {
     this.setState({saving: true});
     promise.then((response) => {
       dispatch(clearWithFiles());
+      dispatch(triggerResync());
       history.push(`/file/${encodeURIComponent(response.file.id)}`);
     }).catch(() => {
       this.setState({saving: false});

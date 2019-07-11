@@ -14,7 +14,6 @@ from opnreco.viewcommon import get_period_for_day
 from pyramid.decorator import reify
 from sqlalchemy import and_
 import collections
-import itertools
 import logging
 import pytz
 
@@ -265,9 +264,10 @@ class MovementInterpreter:
                     Movement.id)
                 .all())
 
-            movement_dict = dict(itertools.groupby(
-                movement_batch,
-                key=lambda movement: movement.transfer_record_id))
+            movement_dict = collections.defaultdict(list)
+            for m in movement_batch:
+                movement_dict[m.transfer_record_id].append(m)
+            movement_dict = dict(movement_dict)
 
             file_movement_batch = (
                 dbsession.query(FileMovement.transfer_record_id)

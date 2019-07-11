@@ -4,7 +4,7 @@ import { fetchcache } from './fetchcache';
 
 
 /**
- * Clear most of the fetch cache except /token/selectable and /files
+ * Clear most of the fetch cache except /token/selectable and /file
  * (which we'll re-fetch, but keep the data while waiting.)
  */
 export function clearMost() {

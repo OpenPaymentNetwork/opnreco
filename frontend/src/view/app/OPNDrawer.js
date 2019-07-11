@@ -1,5 +1,5 @@
 import { FormattedRelative } from 'react-intl';
-import { clearWithFiles } from '../../reducer/clearmost';
+import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
@@ -169,7 +169,7 @@ class OPNDrawer extends React.Component {
           // Done.
           dispatch(setSyncProgress(null, new Date()));
           if (changeCount) {
-            dispatch(clearWithFiles());
+            dispatch(clearMost());
           }
           this.setState({autoSyncOk: true});
         }

@@ -182,7 +182,7 @@ class FileListTabs extends React.Component {
     return (
       <div className={classes.root}>
         <Require fetcher={fOPNReco} urls={[filesURL]} />
-        <LayoutConfig title="Files" />
+        <LayoutConfig title={`Files - ${ownerTitle}`} />
 
         <AppBar position="static" classes={{root: classes.appbar}}>
           <Toolbar>
@@ -196,7 +196,7 @@ class FileListTabs extends React.Component {
             </IconButton>
 
             <Typography variant="h6" color="inherit" className={classes.title}>
-              Files
+              Files - {ownerTitle}
             </Typography>
           </Toolbar>
 

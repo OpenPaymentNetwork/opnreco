@@ -50,6 +50,7 @@ export class FetchCache {
       meta: {},
       requirements: {},
       suspended: false,
+      inv_count: 0,
     };
 
     const actionHandlers = this.makeActionHandlers();
@@ -474,7 +475,7 @@ export class FetchCache {
       [actionTypes.INVALIDATE]: (state, action) => {
         const {keep} = action.payload;
         // Remove data and metadata that don't match the 'keep' function.
-        const {data, meta} = state;
+        const {data, meta, inv_count} = state;
         const newData = {};
         Object.keys(meta).forEach((url) => {
           if (keep && keep(url)) {
@@ -482,7 +483,7 @@ export class FetchCache {
             newData[url] = data[url];
           }
         });
-        return {data: newData, meta: {}};
+        return {data: newData, meta: {}, inv_count: inv_count + 1};
       },
 
       [actionTypes.CLEAR]: () => ({
