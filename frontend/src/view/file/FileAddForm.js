@@ -190,6 +190,45 @@ class FileAddForm extends React.Component {
       </Typography>
     );
 
+    let accountSelect = null;
+
+    if (!form.file_type || form.file_type === 'account') {
+      let selections = null;
+      if (peerContent) {
+        if (peerContent.peer_order.length) {
+          selections = peerContent.peer_order.map(peerId => (
+            <MenuItem value={peerId} key={peerId}>
+              {peerContent.peers[peerId].title}
+            </MenuItem>
+          ));
+        } else if (form.file_type === 'account') {
+          selections = (
+            <MenuItem value="">
+              <em>No accounts found for your profile.</em>
+            </MenuItem>
+          );
+        }
+      }
+      accountSelect = (
+        <FormGroup row className={classes.formLine}>
+          <FormControl disabled={form.file_type !== 'account'}>
+            <InputLabel shrink htmlFor="peer_id">
+              Account
+            </InputLabel>
+            <Select
+                id="peer_id"
+                name="peer_id"
+                value={form.peer_id || ''}
+                onChange={(event) => this.handleChangeText(event, 'peer_id')}
+                className={classes.field}
+                displayEmpty>
+              {selections}
+            </Select>
+          </FormControl>
+        </FormGroup>
+      );
+    }
+
     return (
       <Paper className={classes.content}>
         <Require fetcher={fOPNReco} urls={[peerContentURL]} />
@@ -209,8 +248,7 @@ class FileAddForm extends React.Component {
                   name="file_type"
                   value={form.file_type || ''}
                   onChange={(event) => this.handleChangeText(event, 'file_type')}
-                  className={classes.field}
-                  displayEmpty>
+                  className={classes.field}>
                 <MenuItem value="open_circ">Open Loop Circulation</MenuItem>
                 <MenuItem value="closed_circ">Closed Loop Circulation</MenuItem>
                 <MenuItem value="account">Personal or Business Account</MenuItem>
@@ -228,8 +266,7 @@ class FileAddForm extends React.Component {
                   name="currency"
                   value={form.currency || ''}
                   onChange={(event) => this.handleChangeText(event, 'currency')}
-                  className={classes.field}
-                  displayEmpty>
+                  className={classes.field}>
                 {allCurrencies.map(currency => (
                   <MenuItem value={currency} key={currency}>
                     {currency}
@@ -238,27 +275,7 @@ class FileAddForm extends React.Component {
             </FormControl>
           </FormGroup>
 
-          {!form.file_type || form.file_type === 'account' ?
-            <FormGroup row className={classes.formLine}>
-              <FormControl disabled={form.file_type !== 'account'}>
-                <InputLabel shrink htmlFor="peer_id">
-                  Account
-                </InputLabel>
-                <Select
-                    id="peer_id"
-                    name="peer_id"
-                    value={form.peer_id || ''}
-                    onChange={(event) => this.handleChangeText(event, 'peer_id')}
-                    className={classes.field}
-                    displayEmpty>
-                  {peerContent ? peerContent.peer_order.map(peerId => (
-                    <MenuItem value={peerId} key={peerId}>
-                      {peerContent.peers[peerId].title}
-                    </MenuItem>)) : null}
-                </Select>
-              </FormControl>
-            </FormGroup>
-          : null}
+          {accountSelect}
 
           <FormGroup row>
             <TextField

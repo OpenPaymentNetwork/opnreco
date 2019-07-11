@@ -3,6 +3,7 @@ import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
+import { isSimpleClick } from '../../util/click';
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut } from '../../reducer/app';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -49,6 +50,11 @@ const styles = theme => ({
     fontSize: '80%',
     padding: '16px',
     textAlign: 'right',
+  },
+  link: {
+    display: 'block',
+    color: '#000',
+    textDecoration: 'none',
   },
 });
 
@@ -198,19 +204,12 @@ class OPNDrawer extends React.Component {
     this.props.dispatch(closeDrawer());
   }
 
-  handleFiles = () => {
-    this.props.dispatch(closeDrawer());
-    this.props.history.push('/file');
-  }
-
-  handleSettings = () => {
-    this.props.dispatch(closeDrawer());
-    this.props.history.push('/settings');
-  }
-
-  handleVerify = () => {
-    this.props.dispatch(closeDrawer());
-    this.props.history.push('/verify');
+  handleLink = (event, path) => {
+    if (isSimpleClick(event)) {
+      event.preventDefault();
+      this.props.dispatch(closeDrawer());
+      this.props.history.push(path);
+    }
   }
 
   renderContent() {
@@ -228,21 +227,35 @@ class OPNDrawer extends React.Component {
       <Divider style={{marginTop: -1}} />
       <List component="nav">
 
-        <ListItem
-          button
-          onClick={this.handleFiles}
-        >
-          <ListItemIcon><Folder/></ListItemIcon>
-          <ListItemText primary="Files" />
-        </ListItem>
+        <a href="/file" className={classes.link}>
+          <ListItem
+            button
+            onClick={(event) => this.handleLink(event, '/file')}
+          >
+              <ListItemIcon><Folder/></ListItemIcon>
+              <ListItemText primary="Files" />
+          </ListItem>
+        </a>
 
-        <ListItem
-          button
-          onClick={this.handleSettings}
-        >
-          <ListItemIcon><Settings/></ListItemIcon>
-          <ListItemText primary="Settings" />
-        </ListItem>
+        <a href="/settings" className={classes.link}>
+          <ListItem
+            button
+            onClick={(event) => this.handleLink(event, '/settings')}
+          >
+            <ListItemIcon><Settings/></ListItemIcon>
+            <ListItemText primary="Settings" />
+          </ListItem>
+        </a>
+
+        <a href="/verify" className={classes.link}>
+          <ListItem
+            button
+            onClick={(event) => this.handleLink(event, '/verify')}
+          >
+            <ListItemIcon><CompareArrows/></ListItemIcon>
+            <ListItemText primary="Verify" />
+          </ListItem>
+        </a>
 
         <ListItem
           button
@@ -255,14 +268,6 @@ class OPNDrawer extends React.Component {
           <ListItemText
             primary={syncUI.primary}
             secondary={syncUI.secondary} />
-        </ListItem>
-
-        <ListItem
-          button
-          onClick={this.handleVerify}
-        >
-          <ListItemIcon><CompareArrows/></ListItemIcon>
-          <ListItemText primary="Verify" />
         </ListItem>
 
         <ListItem

@@ -122,6 +122,9 @@ class PeriodSelector extends React.Component {
       return [
         <MenuItem value="#error" key="#error">
           {errorMessage}
+        </MenuItem>,
+        <MenuItem value="" key="files">
+          File List&hellip;
         </MenuItem>
       ];
     }
