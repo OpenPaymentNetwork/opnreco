@@ -1,11 +1,17 @@
 
 import Button from '@material-ui/core/Button';
+import Checkbox from '@material-ui/core/Checkbox';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import FileArchiveDialog from './FileArchiveDialog';
+import FormControl from '@material-ui/core/FormControl';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormGroup from '@material-ui/core/FormGroup';
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
 import Paper from '@material-ui/core/Paper';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Select from '@material-ui/core/Select';
 import TextField from '@material-ui/core/TextField';
 import { clearWithFiles } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
@@ -49,7 +55,10 @@ class FileEdit extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      form: {title: props.file.title},
+      form: {
+        title: props.file.title,
+        auto_enable_loops: props.file.auto_enable_loops,
+      },
     };
   }
 
@@ -58,6 +67,15 @@ class FileEdit extends React.Component {
       form: {
         ...this.state.form,
         [fieldName]: event.target.value,
+      },
+    });
+  }
+
+  handleChangeAutoEnableLoops = (event) => {
+    this.setState({
+      form: {
+        ...this.state.form,
+        auto_enable_loops: event.target.checked,
       },
     });
   }
@@ -234,6 +252,42 @@ class FileEdit extends React.Component {
                 />
               </FormGroup>
 
+              <FormGroup row className={classes.formGroup}>
+                <FormControl disabled>
+                  <InputLabel shrink htmlFor="file_type">
+                    Type
+                  </InputLabel>
+                  <Select
+                      id="file_type"
+                      name="file_type"
+                      value={file.file_type}
+                      className={classes.field}>
+                    <MenuItem value="open_circ">Open Loop Circulation</MenuItem>
+                    <MenuItem value="closed_circ">Closed Loop Circulation</MenuItem>
+                    <MenuItem value="account">Personal or Business Account</MenuItem>
+                  </Select>
+                </FormControl>
+              </FormGroup>
+
+              {file.file_type === 'closed_circ' ?
+                <FormGroup row>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={form.auto_enable_loops || false}
+                        onChange={this.handleChangeAutoEnableLoops}
+                      />
+                    }
+                    label={
+                      <div>
+                        Automatically enable the reconciliation of all
+                        newly discovered closed loop note designs
+                      </div>
+                    }
+                  />
+                </FormGroup>
+              : null}
+
               {buttons}
 
             </form>
@@ -245,14 +299,8 @@ class FileEdit extends React.Component {
   }
 }
 
-function mapStateToProps() {
-  return {
-  };
-}
-
-
 export default compose(
   withStyles(styles),
   withRouter,
-  connect(mapStateToProps),
+  connect(),
 )(FileEdit);

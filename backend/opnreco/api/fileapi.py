@@ -171,6 +171,8 @@ def file_state(context, request):
 class FileSaveSchema(colander.Schema):
     title = colander.SchemaNode(
         colander.String(), validator=colander.Length(max=50))
+    auto_enable_loops = colander.SchemaNode(
+        colander.Boolean(), missing=None)
 
 
 @view_config(
@@ -189,6 +191,9 @@ def file_save(context, request):
         handle_invalid(e, schema=schema)
 
     file.title = appstruct['title']
+
+    if file.file_type == 'closed_circ':
+        file.auto_enable_loops = appstruct['auto_enable_loops']
 
     request.dbsession.add(OwnerLog(
         owner_id=request.owner.id,
