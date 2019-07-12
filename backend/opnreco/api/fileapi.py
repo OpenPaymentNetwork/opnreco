@@ -2,12 +2,16 @@
 
 from opnreco.models import perms
 from opnreco.models.db import File
+from opnreco.models.db import FileLoopConfig
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
 from opnreco.models.db import Period
 from opnreco.models.site import FileCollection
 from opnreco.models.site import FileResource
 from opnreco.param import all_currencies
+from opnreco.param import get_offset_limit
+from opnreco.viewcommon import get_loop_map
+from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import handle_invalid
 from pyramid.view import view_config
 from sqlalchemy import func
@@ -284,67 +288,6 @@ def account_peers(context, request):
     }
 
 
-# def serialize_rules(request, file, final):
-#     """List the rules for the file. Include profile and loop info."""
-#     rules = (
-#         request.dbsession.query(FileRule)
-#         .filter(
-#             FileRule.file_id == file.id,
-#             FileRule.owner_id == request.owner.id,
-#         )
-#         .order_by(FileRule.id)
-#         .all())
-
-#     need_peer_ids = set()
-#     need_loop_ids = set()
-#     for rule in rules:
-#         need_peer_ids.add(rule.self_id)
-#         peer_id = rule.peer_id
-#         if peer_id:
-#             need_peer_ids.add(peer_id)
-#         loop_id = rule.loop_id
-#         if loop_id and loop_id != '0':
-#             need_loop_ids.add(loop_id)
-#     peer_map = get_peer_map(
-#         request=request, need_peer_ids=need_peer_ids, final=final)
-#     loop_map = get_loop_map(
-#         request=request, need_loop_ids=need_loop_ids, final=final)
-
-#     res = []
-#     for rule in rules:
-#         self_id = rule.self_id
-#         peer_id = rule.peer_id
-#         loop_id = rule.loop_id
-#         res.append({
-#             'id': rule.id,
-#             'self_id': self_id,
-#             'peer_id': peer_id,
-#             'loop_id': loop_id,
-#             'self': peer_map[self_id],
-#             'peer': peer_map[peer_id] if peer_id else None,
-#             'loop': loop_map[loop_id] if loop_id and loop_id != '0' else None,
-#         })
-#     return res
-
-
-# @view_config(
-#     name='rules',
-#     context=FileResource,
-#     permission=perms.view_file,
-#     renderer='json')
-# def file_rules_final_api(context, request):
-#     return serialize_rules(request=request, file=context.file, final=False)
-
-
-# @view_config(
-#     name='rules-final',
-#     context=FileResource,
-#     permission=perms.view_file,
-#     renderer='json')
-# def file_rules_api(context, request):
-#     return serialize_rules(request=request, file=context.file, final=True)
-
-
 class FileAddSchema(colander.Schema):
     file_type = colander.SchemaNode(
         colander.String(), validator=colander.OneOf([
@@ -406,3 +349,81 @@ def add_file(context, request):
     dbsession.flush()  # Assign file.id
 
     return serialize_file(file)
+
+
+def page_loop_configs(request, file, final):
+    """Page through the list of FileLoopConfigs for the file.
+
+    Include issuer and loop info.
+    """
+    dbsession = request.dbsession
+    params = request.params
+    offset, limit = get_offset_limit(params)
+
+    query = (
+        dbsession.query(FileLoopConfig)
+        .filter(
+            FileLoopConfig.file_id == file.id,
+            FileLoopConfig.owner_id == request.owner.id,
+        )
+        .order_by(FileLoopConfig.id.desc()))
+
+    totals_row = (
+        dbsession.query(
+            func.count(1).label('rowcount'),
+        )
+        .select_from(query.subquery('subq'))
+        .one())
+
+    list_query = query.offset(offset)
+    if limit is not None:
+        list_query = list_query.limit(limit)
+    rows = list_query.all()
+
+    need_peer_ids = set()
+    need_loop_ids = set()
+    for row in rows:
+        loop_id = row.loop_id
+        if loop_id and loop_id != '0':
+            need_loop_ids.add(loop_id)
+        issuer_id = row.issuer_id
+        if issuer_id:
+            need_peer_ids.add(issuer_id)
+    peer_map = get_peer_map(
+        request=request, need_peer_ids=need_peer_ids, final=final)
+    loop_map = get_loop_map(
+        request=request, need_loop_ids=need_loop_ids, final=final)
+
+    json_loops = []
+    for row in rows:
+        loop_id = row.loop_id
+        issuer_id = row.issuer_id
+        json_loops.append({
+            'issuer_id': issuer_id,
+            'issuer': peer_map[issuer_id] if issuer_id else None,
+            'loop_id': loop_id,
+            'loop': loop_map[loop_id] if loop_id and loop_id != '0' else None,
+            'enabled': row.enabled,
+        })
+    return {
+        'loops': json_loops,
+        'rowcount': totals_row.rowcount,
+    }
+
+
+@view_config(
+    name='loops',
+    context=FileResource,
+    permission=perms.view_file,
+    renderer='json')
+def file_loops_final_api(context, request):
+    return page_loop_configs(request=request, file=context.file, final=False)
+
+
+@view_config(
+    name='loops-final',
+    context=FileResource,
+    permission=perms.view_file,
+    renderer='json')
+def file_loops_api(context, request):
+    return page_loop_configs(request=request, file=context.file, final=True)

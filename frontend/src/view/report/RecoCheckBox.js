@@ -68,10 +68,10 @@ class RecoCheckBox extends React.Component {
 
     if (recoId !== null && recoId !== undefined) {
       Icon = CheckBox;
-      hiddenText = 'YES';
+      hiddenText = 'Y';
     } else {
       Icon = CheckBoxOutlineBlank;
-      hiddenText = '___';
+      hiddenText = 'n';
     }
 
     let popup = null;

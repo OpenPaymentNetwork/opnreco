@@ -436,7 +436,7 @@ class FilePeriods extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const {file} = ownProps;
-  const pagerName = 'PeriodsView';
+  const pagerName = 'FilePeriods';
   const {
     rowsPerPage,
     pageIndex,
