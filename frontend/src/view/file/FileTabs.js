@@ -126,8 +126,10 @@ class FileTabs extends React.Component {
     const titleParts = [];
 
     const displayTabs = [];
+    let tabAvailable = false;
     for (const tabinfo of this.getTabs()) {
       if (tabinfo.value === tab) {
+        tabAvailable = true;
         titleParts.push(tabinfo.titlePart || tabinfo.label);
       }
       if (!tabinfo.invisible) {
@@ -138,7 +140,7 @@ class FileTabs extends React.Component {
     const tabs = (
       <Tabs
         className={classes.tabs}
-        value={tab}
+        value={tabAvailable ? tab : false}
         variant="scrollable"
         scrollButtons="auto"
         onChange={this.handleTabChange}

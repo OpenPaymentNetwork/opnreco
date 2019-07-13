@@ -83,7 +83,7 @@ class MovementInterpreter:
             )
             .all())
         return {
-            (row.loop_id, row.file_id): row.enabled
+            (row.loop_id, row.issuer_id): row.enabled
             for row in rows}
 
     def include_closed_loop(self, loop_id, issuer_id):
@@ -180,7 +180,7 @@ class MovementInterpreter:
                 # This movement no longer applies to the file
                 # and the file movement is safe to delete, so delete it.
                 configure_logging()
-                dbsession.delete(file_movement, synchronize_session=True)
+                dbsession.delete(file_movement)
                 file_movement = None
 
             elif (kw and
@@ -236,7 +236,7 @@ class MovementInterpreter:
         dbsession = self.request.dbsession
 
         while True:
-            record_batch = (
+            q = (
                 dbsession.query(TransferRecord)
                 .outerjoin(FileSync, and_(
                     FileSync.file_id == self.file.id,
@@ -247,8 +247,8 @@ class MovementInterpreter:
                     FileSync.transfer_record_id == null,
                 )
                 .order_by(TransferRecord.id)
-                .limit(100)
-                .all())
+                .limit(100))
+            record_batch = q.all()
 
             if not record_batch:
                 break

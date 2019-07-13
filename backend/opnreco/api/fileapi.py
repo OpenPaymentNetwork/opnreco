@@ -3,6 +3,8 @@
 from opnreco.models import perms
 from opnreco.models.db import File
 from opnreco.models.db import FileLoopConfig
+from opnreco.models.db import FileSync
+from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
 from opnreco.models.db import Period
@@ -10,10 +12,13 @@ from opnreco.models.site import FileCollection
 from opnreco.models.site import FileResource
 from opnreco.param import all_currencies
 from opnreco.param import get_offset_limit
+from opnreco.syncbase import SyncBase
 from opnreco.viewcommon import get_loop_map
 from opnreco.viewcommon import get_peer_map
 from opnreco.viewcommon import handle_invalid
+from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
+from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
@@ -399,6 +404,7 @@ def page_loop_configs(request, file, final):
         loop_id = row.loop_id
         issuer_id = row.issuer_id
         json_loops.append({
+            'id': str(row.id),
             'issuer_id': issuer_id,
             'issuer': peer_map[issuer_id] if issuer_id else None,
             'loop_id': loop_id,
@@ -427,3 +433,70 @@ def file_loops_final_api(context, request):
     renderer='json')
 def file_loops_api(context, request):
     return page_loop_configs(request=request, file=context.file, final=True)
+
+
+@view_config(
+    name='configure-loops',
+    context=FileResource,
+    permission=perms.edit_file,
+    renderer='json')
+def configure_loops_api(context, request):
+    """Change the enabled flag of some FileLoopConfigs and resync."""
+    file = context.file
+    loops_enabled = request.json['configs_enabled']
+    if not isinstance(loops_enabled, dict):
+        raise HTTPBadRequest()
+
+    dbsession = request.dbsession
+    owner = request.owner
+    owner_id = owner.id
+
+    movement_filters = []
+    for k, v in loops_enabled.items():
+        try:
+            config_id = int(k)
+            enabled = bool(v)
+        except ValueError:
+            raise HTTPBadRequest()
+
+        config = (
+            dbsession.query(FileLoopConfig)
+            .filter(
+                FileLoopConfig.owner_id == owner_id,
+                FileLoopConfig.file_id == file.id,
+                FileLoopConfig.id == config_id,
+            )
+            .first())
+
+        if config is None:
+            continue
+
+        config.enabled = enabled
+        movement_filters.append(and_(
+            Movement.loop_id == config.loop_id,
+            Movement.issuer_id == config.issuer_id))
+
+    if movement_filters:
+        # Resync all transfers involving affected movements.
+        transfer_record_ids = (
+            dbsession.query(Movement.transfer_record_id)
+            .filter(
+                Movement.owner_id == owner_id,
+                or_(*movement_filters))
+            .distinct()
+        )
+
+        query = (
+            dbsession.query(FileSync)
+            .filter(
+                FileSync.file_id == file.id,
+                FileSync.transfer_record_id.in_(
+                    transfer_record_ids.subquery('subq')))
+            )
+        query.delete(synchronize_session=False)
+
+        dbsession.expire_all()
+        sync = SyncBase(request)
+        sync.sync_missing()
+
+    return {}

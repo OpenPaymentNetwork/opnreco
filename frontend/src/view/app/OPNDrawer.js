@@ -163,9 +163,7 @@ class OPNDrawer extends React.Component {
     let changeCount = 0;
 
     const syncBatch = () => {
-      const action = fOPNReco.fetchPath('/sync', {data: {
-        tzname,
-      }});
+      const action = fOPNReco.fetchPath('/sync', {data: {tzname}});
       dispatch(action).then(status => {
         changeCount += (status.change_count || 0);
         if (status.more) {

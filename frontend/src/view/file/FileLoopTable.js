@@ -1,8 +1,10 @@
+import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { getPagerState } from '../../reducer/pager';
+import { throttler } from '../../util/throttler';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import ButtonBase from '@material-ui/core/ButtonBase';
@@ -62,6 +64,15 @@ const styles = {
   },
   loopRow: {
   },
+  button: {
+    position: 'relative',
+  },
+  saving: {
+    position: 'absolute',
+    left: '100%',
+    top: '4px',
+    paddingLeft: '8px',
+  },
 };
 
 
@@ -81,7 +92,71 @@ class FileLoopTable extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = {};
+    this.state = {
+      enabledChanges: {},  // config_id: changed enabled flag (bool)
+      enabledSaved: {},    // config_id: saved enabled flag (bool)
+    };
+  }
+
+  setEnabled(config_id, newEnabled) {
+    this.setState({enabledChanges: {
+      ...this.state.enabledChanges,
+      [config_id]: newEnabled,
+    }});
+    this.getCommitThrottler()();
+  }
+
+  getCommitThrottler() {
+    let t = this.commitThrottler;
+    if (!t) {
+      t = throttler(this.commit, 400);
+      this.commitThrottler = t;
+    }
+    return t;
+  }
+
+  commit = () => {
+    const {
+      dispatch,
+      file,
+    } = this.props;
+
+    const {
+      enabledChanges,
+      enabledSaved,
+    } = this.state;
+
+    const url = fOPNReco.pathToURL(
+      `/file/${encodeURIComponent(file.id)}/configure-loops`);
+    const data = {
+      configs_enabled: enabledChanges,
+    };
+
+    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    promise.then(() => {
+      const newEnabled = {...this.state.enabledChanges};
+      for (const config_id of Object.keys(enabledChanges)) {
+        if (enabledChanges[config_id] === newEnabled[config_id]) {
+          // This loop config didn't change while saving changes, so
+          // remove it from the change list.
+          delete newEnabled[config_id];
+        }
+      }
+      this.setState({
+        enabledChanges: newEnabled,
+        enabledSaved: {
+          ...enabledSaved,
+          ...enabledChanges,
+        },
+      });
+
+      if (Object.keys(newEnabled).length) {
+        // Save more changes.
+        this.getCommitThrottler()();
+      } else {
+        dispatch(clearMost());
+      }
+    });
   }
 
   renderTableBody() {
@@ -90,31 +165,49 @@ class FileLoopTable extends React.Component {
       content,
     } = this.props;
 
+    const {
+      enabledChanges,
+      enabledSaved,
+    } = this.state;
+
     const rows = [];
     for (const loopConfig of content.loops) {
-      const loop_id = loopConfig.loop_id;
+      const config_id = loopConfig.id;
+      const {loop_id, loop, issuer_id, issuer} = loopConfig;
 
-      const Icon = loopConfig.enabled ? CheckBox : CheckBoxOutlineBlank;
+      const enabledChange = enabledChanges[config_id];
+      let enabled = enabledChange;
+      if (enabled === undefined) {
+        enabled = enabledSaved[config_id];
+        if (enabled === undefined) {
+          enabled = loopConfig.enabled;
+        }
+      }
+      const Icon = enabled ? CheckBox : CheckBoxOutlineBlank;
 
       rows.push(
         <tr
-          key={loop_id}
-          data-loop-id={loop_id}
+          key={config_id}
+          data-config-id={config_id}
           className={classes.loopRow}
         >
           <td className={classes.textCell}>
-            {loopConfig.loop && loopConfig.loop.title ? `${loopConfig.loop.title} (${loop_id})` : loop_id}
+            {loop && loop.title ? `${loop.title} (${loop_id})` : loop.loop_id}
           </td>
           <td className={classes.textCell}>
-            {loopConfig.issuer && loopConfig.issuer.title ? `${loopConfig.issuer.title} (${loopConfig.issuer_id})` : loopConfig.loop.issuer_id}
+            {issuer && issuer.title ? `${issuer.title} (${issuer_id})` : loopConfig.loop.issuer_id}
           </td>
           <td className={classes.checkCell}>
             <ButtonBase
               centerRipple
-              onClick={(event) => this.handleEnable(event, loop_id)}
+              onClick={() => this.setEnabled(config_id, !enabled)}
               className={classes.button}
             >
               <Icon />
+              {enabledChange === undefined ? null :
+                <div className={classes.saving}>
+                  <CircularProgress size="16px" />
+                </div>}
             </ButtonBase>
           </td>
         </tr>
