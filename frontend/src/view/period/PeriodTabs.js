@@ -116,14 +116,16 @@ class PeriodTabs extends React.Component {
       }
     }
 
-    if (file.period_order && file.period_order.length) {
-      period = file.periods[file.period_order[0]];
-    }
+    if (file) {
+      if (file.period_order && file.period_order.length) {
+        period = file.periods[file.period_order[0]];
+      }
 
-    if (period) {
-      // Found a default period.
-      // Redirect to the current tab in the default period.
-      this.redirectToPeriod(period.id);
+      if (period) {
+        // Found a default period.
+        // Redirect to the current tab in the default period.
+        this.redirectToPeriod(period.id);
+      }
     }
   }
 
