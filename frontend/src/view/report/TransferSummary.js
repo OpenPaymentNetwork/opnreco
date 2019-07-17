@@ -14,7 +14,7 @@ import CancelIcon from '@material-ui/icons/Cancel';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import IconButton from '@material-ui/core/IconButton';
 import Paper from '@material-ui/core/Paper';
-import ProfileLink from './ProfileLink';
+import ProfileLink from '../../util/ProfileLink';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';

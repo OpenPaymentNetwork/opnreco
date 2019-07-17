@@ -13,6 +13,7 @@ import CheckBox from '@material-ui/icons/CheckBox';
 import CheckBoxOutlineBlank from '@material-ui/icons/CheckBoxOutlineBlank';
 import Pager from '../../util/Pager';
 import Paper from '@material-ui/core/Paper';
+import ProfileLink from '../../util/ProfileLink';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Require from '../../util/Require';
@@ -195,7 +196,7 @@ class FileLoopTable extends React.Component {
             {loop && loop.title ? `${loop.title} (${loop_id})` : loop.loop_id}
           </td>
           <td className={classes.textCell}>
-            {issuer && issuer.title ? `${issuer.title} (${issuer_id})` : loopConfig.loop.issuer_id}
+            <ProfileLink id={issuer_id} title={issuer.title} profiles={{issuer_id: issuer}} />
           </td>
           <td className={classes.checkCell}>
             <ButtonBase

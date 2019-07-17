@@ -7,7 +7,7 @@ import {
 } from '../../util/currency';
 import AccountBalance from '@material-ui/icons/AccountBalance';
 import AccountBalanceWallet from '@material-ui/icons/AccountBalanceWallet';
-import ProfileLink from './ProfileLink';
+import ProfileLink from '../../util/ProfileLink';
 import PropTypes from 'prop-types';
 import RecoCheckBox from './RecoCheckBox';
 import React from 'react';

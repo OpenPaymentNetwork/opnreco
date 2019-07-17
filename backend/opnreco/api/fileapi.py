@@ -4,6 +4,7 @@ from opnreco.models import perms
 from opnreco.models.db import File
 from opnreco.models.db import FileLoopConfig
 from opnreco.models.db import FileSync
+from opnreco.models.db import Loop
 from opnreco.models.db import Movement
 from opnreco.models.db import OwnerLog
 from opnreco.models.db import Peer
@@ -364,14 +365,25 @@ def page_loop_configs(request, file, final):
     dbsession = request.dbsession
     params = request.params
     offset, limit = get_offset_limit(params)
+    owner_id = request.owner.id
 
     query = (
         dbsession.query(FileLoopConfig)
+        .outerjoin(Loop, and_(
+            Loop.owner_id == owner_id,
+            Loop.loop_id == FileLoopConfig.owner_id))
+        .outerjoin(Peer, and_(
+            Peer.owner_id == owner_id,
+            Peer.peer_id == FileLoopConfig.issuer_id))
         .filter(
             FileLoopConfig.file_id == file.id,
-            FileLoopConfig.owner_id == request.owner.id,
+            FileLoopConfig.owner_id == owner_id,
         )
-        .order_by(FileLoopConfig.id.desc()))
+        .order_by(
+            Loop.title,
+            Peer.title,
+            FileLoopConfig.id.desc(),
+        ))
 
     totals_row = (
         dbsession.query(
