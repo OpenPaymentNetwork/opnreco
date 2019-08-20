@@ -388,7 +388,15 @@ Index(
 
 
 class FileSync(Base):
-    """The record of which TransferRecords have been synced with a File."""
+    """The record of which TransferRecords have been synced with a File.
+
+    The existence of an entry in this table signifies that the specified file
+    has interpreted the specified transfer record and created appropriate file
+    movements. To reinterpret transfers (such as when loops are added to or
+    removed from a closed loop reco file), we delete rows from this table
+    and wait for the user to sync. Syncing updates the file movements and
+    re-creates the file_sync rows.
+    """
     __tablename__ = 'file_sync'
     file_id = Column(
         BigInteger, ForeignKey('file.id'),
