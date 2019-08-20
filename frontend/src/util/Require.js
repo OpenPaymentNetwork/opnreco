@@ -75,7 +75,7 @@ class Require extends React.Component {
 
 function mapStateToProps(state) {
   // Inject the 'suspended' prop (even though Require doesn't use it)
-  // so that changing 'suspended' triggers repopulation of the requirements.
+  // so that changing 'suspended' triggers re-registration of the requirements.
   // Also inject the inv_count so that Require will re-register requirements
   // after invalidations.
   const {suspended, inv_count} = state.fetchcache;
