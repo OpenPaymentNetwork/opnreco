@@ -15,9 +15,11 @@ DROP FUNCTION movement_log_process;
 
 
 
--- Add an index to transfer_record.
+-- Add some missing indexes.
 CREATE INDEX ix_transfer_record_owner_id ON public.transfer_record USING btree (owner_id);
-
+CREATE INDEX ix_movement_transfer_record_id ON public.movement USING btree (transfer_record_id);
+CREATE INDEX ix_transfer_download_record_transfer_record_id
+    ON public.transfer_download_record USING btree (transfer_record_id);
 
 
 
@@ -230,6 +232,7 @@ CREATE TABLE public.file_movement (
 ALTER TABLE ONLY public.file_movement
     ADD CONSTRAINT pk_file_movement PRIMARY KEY (file_id, movement_id);
 
+CREATE INDEX ix_file_movement_movement_id ON public.file_movement USING btree (movement_id);
 CREATE INDEX ix_file_movement_owner_id ON public.file_movement USING btree (owner_id);
 CREATE INDEX ix_file_movement_reco_id ON public.file_movement USING btree (reco_id);
 CREATE INDEX ix_file_movement_period_id ON public.file_movement USING btree (period_id);
@@ -508,7 +511,7 @@ ALTER TABLE ONLY public.file_sync
 ALTER TABLE ONLY public.file_sync
     ADD CONSTRAINT fk_file_sync_transfer_record_id_transfer_record FOREIGN KEY (transfer_record_id) REFERENCES public.transfer_record(id);
 
-
+CREATE INDEX ix_file_sync_transfer_record_id ON public.file_sync USING btree (transfer_record_id);
 
 
 
