@@ -198,10 +198,6 @@ UNION select distinct
 -- Update the constraints on the movement table that need to be set up
 -- before the file_movement table can be created.
 
-DROP INDEX ix_movement_unique;
-CREATE UNIQUE INDEX ix_movement_unique ON public.movement USING btree
-    (transfer_record_id, number, amount_index, loop_id, currency, issuer_id);
-
 CREATE UNIQUE INDEX ix_movement_matchable ON public.movement USING btree
     (id, currency, loop_id, issuer_id, transfer_record_id, ts);
 
@@ -346,17 +342,135 @@ where
 
 
 
+-- Create file_movement_log, which is a file-specific version of movement_log.
+-- We could theoretically rename and alter movement_log instead, but
+-- this way we only create file_movement_log entries that match a file.
 
--- Drop columns no longer needed in the movement table.
--- They were copied to file_movement.
+CREATE TABLE public.file_movement_log (
+    id bigint NOT NULL,
+    ts timestamp without time zone DEFAULT timezone('UTC'::text, CURRENT_TIMESTAMP) NOT NULL,
+    file_id bigint NOT NULL,
+    movement_id bigint NOT NULL,
+    personal_id character varying NOT NULL,
+    event_type character varying NOT NULL,
+    period_id bigint NOT NULL,
+    reco_id bigint,
+    surplus_delta numeric NOT NULL
+);
+
+CREATE SEQUENCE public.file_movement_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.file_movement_log_id_seq OWNED BY public.file_movement_log.id;
+
+ALTER TABLE ONLY public.file_movement_log ALTER COLUMN id SET DEFAULT nextval('public.file_movement_log_id_seq'::regclass);
+
+ALTER TABLE ONLY public.file_movement_log
+    ADD CONSTRAINT pk_file_movement_log PRIMARY KEY (id);
+
+CREATE INDEX ix_file_movement_log_period_id ON public.file_movement_log USING btree (period_id);
+CREATE INDEX ix_file_movement_log_reco_id ON public.file_movement_log USING btree (reco_id);
+
+
+
+
+
+-- Copy from movement_log to file_movement_log, then delete movement_log.
+
+insert into file_movement_log (
+        ts,
+        file_id,
+        movement_id,
+        personal_id,
+        event_type,
+        period_id,
+        reco_id,
+        surplus_delta)
+select
+        movement_log.ts,
+        file_movement.file_id,
+        movement_log.movement_id,
+        movement_log.personal_id,
+        movement_log.event_type,
+        movement_log.period_id,
+        movement_log.reco_id,
+        movement_log.surplus_delta
+from movement_log
+    join file_movement on (file_movement.movement_id = movement_log.movement_id);
+
+drop table movement_log;
+
+
+
+
+-- Drop constraints from the movement table.
 
 ALTER TABLE ONLY public.movement
     DROP CONSTRAINT fk_movement_reco_id_reco,
     DROP CONSTRAINT match_period,
-    DROP CONSTRAINT match_reco;
+    DROP CONSTRAINT match_reco,
+    add column tmp_delete boolean not null default false;
+
+
+
+
+-- In the old design, there were two movement rows for every movement,
+-- one with peer_id = 'c', the other with peer_id = orig_peer_id.
+-- Drop the duplicated movement rows. Delete the 'c' row for account
+-- reconciliation files; delete the non-'c' row for the rest.
+
+-- Create a temporary table, file_type_lookup, with a primary key so
+-- Postgres can quickly look up the file_type for each movement.
+
+create table file_type_lookup (
+    movement_id bigint not null primary key,
+    file_type character varying NOT NULL
+);
+
+insert into file_type_lookup
+    select file_movement.movement_id, file.file_type
+    from file_movement
+    join file on (file_movement.file_id = file.id);
+
+update movement set tmp_delete = true
+    where movement.peer_id != 'c' and (
+        select file_type
+        from file_type_lookup
+        where file_type_lookup.movement_id = movement.id
+    ) != 'account';
+
+update movement set tmp_delete = true
+    where movement.peer_id = 'c' and (
+        select file_type
+        from file_type_lookup
+        where file_type_lookup.movement_id = movement.id
+    ) = 'account';
+
+update movement set tmp_delete = true
+    where movement.peer_id != 'c' and not exists (
+        select 1
+        from file_type_lookup
+        where file_type_lookup.movement_id = movement.id
+    );
+
+delete from movement where tmp_delete;
+
+drop table file_type_lookup;
+
+
+
+
+
+-- Drop columns no longer needed in the movement table.
+-- They were copied to file_movement.
 
 DROP INDEX ix_movement_period_id;
 DROP INDEX ix_movement_reco_id;
+DROP INDEX ix_movement_unique;
 
 alter table only public.movement
     drop CONSTRAINT ck_movement_orig_peer_id_not_c,
@@ -367,8 +481,11 @@ alter table only public.movement
     drop column vault_delta,
     drop column period_id,
     drop column reco_id,
-    drop column surplus_delta;
+    drop column surplus_delta,
+    drop column tmp_delete;
 
+CREATE UNIQUE INDEX ix_movement_unique ON public.movement USING btree
+    (transfer_record_id, number, amount_index, loop_id, currency, issuer_id);
 
 
 
@@ -452,70 +569,6 @@ alter table account_entry_log
     drop column period_id,
     add CONSTRAINT ck_account_entry_log_delta_nonzero CHECK ((delta <> (0)::numeric));
 
-
-
-
--- Create file_movement_log, which is a file-specific version of movement_log.
--- We could theoretically rename and alter movement_log instead, but
--- this way we only create file_movement_log entries that match a file.
-
-CREATE TABLE public.file_movement_log (
-    id bigint NOT NULL,
-    ts timestamp without time zone DEFAULT timezone('UTC'::text, CURRENT_TIMESTAMP) NOT NULL,
-    file_id bigint NOT NULL,
-    movement_id bigint NOT NULL,
-    personal_id character varying NOT NULL,
-    event_type character varying NOT NULL,
-    period_id bigint NOT NULL,
-    reco_id bigint,
-    surplus_delta numeric NOT NULL
-);
-
-CREATE SEQUENCE public.file_movement_log_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.file_movement_log_id_seq OWNED BY public.file_movement_log.id;
-
-ALTER TABLE ONLY public.file_movement_log ALTER COLUMN id SET DEFAULT nextval('public.file_movement_log_id_seq'::regclass);
-
-ALTER TABLE ONLY public.file_movement_log
-    ADD CONSTRAINT pk_file_movement_log PRIMARY KEY (id);
-
-CREATE INDEX ix_file_movement_log_period_id ON public.file_movement_log USING btree (period_id);
-CREATE INDEX ix_file_movement_log_reco_id ON public.file_movement_log USING btree (reco_id);
-
-
-
-
-
--- Copy from movement_log to file_movement_log, then delete movement_log.
-
-insert into file_movement_log (
-        ts,
-        file_id,
-        movement_id,
-        personal_id,
-        event_type,
-        period_id,
-        reco_id,
-        surplus_delta)
-select
-        movement_log.ts,
-        file_movement.file_id,
-        movement_log.movement_id,
-        movement_log.personal_id,
-        movement_log.event_type,
-        movement_log.period_id,
-        movement_log.reco_id,
-        movement_log.surplus_delta
-from movement_log
-    join file_movement on (file_movement.movement_id = movement_log.movement_id);
-
-drop table movement_log;
 
 
 
@@ -706,4 +759,5 @@ CREATE TRIGGER file_movement_log_trigger
 
 
 
-commit;
+-- commit;
+rollback;

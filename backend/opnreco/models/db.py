@@ -321,7 +321,7 @@ class TransferDownloadRecord(Base):
         nullable=False, primary_key=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'),
-        nullable=False, primary_key=True)
+        nullable=False, primary_key=True, index=True)
     transfer_id = Column(String, nullable=False)
     changed = Column(JSONB, nullable=False)
 
@@ -337,7 +337,8 @@ class Movement(Base):
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
     transfer_record_id = Column(
-        BigInteger, ForeignKey('transfer_record.id'), nullable=False)
+        BigInteger, ForeignKey('transfer_record.id'),
+        nullable=False, index=True)
 
     # The number field is provided by OPN. Each OPN movement has a distinct
     # number, but this database can spread an OPN movement over multiple
@@ -403,7 +404,7 @@ class FileSync(Base):
         nullable=False, primary_key=True)
     transfer_record_id = Column(
         BigInteger, ForeignKey('transfer_record.id'),
-        nullable=False, primary_key=True)
+        nullable=False, primary_key=True, index=True)
 
 
 class FileMovement(Base):
@@ -414,7 +415,7 @@ class FileMovement(Base):
         nullable=False, primary_key=True)
     movement_id = Column(
         BigInteger, ForeignKey('movement.id'),
-        nullable=False, primary_key=True)
+        nullable=False, primary_key=True, index=True)
     owner_id = Column(
         String, ForeignKey('owner.id'), nullable=False, index=True)
 
