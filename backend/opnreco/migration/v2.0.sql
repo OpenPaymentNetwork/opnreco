@@ -360,17 +360,14 @@ DROP INDEX ix_movement_reco_id;
 
 alter table only public.movement
     drop CONSTRAINT ck_movement_orig_peer_id_not_c,
-    drop CONSTRAINT ck_movement_surplus_delta_value;
-
-alter table only public.movement
+    drop CONSTRAINT ck_movement_surplus_delta_value,
     drop column peer_id,
+    drop column orig_peer_id,
     drop column wallet_delta,
     drop column vault_delta,
     drop column period_id,
     drop column reco_id,
     drop column surplus_delta;
-
-alter table movement rename orig_peer_id to peer_id;
 
 
 
@@ -532,7 +529,7 @@ alter table public.owner
 
 
 
--- Delete the 'c' peers and add a constraint so they can't come back.
+-- Delete the 'c' peers and add the constraint that keeps them from coming back.
 delete from public.peer where peer_id = 'c';
 alter table public.peer
     add CONSTRAINT ck_peer_peer_id_not_c CHECK (((peer_id)::text <> 'c'::text));
@@ -709,5 +706,4 @@ CREATE TRIGGER file_movement_log_trigger
 
 
 
--- commit;
-rollback;
+commit;
