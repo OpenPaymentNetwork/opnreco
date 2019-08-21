@@ -7,11 +7,16 @@ begin;
 
 -- Temporarily drop the triggers and trigger functions.
 
-DROP TRIGGER account_entry_log_trigger;
-DROP TRIGGER movement_log_trigger;
+DROP TRIGGER account_entry_log_trigger ON public.account_entry;
+DROP TRIGGER movement_log_trigger ON public.movement;
 DROP FUNCTION account_entry_log_process;
 DROP FUNCTION movement_log_process;
 
+
+
+
+-- Add an index to transfer_record.
+CREATE INDEX ix_transfer_record_owner_id ON public.transfer_record USING btree (owner_id);
 
 
 
@@ -190,6 +195,20 @@ UNION select distinct
 
 
 
+-- Update the constraints on the movement table that need to be set up
+-- before the file_movement table can be created.
+
+DROP INDEX ix_movement_unique;
+CREATE UNIQUE INDEX ix_movement_unique ON public.movement USING btree
+    (transfer_record_id, number, amount_index, loop_id, currency, issuer_id);
+
+CREATE UNIQUE INDEX ix_movement_matchable ON public.movement USING btree
+    (id, currency, loop_id, issuer_id, transfer_record_id, ts);
+
+
+
+
+
 -- Create the file_movement table.
 
 CREATE TABLE public.file_movement (
@@ -216,8 +235,8 @@ ALTER TABLE ONLY public.file_movement
     ADD CONSTRAINT pk_file_movement PRIMARY KEY (file_id, movement_id);
 
 CREATE INDEX ix_file_movement_owner_id ON public.file_movement USING btree (owner_id);
-
 CREATE INDEX ix_file_movement_reco_id ON public.file_movement USING btree (reco_id);
+CREATE INDEX ix_file_movement_period_id ON public.file_movement USING btree (period_id);
 
 ALTER TABLE ONLY public.file_movement
     ADD CONSTRAINT fk_file_movement_file_id_file FOREIGN KEY (file_id) REFERENCES public.file(id),
@@ -252,7 +271,7 @@ insert into file_movement (
     period_id,
     reco_id,
     surplus_delta)
-select (
+select
     file.id,
     movement.id,
     movement.owner_id,
@@ -266,7 +285,7 @@ select (
     movement.vault_delta,
     movement.period_id,
     movement.reco_id,
-    movement.surplus_delta)
+    movement.surplus_delta
 from movement
     join file on (
         file.owner_id = movement.owner_id and
@@ -298,7 +317,7 @@ insert into file_movement (
     period_id,
     reco_id,
     surplus_delta)
-select (
+select
     file.id,
     movement.id,
     movement.owner_id,
@@ -312,7 +331,7 @@ select (
     movement.vault_delta,
     movement.period_id,
     movement.reco_id,
-    movement.surplus_delta)
+    movement.surplus_delta
 from movement
     join file on (
         file.owner_id = movement.owner_id and
@@ -338,18 +357,18 @@ ALTER TABLE ONLY public.movement
 
 DROP INDEX ix_movement_period_id;
 DROP INDEX ix_movement_reco_id;
-DROP INDEX ix_movement_unique;
 
-alter table movement
+alter table only public.movement
     drop CONSTRAINT ck_movement_orig_peer_id_not_c,
-    drop CONSTRAINT ck_movement_surplus_delta_value,
+    drop CONSTRAINT ck_movement_surplus_delta_value;
+
+alter table only public.movement
     drop column peer_id,
     drop column wallet_delta,
     drop column vault_delta,
     drop column period_id,
     drop column reco_id,
-    drop column surplus_delta,
-    ADD CONSTRAINT fk_movement_owner_id_owner FOREIGN KEY (owner_id) REFERENCES public.owner(id);
+    drop column surplus_delta;
 
 alter table movement rename orig_peer_id to peer_id;
 
@@ -396,6 +415,11 @@ alter table statement
     drop column loop_id,
     drop column currency;
 
+CREATE INDEX ix_statement_file_id ON public.statement USING btree (file_id);
+
+ALTER TABLE ONLY public.statement
+    ADD CONSTRAINT fk_statement_file_id_file FOREIGN KEY (file_id) REFERENCES public.file(id);
+
 
 
 
@@ -415,12 +439,11 @@ alter table account_entry
     drop column peer_id;
 
 CREATE INDEX ix_account_entry_file_id ON public.account_entry USING btree (file_id);
-CREATE INDEX ix_account_entry_log_account_entry_id ON public.account_entry_log USING btree (account_entry_id);
 
 ALTER TABLE ONLY public.account_entry
-    ADD CONSTRAINT fk_account_entry_file_id_file FOREIGN KEY (file_id) REFERENCES public.file(id);
-ALTER TABLE ONLY public.account_entry
-    ADD CONSTRAINT fk_account_entry_period_id_period FOREIGN KEY (period_id) REFERENCES public.period(id);
+    ADD CONSTRAINT fk_account_entry_file_id_file FOREIGN KEY (file_id) REFERENCES public.file(id),
+    ADD CONSTRAINT fk_account_entry_period_id_period FOREIGN KEY (period_id) REFERENCES public.period(id),
+    ADD CONSTRAINT match_file FOREIGN KEY (file_id, currency) REFERENCES public.file(id, currency);
 
 
 
@@ -526,13 +549,15 @@ delete from public.period where
         select 1 from file
         where file.owner_id = period.owner_id
             and file.currency = period.currency
-            and file.loop_id = period.loop_id
             and (
                 (period.peer_id = 'c' and file.file_type = 'open_circ') or
                 (period.peer_id != 'c' and file.peer_id = period.peer_id)));
 
 drop index ix_period_single_unbounded_end_date;
 drop index ix_period_single_unbounded_start_date;
+
+
+
 
 
 -- Add the file_id column to period and drop the now-unused columns.
@@ -543,7 +568,6 @@ update period
         select file.id from file
         where file.owner_id = period.owner_id
             and file.currency = period.currency
-            and file.loop_id = period.loop_id
             and (
                 (period.peer_id = 'c' and file.file_type = 'open_circ') or
                 (period.peer_id != 'c' and file.peer_id = period.peer_id)));
@@ -562,6 +586,10 @@ CREATE UNIQUE INDEX ix_period_single_unbounded_end_date ON public.period
 
 CREATE UNIQUE INDEX ix_period_single_unbounded_start_date ON public.period
     USING btree (owner_id, file_id) WHERE (start_date IS NULL);
+
+ALTER TABLE ONLY public.period
+    ADD CONSTRAINT fk_period_file_id_file FOREIGN KEY (file_id) REFERENCES public.file(id);
+
 
 
 
@@ -681,4 +709,5 @@ CREATE TRIGGER file_movement_log_trigger
 
 
 
-commit;
+-- commit;
+rollback;
