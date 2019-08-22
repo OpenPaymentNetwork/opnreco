@@ -126,7 +126,7 @@ class FileAddForm extends React.Component {
         return 'Closed Loop Circulation';
       } else if (file_type === 'account') {
         const peer_id = this.state.form.peer_id;
-        if (peer_id) {
+        if (peer_id && this.props.peerContent) {
           const peer = this.props.peerContent.peers[peer_id];
           if (peer && peer.title) {
             return `Account ${peer.title}`;

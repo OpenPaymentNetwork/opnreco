@@ -46,7 +46,7 @@ class LoginView extends React.Component {
     if (!this.props.oauthState) {
       // componentDidMount() should normally call startOAuth(), but
       // sometimes after logout it doesn't work. Just fix it. :-)
-      startOAuth();
+      this.startOAuth();
     }
   }
 
