@@ -668,8 +668,13 @@ update period
 
 -- Delete the recos that belong to periods about to be deleted
 -- (because the period has no file_id.)
+-- Be sure not to delete nonstandard recos, external recos,
+-- and recos with a comment.
 delete from reco
-    where (select file_id from period where period.id = reco.period_id) is null;
+    where (select file_id from period where period.id = reco.period_id) is null
+    and reco.reco_type = 'standard'
+    and reco.internal
+    and (reco.comment is null or reco.comment = '');
 
 -- Delete the periods without a file_id.
 delete from period where file_id is null;
