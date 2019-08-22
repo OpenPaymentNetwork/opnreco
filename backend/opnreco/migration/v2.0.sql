@@ -102,7 +102,9 @@ ALTER TABLE ONLY public.file_loop_config
 
 
 
--- Auto-generate the open loop circulation files.
+-- Auto-generate open loop circulation files.
+-- Create a file for any open loop movement to/from a vault and for
+-- every bank statement created or uploaded.
 
 insert into file (
     owner_id,
@@ -123,7 +125,7 @@ select distinct
         false,
         false
     from movement
-    where movement.vault_delta != 0
+    where movement.loop_id = '0' and movement.vault_delta != 0
 UNION select distinct
         statement.owner_id,
         'open_circ',
@@ -150,7 +152,9 @@ update owner set has_open_circ = true where exists (
 
 
 
--- Auto-generate the account files.
+-- Auto-generate account files.
+-- Create a file for any open loop movement reconciled with an
+-- owned DFI account and for every bank statement created or uploaded.
 
 insert into file (
     owner_id,
@@ -176,6 +180,8 @@ select distinct
             peer.peer_id = movement.peer_id)
         join owner on (owner.id = movement.owner_id)
     where
+        movement.loop_id = '0' and
+        movement.reco_id is not null and
         peer.is_own_dfi_account and
         (not owner.has_open_circ or owner.show_non_circ_with_circ)
 UNION select distinct
@@ -423,44 +429,103 @@ ALTER TABLE ONLY public.movement
 
 -- In the old design, there were two movement rows for every movement,
 -- one with peer_id = 'c', the other with peer_id = orig_peer_id.
--- Drop the duplicated movement rows. Delete the 'c' row for account
--- reconciliation files; delete the non-'c' row for the rest.
+-- Delete one of the movements in each pair. We can't just delete all the 'c'
+-- movements or all the non-'c' movements because some of them
+-- are now assigned to files, so delete the 'c' row for movements in account
+-- reconciliation files and delete the non-'c' row for the rest.
 
 -- Create a temporary table, file_type_lookup, with a primary key so
 -- Postgres can quickly look up the file_type for each movement.
 
 create table file_type_lookup (
-    movement_id bigint not null primary key,
-    file_type character varying NOT NULL
+    transfer_record_id bigint NOT NULL,
+    number integer NOT NULL,
+    amount_index integer NOT NULL,
+    loop_id character varying NOT NULL,
+    currency character varying NOT NULL,
+    issuer_id character varying NOT NULL,
+    file_type character varying NOT NULL,
+    primary key (
+        transfer_record_id,
+        number,
+        amount_index,
+        loop_id,
+        currency,
+        issuer_id)
 );
 
-insert into file_type_lookup
-    select file_movement.movement_id, file.file_type
-    from file_movement
-    join file on (file_movement.file_id = file.id);
+insert into file_type_lookup (
+        transfer_record_id,
+        number,
+        amount_index,
+        loop_id,
+        currency,
+        issuer_id,
+        file_type)
+    select distinct
+        movement.transfer_record_id,
+        movement.number,
+        movement.amount_index,
+        movement.loop_id,
+        movement.currency,
+        movement.issuer_id,
+        file.file_type
+    from movement
+    join file_movement on (file_movement.movement_id = movement.id)
+    join file on (file.id = file_movement.file_id);
 
+-- For each movement pair that belongs to a circulation (non-account) file,
+-- delete the non-'c' movement.
 update movement set tmp_delete = true
     where movement.peer_id != 'c' and (
         select file_type
         from file_type_lookup
-        where file_type_lookup.movement_id = movement.id
+        where
+            file_type_lookup.transfer_record_id = movement.transfer_record_id
+            and file_type_lookup.number = movement.number
+            and file_type_lookup.amount_index = movement.amount_index
+            and file_type_lookup.loop_id = movement.loop_id
+            and file_type_lookup.currency = movement.currency
+            and file_type_lookup.issuer_id = movement.issuer_id
     ) != 'account';
 
+-- For each movement pair that belongs to an account file,
+-- delete the 'c' movement.
 update movement set tmp_delete = true
     where movement.peer_id = 'c' and (
         select file_type
         from file_type_lookup
-        where file_type_lookup.movement_id = movement.id
+        where
+            file_type_lookup.transfer_record_id = movement.transfer_record_id
+            and file_type_lookup.number = movement.number
+            and file_type_lookup.amount_index = movement.amount_index
+            and file_type_lookup.loop_id = movement.loop_id
+            and file_type_lookup.currency = movement.currency
+            and file_type_lookup.issuer_id = movement.issuer_id
     ) = 'account';
 
+-- For each movement pair that doesn't belong to a file,
+-- delete the non-'c' movement.
 update movement set tmp_delete = true
     where movement.peer_id != 'c' and not exists (
         select 1
         from file_type_lookup
-        where file_type_lookup.movement_id = movement.id
+        where
+            file_type_lookup.transfer_record_id = movement.transfer_record_id
+            and file_type_lookup.number = movement.number
+            and file_type_lookup.amount_index = movement.amount_index
+            and file_type_lookup.loop_id = movement.loop_id
+            and file_type_lookup.currency = movement.currency
+            and file_type_lookup.issuer_id = movement.issuer_id
     );
 
+-- At this point, exactly one movement of each movement pair should be marked
+-- for deletion. Delete the marked movements.
 delete from movement where tmp_delete;
+
+DROP INDEX ix_movement_unique;
+CREATE UNIQUE INDEX ix_movement_unique ON public.movement USING btree
+    (transfer_record_id, number, amount_index, loop_id, currency, issuer_id);
 
 drop table file_type_lookup;
 
@@ -473,7 +538,6 @@ drop table file_type_lookup;
 
 DROP INDEX ix_movement_period_id;
 DROP INDEX ix_movement_reco_id;
-DROP INDEX ix_movement_unique;
 
 alter table only public.movement
     drop CONSTRAINT ck_movement_orig_peer_id_not_c,
@@ -486,9 +550,6 @@ alter table only public.movement
     drop column reco_id,
     drop column surplus_delta,
     drop column tmp_delete;
-
-CREATE UNIQUE INDEX ix_movement_unique ON public.movement USING btree
-    (transfer_record_id, number, amount_index, loop_id, currency, issuer_id);
 
 
 
@@ -592,28 +653,7 @@ alter table public.peer
 
 
 
-
--- Delete the default periods that don't belong to a file.
-delete from public.period where 
-    start_date = null and
-    end_date = null and
-    not closed and
-    not exists (
-        select 1 from file
-        where file.owner_id = period.owner_id
-            and file.currency = period.currency
-            and (
-                (period.peer_id = 'c' and file.file_type = 'open_circ') or
-                (period.peer_id != 'c' and file.peer_id = period.peer_id)));
-
-drop index ix_period_single_unbounded_end_date;
-drop index ix_period_single_unbounded_start_date;
-
-
-
-
-
--- Add the file_id column to period and drop the now-unused columns.
+-- Add a file_id column to the period table.
 alter table period
     add column file_id bigint;
 update period
@@ -621,15 +661,33 @@ update period
         select file.id from file
         where file.owner_id = period.owner_id
             and file.currency = period.currency
+            and period.loop_id = '0'
             and (
                 (period.peer_id = 'c' and file.file_type = 'open_circ') or
                 (period.peer_id != 'c' and file.peer_id = period.peer_id)));
+
+-- Delete the recos that belong to periods about to be deleted
+-- (because the period has no file_id.)
+delete from reco
+    where (select file_id from period where period.id = reco.period_id) is null;
+
+-- Delete the periods without a file_id.
+delete from period where file_id is null;
+
+
+
+
+-- Drop columns and create/replace indexes on the period table.
+
 alter table period
     alter column file_id set not null,
     drop column peer_id,
     drop column loop_id,
     drop column currency,
     drop column has_vault;
+
+drop index if exists ix_period_single_unbounded_end_date;
+drop index if exists ix_period_single_unbounded_start_date;
 
 CREATE INDEX ix_period_file_id ON public.period USING btree (file_id);
 CREATE INDEX ix_period_owner_id ON public.period USING btree (owner_id);
@@ -762,5 +820,4 @@ CREATE TRIGGER file_movement_log_trigger
 
 
 
--- commit;
-rollback;
+commit;
