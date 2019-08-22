@@ -71,6 +71,7 @@ class ProfileSelector extends React.Component {
       dispatch(clearWithFiles());
       dispatch(triggerResync());
       dispatch(closeDrawer());
+      this.props.history.push('/file');
       // Resume fetchcache.
       window.setTimeout(() => {
         dispatch(fetchcache.resume());

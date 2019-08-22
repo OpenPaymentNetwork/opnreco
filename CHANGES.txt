@@ -1,4 +1,20 @@
 
+2.0.0 (2019-08-22)
+------------------
+
+- Added the concept of files. Users now need to create a file
+  in order to start reconciliation. The file specifies what kind of
+  reconciliation the user wants, including parameters. This
+  replaces the guessing the tool was doing to decide whether the
+  user wanted open loop or account reconciliation.
+
+- Added experimental support for closed loop reconciliation. Create
+  a closed loop reconciliation file, then choose which loops are
+  relevant to that file.
+
+- Added a migration script that migrates any existing user-generated
+  reconciliation entries into auto-created files.
+
 1.5.3 (2019-03-13)
 ------------------
 
