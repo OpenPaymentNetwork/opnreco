@@ -555,8 +555,10 @@ alter table only public.movement
 
 
 
--- Create the file_sync table.
--- file_sync entries will be created as users run sync.
+-- Create the file_sync table and fill it. In theory, all the movements in the
+-- database have already been interpreted (meaning all appropriate
+-- file_movement rows have been derived from the movement rows), so filling
+-- the file_sync table is safe.
 
 CREATE TABLE public.file_sync (
     file_id bigint NOT NULL,
@@ -573,6 +575,12 @@ ALTER TABLE ONLY public.file_sync
     ADD CONSTRAINT fk_file_sync_transfer_record_id_transfer_record FOREIGN KEY (transfer_record_id) REFERENCES public.transfer_record(id);
 
 CREATE INDEX ix_file_sync_transfer_record_id ON public.file_sync USING btree (transfer_record_id);
+
+-- Intentional cartesian product between transfer_record and file
+insert into file_sync (transfer_record_id, file_id)
+select transfer_record.id, file.id
+    from transfer_record
+    join file on (file.owner_id = transfer_record.owner_id);
 
 
 
