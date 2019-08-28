@@ -1,0 +1,16 @@
+
+
+To fix SublimeLinter + eslint 6, add a SublimeLinter setting to the project file. Example:
+
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+    "settings":
+    {
+        "SublimeLinter.linters.eslint.working_dir": "/home/shane/scm/opnreco/frontend"
+    }
+}
