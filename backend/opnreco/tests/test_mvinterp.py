@@ -72,6 +72,16 @@ class Test_find_internal_movements(unittest.TestCase):
             [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
         ], vault_deltas(iseqs))
 
+    def test_hill_with_multiple_peers(self):
+        # Internal movement auto-reco should ignore the peer_id.
+        # Make sure it does.
+        movements = self._make_movements(['4.1', '0.9', -5, 2])
+        movements[1][0].peer_id = 20
+        iseqs = self._call(movements, {})
+        self.assertEqual([
+            [Decimal('4.1'), Decimal('0.9'), Decimal('-5.0')],
+        ], vault_deltas(iseqs))
+
     def test_simple_valley(self):
         movements = self._make_movements(['-4.1', '-0.9', 5, 2])
         iseqs = self._call(movements, {})

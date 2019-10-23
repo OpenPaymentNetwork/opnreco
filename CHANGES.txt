@@ -1,4 +1,14 @@
 
+2.0.1 (2019-10-22)
+------------------
+
+- Auto-reconciliation of internal movements was failing to match because
+  it was discarding sequences involving multiple peers, even though the
+  peer should not be relevant for auto-reconciliation of internal
+  movements. Fixed.
+
+- Update the handlebars dependency for a security issue.
+
 2.0.0 (2019-08-22)
 ------------------
 

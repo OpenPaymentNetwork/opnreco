@@ -485,7 +485,7 @@ class SyncBase:
             for interpreter in self.interpreters:
                 interpreter.sync_file_movements(
                     record=record,
-                    movements=movement_dict.values(),
+                    movements=list(movement_dict.values()),
                     is_new_record=is_new_record)
 
     def summarize_movement(self, movement, transfer_id, ts):

@@ -519,16 +519,14 @@ def find_internal_movements(movement_rows, done_movement_ids):
     some false positives.
     """
 
-    # Group by peer, loop_id, and currency,
+    # Group by loop_id and currency,
     # filtering out movements that had no effect on the wallet or vault.
-    # (Note that we specifically ignore Movement.orig_peer_id
-    # because it is not relevant here.)
-    # groups: {(peer_id, loop_id, currency): (FileMovement, Movement)}
+    # groups: {(loop_id, currency): (FileMovement, Movement)}
     groups = collections.defaultdict(list)
     for row in movement_rows:
         file_movement, movement = row
         if file_movement.wallet_delta or file_movement.vault_delta:
-            key = (file_movement.peer_id, movement.loop_id, movement.currency)
+            key = (movement.loop_id, movement.currency)
             groups[key].append(row)
 
     # all_internal_seqs is a list of movement sequences that
