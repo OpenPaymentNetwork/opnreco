@@ -484,6 +484,7 @@ class MovementInterpreter:
 
             for file_movement, movement in mvlist:
                 file_movement.reco_id = reco_id
+                file_movement.period_id = reco.period_id
 
         if added:
             self.change_log.append({
