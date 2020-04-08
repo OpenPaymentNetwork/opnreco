@@ -93,6 +93,7 @@ class SyncBase:
 
         # peer_ids is the set of all peer IDs referenced by the transfers.
         peer_ids = set()
+        peer_ids.add(self.owner_id)
         for tsum in transfers_download['results']:
             sender_id = tsum['sender_id']
             if sender_id:

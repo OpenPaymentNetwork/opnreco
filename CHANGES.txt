@@ -1,4 +1,11 @@
 
+2.0.2 (2020-04-08)
+------------------
+
+- Fixed syncing. It was failing for certain profiles because the code
+  attempted to add info about the file owner to the peer table more than
+  once, triggering UniqueViolation.
+
 2.0.1 (2019-10-22)
 ------------------
 
