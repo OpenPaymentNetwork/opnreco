@@ -1,6 +1,6 @@
 
 import { compose } from '../../util/functional';
-import { injectIntl, intlShape } from 'react-intl';
+import { injectIntl } from 'react-intl';
 import { renderPeriodDateString } from '../../util/reportrender';
 import { withStyles } from '@material-ui/core/styles';
 import Lock from '@material-ui/icons/Lock';
@@ -34,7 +34,7 @@ const styles = {
 class PeriodAssignSelect extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
-    intl: intlShape.isRequired,
+    intl: PropTypes.object.isRequired,
     periods: PropTypes.array,
   };
 

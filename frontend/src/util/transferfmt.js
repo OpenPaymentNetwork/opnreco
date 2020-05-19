@@ -28,14 +28,15 @@ export const wfTypeTitles = {
   send_design: 'Issue (Send Design)',
   settle: 'Settle',
   simple_grant: 'Grant',
+  trade: 'Trade',
 };
 
 
 /**
- * Return an identifier with dashes embedded for readability.
+ * Return an identifier with hyphens embedded for readability.
  * This matches the method OPN uses to expand transfer IDs.
  */
-export function dashed(s) {
+export function hyphenated(s) {
   let pos = 0;
   const parts = [];
   const sLen = s.length;

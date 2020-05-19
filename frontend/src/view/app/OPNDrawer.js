@@ -1,10 +1,11 @@
-import { FormattedRelative } from 'react-intl';
+import { FormattedRelativeTime } from 'react-intl';
 import { clearMost } from '../../reducer/clearmost';
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fOPNReco } from '../../util/fetcher';
 import { isSimpleClick } from '../../util/click';
 import { openDrawer, closeDrawer, setSyncProgress, setLoggingOut } from '../../reducer/app';
+import { selectUnit } from '@formatjs/intl-utils';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import CompareArrows from '@material-ui/icons/CompareArrows';
@@ -107,10 +108,15 @@ class OPNDrawer extends React.Component {
           secondary: 'Not yet synced',
         };
       } else {
+        const {value, unit} = selectUnit(syncedAt);
+        const updateInterval = (
+          unit === 'second' || unit === 'minute' || unit === 'hour' ? 10 : null);
         return {
           icon: <Sync />,
           primary: 'Synced with OPN',
-          secondary: <FormattedRelative value={syncedAt} />,
+          secondary: <FormattedRelativeTime
+            value={value} unit={unit} numeric="auto"
+            updateIntervalInSeconds={updateInterval} />,
         };
       }
     }

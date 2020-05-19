@@ -2,11 +2,12 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
-import { FormattedDate, FormattedTime, FormattedRelative } from 'react-intl';
+import { FormattedDate, FormattedTime, FormattedRelativeTime } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
 import { isSimpleClick } from '../../util/click';
+import { selectUnit } from '@formatjs/intl-utils';
 import { setTransferId } from '../../reducer/app';
-import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { wfTypeTitles, hyphenated } from '../../util/transferfmt';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
@@ -220,7 +221,7 @@ class TransferSummary extends React.Component {
           This transfer is a bundle of:
           <ul>
             {record.bundled_transfers.map(t => {
-              const tid = dashed(t.transfer_id);
+              const tid = hyphenated(t.transfer_id);
               const transferPath = (
                 `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
               return (
@@ -237,7 +238,7 @@ class TransferSummary extends React.Component {
     }
     if (record.bundle_transfer_id) {
       const encPeriodId = encodeURIComponent(period.id);
-      const tid = dashed(record.bundle_transfer_id);
+      const tid = hyphenated(record.bundle_transfer_id);
       const transferPath = (
         `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
       blocks.push(
@@ -268,6 +269,7 @@ class TransferSummary extends React.Component {
     const fieldValueCell = `${classes.cell} ${classes.fieldValueCell}`;
     const transferURL = `${publicURL}/p/${profileId}/t/${transferId}`;
     const bundleInfo = this.renderBundleInfo();
+    const {value, unit} = selectUnit(new Date(record.start));
 
     return (
       <div>
@@ -309,7 +311,7 @@ class TransferSummary extends React.Component {
                 <FormattedTime value={record.start}
                   hour="numeric" minute="2-digit" second="2-digit" />
                 {' '}
-                (<FormattedRelative value={record.start} />)
+                (<FormattedRelativeTime value={value} unit={unit} />)
               </td>
             </tr>
             <tr>

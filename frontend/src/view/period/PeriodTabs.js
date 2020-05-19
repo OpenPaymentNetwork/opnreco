@@ -3,7 +3,7 @@ import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco, filesURL } from '../../util/fetcher';
-import { injectIntl, intlShape } from 'react-intl';
+import { injectIntl } from 'react-intl';
 import { isSimpleClick } from '../../util/click';
 import { renderPeriodDateString } from '../../util/reportrender';
 import { toggleDrawer } from '../../reducer/app';
@@ -61,7 +61,7 @@ class PeriodTabs extends React.Component {
     dispatch: PropTypes.func.isRequired,
     gotAllFiles: PropTypes.bool,
     history: PropTypes.object.isRequired,
-    intl: intlShape.isRequired,
+    intl: PropTypes.object.isRequired,
     match: PropTypes.object.isRequired,
     period: PropTypes.object,
     periodId: PropTypes.string,

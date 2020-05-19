@@ -5,7 +5,7 @@ import { fOPNReco } from '../../util/fetcher';
 import { fetchcache } from '../../reducer/fetchcache';
 import { FormattedDate } from 'react-intl';
 import { getCurrencyFormatter } from '../../util/currency';
-import { injectIntl, intlShape } from 'react-intl';
+import { injectIntl } from 'react-intl';
 import { withStyles } from '@material-ui/core/styles';
 import AccountEntryDeleteDialog from './AccountEntryDeleteDialog';
 import Add from '@material-ui/icons/Add';
@@ -97,7 +97,7 @@ class AccountEntryTableContent extends React.Component {
     archived: PropTypes.bool,
     classes: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
-    intl: intlShape.isRequired,
+    intl: PropTypes.object.isRequired,
     period: PropTypes.object.isRequired,
     record: PropTypes.object.isRequired,
     recordURL: PropTypes.string.isRequired,

@@ -1,6 +1,6 @@
 
 import { compose } from '../../util/functional';
-import { dashed } from '../../util/transferfmt';
+import { hyphenated } from '../../util/transferfmt';
 import { FormattedDate, FormattedTime } from 'react-intl';
 import { getCurrencyDeltaFormatter } from '../../util/currency';
 import { isSimpleClick } from '../../util/click';
@@ -58,7 +58,7 @@ class MovementTableBody extends React.Component {
   renderItemCells = (movement, addCandidate) => {
     const {classes, showVault, windowPeriodId} = this.props;
     const encPeriodId = encodeURIComponent(windowPeriodId);
-    const tid = dashed(movement.transfer_id);
+    const tid = hyphenated(movement.transfer_id);
     const transferPath = (
       `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
     const cellClass = (

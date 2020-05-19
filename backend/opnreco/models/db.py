@@ -273,18 +273,25 @@ class TransferRecord(Base):
 
     sender_id = Column(String, nullable=True)         # May change
     sender_uid = Column(Unicode, nullable=True)       # May change
-    sender_info = Column(JSONB, nullable=True)        # May change
+    sender_info = Column(JSONB(none_as_null=True), nullable=True)  # May change
 
     recipient_id = Column(String, nullable=True)      # May change
     recipient_uid = Column(Unicode, nullable=True)    # May change
-    recipient_info = Column(JSONB, nullable=True)     # May change
+    # May change:
+    recipient_info = Column(JSONB(none_as_null=True), nullable=True)
 
     # Some transfers (particularly receive_ach_file transfers) are
     # essentially bundles of other transfers. bundled_transfers is the list
     # of transfers that this transfer bundles.
     # bundled_transfers: null or
     # [{transfer_id, currency, loop_id, issuer_id, amount}]
-    bundled_transfers = Column(JSONB, nullable=True)    # May change
+    bundled_transfers = Column(
+        JSONB(none_as_null=True),
+        CheckConstraint(
+            'bundled_transfers is null or '
+            'jsonb_array_length(bundled_transfers) >= 0',
+            name='bundled_transfers_is_array_or_null'),
+        nullable=True)    # May change
 
     # bundle_transfer_id specifies which bundle this transfer belongs
     # to, if any.
@@ -824,7 +831,7 @@ class VerificationResult(Base):
     last_sync_transfer_id = Column(String, nullable=True)
     sync_total = Column(BigInteger, nullable=True)
     sync_done = Column(BigInteger, nullable=True)
-    internal_result = Column(JSONB, nullable=True)
+    internal_result = Column(JSONB(none_as_null=True), nullable=True)
 
     # verified: {transfer_id: null or change_log as [{event_type, ...}]}
     verified = Column(JSONB, nullable=False)

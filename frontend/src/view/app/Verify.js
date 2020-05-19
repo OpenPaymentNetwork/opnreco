@@ -1,7 +1,7 @@
 
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { dashed } from '../../util/transferfmt';
+import { hyphenated } from '../../util/transferfmt';
 import { fetchcache } from '../../reducer/fetchcache';
 import { fOPNReco } from '../../util/fetcher';
 import { withRouter } from 'react-router';
@@ -405,7 +405,7 @@ class Verify extends React.Component {
       transferIDs.sort();
 
       for (const transferID of transferIDs) {
-        const tid = dashed(transferID);
+        const tid = hyphenated(transferID);
         const changes = verified[transferID];
         const changesText = changes ? JSON.stringify(changes) : '-';
         rows.push(

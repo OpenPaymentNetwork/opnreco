@@ -14,7 +14,7 @@ import { getCurrencyFormatter } from '../../util/currency';
 import { isSimpleClick } from '../../util/click';
 import { renderReportDate, renderReportHead } from '../../util/reportrender';
 import { toggleNode } from '../../reducer/tree';
-import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { wfTypeTitles, hyphenated } from '../../util/transferfmt';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
 
@@ -210,7 +210,7 @@ class RecoReport extends React.Component {
         const outstandingList = outstanding_map[sign][item.wfType];
         if (outstandingList) {
           outstandingList.forEach(movement => {
-            const tid = dashed(movement.transfer_id);
+            const tid = hyphenated(movement.transfer_id);
             const transferPath = (
               `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
             let movementCircColumns = null;

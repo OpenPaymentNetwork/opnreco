@@ -17,7 +17,7 @@ import RecoCheckBox from './RecoCheckBox';
 import Require from '../../util/Require';
 import Typography from '@material-ui/core/Typography';
 import { FormattedDate } from 'react-intl';
-import { wfTypeTitles, dashed } from '../../util/transferfmt';
+import { wfTypeTitles, hyphenated } from '../../util/transferfmt';
 import { isSimpleClick } from '../../util/click';
 
 
@@ -212,7 +212,7 @@ class TransactionReport extends React.Component {
         if (!m.transfer_id) {
           return <span>&nbsp;</span>;
         }
-        const tid = dashed(m.transfer_id);
+        const tid = hyphenated(m.transfer_id);
         const transferPath = (
           `/period/${encPeriodId}/t/${encodeURIComponent(tid)}`);
         return (
