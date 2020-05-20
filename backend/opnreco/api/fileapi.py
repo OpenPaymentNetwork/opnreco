@@ -183,6 +183,8 @@ class FileSaveSchema(colander.Schema):
         colander.String(), validator=colander.Length(max=50))
     auto_enable_loops = colander.SchemaNode(
         colander.Boolean(), missing=None)
+    reinterpret = colander.SchemaNode(
+        colander.Boolean(), missing=False)
 
 
 @view_config(
@@ -205,6 +207,20 @@ def file_save(context, request):
     if file.file_type == 'closed_circ':
         file.auto_enable_loops = appstruct['auto_enable_loops']
 
+    if appstruct['reinterpret']:
+        # Reinterpret all the movements in this file.
+        # This may make some movements reconcileable and may make
+        # reconciliation unavailable for some unreconciled movements.
+        # It does not remove reconciled movements.
+        dbsession = request.dbsession
+        query = (
+            dbsession.query(FileSync).filter(FileSync.file_id == file.id))
+        query.delete(synchronize_session=False)
+
+        dbsession.expire_all()
+        sync = SyncBase(request)
+        sync.sync_missing()
+
     request.dbsession.add(OwnerLog(
         owner_id=request.owner.id,
         personal_id=request.personal_id,
@@ -212,6 +228,8 @@ def file_save(context, request):
         content={
             'file_id': file.id,
             'title': file.title,
+            'auto_enable_loops': appstruct.get('auto_enable_loops'),
+            'reinterpret': appstruct['reinterpret'],
         }))
 
     return serialize_file(file)
@@ -453,7 +471,7 @@ def file_loops_api(context, request):
     permission=perms.edit_file,
     renderer='json')
 def configure_loops_api(context, request):
-    """Change the enabled flag of some FileLoopConfigs and resync."""
+    """Change the enabled flag of some FileLoopConfigs and reinterpret."""
     file = context.file
     loops_enabled = request.json['configs_enabled']
     if not isinstance(loops_enabled, dict):
@@ -489,7 +507,7 @@ def configure_loops_api(context, request):
             Movement.issuer_id == config.issuer_id))
 
     if movement_filters:
-        # Resync all transfers involving affected movements.
+        # Reinterpret all transfers involving affected movements.
         transfer_record_ids = (
             dbsession.query(Movement.transfer_record_id)
             .filter(

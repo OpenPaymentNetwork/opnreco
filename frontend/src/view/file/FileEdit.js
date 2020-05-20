@@ -58,6 +58,7 @@ class FileEdit extends React.Component {
       form: {
         title: props.file.title,
         auto_enable_loops: props.file.auto_enable_loops,
+        reinterpret: false,
       },
     };
   }
@@ -76,6 +77,15 @@ class FileEdit extends React.Component {
       form: {
         ...this.state.form,
         auto_enable_loops: event.target.checked,
+      },
+    });
+  }
+
+  handleChangeReinterpret = (event) => {
+    this.setState({
+      form: {
+        ...this.state.form,
+        reinterpret: event.target.checked,
       },
     });
   }
@@ -267,6 +277,23 @@ class FileEdit extends React.Component {
                     <MenuItem value="account">Personal or Business Account</MenuItem>
                   </Select>
                 </FormControl>
+              </FormGroup>
+
+              <FormGroup row>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={form.reinterpret}
+                      onChange={this.handleChangeReinterpret}
+                    />
+                  }
+                  label={
+                    <div>
+                      Reinterpret existing movements
+                      (use this after reconciliation software updates)
+                    </div>
+                  }
+                />
               </FormGroup>
 
               {file.file_type === 'closed_circ' ?

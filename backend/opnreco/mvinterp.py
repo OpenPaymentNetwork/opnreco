@@ -346,21 +346,25 @@ class MovementInterpreter:
 
         elif file_type == 'closed_circ':
             # The file owner is a distributor of closed loop notes.
-            # This file reconciles an account with the distribution and
-            # redemption of closed loop notes.
-            if loop_id != '0':
-                # Reconcile movement of specific closed loops
-                # as vault movements.
-                if self.include_closed_loop(loop_id, issuer_id):
-                    if from_id == issuer_id and to_id != issuer_id:
-                        peer_id = to_id
-                        # Notes were put into circulation.
-                        vault_delta = -amount
-                    elif to_id == issuer_id and from_id != issuer_id:
-                        peer_id = from_id
-                        # Notes were taken out of circulation.
-                        vault_delta = amount
-            else:
+            # For reconciliation purposes, this owner should be treated
+            # as if it were the issuer of all the configured loops.
+            if loop_id != '0' and self.include_closed_loop(loop_id, issuer_id):
+                from_me = from_id in (owner_id, issuer_id)
+                to_me = to_id in (owner_id, issuer_id)
+                if from_me and to_me:
+                    # Movements between the real issuer and the simulated
+                    # issuer (this owner) do not need reconciliation.
+                    pass
+                elif from_me:
+                    peer_id = to_id
+                    # Notes were put into circulation.
+                    vault_delta = -amount
+                elif to_me:
+                    peer_id = from_id
+                    # Notes were taken out of circulation.
+                    vault_delta = amount
+
+            elif loop_id == '0':
                 # Reconcile all movement of open loop notes to/from the
                 # owner as wallet movements.
                 if from_id == owner_id and to_id != owner_id:

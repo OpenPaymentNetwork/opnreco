@@ -1615,30 +1615,26 @@ class TestSyncAPI(unittest.TestCase):
         self.assertEqual('USD', m.currency)
 
         m, fm = movements[1]
-        self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('41', m.loop_id)
-        self.assertEqual('USD', m.currency)
-        self.assertEqual('12', fm.peer_id)
-        self.assertEqual(Decimal('-1.00'), fm.vault_delta)
-        self.assertEqual(zero, fm.wallet_delta)
-
-        m, fm = movements[2]
-        self.assertEqual(record.id, m.transfer_record_id)
-        self.assertEqual('41', m.loop_id)
-        self.assertEqual('USD', m.currency)
-        self.assertEqual('12', fm.peer_id)
-        self.assertEqual(Decimal('-0.25'), fm.vault_delta)
-        self.assertEqual(zero, fm.wallet_delta)
-
-        m, fm = movements[3]
-        # The movement of the note from the distributor to the recipient
-        # is not a reconcileable movement.
         self.assertIsNone(fm)
         self.assertEqual(record.id, m.transfer_record_id)
         self.assertEqual('41', m.loop_id)
         self.assertEqual('USD', m.currency)
 
+        m, fm = movements[2]
+        self.assertIsNone(fm)
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('41', m.loop_id)
+        self.assertEqual('USD', m.currency)
+
+        m, fm = movements[3]
+        self.assertEqual(record.id, m.transfer_record_id)
+        self.assertEqual('41', m.loop_id)
+        self.assertEqual('USD', m.currency)
+        self.assertEqual('11', fm.peer_id)
+        self.assertEqual(Decimal('-1.25'), fm.vault_delta)
+        self.assertEqual(zero, fm.wallet_delta)
+
         events = self.dbsession.query(db.FileMovementLog).all()
-        self.assertEqual(2, len(events))
+        self.assertEqual(1, len(events))
         event = events[0]
         self.assertEqual('sync_file_movements', event.event_type)
