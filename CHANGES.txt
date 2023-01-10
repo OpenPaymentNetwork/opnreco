@@ -1,4 +1,26 @@
 
+2.2.0 (2023-01-10)
+------------------
+
+- Implemented special handling for auto_return movements: they get added
+  automatically to orphan reconciliations. The use of auto_return implies
+  settlement between issuing accounts is done out of band.
+
+- Replaced Buildout with pip-tools and a Makefile.
+
+- Updated Python dependencies.
+
+- Code formatted with Black and isort.
+
+- Added type annotations (to test and document the code better.)
+
+- Updated the license. Open Payment Network now owns the copyright.
+
+2.1.0 (2020-05-19)
+------------------
+
+- Update dependencies and fix a bug in transfer records.
+
 2.0.2 (2020-04-08)
 ------------------
 

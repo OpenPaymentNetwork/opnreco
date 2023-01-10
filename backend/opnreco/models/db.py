@@ -803,7 +803,7 @@ event.listen(AccountEntry.__table__, "after_create", account_entry_log_ddl)
 
 
 class Reco(Base):
-    """A reco/reconciliation matches movement(s) and/or account entries."""
+    """A reco (reconciliation) matches movement(s) and/or account entries."""
 
     __tablename__ = "reco"
     id = Column(BigInteger, nullable=False, primary_key=True)

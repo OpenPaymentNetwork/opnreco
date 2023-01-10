@@ -20,12 +20,18 @@ export const wfTypeTitles = {
   receive_ach_confirm: 'Receive ACH Confirmation',
   receive_ach_file: 'Receive ACH File',
   receive_ach_prenote: 'Receive ACH Prenote',
+  receive_rtp_credit: 'Receive RTP Credit',
+  receive_rtncore_credit: 'Receive Core Credit',
   reclaim_notes: 'Reclaim Notes',  // BBB
   redeem: 'Deposit',
+  return_received_rtp_credit: 'Return Received RTP Credit',
+  return_sent_rtp_credit: 'Return Sent RTP Credit',
   return_to_provider: 'Return',
   reversal: 'Reversal',
   roll_up: 'Roll Up',  // BBB
   send_design: 'Issue (Send Design)',
+  send_rtp_credit: 'Send RTP Credit',
+  send_rtncore_credit: 'Send Core Credit',
   settle: 'Settle',
   simple_grant: 'Grant',
   trade: 'Trade',

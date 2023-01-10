@@ -34,6 +34,9 @@ class VerificationFailure(Exception):
         self.transfer_id = transfer_id
 
 
+MovementTuple = tuple[FileMovement, Movement]
+
+
 class MovementInterpreter:
     """Interpret Movements for a file, creating FileMovements.
 
@@ -56,9 +59,9 @@ class MovementInterpreter:
 
         Default to the America/New_York time zone.
         """
-        tzname = self.owner.tzname
-        if tzname is not None:
-            tzname = str(tz_name)  # type: ignore
+        tzname_input = self.owner.tzname
+        if tzname_input is not None:
+            tzname = str(tzname_input)
         else:
             tzname = "America/New_York"
         try:
@@ -106,7 +109,7 @@ class MovementInterpreter:
             return enabled0
         # Add a FileLoopConfig for a newly discovered
         # loop_id + issuer_id combo. Enable it if auto_enable_loops is true.
-        enabled: bool = self.file.auto_enable_loops  # type: ignore
+        enabled = bool(self.file.auto_enable_loops)
         row = FileLoopConfig(
             owner_id=self.owner_id,
             file_id=self.file.id,
@@ -454,9 +457,10 @@ class MovementInterpreter:
             return period
 
         # Create a new open period.
+        file_id: int = self.file.id  # type: ignore
         period = add_open_period(
             request=self.request,
-            file_id=int(self.file.id),  # type: ignore
+            file_id=file_id,
             event_type="add_period_for_sync",
         )
 
@@ -473,34 +477,44 @@ class MovementInterpreter:
 
         return period
 
-    def autoreco(self, record, movement_rows, is_new_record):
+    def get_done_movement_ids(self, record: TransferRecord) -> set[int]:
+        """List the already-reconciled FileMovement IDs in a transfer record."""
+        dbsession = self.request.dbsession
+        done_rows: Sequence[tuple[int]] = (
+            dbsession.query(FileMovement.movement_id)
+            .filter(
+                FileMovement.file_id == self.file.id,
+                FileMovement.reco_id != null,
+                FileMovement.transfer_record_id == record.id,
+            )
+            .all()
+        )
+        return set(row[0] for row in done_rows)
+
+    def autoreco(
+        self,
+        record: TransferRecord,
+        movement_rows: Sequence[MovementTuple],
+        is_new_record: bool,
+    ):
         """Auto-reconcile some of the movements in a File + TransferRecord."""
         dbsession = self.request.dbsession
+        done_movement_ids: set[int] = set()
+        added_reco_ids = []
 
-        reco_rows: Sequence[FileMovement]
-        if is_new_record:
-            # No recos exist yet for this TransferRecord.
-            reco_rows = ()
-            done_movement_ids = set()
-        else:
-            # List the existing reconciled movements.
-            reco_rows = (
-                dbsession.query(FileMovement.movement_id)
-                .filter(
-                    FileMovement.file_id == self.file.id,
-                    FileMovement.reco_id != null,
-                    FileMovement.transfer_record_id == record.id,
-                )
-                .all()
-            )
-            done_movement_ids = set(row[0] for row in reco_rows)
+        added_orphan_reco_ids = self.add_auto_orphans(
+            record=record, movement_rows=movement_rows
+        )
+        if added_orphan_reco_ids:
+            added_reco_ids.extend(added_orphan_reco_ids)
+
+        if added_orphan_reco_ids or not is_new_record:
+            done_movement_ids = self.get_done_movement_ids(record)
 
         internal_seqs = find_internal_movements(
             movement_rows=movement_rows,
             done_movement_ids=done_movement_ids,
         )
-
-        added_reco_ids = []
 
         for mvlist in internal_seqs:
             if len(mvlist) < 2:
@@ -552,8 +566,50 @@ class MovementInterpreter:
             )
             dbsession.flush()
 
+    def add_auto_orphans(
+        self,
+        record: TransferRecord,
+        movement_rows: Sequence[MovementTuple],
+    ) -> Sequence[int]:
+        """Add automatic orphan reconciliations if needed. Return the list of reco_ids added."""
+        auto_return_movements: list[MovementTuple] = []
+        for file_movement, movement in movement_rows:
+            if movement.action == "auto_return":
+                auto_return_movements.append((file_movement, movement))
+        if not auto_return_movements:
+            return ()
 
-MovementTuple = tuple[FileMovement, Movement]
+        done_movement_ids = self.get_done_movement_ids(record)
+        added_reco_ids: list[int] = []
+        dbsession = self.request.dbsession
+
+        for file_movement, movement in auto_return_movements:
+            if file_movement.movement_id in done_movement_ids:
+                continue
+
+            if file_movement.wallet_delta:
+                reco_type = "wallet_only"
+            elif file_movement.vault_delta:
+                reco_type = "vault_only"
+            else:
+                continue
+
+            reco = Reco(
+                owner_id=self.owner_id,
+                period_id=file_movement.period_id,
+                reco_type=reco_type,
+                internal=False,
+                comment="auto_return",
+            )
+            dbsession.add(reco)
+            dbsession.flush()
+            reco_id: int = reco.id  # type: ignore
+            added_reco_ids.append(reco_id)
+
+            file_movement.reco_id = reco_id  # type: ignore
+            file_movement.period_id = reco.period_id
+
+        return added_reco_ids
 
 
 def find_internal_movements(

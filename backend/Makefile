@@ -79,7 +79,7 @@ install: $(venv_dir)/bin/python $(pypi_dir)/simple/index.html
 
 # Run tests
 test: $(venv_dir)/bin/python
-	$(venv_dir)/bin/pytest -n 6 src
+	$(venv_dir)/bin/pytest opnreco
 
 # Install the tools needed for pinning the requirements list.
 # Use public versions because, in the case of a new package,
