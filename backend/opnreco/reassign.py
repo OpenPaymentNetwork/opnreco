@@ -56,14 +56,14 @@ def make_day_period_cte(days, period_list, default_endless=True):
       don't map to any period.
     """
     # Choose a period for the movements, entries, or recos on a given date.
-    day_periods = []  # [(date, period_id)]
+    day_periods: list[tuple[datetime.date, int]] = []  # [(date, period_id)]
     missing_period = False
     for day in days:
         period = get_period_for_day(period_list, day, default_endless=default_endless)
         if period is None:
             missing_period = True
         else:
-            day_periods.append((day, period.id))
+            day_periods.append((day, period.id))  # type: ignore
 
     if day_periods:
         # Turn day_periods into day_period_cte, a common table expression
@@ -75,14 +75,12 @@ def make_day_period_cte(days, period_list, default_endless=True):
         # for other rows the database will infer.
         stmts = [
             select(
-                [
-                    cast(literal(d), Date).label("day"),
-                    cast(literal(pid), BigInteger).label("period_id"),
-                ]
+                cast(literal(d), Date).label("day"),
+                cast(literal(pid), BigInteger).label("period_id"),
             )
             for (d, pid) in day_periods[:1]
         ]
-        stmts.extend(select([literal(d), literal(pid)]) for (d, pid) in day_periods[1:])
+        stmts.extend(select(literal(d), literal(pid)) for (d, pid) in day_periods[1:])
         day_period_cte = union_all(*stmts).cte(name="day_period_cte")
 
     else:
@@ -90,10 +88,8 @@ def make_day_period_cte(days, period_list, default_endless=True):
         # Use a table with zero rows as day_period_cte.
         day_period_cte = (
             select(
-                [
-                    cast(literal(None), Date).label("day"),
-                    cast(literal(None), BigInteger).label("period_id"),
-                ]
+                cast(literal(None), Date).label("day"),
+                cast(literal(None), BigInteger).label("period_id"),
             )
             .where(literal(1) == literal(0))
             .cte(name="day_period_cte")
@@ -247,7 +243,7 @@ def pull_unreco(request, period, op):
 
     # Make a subquery that lists the items to reassign.
     ids_query = (
-        select([op.id_c])
+        select(op.id_c)
         .select_from(
             op.table.__table__.join(Period, Period.id == op.table.period_id).join(
                 day_period_cte, day_period_cte.c.day == op.date_c
@@ -562,7 +558,7 @@ def reassign_statement_period(dbsession, statement, old_period_id, new_period_id
     """Reassign the account entries and recos in a statement to a new period."""
     # is_in_statement tests whether a reco is tied to a statement.
     is_in_statement = exists(
-        select([AccountEntry.id]).where(
+        select(AccountEntry.id).where(
             and_(
                 AccountEntry.reco_id == Reco.id,
                 AccountEntry.statement_id == statement.id,
@@ -570,7 +566,7 @@ def reassign_statement_period(dbsession, statement, old_period_id, new_period_id
         )
     )
 
-    move_reco_ids = select([Reco.id]).where(
+    move_reco_ids = select(Reco.id).where(
         and_(
             Reco.period_id == old_period_id,
             is_in_statement,

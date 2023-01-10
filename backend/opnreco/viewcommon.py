@@ -1,16 +1,15 @@
 import datetime
 import os
 from decimal import Decimal
+from typing import Sequence, TypedDict
 
 import requests
 import sqlalchemy.dialects.postgresql
-from pyramid.httpexceptions import HTTPBadRequest
-from sqlalchemy import func, literal
-
 from opnreco.models.db import (
     AccountEntry,
     FileMovement,
     Loop,
+    Owner,
     OwnerLog,
     Peer,
     Period,
@@ -18,6 +17,8 @@ from opnreco.models.db import (
     now_func,
 )
 from opnreco.util import check_requests_response
+from pyramid.httpexceptions import HTTPBadRequest
+from sqlalchemy import func, literal
 
 null = None
 
@@ -29,7 +30,13 @@ def get_tzname(owner):
     return owner.tzname or "America/New_York"
 
 
-def fetch_peers(request, input_peers):
+class PeerInfo(TypedDict):
+    title: str
+    username: str | None
+    is_dfi_account: bool
+
+
+def _fetch_peers(request, input_peer_ids: Sequence[str]) -> dict[str, PeerInfo]:
     """Fetch updates as necessary for all peers relevant to a request.
 
     Return a dict of changes.
@@ -38,21 +45,21 @@ def fetch_peers(request, input_peers):
     owner_id = request.owner.id
     dbsession = request.dbsession
 
-    peer_rows = (
+    peer_rows: Sequence[Peer] = (
         dbsession.query(Peer)
         .filter(
             Peer.owner_id == owner_id,
-            Peer.peer_id.in_(input_peers.keys()),
+            Peer.peer_id.in_(input_peer_ids),
         )
         .all()
     )
-    peer_row_map = {row.peer_id: row for row in peer_rows}
+    peer_row_map: dict[str, Peer] = {row.peer_id: row for row in peer_rows}  # type: ignore
 
     now = dbsession.query(now_func).scalar()
     stale_time = now - stale_delta
-    res = {}  # {peer_id: peer_info}
+    res: dict[str, PeerInfo] = {}  # {peer_id: peer_info}
 
-    for peer_id in sorted(input_peers.keys()):
+    for peer_id in sorted(input_peer_ids):
         peer_row = peer_row_map.get(peer_id)
         if peer_row is not None:
             if peer_row.is_dfi_account:
@@ -108,15 +115,17 @@ def fetch_peers(request, input_peers):
             # Update the Peer.
             if fetched:
                 if peer_row.title != title:
-                    peer_row.title = title
+                    peer_row.title = title  # type: ignore
                 if peer_row.username != username:
-                    peer_row.username = username
+                    peer_row.username = username  # type: ignore
             peer_row.last_update = now_func
 
     return res
 
 
-def get_peer_map(request, need_peer_ids, final):
+def get_peer_map(
+    request, need_peer_ids: set[str | None], final: bool
+) -> dict[str, PeerInfo]:
     """Given a list of peer_ids, get a map of peers.
 
     Return:
@@ -124,20 +133,26 @@ def get_peer_map(request, need_peer_ids, final):
 
     Update old peers from OPN if the 'final' param is true.
     """
-    owner = request.owner
-    owner_id = owner.id
+    owner: Owner = request.owner
+    owner_id: str = owner.id  # type: ignore
     dbsession = request.dbsession
 
-    if None in need_peer_ids or "" in need_peer_ids or owner_id in need_peer_ids:
-        need_peer_ids = set(need_peer_ids).difference(
-            [
-                None,
-                "",
-                owner_id,
-            ]
-        )
+    # Filter out None, empty peer IDs, and the owner peer
+    need_filtered: set[str] = set(need_peer_ids).difference(  # type: ignore
+        [
+            None,
+            "",
+            owner_id,
+        ]
+    )
 
-    peer_rows = (
+    class PeerRow:
+        peer_id: str
+        title: str
+        username: str
+        is_dfi_account: bool
+
+    peer_rows: Sequence[PeerRow] = (
         dbsession.query(
             Peer.peer_id,
             Peer.title,
@@ -146,12 +161,12 @@ def get_peer_map(request, need_peer_ids, final):
         )
         .filter(
             Peer.owner_id == owner_id,
-            Peer.peer_id.in_(need_peer_ids),
+            Peer.peer_id.in_(need_filtered),
         )
         .all()
     )
 
-    peers = {
+    peers: dict[str, PeerInfo] = {
         row.peer_id: {
             "title": row.title,
             "username": row.username,
@@ -160,13 +175,13 @@ def get_peer_map(request, need_peer_ids, final):
         for row in peer_rows
     }
 
-    peers[owner_id] = {
+    peers[owner_id] = {  # type: ignore
         "title": owner.title,
         "username": owner.username,
         "is_dfi_account": False,
     }
 
-    for peer_id in need_peer_ids.difference(peers):
+    for peer_id in need_filtered.difference(peers):
         peers[peer_id] = {
             "title": "[Profile %s]" % peer_id,
             "username": None,
@@ -175,12 +190,16 @@ def get_peer_map(request, need_peer_ids, final):
 
     if final and peers:
         # Update all of the peers involved in this transfer.
-        peers.update(fetch_peers(request, peers))
+        peers.update(_fetch_peers(request, list(peers.keys())))
 
     return peers
 
 
-def fetch_loops(request, input_loops):
+class LoopInfo(TypedDict):
+    title: str
+
+
+def _fetch_loops(request, input_loop_ids: Sequence[str]) -> dict[str, LoopInfo]:
     """Fetch updates as necessary for all loops relevant to a request.
 
     Return a dict of changes.
@@ -189,21 +208,21 @@ def fetch_loops(request, input_loops):
     owner_id = request.owner.id
     dbsession = request.dbsession
 
-    loop_rows = (
+    loop_rows: Sequence[Loop] = (
         dbsession.query(Loop)
         .filter(
             Loop.owner_id == owner_id,
-            Loop.loop_id.in_(input_loops.keys()),
+            Loop.loop_id.in_(input_loop_ids),
         )
         .all()
     )
-    loop_row_map = {row.loop_id: row for row in loop_rows}
+    loop_row_map: dict[str, Loop] = {row.loop_id: row for row in loop_rows}  # type: ignore
 
     now = dbsession.query(now_func).scalar()
     stale_time = now - stale_delta
-    res = {}  # {loop_id: loop_info}
+    res: dict[str, LoopInfo] = {}  # {loop_id: loop_info}
 
-    for loop_id in sorted(input_loops.keys()):
+    for loop_id in sorted(input_loop_ids):
         loop_row = loop_row_map.get(loop_id)
         if loop_row is not None:
             if loop_row.last_update >= stale_time:
@@ -245,49 +264,78 @@ def fetch_loops(request, input_loops):
             # Update the Loop.
             if fetched:
                 if loop_row.title != title:
-                    loop_row.title = title
+                    loop_row.title = title  # type: ignore
             loop_row.last_update = now_func
 
     return res
 
 
-def get_loop_map(request, need_loop_ids, final=False):
-    """Given a list of loop_ids, get {loop_id: {'title'}}.
+def get_loop_map(
+    request,
+    need_loop_ids: Sequence[str] | set[str],
+    final=False,
+) -> dict[str, LoopInfo]:
+    """Given a list of loop_ids, get {loop_id: {'title': '...'}}.
 
     Update old loops from OPN if the 'final' param is true.
     """
-    need_loop_ids = set(need_loop_ids)
+    need_set = set(need_loop_ids)
 
-    if "0" in need_loop_ids:
-        need_loop_ids.discard("0")
+    if "0" in need_set:
+        need_set.discard("0")
 
     owner_id = request.owner.id
     dbsession = request.dbsession
 
-    loop_rows = (
+    class LoopInfoRow:
+        loop_id: str
+        title: str
+
+    loop_rows: Sequence[LoopInfoRow] = (
         dbsession.query(Loop.loop_id, Loop.title)
         .filter(
             Loop.owner_id == owner_id,
-            Loop.loop_id.in_(need_loop_ids),
+            Loop.loop_id.in_(need_set),
         )
         .all()
     )
 
-    loops = {row.loop_id: {"title": row.title} for row in loop_rows}
+    loops: dict[str, LoopInfo] = {
+        row.loop_id: {"title": row.title} for row in loop_rows
+    }
 
-    for loop_id in need_loop_ids.difference(loops):
+    for loop_id in need_set.difference(loops):
         loops[loop_id] = {
             "title": "[Cash Design %s]" % loop_id,
         }
 
     if final and loops:
         # Update all of the loops involved in this transfer.
-        loops.update(fetch_loops(request, loops))
+        loops.update(_fetch_loops(request, list(loops.keys())))
 
     return loops
 
 
-def compute_period_totals(dbsession, owner_id, period_ids):
+class PhaseTotals(TypedDict):
+    circ: Decimal
+    surplus: Decimal
+    combined: Decimal
+
+
+class PeriodTotals(TypedDict):
+    start: PhaseTotals
+    internal_reconciled_delta: PhaseTotals
+    external_reconciled_delta: PhaseTotals
+    reconciled_delta: PhaseTotals
+    reconciled_total: PhaseTotals
+    unreco_movements_delta: PhaseTotals
+    unreco_entries_delta: PhaseTotals
+    end: PhaseTotals
+
+
+def compute_period_totals(
+    dbsession, owner_id: str, period_ids: Sequence[int]
+) -> dict[int, PeriodTotals]:
     """Compute the balances and deltas for a set of periods.
 
     Gets the start balances (circ, surplus, and combined) and computes totals.
@@ -304,11 +352,16 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         'end': {'circ', 'surplus', 'combined'},
     }
     """
-    res = {}
+    res: dict[int, PeriodTotals] = {}
     zero = Decimal("0")
 
     # Get the period start balances.
-    rows = (
+    class PeriodInfoRow:
+        id: int
+        circ: Decimal
+        surplus: Decimal
+
+    rows0: Sequence[PeriodInfoRow] = (
         dbsession.query(
             Period.id,
             Period.start_circ.label("circ"),
@@ -320,8 +373,8 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         )
         .all()
     )
-    for row in rows:
-        res[row.id] = {
+    for row in rows0:
+        period_totals: PeriodTotals = {
             # phase: {circ, surplus, combined}
             "start": {
                 "circ": row.circ,
@@ -364,9 +417,17 @@ def compute_period_totals(dbsession, owner_id, period_ids):
                 "combined": zero,
             },
         }
+        res[row.id] = period_totals
+    del rows0
 
     # Gather the circulation amounts from reconciled movements.
-    rows = (
+    class MovementCirculationRow:
+        period_id: int
+        internal: bool
+        circ: Decimal
+        surplus: Decimal
+
+    rows1: Sequence[MovementCirculationRow] = (
         dbsession.query(
             FileMovement.period_id,
             Reco.internal,
@@ -382,7 +443,7 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .group_by(FileMovement.period_id, Reco.internal)
         .all()
     )
-    for row in rows:
+    for row in rows1:
         if row.internal:
             m = res[row.period_id]["internal_reconciled_delta"]
             m["circ"] = row.circ
@@ -399,11 +460,16 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             # only if there are no reconciled account entries.
             m["surplus"] = -row.circ
             m["combined"] = zero
+    del rows1
 
     # Gather the combined amounts from reconciled account entries.
     # Compute the surplus as the difference between the reconciled
     # account entries and the reconciled movements.
-    rows = (
+    class ReconciledRow:
+        period_id: int
+        combined: Decimal
+
+    rows2: Sequence[ReconciledRow] = (
         dbsession.query(
             AccountEntry.period_id,
             func.sum(AccountEntry.delta).label("combined"),
@@ -416,13 +482,19 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .group_by(AccountEntry.period_id)
         .all()
     )
-    for row in rows:
+    for row in rows2:
         m = res[row.period_id]["external_reconciled_delta"]
         m["surplus"] = row.combined - m["circ"]
         m["combined"] = row.combined
+    del rows2
 
     # Gather the amounts from unreconciled movements.
-    rows = (
+    class UnreconciledRow:
+        period_id: int
+        circ: Decimal
+        surplus: Decimal
+
+    rows3: Sequence[UnreconciledRow] = (
         dbsession.query(
             FileMovement.period_id,
             func.sum(-FileMovement.vault_delta).label("circ"),
@@ -436,14 +508,15 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .group_by(FileMovement.period_id)
         .all()
     )
-    for row in rows:
+    for row in rows3:
         m = res[row.period_id]["unreco_movements_delta"]
         m["circ"] = row.circ
         m["surplus"] = row.surplus
         m["combined"] = row.circ + row.surplus
+    del rows3
 
     # Gather the amounts from unreconciled account entries.
-    rows = (
+    rows4: Sequence[UnreconciledRow] = (
         dbsession.query(
             AccountEntry.period_id,
             literal(zero).label("circ"),
@@ -457,11 +530,12 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         .group_by(AccountEntry.period_id)
         .all()
     )
-    for row in rows:
+    for row in rows4:
         m = res[row.period_id]["unreco_entries_delta"]
         m["circ"] = row.circ
         m["surplus"] = row.surplus
         m["combined"] = row.circ + row.surplus
+    del rows4
 
     # Note that this code does not include unreco_entries_delta
     # in the end totals. That's because there are two kinds of
@@ -484,7 +558,11 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     return res
 
 
-def get_period_for_day(period_list, day, default_endless=True):
+def get_period_for_day(
+    period_list: list[Period],
+    day: datetime.date,
+    default_endless=True,
+) -> Period | None:
     """Identify which open period in a list matches a day. day can be None.
 
     If none of them match:
@@ -526,7 +604,7 @@ def get_period_for_day(period_list, day, default_endless=True):
     return default
 
 
-def open_end_period_exists(request, file_id):
+def open_end_period_exists(request, file_id: int) -> bool:
     """Return true if an open period exists with no end date."""
     dbsession = request.dbsession
     owner = request.owner
@@ -541,10 +619,10 @@ def open_end_period_exists(request, file_id):
         )
         .one()
     )
-    return row[0]
+    return bool(row[0])
 
 
-def add_open_period(request, file_id, event_type):
+def add_open_period(request, file_id: int, event_type: str) -> Period:
     """Add a new period.
 
     Base it on the end date and end balances of the period with the
@@ -610,7 +688,7 @@ def add_open_period(request, file_id, event_type):
     return period
 
 
-def list_assignable_periods(dbsession, owner_id, period):
+def list_assignable_periods(dbsession, owner_id: str, period: Period):
     """List the periods that a reco or statement can be assigned to."""
     if period.closed:
         # The item is readonly, so don't bother showing other periods.

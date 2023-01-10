@@ -48,7 +48,7 @@ class MovementInterpreter:
         self.change_log = change_log
 
         # open_periods: {date: open Period}
-        self.open_periods = {}
+        self.open_periods: dict[datetime.date, Period] = {}
 
     @reify
     def timezone(self):
@@ -83,7 +83,7 @@ class MovementInterpreter:
     @reify
     def open_period_ids(self) -> set[int]:
         """Get the set of open Period IDs for the File."""
-        return set(period.id for period in self.open_period_list)
+        return set(period.id for period in self.open_period_list)  # type: ignore
 
     @reify
     def loops_enabled(self) -> dict[tuple[int, int], bool]:
@@ -101,9 +101,9 @@ class MovementInterpreter:
     def include_closed_loop(self, loop_id: int, issuer_id: int):
         """Return true if movements for the given loop_id + issuer_id combo
         should be reconciled in this file."""
-        enabled: bool | None = self.loops_enabled.get((loop_id, issuer_id))
-        if enabled is not None:
-            return enabled
+        enabled0 = self.loops_enabled.get((loop_id, issuer_id))
+        if enabled0 is not None:
+            return enabled0
         # Add a FileLoopConfig for a newly discovered
         # loop_id + issuer_id combo. Enable it if auto_enable_loops is true.
         enabled: bool = self.file.auto_enable_loops  # type: ignore
@@ -135,6 +135,30 @@ class MovementInterpreter:
 
         return enabled
 
+    def get_file_movements(
+        self, movements: Sequence[Movement], is_new_record: bool
+    ) -> dict[int, FileMovement]:
+        if is_new_record:
+            # There should be no existing FileMovements for this record.
+            return {}
+
+        # Fill file_movements with the existing FileMovements.
+        file_movements: dict[int, FileMovement] = {}  # {movement_id: FileMovement}
+        dbsession = self.request.dbsession
+        movement_ids = [movement.id for movement in movements]
+        rows: Sequence[FileMovement] = (
+            dbsession.query(FileMovement)
+            .filter(
+                FileMovement.owner_id == self.owner_id,
+                FileMovement.file_id == self.file.id,
+                FileMovement.movement_id.in_(movement_ids),
+            )
+            .all()
+        )
+        for file_movement in rows:
+            file_movements[file_movement.movement_id] = file_movement
+        return file_movements
+
     def sync_file_movements(
         self, record: TransferRecord, movements: Sequence[Movement], is_new_record: bool
     ):
@@ -144,26 +168,12 @@ class MovementInterpreter:
         """
         dbsession = self.request.dbsession
 
-        file_movements = {}  # {movement_id: FileMovement}
-        if is_new_record:
-            # There should be no existing FileMovements for this record.
-            file_movements = {}
-        else:
-            # Fill file_movements with the existing FileMovements.
-            movement_ids = [movement.id for movement in movements]
-            rows = (
-                dbsession.query(FileMovement)
-                .filter(
-                    FileMovement.owner_id == self.owner_id,
-                    FileMovement.file_id == self.file.id,
-                    FileMovement.movement_id.in_(movement_ids),
-                )
-                .all()
-            )
-            for file_movement in rows:
-                file_movements[file_movement.movement_id] = file_movement
+        file_movements = self.get_file_movements(
+            movements=movements,
+            is_new_record=is_new_record,
+        )
 
-        to_reconcile = []  # [(file_movement, movement)]
+        to_reconcile: list[tuple[FileMovement, Movement]] = []
 
         configured_logging = []
 
@@ -175,7 +185,8 @@ class MovementInterpreter:
                 configured_logging.append(True)
 
         for movement in movements:
-            file_movement = file_movements.get(movement.id)
+            movement_id: int = movement.id  # type: ignore
+            file_movement = file_movements.get(movement_id)
             kw = self.interpret(movement)
             if kw and file_movement is None:
                 # Add a file movement.
@@ -427,7 +438,7 @@ class MovementInterpreter:
             "surplus_delta": -wallet_delta,
         }
 
-    def get_open_period(self, day):
+    def get_open_period(self, day: datetime.date):
         """Get an open Period for a movement_date."""
         period = self.open_periods.get(day)
         if period is not None:
@@ -444,12 +455,15 @@ class MovementInterpreter:
 
         # Create a new open period.
         period = add_open_period(
-            request=self.request, file_id=self.file.id, event_type="add_period_for_sync"
+            request=self.request,
+            file_id=int(self.file.id),  # type: ignore
+            event_type="add_period_for_sync",
         )
 
         self.open_period_list.append(period)
         self.open_periods[day] = period
-        self.open_period_ids.add(period.id)
+        period_id: int = period.id  # type: ignore
+        self.open_period_ids.add(period_id)
         self.change_log.append(
             {
                 "event_type": "add_period",
