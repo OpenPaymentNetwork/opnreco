@@ -1,21 +1,23 @@
-
-from decimal import Decimal
-from opnreco.models.db import AccountEntry
-from opnreco.models.db import FileMovement
-from opnreco.models.db import Loop
-from opnreco.models.db import now_func
-from opnreco.models.db import OwnerLog
-from opnreco.models.db import Peer
-from opnreco.models.db import Period
-from opnreco.models.db import Reco
-from opnreco.util import check_requests_response
-from pyramid.httpexceptions import HTTPBadRequest
-from sqlalchemy import func
-from sqlalchemy import literal
 import datetime
 import os
+from decimal import Decimal
+
 import requests
 import sqlalchemy.dialects.postgresql
+from pyramid.httpexceptions import HTTPBadRequest
+from sqlalchemy import func, literal
+
+from opnreco.models.db import (
+    AccountEntry,
+    FileMovement,
+    Loop,
+    OwnerLog,
+    Peer,
+    Period,
+    Reco,
+    now_func,
+)
+from opnreco.util import check_requests_response
 
 null = None
 
@@ -24,7 +26,7 @@ stale_delta = datetime.timedelta(seconds=60)
 
 
 def get_tzname(owner):
-    return owner.tzname or 'America/New_York'
+    return owner.tzname or "America/New_York"
 
 
 def fetch_peers(request, input_peers):
@@ -32,7 +34,7 @@ def fetch_peers(request, input_peers):
 
     Return a dict of changes.
     """
-    api_url = os.environ['opn_api_url']
+    api_url = os.environ["opn_api_url"]
     owner_id = request.owner.id
     dbsession = request.dbsession
 
@@ -41,7 +43,9 @@ def fetch_peers(request, input_peers):
         .filter(
             Peer.owner_id == owner_id,
             Peer.peer_id.in_(input_peers.keys()),
-        ).all())
+        )
+        .all()
+    )
     peer_row_map = {row.peer_id: row for row in peer_rows}
 
     now = dbsession.query(now_func).scalar()
@@ -58,45 +62,46 @@ def fetch_peers(request, input_peers):
                 # No update needed.
                 continue
 
-        if peer_id == 'c':
+        if peer_id == "c":
             fetched = True
             title = request.owner.title
             username = request.owner.username
         else:
-            url = '%s/p/%s' % (api_url, peer_id)
-            headers = {'Authorization': 'Bearer %s' % request.access_token}
+            url = "%s/p/%s" % (api_url, peer_id)
+            headers = {"Authorization": "Bearer %s" % request.access_token}
             r = requests.get(url, headers=headers)
             if check_requests_response(r, raise_exc=False):
                 fetched = True
                 r_json = r.json()
-                title = r_json['title']
-                username = r_json['username']
+                title = r_json["title"]
+                username = r_json["username"]
             else:
                 fetched = False
-                title = '[Missing Profile %s]' % peer_id
+                title = "[Missing Profile %s]" % peer_id
                 username = None
 
         res[peer_id] = {
-            'title': title,
-            'username': username,
-            'is_dfi_account': False,
+            "title": title,
+            "username": username,
+            "is_dfi_account": False,
         }
 
         if peer_row is None:
             # Insert the new Peer, ignoring conflicts.
             values = {
-                'owner_id': owner_id,
-                'peer_id': peer_id,
-                'title': title,
-                'username': username,
-                'is_dfi_account': False,
-                'removed': False,
-                'last_update': now_func,
+                "owner_id": owner_id,
+                "peer_id": peer_id,
+                "title": title,
+                "username": username,
+                "is_dfi_account": False,
+                "removed": False,
+                "last_update": now_func,
             }
             stmt = (
-                sqlalchemy.dialects.postgresql.insert(
-                    Peer.__table__, bind=dbsession).values(**values)
-                .on_conflict_do_nothing())
+                sqlalchemy.dialects.postgresql.insert(Peer.__table__, bind=dbsession)
+                .values(**values)
+                .on_conflict_do_nothing()
+            )
             dbsession.execute(stmt)
 
         else:
@@ -123,14 +128,14 @@ def get_peer_map(request, need_peer_ids, final):
     owner_id = owner.id
     dbsession = request.dbsession
 
-    if (None in need_peer_ids or
-            '' in need_peer_ids or
-            owner_id in need_peer_ids):
-        need_peer_ids = set(need_peer_ids).difference([
-            None,
-            '',
-            owner_id,
-        ])
+    if None in need_peer_ids or "" in need_peer_ids or owner_id in need_peer_ids:
+        need_peer_ids = set(need_peer_ids).difference(
+            [
+                None,
+                "",
+                owner_id,
+            ]
+        )
 
     peer_rows = (
         dbsession.query(
@@ -142,25 +147,30 @@ def get_peer_map(request, need_peer_ids, final):
         .filter(
             Peer.owner_id == owner_id,
             Peer.peer_id.in_(need_peer_ids),
-        ).all())
+        )
+        .all()
+    )
 
-    peers = {row.peer_id: {
-        'title': row.title,
-        'username': row.username,
-        'is_dfi_account': row.is_dfi_account,
-    } for row in peer_rows}
+    peers = {
+        row.peer_id: {
+            "title": row.title,
+            "username": row.username,
+            "is_dfi_account": row.is_dfi_account,
+        }
+        for row in peer_rows
+    }
 
     peers[owner_id] = {
-        'title': owner.title,
-        'username': owner.username,
-        'is_dfi_account': False,
+        "title": owner.title,
+        "username": owner.username,
+        "is_dfi_account": False,
     }
 
     for peer_id in need_peer_ids.difference(peers):
         peers[peer_id] = {
-            'title': '[Profile %s]' % peer_id,
-            'username': None,
-            'is_dfi_account': False,
+            "title": "[Profile %s]" % peer_id,
+            "username": None,
+            "is_dfi_account": False,
         }
 
     if final and peers:
@@ -175,7 +185,7 @@ def fetch_loops(request, input_loops):
 
     Return a dict of changes.
     """
-    api_url = os.environ['opn_api_url']
+    api_url = os.environ["opn_api_url"]
     owner_id = request.owner.id
     dbsession = request.dbsession
 
@@ -184,7 +194,9 @@ def fetch_loops(request, input_loops):
         .filter(
             Loop.owner_id == owner_id,
             Loop.loop_id.in_(input_loops.keys()),
-        ).all())
+        )
+        .all()
+    )
     loop_row_map = {row.loop_id: row for row in loop_rows}
 
     now = dbsession.query(now_func).scalar()
@@ -198,34 +210,35 @@ def fetch_loops(request, input_loops):
                 # No update needed.
                 continue
 
-        url = '%s/design/%s' % (api_url, loop_id)
-        headers = {'Authorization': 'Bearer %s' % request.access_token}
+        url = "%s/design/%s" % (api_url, loop_id)
+        headers = {"Authorization": "Bearer %s" % request.access_token}
         r = requests.get(url, headers=headers)
         if check_requests_response(r, raise_exc=False):
             fetched = True
             r_json = r.json()
-            title = r_json['title']
+            title = r_json["title"]
         else:
             fetched = False
-            title = '[Missing note design %s]' % loop_id
+            title = "[Missing note design %s]" % loop_id
 
         res[loop_id] = {
-            'title': title,
+            "title": title,
         }
 
         if loop_row is None:
             # Insert the new Loop, ignoring conflicts.
             values = {
-                'owner_id': owner_id,
-                'loop_id': loop_id,
-                'title': title,
-                'removed': False,
-                'last_update': now_func,
+                "owner_id": owner_id,
+                "loop_id": loop_id,
+                "title": title,
+                "removed": False,
+                "last_update": now_func,
             }
             stmt = (
-                sqlalchemy.dialects.postgresql.insert(
-                    Loop.__table__, bind=dbsession).values(**values)
-                .on_conflict_do_nothing())
+                sqlalchemy.dialects.postgresql.insert(Loop.__table__, bind=dbsession)
+                .values(**values)
+                .on_conflict_do_nothing()
+            )
             dbsession.execute(stmt)
 
         else:
@@ -245,8 +258,8 @@ def get_loop_map(request, need_loop_ids, final=False):
     """
     need_loop_ids = set(need_loop_ids)
 
-    if '0' in need_loop_ids:
-        need_loop_ids.discard('0')
+    if "0" in need_loop_ids:
+        need_loop_ids.discard("0")
 
     owner_id = request.owner.id
     dbsession = request.dbsession
@@ -256,13 +269,15 @@ def get_loop_map(request, need_loop_ids, final=False):
         .filter(
             Loop.owner_id == owner_id,
             Loop.loop_id.in_(need_loop_ids),
-        ).all())
+        )
+        .all()
+    )
 
-    loops = {row.loop_id: {'title': row.title} for row in loop_rows}
+    loops = {row.loop_id: {"title": row.title} for row in loop_rows}
 
     for loop_id in need_loop_ids.difference(loops):
         loops[loop_id] = {
-            'title': '[Cash Design %s]' % loop_id,
+            "title": "[Cash Design %s]" % loop_id,
         }
 
     if final and loops:
@@ -290,62 +305,63 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     }
     """
     res = {}
-    zero = Decimal('0')
+    zero = Decimal("0")
 
     # Get the period start balances.
     rows = (
         dbsession.query(
             Period.id,
-            Period.start_circ.label('circ'),
-            Period.start_surplus.label('surplus'),
+            Period.start_circ.label("circ"),
+            Period.start_surplus.label("surplus"),
         )
         .filter(
             Period.owner_id == owner_id,
             Period.id.in_(period_ids),
         )
-        .all())
+        .all()
+    )
     for row in rows:
         res[row.id] = {
             # phase: {circ, surplus, combined}
-            'start': {
-                'circ': row.circ,
-                'surplus': row.surplus,
-                'combined': row.circ + row.surplus,
+            "start": {
+                "circ": row.circ,
+                "surplus": row.surplus,
+                "combined": row.circ + row.surplus,
             },
-            'internal_reconciled_delta': {
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "internal_reconciled_delta": {
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
-            'external_reconciled_delta': {
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "external_reconciled_delta": {
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
-            'reconciled_delta': {  # sum of the internal and external
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "reconciled_delta": {  # sum of the internal and external
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
-            'reconciled_total': {
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "reconciled_total": {
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
-            'unreco_movements_delta': {
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "unreco_movements_delta": {
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
-            'unreco_entries_delta': {
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "unreco_entries_delta": {
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
-            'end': {
-                'circ': zero,
-                'surplus': zero,
-                'combined': zero,
+            "end": {
+                "circ": zero,
+                "surplus": zero,
+                "combined": zero,
             },
         }
 
@@ -354,8 +370,8 @@ def compute_period_totals(dbsession, owner_id, period_ids):
         dbsession.query(
             FileMovement.period_id,
             Reco.internal,
-            func.sum(-FileMovement.vault_delta).label('circ'),
-            func.sum(FileMovement.surplus_delta).label('surplus'),
+            func.sum(-FileMovement.vault_delta).label("circ"),
+            func.sum(FileMovement.surplus_delta).label("surplus"),
         )
         .join(Reco, Reco.id == FileMovement.reco_id)
         .filter(
@@ -364,24 +380,25 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             FileMovement.period_id.in_(period_ids),
         )
         .group_by(FileMovement.period_id, Reco.internal)
-        .all())
+        .all()
+    )
     for row in rows:
         if row.internal:
-            m = res[row.period_id]['internal_reconciled_delta']
-            m['circ'] = row.circ
-            m['surplus'] = row.surplus
-            m['combined'] = row.circ + row.surplus
+            m = res[row.period_id]["internal_reconciled_delta"]
+            m["circ"] = row.circ
+            m["surplus"] = row.surplus
+            m["combined"] = row.circ + row.surplus
         else:
             # Reconciled external movements contribute only to
             # to the circulation amount. The account
             # entries will contribute to the combined value;
             # the surplus will be computed as the difference.
-            m = res[row.period_id]['external_reconciled_delta']
-            m['circ'] = row.circ
+            m = res[row.period_id]["external_reconciled_delta"]
+            m["circ"] = row.circ
             # Generate initial surplus and combined values. These apply
             # only if there are no reconciled account entries.
-            m['surplus'] = -row.circ
-            m['combined'] = zero
+            m["surplus"] = -row.circ
+            m["combined"] = zero
 
     # Gather the combined amounts from reconciled account entries.
     # Compute the surplus as the difference between the reconciled
@@ -389,7 +406,7 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     rows = (
         dbsession.query(
             AccountEntry.period_id,
-            func.sum(AccountEntry.delta).label('combined'),
+            func.sum(AccountEntry.delta).label("combined"),
         )
         .filter(
             AccountEntry.owner_id == owner_id,
@@ -397,18 +414,19 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             AccountEntry.period_id.in_(period_ids),
         )
         .group_by(AccountEntry.period_id)
-        .all())
+        .all()
+    )
     for row in rows:
-        m = res[row.period_id]['external_reconciled_delta']
-        m['surplus'] = row.combined - m['circ']
-        m['combined'] = row.combined
+        m = res[row.period_id]["external_reconciled_delta"]
+        m["surplus"] = row.combined - m["circ"]
+        m["combined"] = row.combined
 
     # Gather the amounts from unreconciled movements.
     rows = (
         dbsession.query(
             FileMovement.period_id,
-            func.sum(-FileMovement.vault_delta).label('circ'),
-            func.sum(FileMovement.surplus_delta).label('surplus'),
+            func.sum(-FileMovement.vault_delta).label("circ"),
+            func.sum(FileMovement.surplus_delta).label("surplus"),
         )
         .filter(
             FileMovement.owner_id == owner_id,
@@ -416,19 +434,20 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             FileMovement.period_id.in_(period_ids),
         )
         .group_by(FileMovement.period_id)
-        .all())
+        .all()
+    )
     for row in rows:
-        m = res[row.period_id]['unreco_movements_delta']
-        m['circ'] = row.circ
-        m['surplus'] = row.surplus
-        m['combined'] = row.circ + row.surplus
+        m = res[row.period_id]["unreco_movements_delta"]
+        m["circ"] = row.circ
+        m["surplus"] = row.surplus
+        m["combined"] = row.circ + row.surplus
 
     # Gather the amounts from unreconciled account entries.
     rows = (
         dbsession.query(
             AccountEntry.period_id,
-            literal(zero).label('circ'),
-            func.sum(AccountEntry.delta).label('surplus'),
+            literal(zero).label("circ"),
+            func.sum(AccountEntry.delta).label("surplus"),
         )
         .filter(
             AccountEntry.owner_id == owner_id,
@@ -436,12 +455,13 @@ def compute_period_totals(dbsession, owner_id, period_ids):
             AccountEntry.period_id.in_(period_ids),
         )
         .group_by(AccountEntry.period_id)
-        .all())
+        .all()
+    )
     for row in rows:
-        m = res[row.period_id]['unreco_entries_delta']
-        m['circ'] = row.circ
-        m['surplus'] = row.surplus
-        m['combined'] = row.circ + row.surplus
+        m = res[row.period_id]["unreco_entries_delta"]
+        m["circ"] = row.circ
+        m["surplus"] = row.surplus
+        m["combined"] = row.circ + row.surplus
 
     # Note that this code does not include unreco_entries_delta
     # in the end totals. That's because there are two kinds of
@@ -452,14 +472,14 @@ def compute_period_totals(dbsession, owner_id, period_ids):
     # them obvious to the people performing reconciliation.
 
     for m in res.values():
-        for k in 'circ', 'surplus', 'combined':
-            internal_reconciled = m['internal_reconciled_delta'][k]
-            external_reconciled = m['external_reconciled_delta'][k]
+        for k in "circ", "surplus", "combined":
+            internal_reconciled = m["internal_reconciled_delta"][k]
+            external_reconciled = m["external_reconciled_delta"][k]
             reconciled_delta = internal_reconciled + external_reconciled
-            m['reconciled_delta'][k] = reconciled_delta
-            reconciled_total = m['start'][k] + reconciled_delta
-            m['reconciled_total'][k] = reconciled_total
-            m['end'][k] = reconciled_total + m['unreco_movements_delta'][k]
+            m["reconciled_delta"][k] = reconciled_delta
+            reconciled_total = m["start"][k] + reconciled_delta
+            m["reconciled_total"][k] = reconciled_total
+            m["end"][k] = reconciled_total + m["unreco_movements_delta"][k]
 
     return res
 
@@ -519,7 +539,8 @@ def open_end_period_exists(request, file_id):
             Period.file_id == file_id,
             Period.end_date == null,
         )
-        .one())
+        .one()
+    )
     return row[0]
 
 
@@ -541,7 +562,8 @@ def add_open_period(request, file_id, event_type):
             Period.end_date != null,
         )
         .order_by(Period.end_date.desc())
-        .first())
+        .first()
+    )
 
     if prev is not None:
         next_start_date = prev.end_date + datetime.timedelta(days=1)
@@ -551,11 +573,10 @@ def add_open_period(request, file_id, event_type):
         else:
             # Compute the previous end_circ and end_surplus.
             totals = compute_period_totals(
-                dbsession=dbsession,
-                owner_id=owner_id,
-                period_ids=[prev.id])[prev.id]
-            next_start_circ = totals['end']['circ']
-            next_start_surplus = totals['end']['surplus']
+                dbsession=dbsession, owner_id=owner_id, period_ids=[prev.id]
+            )[prev.id]
+            next_start_circ = totals["end"]["circ"]
+            next_start_surplus = totals["end"]["surplus"]
     else:
         next_start_date = None
         next_start_circ = 0
@@ -566,21 +587,25 @@ def add_open_period(request, file_id, event_type):
         file_id=file_id,
         start_date=next_start_date,
         start_circ=next_start_circ,
-        start_surplus=next_start_surplus)
+        start_surplus=next_start_surplus,
+    )
     dbsession.add(period)
     dbsession.flush()  # Assign period.id
 
-    dbsession.add(OwnerLog(
-        owner_id=owner_id,
-        personal_id=request.personal_id,
-        event_type=event_type,
-        content={
-            'period_id': period.id,
-            'file_id': file_id,
-            'start_date': next_start_date,
-            'start_circ': next_start_circ,
-            'start_surplus': next_start_surplus,
-        }))
+    dbsession.add(
+        OwnerLog(
+            owner_id=owner_id,
+            personal_id=request.personal_id,
+            event_type=event_type,
+            content={
+                "period_id": period.id,
+                "file_id": file_id,
+                "start_date": next_start_date,
+                "start_circ": next_start_circ,
+                "start_surplus": next_start_surplus,
+            },
+        )
+    )
 
     return period
 
@@ -600,42 +625,50 @@ def list_assignable_periods(dbsession, owner_id, period):
                 ~Period.closed,
             )
             .order_by(Period.start_date.desc())
-            .all())
+            .all()
+        )
 
-    return [{
-        'id': str(p.id),
-        'start_date': p.start_date,
-        'end_date': p.end_date,
-        'closed': p.closed,
-    } for p in period_rows]
+    return [
+        {
+            "id": str(p.id),
+            "start_date": p.start_date,
+            "end_date": p.end_date,
+            "closed": p.closed,
+        }
+        for p in period_rows
+    ]
 
 
 def handle_invalid(e, schema):
-    raise HTTPBadRequest(json_body={
-        'error': 'invalid',
-        'error_description': '; '.join(
-            "%s (field: %s)" % (v, k)
-            for (k, v) in sorted(e.asdict().items())),
-    })
+    raise HTTPBadRequest(
+        json_body={
+            "error": "invalid",
+            "error_description": "; ".join(
+                "%s (field: %s)" % (v, k) for (k, v) in sorted(e.asdict().items())
+            ),
+        }
+    )
 
 
 def configure_dblog(
-        request,
-        event_type=None,
-        movement_event_type=None,
-        account_entry_event_type=None):
+    request, event_type=None, movement_event_type=None, account_entry_event_type=None
+):
     """Set the variables for trigger-driven logging."""
     columns = [
-        func.set_config('opnreco.personal_id', request.personal_id, True),
+        func.set_config("opnreco.personal_id", request.personal_id, True),
     ]
     if movement_event_type or event_type:
-        columns.append(func.set_config(
-            'opnreco.movement.event_type',
-            movement_event_type or event_type,
-            True))
+        columns.append(
+            func.set_config(
+                "opnreco.movement.event_type", movement_event_type or event_type, True
+            )
+        )
     if account_entry_event_type or event_type:
-        columns.append(func.set_config(
-            'opnreco.account_entry.event_type',
-            account_entry_event_type or event_type,
-            True))
+        columns.append(
+            func.set_config(
+                "opnreco.account_entry.event_type",
+                account_entry_event_type or event_type,
+                True,
+            )
+        )
     request.dbsession.query(*columns).one()

@@ -160,9 +160,9 @@ export const allCurrencies = [
   'ZMW',
 ];
 
-const numFmt0 = new Intl.NumberFormat('en-US', {'minimumFractionDigits': 0});
-const numFmt2 = new Intl.NumberFormat('en-US', {'minimumFractionDigits': 2});
-const numFmt3 = new Intl.NumberFormat('en-US', {'minimumFractionDigits': 3});
+const numFmt0 = new Intl.NumberFormat('en-US', { 'minimumFractionDigits': 0 });
+const numFmt2 = new Intl.NumberFormat('en-US', { 'minimumFractionDigits': 2 });
+const numFmt3 = new Intl.NumberFormat('en-US', { 'minimumFractionDigits': 3 });
 
 // Most currencies use 2 subunit digits. These are the exceptions.
 const numFmts = {

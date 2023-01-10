@@ -1,9 +1,9 @@
-
-from decimal import Decimal
-from opnreco.testing import DBSessionFixture
 import datetime
-import pyramid.testing
 import unittest
+from decimal import Decimal
+
+import pyramid.testing
+from opnreco.testing import DBSessionFixture
 
 zero = Decimal()
 
@@ -18,7 +18,6 @@ def teardown_module():
 
 
 class Test_detect_date_overlap(unittest.TestCase):
-
     def setUp(self):
         self.config = pyramid.testing.setUp()
         self.dbsession, self.close_session = dbsession_fixture.begin_session()
@@ -29,16 +28,18 @@ class Test_detect_date_overlap(unittest.TestCase):
 
     def _call(self, *args, **kw):
         from ..periodapi import detect_date_overlap
+
         return detect_date_overlap(*args, **kw)
 
     def register_peer(self):
         from opnreco.models import db
+
         dbsession = self.dbsession
 
         owner = db.Owner(
-            id='102',
+            id="102",
             title="Testy Owner",
-            username='testowner',
+            username="testowner",
         )
         dbsession.add(owner)
         dbsession.flush()
@@ -46,29 +47,31 @@ class Test_detect_date_overlap(unittest.TestCase):
         file = db.File(
             id=1239,
             owner_id=owner.id,
-            file_type='open_circ',
-            title='Test File',
-            currency='USD',
-            has_vault=True)
+            file_type="open_circ",
+            title="Test File",
+            currency="USD",
+            has_vault=True,
+        )
         dbsession.add(file)
         dbsession.flush()
 
         peer = db.Peer(
-            owner_id='102',
-            peer_id='102',
+            owner_id="102",
+            peer_id="102",
             title="Testy Owner",
-            username='testowner',
+            username="testowner",
         )
         dbsession.add(peer)
 
     def register_periods(self):
         from opnreco.models import db
+
         dbsession = self.dbsession
 
         self.register_peer()
 
         self.p2014 = p2014 = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
             start_date=None,
             end_date=datetime.date(2014, 12, 31),
@@ -76,7 +79,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         dbsession.add(p2014)
 
         self.p2016 = p2016 = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
             start_date=datetime.date(2016, 1, 1),
             end_date=datetime.date(2016, 12, 31),
@@ -84,7 +87,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         dbsession.add(p2016)
 
         self.p2018 = p2018 = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
             start_date=datetime.date(2018, 1, 1),
             end_date=None,
@@ -99,7 +102,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_peer()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -107,7 +110,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2014, 1, 1),
-            new_end_date=datetime.date(2018, 12, 31))
+            new_end_date=datetime.date(2018, 12, 31),
+        )
 
         self.assertIsNone(conflict_row)
 
@@ -117,7 +121,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -125,7 +129,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2015, 1, 1),
-            new_end_date=datetime.date(2015, 12, 31))
+            new_end_date=datetime.date(2015, 12, 31),
+        )
 
         self.assertIsNone(conflict_row)
 
@@ -135,7 +140,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -143,7 +148,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2017, 1, 1),
-            new_end_date=datetime.date(2017, 12, 31))
+            new_end_date=datetime.date(2017, 12, 31),
+        )
 
         self.assertIsNone(conflict_row)
 
@@ -153,7 +159,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -161,7 +167,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2014, 12, 1),
-            new_end_date=datetime.date(2015, 12, 31))
+            new_end_date=datetime.date(2015, 12, 31),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -171,7 +178,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -179,7 +186,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2015, 7, 1),
-            new_end_date=datetime.date(2017, 7, 1))
+            new_end_date=datetime.date(2017, 7, 1),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -189,7 +197,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -197,7 +205,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2000, 12, 1),
-            new_end_date=datetime.date(2020, 12, 31))
+            new_end_date=datetime.date(2020, 12, 31),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -207,7 +216,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -215,7 +224,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=None,
-            new_end_date=None)
+            new_end_date=None,
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -225,7 +235,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -233,7 +243,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=None,
-            new_end_date=datetime.date(2020, 12, 31))
+            new_end_date=datetime.date(2020, 12, 31),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -243,7 +254,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -251,7 +262,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2000, 1, 1),
-            new_end_date=None)
+            new_end_date=None,
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -261,7 +273,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -269,7 +281,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2016, 7, 1),
-            new_end_date=datetime.date(2016, 7, 1))
+            new_end_date=datetime.date(2016, 7, 1),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -279,7 +292,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -287,7 +300,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2000, 7, 1),
-            new_end_date=datetime.date(2000, 7, 1))
+            new_end_date=datetime.date(2000, 7, 1),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -297,7 +311,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -305,7 +319,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2020, 7, 1),
-            new_end_date=datetime.date(2020, 7, 1))
+            new_end_date=datetime.date(2020, 7, 1),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -315,7 +330,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -323,7 +338,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=None,
-            new_end_date=datetime.date(2015, 1, 1))
+            new_end_date=datetime.date(2015, 1, 1),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -333,7 +349,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -341,7 +357,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=None,
-            new_end_date=datetime.date(2013, 1, 1))
+            new_end_date=datetime.date(2013, 1, 1),
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -352,7 +369,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=self.p2014,
             new_start_date=None,
-            new_end_date=datetime.date(2015, 12, 21))
+            new_end_date=datetime.date(2015, 12, 21),
+        )
 
         self.assertIsNone(conflict_row)
 
@@ -362,7 +380,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -370,7 +388,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2017, 1, 1),
-            new_end_date=None)
+            new_end_date=None,
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -380,7 +399,7 @@ class Test_detect_date_overlap(unittest.TestCase):
         self.register_periods()
 
         period = db.Period(
-            owner_id='102',
+            owner_id="102",
             file_id=1239,
         )
 
@@ -388,7 +407,8 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=period,
             new_start_date=datetime.date(2020, 1, 1),
-            new_end_date=None)
+            new_end_date=None,
+        )
 
         self.assertIsNotNone(conflict_row)
 
@@ -399,6 +419,7 @@ class Test_detect_date_overlap(unittest.TestCase):
             dbsession=self.dbsession,
             period=self.p2018,
             new_start_date=datetime.date(2017, 1, 1),
-            new_end_date=None)
+            new_end_date=None,
+        )
 
         self.assertIsNone(conflict_row)

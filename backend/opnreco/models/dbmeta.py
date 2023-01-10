@@ -1,15 +1,14 @@
-
-from opnreco.render import get_json_default
-from sqlalchemy import engine_from_config
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm import configure_mappers
 import json
 import os
+
 import zope.sqlalchemy
 
 # import or define all models here to ensure they are attached to the
 # Base.metadata prior to any initialization routines
 from opnreco.models.db import all_metadata_defined as __all  # noqa
+from opnreco.render import get_json_default
+from sqlalchemy import engine_from_config
+from sqlalchemy.orm import configure_mappers, sessionmaker
 
 # run configure_mappers after defining all of the models to ensure
 # all relationships can be setup
@@ -19,16 +18,15 @@ configure_mappers()
 def json_dumps_extra(value):
     return json.dumps(
         value,
-        separators=(',', ':'),
-        indent='',
+        separators=(",", ":"),
+        indent="",
         sort_keys=True,
-        default=get_json_default)
+        default=get_json_default,
+    )
 
 
-def get_engine(prefix='sqlalchemy_'):
-    return engine_from_config(
-        os.environ, prefix,
-        json_serializer=json_dumps_extra)
+def get_engine(prefix="sqlalchemy_"):
+    return engine_from_config(os.environ, prefix, json_serializer=json_dumps_extra)
 
 
 def get_dbsession_factory(engine):
@@ -58,8 +56,7 @@ def get_tm_dbsession(dbsession_factory, transaction_manager):
               dbsession = get_tm_session(session_factory, transaction.manager)
     """
     dbsession = dbsession_factory()
-    zope.sqlalchemy.register(
-        dbsession, transaction_manager=transaction_manager)
+    zope.sqlalchemy.register(dbsession, transaction_manager=transaction_manager)
     return dbsession
 
 
@@ -71,10 +68,10 @@ def includeme(config):
 
     """
     # use pyramid_tm to hook the transaction lifecycle to the request
-    config.include('pyramid_tm')
+    config.include("pyramid_tm")
 
     dbsession_factory = get_dbsession_factory(get_engine())
-    config.registry['dbsession_factory'] = dbsession_factory
+    config.registry["dbsession_factory"] = dbsession_factory
 
     def dbsession(request):
         return get_tm_dbsession(dbsession_factory, request.tm)
@@ -82,4 +79,7 @@ def includeme(config):
     # make request.dbsession available for use in Pyramid
     config.add_request_method(
         # request.tm is the transaction manager provided by pyramid_tm.
-        dbsession, 'dbsession', reify=True)
+        dbsession,
+        "dbsession",
+        reify=True,
+    )

@@ -1,16 +1,12 @@
+import re
+from weakref import ref
 
 from opnreco.models import perms
-from opnreco.models.db import File
-from opnreco.models.db import Period
+from opnreco.models.db import File, Period
+from pyramid.authorization import DENY_ALL, Allow, Authenticated
 from pyramid.decorator import reify
-from pyramid.security import Allow
-from pyramid.security import Authenticated
-from pyramid.security import DENY_ALL
-from weakref import ref
-import re
 
-static_file_re = re.compile(
-    r'^[a-zA-Z0-9\-.]+\.(json|js|ico|html|txt)$')
+static_file_re = re.compile(r"^[a-zA-Z0-9\-.]+\.(json|js|ico|html|txt)$")
 
 
 class Site:
@@ -27,7 +23,7 @@ class Site:
     )
 
     def __getitem__(self, name):
-        if name == 'api':
+        if name == "api":
             return self.api
         elif static_file_re.match(name):
             return StaticFile(self, name)
@@ -45,26 +41,25 @@ class StaticFile:
 
 
 class API:
-
     def __init__(self, parent):
         self.__parent__ = parent
-        self.__name__ = 'api'
+        self.__name__ = "api"
         self.request_ref = parent.request_ref
 
     def __getitem__(self, name):
-        if name == 'period':
+        if name == "period":
             return self.periods
-        elif name == 'file':
+        elif name == "file":
             return self.files
         raise KeyError(name)
 
     @reify
     def periods(self):
-        return PeriodCollection(self, 'period')
+        return PeriodCollection(self, "period")
 
     @reify
     def files(self):
-        return FileCollection(self, 'file')
+        return FileCollection(self, "file")
 
 
 class ResourceCollection:
@@ -120,27 +115,33 @@ class PeriodResource:
         if self.file_archived:
             # Allow view only (no edit or reopen)
             return [
-                (Allow, period.owner_id, (
-                    perms.view_period,
-                )),
+                (Allow, period.owner_id, (perms.view_period,)),
                 DENY_ALL,
             ]
         elif period.closed:
             # Allow view and reopen (no edit)
             return [
-                (Allow, period.owner_id, (
-                    perms.view_period,
-                    perms.reopen_period,
-                )),
+                (
+                    Allow,
+                    period.owner_id,
+                    (
+                        perms.view_period,
+                        perms.reopen_period,
+                    ),
+                ),
                 DENY_ALL,
             ]
         else:
             # Allow view and edit
             return [
-                (Allow, period.owner_id, (
-                    perms.view_period,
-                    perms.edit_period,
-                )),
+                (
+                    Allow,
+                    period.owner_id,
+                    (
+                        perms.view_period,
+                        perms.edit_period,
+                    ),
+                ),
                 DENY_ALL,
             ]
 
@@ -158,11 +159,7 @@ class FileCollection(ResourceCollection):
         # Note: users can view archived files, but to
         # change them, they must unarchive them.
         dbsession = self.request_ref().dbsession
-        row = (
-            dbsession.query(File)
-            .filter(File.id == resource_id)
-            .first()
-        )
+        row = dbsession.query(File).filter(File.id == resource_id).first()
         if row is None:
             return None
         return FileResource(self, str(resource_id), row)
@@ -179,17 +176,25 @@ class FileResource:
         file = self.file
         if file.archived:
             return [
-                (Allow, self.file.owner_id, (
-                    perms.view_file,
-                    perms.unarchive_file,
-                )),
+                (
+                    Allow,
+                    self.file.owner_id,
+                    (
+                        perms.view_file,
+                        perms.unarchive_file,
+                    ),
+                ),
                 DENY_ALL,
             ]
         else:
             return [
-                (Allow, self.file.owner_id, (
-                    perms.view_file,
-                    perms.edit_file,
-                )),
+                (
+                    Allow,
+                    self.file.owner_id,
+                    (
+                        perms.view_file,
+                        perms.edit_file,
+                    ),
+                ),
                 DENY_ALL,
             ]

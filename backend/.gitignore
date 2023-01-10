@@ -1,20 +1,10 @@
+/venv
+/pyvenv.cfg
+/.pypi
 /.env
-/bin
-/lib
-/lib64
-/include
-/.installed.cfg
-/parts
-/eggs
-/develop-eggs
-/share
-/pip-selfcheck.json
-pyvenv.cfg
 
 *.egg-info
+*.code-workspace
 __pycache__
-
-/buildout.cfg
-
 .coverage
 htmlcov

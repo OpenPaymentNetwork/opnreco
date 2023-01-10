@@ -1,4 +1,3 @@
-
 from pyramid.decorator import reify
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import Session
@@ -41,8 +40,8 @@ class DBSessionFixture:
         from opnreco.models.dbmeta import json_dumps_extra
 
         return create_engine(
-            'postgresql:///opnrecotest',
-            json_serializer=json_dumps_extra)
+            "postgresql:///opnrecotest", json_serializer=json_dumps_extra
+        )
 
     @reify
     def connection(self):
@@ -59,27 +58,25 @@ class DBSessionFixture:
         Call this in teardown_module().
         """
         self_vars = vars(self)
-        connection = self_vars.get('connection')
+        connection = self_vars.get("connection")
         if connection is not None:
             self.transaction.rollback()
             connection.close()
             del self.connection
             del self.transaction
-        engine = self_vars.get('engine')
+        engine = self_vars.get("engine")
         if engine is not None:
             engine.dispose()
             del self.engine
 
     def begin_session(self):
-        """Start a session. Return (dbsession, close_session).
-
-        """
+        """Start a session. Return (dbsession, close_session)."""
         connection = self.connection
         txn = connection.begin_nested()
         dbsession = Session(connection)
 
         def close_session():
-            dbsession.close()
             txn.rollback()
+            dbsession.close()
 
         return dbsession, close_session

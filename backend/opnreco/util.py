@@ -1,8 +1,8 @@
-
-from pyramid.httpexceptions import HTTPUnauthorized
 import datetime
 import logging
 import re
+
+from pyramid.httpexceptions import HTTPUnauthorized
 
 log = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ def check_requests_response(r, raise_exc=True):
         # Propagate Unauthorized errors.
         kw = {}
         try:
-            kw['json_body'] = r.json()
+            kw["json_body"] = r.json()
         except Exception:
             pass
         response = HTTPUnauthorized(**kw)
@@ -25,8 +25,7 @@ def check_requests_response(r, raise_exc=True):
             error_json = r.json()
         except Exception:
             error_json = None
-        log.warning(
-            "Request to %s failed: %s, %s" % (r.url, e, error_json))
+        log.warning("Request to %s failed: %s, %s" % (r.url, e, error_json))
         if raise_exc:
             raise
         else:
@@ -36,9 +35,10 @@ def check_requests_response(r, raise_exc=True):
 
 
 datetime_re = re.compile(
-    r'(\d{4})-(\d\d)-(\d\d)'             # date
-    r'[T ](\d\d):(\d\d):(\d\d)(\.\d+)?'  # time
-    r'(Z|[\+\-]\d\d:?\d\d)?$')           # time zone
+    r"(\d{4})-(\d\d)-(\d\d)"  # date
+    r"[T ](\d\d):(\d\d):(\d\d)(\.\d+)?"  # time
+    r"(Z|[\+\-]\d\d:?\d\d)?$"
+)  # time zone
 
 
 def to_datetime(input_str, allow_none=False):
@@ -57,12 +57,12 @@ def to_datetime(input_str, allow_none=False):
     if SS:
         if len(SS) < 7:
             # Pad to milliseconds.
-            SS = (SS + '000000')[:7]
+            SS = (SS + "000000")[:7]
         ms = int(SS[1:7])
     else:
         ms = 0
     res = datetime.datetime(int(y), int(m), int(d), int(H), int(M), int(S), ms)
-    if tz and tz not in ('Z', '+00:00', '-00:00'):
+    if tz and tz not in ("Z", "+00:00", "-00:00"):
         # Convert to UTC.
         hours = int(tz[:3])
         minutes = int(tz[4:])
@@ -79,6 +79,6 @@ def dashed(n):
     res = []
     s_len = len(s)
     while pos < s_len:
-        res.append(s[pos:pos + 4])
+        res.append(s[pos : pos + 4])
         pos += 4
-    return '-'.join(res)
+    return "-".join(res)

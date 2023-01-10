@@ -1,21 +1,25 @@
-
-from decimal import Decimal
-from opnreco.models.db import FileLoopConfig
-from opnreco.models.db import FileMovement
-from opnreco.models.db import FileSync
-from opnreco.models.db import Movement
-from opnreco.models.db import OwnerLog
-from opnreco.models.db import Period
-from opnreco.models.db import Reco
-from opnreco.models.db import TransferRecord
-from opnreco.viewcommon import add_open_period
-from opnreco.viewcommon import configure_dblog
-from opnreco.viewcommon import get_period_for_day
-from pyramid.decorator import reify
-from sqlalchemy import and_
 import collections
+import datetime
 import logging
+from decimal import Decimal
+from typing import Sequence
+
 import pytz
+from opnreco.models.db import (
+    File,
+    FileLoopConfig,
+    FileMovement,
+    FileSync,
+    Movement,
+    Owner,
+    OwnerLog,
+    Period,
+    Reco,
+    TransferRecord,
+)
+from opnreco.reify import reify
+from opnreco.viewcommon import add_open_period, configure_dblog, get_period_for_day
+from sqlalchemy import and_
 
 log = logging.getLogger(__name__)
 zero = Decimal()
@@ -25,7 +29,7 @@ null = None
 class VerificationFailure(Exception):
     """A transfer failed verification"""
 
-    def __init__(self, msg, transfer_id):
+    def __init__(self, msg: str, transfer_id: int):
         Exception.__init__(self, msg)
         self.transfer_id = transfer_id
 
@@ -35,10 +39,12 @@ class MovementInterpreter:
 
     Also auto-reconcile within transfers.
     """
-    def __init__(self, request, file, change_log):
+
+    def __init__(self, request, file: File, owner: Owner, change_log: list[dict]):
         self.request = request
         self.file = file
         self.owner_id = file.owner_id
+        self.owner = owner
         self.change_log = change_log
 
         # open_periods: {date: open Period}
@@ -50,30 +56,37 @@ class MovementInterpreter:
 
         Default to the America/New_York time zone.
         """
+        tzname = self.owner.tzname
+        if tzname is not None:
+            tzname = str(tz_name)  # type: ignore
+        else:
+            tzname = "America/New_York"
         try:
-            return pytz.timezone(self.owner.tzname or 'America/New_York')
+            return pytz.timezone(tzname)
         except Exception:
-            return pytz.timezone('America/New_York')
+            return pytz.timezone("America/New_York")
 
     @reify
-    def open_period_list(self):
+    def open_period_list(self) -> list[Period]:
         """Get the list of open Periods for the File."""
-        return (
+        return list(
             self.request.dbsession.query(Period)
             .filter(
                 Period.owner_id == self.owner_id,
                 Period.file_id == self.file.id,
-                ~Period.closed)
+                ~Period.closed,
+            )
             .order_by(Period.id)
-            .all())
+            .all()
+        )
 
     @reify
-    def open_period_ids(self):
+    def open_period_ids(self) -> set[int]:
         """Get the set of open Period IDs for the File."""
         return set(period.id for period in self.open_period_list)
 
     @reify
-    def loops_enabled(self):
+    def loops_enabled(self) -> dict[tuple[int, int], bool]:
         """Get {(loop_id, issuer_id): enabled}."""
         rows = (
             self.request.dbsession.query(FileLoopConfig)
@@ -81,45 +94,50 @@ class MovementInterpreter:
                 FileLoopConfig.owner_id == self.owner_id,
                 FileLoopConfig.file_id == self.file.id,
             )
-            .all())
-        return {
-            (row.loop_id, row.issuer_id): row.enabled
-            for row in rows}
+            .all()
+        )
+        return {(row.loop_id, row.issuer_id): row.enabled for row in rows}
 
-    def include_closed_loop(self, loop_id, issuer_id):
+    def include_closed_loop(self, loop_id: int, issuer_id: int):
         """Return true if movements for the given loop_id + issuer_id combo
         should be reconciled in this file."""
-        enabled = self.loops_enabled.get((loop_id, issuer_id))
+        enabled: bool | None = self.loops_enabled.get((loop_id, issuer_id))
         if enabled is not None:
             return enabled
         # Add a FileLoopConfig for a newly discovered
         # loop_id + issuer_id combo. Enable it if auto_enable_loops is true.
-        enabled = self.file.auto_enable_loops
+        enabled: bool = self.file.auto_enable_loops  # type: ignore
         row = FileLoopConfig(
             owner_id=self.owner_id,
             file_id=self.file.id,
             loop_id=loop_id,
             issuer_id=issuer_id,
-            enabled=enabled)
+            enabled=enabled,
+        )
         dbsession = self.request.dbsession
         dbsession.add(row)
         dbsession.flush()
         self.loops_enabled[(loop_id, issuer_id)] = enabled
 
-        dbsession.add(OwnerLog(
-            owner_id=self.owner_id,
-            personal_id=self.request.personal_id,
-            event_type='add_file_loop_config',
-            content={
-                'file_id': self.file.id,
-                'loop_id': loop_id,
-                'issuer_id': issuer_id,
-                'enabled': enabled,
-            }))
+        dbsession.add(
+            OwnerLog(
+                owner_id=self.owner_id,
+                personal_id=self.request.personal_id,
+                event_type="add_file_loop_config",
+                content={
+                    "file_id": self.file.id,
+                    "loop_id": loop_id,
+                    "issuer_id": issuer_id,
+                    "enabled": enabled,
+                },
+            )
+        )
 
         return enabled
 
-    def sync_file_movements(self, record, movements, is_new_record):
+    def sync_file_movements(
+        self, record: TransferRecord, movements: Sequence[Movement], is_new_record: bool
+    ):
         """Add the FileMovements for the movements in a TransferRecord.
 
         Also auto-reconcile if at least 2 movements fit the File.
@@ -139,7 +157,9 @@ class MovementInterpreter:
                     FileMovement.owner_id == self.owner_id,
                     FileMovement.file_id == self.file.id,
                     FileMovement.movement_id.in_(movement_ids),
-                ).all())
+                )
+                .all()
+            )
             for file_movement in rows:
                 file_movements[file_movement.movement_id] = file_movement
 
@@ -150,8 +170,8 @@ class MovementInterpreter:
         def configure_logging():
             if not configured_logging:
                 configure_dblog(
-                    request=self.request,
-                    movement_event_type='sync_file_movements')
+                    request=self.request, movement_event_type="sync_file_movements"
+                )
                 configured_logging.append(True)
 
         for movement in movements:
@@ -161,8 +181,11 @@ class MovementInterpreter:
                 # Add a file movement.
                 configure_logging()
 
-                day = movement.ts.replace(tzinfo=pytz.utc).astimezone(
-                    self.timezone).date()
+                day = (
+                    movement.ts.replace(tzinfo=pytz.utc)
+                    .astimezone(self.timezone)
+                    .date()
+                )
                 period = self.get_open_period(day=day)
 
                 file_movement = FileMovement(
@@ -170,34 +193,39 @@ class MovementInterpreter:
                     movement_id=movement.id,
                     file_id=self.file.id,
                     period_id=period.id,
-                    **kw)
+                    **kw
+                )
                 dbsession.add(file_movement)
 
-            elif (not kw and
-                    file_movement is not None and
-                    file_movement.reco_id is None and
-                    file_movement.period_id in self.open_period_ids):
+            elif (
+                not kw
+                and file_movement is not None
+                and file_movement.reco_id is None
+                and file_movement.period_id in self.open_period_ids
+            ):
                 # This movement no longer applies to the file
                 # and the file movement is safe to delete, so delete it.
                 configure_logging()
                 dbsession.delete(file_movement)
                 file_movement = None
 
-            elif (kw and
-                    file_movement is not None and
-                    file_movement.reco_id is None and
-                    file_movement.period_id in self.open_period_ids):
+            elif (
+                kw
+                and file_movement is not None
+                and file_movement.reco_id is None
+                and file_movement.period_id in self.open_period_ids
+            ):
                 # Update the file movement if needed.
-                if file_movement.peer_id != kw['peer_id']:
+                if file_movement.peer_id != kw["peer_id"]:
                     configure_logging()
-                    file_movement.peer_id = kw['peer_id']
-                if file_movement.wallet_delta != kw['wallet_delta']:
+                    file_movement.peer_id = kw["peer_id"]
+                if file_movement.wallet_delta != kw["wallet_delta"]:
                     configure_logging()
-                    file_movement.wallet_delta = kw['wallet_delta']
-                    file_movement.surplus_delta = kw['surplus_delta']
-                if file_movement.vault_delta != kw['vault_delta']:
+                    file_movement.wallet_delta = kw["wallet_delta"]
+                    file_movement.surplus_delta = kw["surplus_delta"]
+                if file_movement.vault_delta != kw["vault_delta"]:
                     configure_logging()
-                    file_movement.vault_delta = kw['vault_delta']
+                    file_movement.vault_delta = kw["vault_delta"]
 
             if file_movement is not None:
                 to_reconcile.append((file_movement, movement))
@@ -212,42 +240,46 @@ class MovementInterpreter:
                 dbsession.query(FileSync.transfer_record_id)
                 .filter(
                     FileSync.file_id == self.file.id,
-                    FileSync.transfer_record_id == record.id)
-                .first())
+                    FileSync.transfer_record_id == record.id,
+                )
+                .first()
+            )
             add_sync_record = row is None
 
         if add_sync_record:
             # Add the FileSync record.
-            dbsession.add(FileSync(
-                file_id=self.file.id, transfer_record_id=record.id))
+            dbsession.add(FileSync(file_id=self.file.id, transfer_record_id=record.id))
 
-        if len(to_reconcile) >= 2:
+        if len(to_reconcile) >= 1:
             # Auto-reconciliation within the transfer might be possible.
-            configure_dblog(
-                request=self.request, movement_event_type='autoreco')
+            configure_dblog(request=self.request, movement_event_type="autoreco")
             self.autoreco(
                 record=record,
                 movement_rows=to_reconcile,
-                is_new_record=is_new_record)
+                is_new_record=is_new_record,
+            )
 
     def sync_missing(self):
-        """Fill in any missing TransferRecord interpretations for this File.
-        """
+        """Fill in any missing TransferRecord interpretations for this File."""
         dbsession = self.request.dbsession
 
         while True:
             q = (
                 dbsession.query(TransferRecord)
-                .outerjoin(FileSync, and_(
-                    FileSync.file_id == self.file.id,
-                    FileSync.transfer_record_id == TransferRecord.id,
-                ))
+                .outerjoin(
+                    FileSync,
+                    and_(
+                        FileSync.file_id == self.file.id,
+                        FileSync.transfer_record_id == TransferRecord.id,
+                    ),
+                )
                 .filter(
                     TransferRecord.owner_id == self.owner_id,
                     FileSync.transfer_record_id == null,
                 )
                 .order_by(TransferRecord.id)
-                .limit(100))
+                .limit(100)
+            )
             record_batch = q.all()
 
             if not record_batch:
@@ -258,11 +290,11 @@ class MovementInterpreter:
                 dbsession.query(Movement)
                 .filter(
                     Movement.owner_id == self.owner_id,
-                    Movement.transfer_record_id.in_(record_ids))
-                .order_by(
-                    Movement.transfer_record_id,
-                    Movement.id)
-                .all())
+                    Movement.transfer_record_id.in_(record_ids),
+                )
+                .order_by(Movement.transfer_record_id, Movement.id)
+                .all()
+            )
 
             movement_dict = collections.defaultdict(list)
             for m in movement_batch:
@@ -275,14 +307,16 @@ class MovementInterpreter:
                     FileMovement.owner_id == self.owner_id,
                     FileMovement.transfer_record_id.in_(record_ids),
                 )
-                .all())
+                .all()
+            )
             existing_record_ids = {row[0] for row in file_movement_batch}
 
             for record in record_batch:
                 self.sync_file_movements(
                     record=record,
                     movements=movement_dict.get(record.id, ()),
-                    is_new_record=(record.id not in existing_record_ids))
+                    is_new_record=(record.id not in existing_record_ids),
+                )
 
     def interpret(self, movement):
         """Compute the FileMovement attrs for a Movement in this File.
@@ -309,12 +343,13 @@ class MovementInterpreter:
         amount = movement.amount
         wallet_delta = zero
         vault_delta = zero
+        peer_id = None
 
-        if file_type == 'open_circ':
+        if file_type == "open_circ":
             # The file owner is an issuer of open loop notes.
             # This file reconciles an account with the circulation of
             # open loop notes issued by this issuer.
-            if loop_id == '0':
+            if loop_id == "0":
                 if from_id == owner_id and to_id != owner_id:
                     peer_id = to_id
                     if from_id == issuer_id:
@@ -332,7 +367,7 @@ class MovementInterpreter:
                         # Notes were received from an account or other wallet.
                         wallet_delta = amount
 
-        elif file_type == 'account':
+        elif file_type == "account":
             # The file owner has a linked account.
             # This file reconciles an account with the movement of notes
             # between the owner's wallet and the account.
@@ -344,11 +379,11 @@ class MovementInterpreter:
                 # Notes were received from the account.
                 wallet_delta = amount
 
-        elif file_type == 'closed_circ':
+        elif file_type == "closed_circ":
             # The file owner is a distributor of closed loop notes.
             # For reconciliation purposes, this owner should be treated
             # as if it were the issuer of all the configured loops.
-            if loop_id != '0' and self.include_closed_loop(loop_id, issuer_id):
+            if loop_id != "0" and self.include_closed_loop(loop_id, issuer_id):
                 from_me = from_id in (owner_id, issuer_id)
                 to_me = to_id in (owner_id, issuer_id)
                 if from_me and to_me:
@@ -364,7 +399,7 @@ class MovementInterpreter:
                     # Notes were taken out of circulation.
                     vault_delta = amount
 
-            elif loop_id == '0':
+            elif loop_id == "0":
                 # Reconcile all movement of open loop notes to/from the
                 # owner as wallet movements.
                 if from_id == owner_id and to_id != owner_id:
@@ -381,20 +416,19 @@ class MovementInterpreter:
             return None
 
         return {
-            'currency': currency,
-            'loop_id': loop_id,
-            'issuer_id': issuer_id,
-            'transfer_record_id': movement.transfer_record_id,
-            'ts': movement.ts,
-            'peer_id': peer_id,
-            'wallet_delta': wallet_delta,
-            'vault_delta': vault_delta,
-            'surplus_delta': -wallet_delta,
+            "currency": currency,
+            "loop_id": loop_id,
+            "issuer_id": issuer_id,
+            "transfer_record_id": movement.transfer_record_id,
+            "ts": movement.ts,
+            "peer_id": peer_id,
+            "wallet_delta": wallet_delta,
+            "vault_delta": vault_delta,
+            "surplus_delta": -wallet_delta,
         }
 
     def get_open_period(self, day):
-        """Get an open Period for a movement_date.
-        """
+        """Get an open Period for a movement_date."""
         period = self.open_periods.get(day)
         if period is not None:
             return period
@@ -410,25 +444,26 @@ class MovementInterpreter:
 
         # Create a new open period.
         period = add_open_period(
-            request=self.request,
-            file_id=self.file.id,
-            event_type='add_period_for_sync')
+            request=self.request, file_id=self.file.id, event_type="add_period_for_sync"
+        )
 
         self.open_period_list.append(period)
         self.open_periods[day] = period
         self.open_period_ids.add(period.id)
-        self.change_log.append({
-            'event_type': 'add_period',
-            'period_id': period.id,
-        })
+        self.change_log.append(
+            {
+                "event_type": "add_period",
+                "period_id": period.id,
+            }
+        )
 
         return period
 
     def autoreco(self, record, movement_rows, is_new_record):
-        """Auto-reconcile some of the movements in a File + TransferRecord.
-        """
+        """Auto-reconcile some of the movements in a File + TransferRecord."""
         dbsession = self.request.dbsession
 
+        reco_rows: Sequence[FileMovement]
         if is_new_record:
             # No recos exist yet for this TransferRecord.
             reco_rows = ()
@@ -441,15 +476,17 @@ class MovementInterpreter:
                     FileMovement.file_id == self.file.id,
                     FileMovement.reco_id != null,
                     FileMovement.transfer_record_id == record.id,
-                    )
-                .all())
+                )
+                .all()
+            )
             done_movement_ids = set(row[0] for row in reco_rows)
 
         internal_seqs = find_internal_movements(
             movement_rows=movement_rows,
-            done_movement_ids=done_movement_ids)
+            done_movement_ids=done_movement_ids,
+        )
 
-        added = False
+        added_reco_ids = []
 
         for mvlist in internal_seqs:
             if len(mvlist) < 2:
@@ -473,32 +510,42 @@ class MovementInterpreter:
             if wallet_total + vault_total != zero:
                 raise AssertionError(
                     "find_internal_movements() returned an unbalanced "
-                    "movement list for transfer %s: %s != %s" % (
-                        record.transfer_id, wallet_total, -vault_total))
+                    "movement list for transfer %s: %s != %s"
+                    % (record.transfer_id, wallet_total, -vault_total)
+                )
 
             reco = Reco(
                 owner_id=self.owner_id,
                 period_id=mvlist[0][0].period_id,
-                reco_type='standard',
-                internal=True)
+                reco_type="standard",
+                internal=True,
+            )
             dbsession.add(reco)
             dbsession.flush()
             reco_id = reco.id
-            added = True
+            added_reco_ids.append(reco_id)
 
             for file_movement, movement in mvlist:
                 file_movement.reco_id = reco_id
                 file_movement.period_id = reco.period_id
 
-        if added:
-            self.change_log.append({
-                'event_type': 'reco_add',
-                'reco_id': reco_id,
-            })
+        if added_reco_ids:
+            self.change_log.append(
+                {
+                    "event_type": "reco_add",
+                    "reco_ids": added_reco_ids,
+                }
+            )
             dbsession.flush()
 
 
-def find_internal_movements(movement_rows, done_movement_ids):
+MovementTuple = tuple[FileMovement, Movement]
+
+
+def find_internal_movements(
+    movement_rows: Sequence[MovementTuple],
+    done_movement_ids: set[int],
+) -> list[list[MovementTuple]]:
     """Find internal movements that can be auto-reconciled.
 
     Return [[(FileMovement, Movement)]].
@@ -526,21 +573,23 @@ def find_internal_movements(movement_rows, done_movement_ids):
 
     # Group by loop_id and currency,
     # filtering out movements that had no effect on the wallet or vault.
-    # groups: {(loop_id, currency): (FileMovement, Movement)}
-    groups = collections.defaultdict(list)
+    # groups: {(loop_id, currency): [(FileMovement, Movement)]}
+    groups: dict[
+        tuple[int, str], list[tuple[FileMovement, Movement]]
+    ] = collections.defaultdict(list)
     for row in movement_rows:
         file_movement, movement = row
         if file_movement.wallet_delta or file_movement.vault_delta:
-            key = (movement.loop_id, movement.currency)
+            key: tuple[int, str] = (movement.loop_id, movement.currency)  # type: ignore
             groups[key].append(row)
 
     # all_internal_seqs is a list of movement sequences that
     # constitute internal movements.
     # all_internal_seqs: [[movement]]
-    all_internal_seqs = []
+    all_internal_seqs: list[list[tuple[FileMovement, Movement]]] = []
 
-    def get_row_sort_key(row):
-        file_movement, movement = row
+    def get_row_sort_key(row: tuple[FileMovement, Movement]) -> tuple:
+        _file_movement, movement = row
         return (movement.number, movement.amount_index)
 
     for key, group in groups.items():
@@ -553,15 +602,15 @@ def find_internal_movements(movement_rows, done_movement_ids):
         refine_movement_order(group)
 
         internal_seqs = find_internal_movements_for_group(
-            group=group,
-            done_movement_ids=done_movement_ids)
+            group=group, done_movement_ids=done_movement_ids
+        )
         if internal_seqs:
             all_internal_seqs.extend(internal_seqs)
 
     return all_internal_seqs
 
 
-def refine_movement_order(group):
+def refine_movement_order(group: list[MovementTuple]):
     """Refine the order of migrated movements in a group.
 
     This works around an issue in migrated movements. Movements
@@ -573,14 +622,17 @@ def refine_movement_order(group):
     The reordering tries to restore the hills or valleys that existed
     in the original sequence.
     """
-    by_ts = collections.defaultdict(list)
+    by_ts: dict[
+        datetime.datetime, list[tuple[int, MovementTuple]]
+    ] = collections.defaultdict(list)
 
     for index, row in enumerate(group):
         file_movement, movement = row
         if movement.action:
             # This is the end of the migrated movements for this transfer.
             break
-        by_ts[movement.ts].append((index, row))
+        ts: datetime.datetime = movement.ts  # type: ignore
+        by_ts[ts].append((index, row))
 
     if not by_ts:
         # Nothing to reorder.
@@ -621,9 +673,9 @@ def refine_movement_order(group):
             # Reorder.
             # make_valley specifies whether to form a valley or a hill.
 
-            def sort_key(item):
+            def sort_key(item: tuple[int, MovementTuple]):
                 index, row = item
-                file_movement, movement = row
+                file_movement, _movement = row
                 delta = file_movement.wallet_delta + file_movement.vault_delta
                 if make_valley:
                     forced_order = 0 if delta < zero else 1
@@ -641,25 +693,27 @@ def refine_movement_order(group):
                 group[index] = row
 
 
-non_internal_actions = frozenset(('move',))
+non_internal_actions = frozenset(("move",))
 
 
-def find_internal_movements_for_group(group, done_movement_ids):
+def find_internal_movements_for_group(
+    group: list[MovementTuple], done_movement_ids: set[int]
+) -> list[list[MovementTuple]]:
     # Note: group must be ordered by number and all movements
     # in the group must be for the same loop_id and currency.
     # internal_seqs: [[(FileMovement, Movement)]]
-    internal_seqs = []
+    internal_seqs: list[list[MovementTuple]] = []
 
     # hill_starts and valley_starts contain the candidate starts of
     # a hill or valley. They map an original amount to the
     # index in the groups list when the change happened.
-    hill_starts = {}    # {original amount: group index}
-    valley_starts = {}  # {original amount: group index}
+    hill_starts: dict[Decimal, int] = {}  # {original amount: group index}
+    valley_starts: dict[Decimal, int] = {}  # {original amount: group index}
 
     # hill_ends and valley_ends list the candidate ends of a balanced
     # hill or valley.
-    hill_ends = []      # [(group index, new amount)]
-    valley_ends = []    # [(group index, new amount)]
+    hill_ends: list[tuple[int, Decimal]] = []  # [(group index, new amount)]
+    valley_ends: list[tuple[int, Decimal]] = []  # [(group index, new amount)]
 
     # trend contains the current direction of movement: +1, -1, or 0
     # (where 0 means the trend has not yet been determined).
@@ -700,11 +754,10 @@ def find_internal_movements_for_group(group, done_movement_ids):
 
     for index, row in enumerate(group):
         file_movement, movement = row
-        delta = file_movement.wallet_delta + file_movement.vault_delta
+        delta: Decimal = file_movement.wallet_delta + file_movement.vault_delta  # type: ignore
         new_amount = prev_amount + delta
 
-        if (movement.id in done_movement_ids or
-                movement.action in non_internal_actions):
+        if movement.id in done_movement_ids or movement.action in non_internal_actions:
             # This movement is already reconciled or internal,
             # so don't detect any hill or valley that crosses it,
             # but detect hills or valleys before or after.

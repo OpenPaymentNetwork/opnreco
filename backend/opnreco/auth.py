@@ -1,14 +1,13 @@
-
-from opnreco.models.db import OwnerLog
-from opnreco.util import check_requests_response
-from pyramid.interfaces import IAuthenticationPolicy
-from pyramid.security import Authenticated
-from pyramid.security import Everyone
-from zope.interface import implementer
 import datetime
 import logging
 import os
+
 import requests
+from opnreco.models.db import OwnerLog
+from opnreco.util import check_requests_response
+from pyramid.authorization import Authenticated, Everyone
+from pyramid.interfaces import IAuthenticationPolicy
+from zope.interface import implementer
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class OPNTokenAuthenticationPolicy(object):
     """
 
     def __init__(self):
-        self.opn_api_url = os.environ['opn_api_url']
+        self.opn_api_url = os.environ["opn_api_url"]
         self.token_cache = {}  # {access_token: {id, valid_until, wallet_info}}
         self.cache_duration = datetime.timedelta(seconds=60)
 
@@ -32,19 +31,19 @@ class OPNTokenAuthenticationPolicy(object):
         now = datetime.datetime.utcnow()
         entry = self.token_cache.get(token)
         if entry is not None:
-            if now < entry['valid_until']:
-                request.wallet_info = entry['wallet_info']
-                return entry['id']
+            if now < entry["valid_until"]:
+                request.wallet_info = entry["wallet_info"]
+                return entry["id"]
 
             wallet_info = self._request_wallet_info(request, token)
             if wallet_info:
                 # This token hasn't actually expired yet.
-                profile_info = wallet_info['profile']
-                profile_id = profile_info['id']
+                profile_info = wallet_info["profile"]
+                profile_id = profile_info["id"]
                 self.token_cache[token] = {
-                    'id': profile_id,
-                    'valid_until': now + self.cache_duration,
-                    'wallet_info': wallet_info,
+                    "id": profile_id,
+                    "valid_until": now + self.cache_duration,
+                    "wallet_info": wallet_info,
                 }
                 request.wallet_info = wallet_info
                 return profile_id
@@ -54,7 +53,7 @@ class OPNTokenAuthenticationPolicy(object):
                 # Take an opportunity to clean up the token cache.
                 to_delete = []
                 for token, entry1 in self.token_cache.items():
-                    if now >= entry1['valid_until']:
+                    if now >= entry1["valid_until"]:
                         to_delete.append(token)
                 for token in to_delete:
                     self.token_cache.pop(token, None)
@@ -62,24 +61,26 @@ class OPNTokenAuthenticationPolicy(object):
 
         wallet_info = self._request_wallet_info(request, token)
         if wallet_info is not None:
-            profile_info = wallet_info['profile']
-            profile_id = profile_info['id']
+            profile_info = wallet_info["profile"]
+            profile_id = profile_info["id"]
             self.token_cache[token] = {
-                'id': profile_id,
-                'valid_until': now + self.cache_duration,
-                'wallet_info': wallet_info,
+                "id": profile_id,
+                "valid_until": now + self.cache_duration,
+                "wallet_info": wallet_info,
             }
             request.wallet_info = wallet_info
 
             request.owner  # Add the Owner to the database
-            request.dbsession.add(OwnerLog(
-                owner_id=profile_id,
-                personal_id=request.personal_id,
-                event_type='access',
-                remote_addr=request.remote_addr,
-                user_agent=request.user_agent,
-                content={'title': profile_info['title']},
-            ))
+            request.dbsession.add(
+                OwnerLog(
+                    owner_id=profile_id,
+                    personal_id=request.personal_id,
+                    event_type="access",
+                    remote_addr=request.remote_addr,
+                    user_agent=request.user_agent,
+                    content={"title": profile_info["title"]},
+                )
+            )
 
             return profile_id
 
@@ -87,11 +88,10 @@ class OPNTokenAuthenticationPolicy(object):
 
     def _request_wallet_info(self, request, token):
         """Get the wallet info from OPN."""
-        url = '%s/wallet/info' % self.opn_api_url
+        url = "%s/wallet/info" % self.opn_api_url
         r = requests.get(
-            url,
-            headers={'Authorization': 'Bearer %s' % token},
-            timeout=30)
+            url, headers={"Authorization": "Bearer %s" % token}, timeout=30
+        )
         if not check_requests_response(r, raise_exc=False):
             return None
         return r.json()

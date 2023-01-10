@@ -1,25 +1,22 @@
-
-from decimal import Decimal
-from opnreco.models.db import AccountEntry
-from opnreco.models.db import FileMovement
-from opnreco.models.db import Period
-from opnreco.models.db import Reco
-from opnreco.models.db import TransferRecord
-from opnreco.viewcommon import get_tzname
-from sqlalchemy import BigInteger
-from sqlalchemy import Date
-from sqlalchemy import cast
-from sqlalchemy import func
-from sqlalchemy import literal
-from sqlalchemy import Numeric
-from sqlalchemy import select
-from sqlalchemy import String
-from sqlalchemy import union_all
-from sqlalchemy.dialects.postgresql import array
-from sqlalchemy.dialects.postgresql import array_agg
 import collections
 import datetime
 import logging
+from decimal import Decimal
+
+from opnreco.models.db import AccountEntry, FileMovement, Period, Reco, TransferRecord
+from opnreco.viewcommon import get_tzname
+from sqlalchemy import (
+    BigInteger,
+    Date,
+    Numeric,
+    String,
+    cast,
+    func,
+    literal,
+    select,
+    union_all,
+)
+from sqlalchemy.dialects.postgresql import array, array_agg
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +31,7 @@ class SortableMatch:
     Matches an account entry with an OPN movement. Scores the probability
     of a match. Provides a corresponding sort_key.
     """
+
     def __init__(self, row):
         # row is a candidate match.
         self.delta = row.delta
@@ -47,7 +45,7 @@ class SortableMatch:
         score = 0
 
         if transfer_id:
-            clean_desc = description.replace('-', '')
+            clean_desc = description.replace("-", "")
             # Count how many characters of the transfer ID are found
             # in the description. Require at least 3 characters to improve
             # the score.
@@ -56,7 +54,7 @@ class SortableMatch:
                 if transfer_id[:length] in clean_desc:
                     # This scoring function seems reasonable for
                     # matching 11 digit transfer IDs.
-                    score += 1.5 ** length
+                    score += 1.5**length
                     break
 
         # The closer in time, the higher the score.
@@ -65,7 +63,11 @@ class SortableMatch:
         self.score = score
 
         self.sort_key = (
-            score, entry_date, account_entry_id, tuple(sorted(movement_ids)))
+            score,
+            entry_date,
+            account_entry_id,
+            tuple(sorted(movement_ids)),
+        )
 
 
 def build_single_movement_query(dbsession, owner, period):
@@ -78,22 +80,19 @@ def build_single_movement_query(dbsession, owner, period):
     - delta
     - movement_ids
     """
-    movement_date_c = func.date(func.timezone(
-        get_tzname(owner),
-        func.timezone('UTC', FileMovement.ts)
-    ))
+    movement_date_c = func.date(
+        func.timezone(get_tzname(owner), func.timezone("UTC", FileMovement.ts))
+    )
 
     return (
         dbsession.query(
             TransferRecord.transfer_id,
-            movement_date_c.label('date'),
-            file_movement_delta.label('delta'),
-            array([FileMovement.movement_id]).label('movement_ids'),
+            movement_date_c.label("date"),
+            file_movement_delta.label("delta"),
+            array([FileMovement.movement_id]).label("movement_ids"),
         )
         .select_from(FileMovement)
-        .join(
-            TransferRecord,
-            TransferRecord.id == FileMovement.transfer_record_id)
+        .join(TransferRecord, TransferRecord.id == FileMovement.transfer_record_id)
         .join(Period, Period.id == FileMovement.period_id)
         .filter(
             FileMovement.owner_id == owner.id,
@@ -101,7 +100,8 @@ def build_single_movement_query(dbsession, owner, period):
             FileMovement.reco_id == null,
             file_movement_delta != 0,
             ~Period.closed,
-        ))
+        )
+    )
 
 
 class BundleFinder:
@@ -141,8 +141,8 @@ class BundleFinder:
             return None
 
         qualified_bundles = self.list_qualified_bundles(
-            bundle_records=bundle_records,
-            movement_list_lookup=movement_list_lookup)
+            bundle_records=bundle_records, movement_list_lookup=movement_list_lookup
+        )
         if not qualified_bundles:
             return None
 
@@ -158,13 +158,11 @@ class BundleFinder:
             dbsession.query(
                 FileMovement.issuer_id,
                 TransferRecord.transfer_id,
-                func.sum(file_movement_delta).label('delta'),
-                array_agg(FileMovement.movement_id).label('movement_ids'),
+                func.sum(file_movement_delta).label("delta"),
+                array_agg(FileMovement.movement_id).label("movement_ids"),
             )
             .select_from(FileMovement)
-            .join(
-                TransferRecord,
-                TransferRecord.id == FileMovement.transfer_record_id)
+            .join(TransferRecord, TransferRecord.id == FileMovement.transfer_record_id)
             .join(Period, Period.id == FileMovement.period_id)
             .filter(
                 FileMovement.owner_id == owner.id,
@@ -178,11 +176,14 @@ class BundleFinder:
                 FileMovement.issuer_id,
                 TransferRecord.transfer_id,
             )
-            .all())
+            .all()
+        )
 
         log.info(
             "BundleFinder: %s unreconciled bundled movement(s) for period %s",
-            len(movement_rows), period.id)
+            len(movement_rows),
+            period.id,
+        )
 
         # movement_list_lookup: {
         #     (bundled_transfer_id, issuer_id): (delta, movement_ids)
@@ -195,8 +196,7 @@ class BundleFinder:
         return movement_list_lookup
 
     def list_bundle_records(self):
-        """List bundle transfers that contain unreconciled bundled movements.
-        """
+        """List bundle transfers that contain unreconciled bundled movements."""
         dbsession = self.dbsession
         owner = self.owner
         period = self.period
@@ -206,9 +206,7 @@ class BundleFinder:
         bundle_transfer_ids_cte = (
             dbsession.query(TransferRecord.bundle_transfer_id)
             .select_from(FileMovement)
-            .join(
-                TransferRecord,
-                TransferRecord.id == FileMovement.transfer_record_id)
+            .join(TransferRecord, TransferRecord.id == FileMovement.transfer_record_id)
             .join(Period, Period.id == FileMovement.period_id)
             .filter(
                 FileMovement.owner_id == owner.id,
@@ -219,31 +217,34 @@ class BundleFinder:
                 ~Period.closed,
             )
             .distinct()
-            .cte('bundle_transfer_ids_cte'))
+            .cte("bundle_transfer_ids_cte")
+        )
 
-        record_date_c = func.date(func.timezone(
-            get_tzname(owner),
-            func.timezone('UTC', TransferRecord.start)
-        ))
+        record_date_c = func.date(
+            func.timezone(get_tzname(owner), func.timezone("UTC", TransferRecord.start))
+        )
 
         bundle_records = (
             dbsession.query(
                 TransferRecord.transfer_id,
                 TransferRecord.bundled_transfers,
-                record_date_c.label('date'),
+                record_date_c.label("date"),
             )
             .filter(
                 TransferRecord.owner_id == owner.id,
-                TransferRecord.transfer_id.in_(bundle_transfer_ids_cte),
+                TransferRecord.transfer_id.in_(bundle_transfer_ids_cte.select()),
                 TransferRecord.bundled_transfers != null,
                 func.jsonb_array_length(TransferRecord.bundled_transfers) > 0,
             )
             .order_by(TransferRecord.start, TransferRecord.transfer_id)
-            .all())
+            .all()
+        )
 
         log.info(
             "BundleFinder: %s unreconciled bundle(s) for period %s",
-            len(bundle_records), period.id)
+            len(bundle_records),
+            period.id,
+        )
 
         return bundle_records
 
@@ -269,11 +270,10 @@ class BundleFinder:
             # to qualify for automatic bundle reconciliation.
             # specs:
             # {issuer_id: {bundled_transfer_id: delta}}
-            specs = collections.defaultdict(
-                lambda: collections.defaultdict(Decimal))
+            specs = collections.defaultdict(lambda: collections.defaultdict(Decimal))
             for t in bundle_record.bundled_transfers:
-                key = t['issuer_id']
-                specs[key][t['transfer_id']] += Decimal(t['amount'])
+                key = t["issuer_id"]
+                specs[key][t["transfer_id"]] += Decimal(t["amount"])
 
             for issuer_id, spec in sorted(specs.items()):
                 # issuer_id and spec describe a potentially reconcilable
@@ -308,16 +308,20 @@ class BundleFinder:
                     continue
 
                 # Found a qualified bundle. Add it to qualified_bundles.
-                qualified_bundles.append((
-                    bundle_record.transfer_id,
-                    bundle_record.date,
-                    total_delta,
-                    bundled_movement_ids,
-                ))
+                qualified_bundles.append(
+                    (
+                        bundle_record.transfer_id,
+                        bundle_record.date,
+                        total_delta,
+                        bundled_movement_ids,
+                    )
+                )
 
         log.info(
             "BundleFinder: %s qualified bundle(s) for period %s",
-            len(qualified_bundles), self.period.id)
+            len(qualified_bundles),
+            self.period.id,
+        )
         return qualified_bundles
 
     def build_query(self, qualified_bundles):
@@ -332,22 +336,25 @@ class BundleFinder:
             ) = tup
             if not stmts:
                 # Apply column types and labels to the first row.
-                stmts.append(select([
-                    cast(literal(transfer_id), String).label('transfer_id'),
-                    cast(literal(date), Date).label('date'),
-                    cast(literal(delta), Numeric).label('delta'),
-                    array(movement_ids, type_=BigInteger).label(
-                        'movement_ids'),
-                ]))
+                stmts.append(
+                    select(
+                        cast(literal(transfer_id), String).label("transfer_id"),
+                        cast(literal(date), Date).label("date"),
+                        cast(literal(delta), Numeric).label("delta"),
+                        array(movement_ids, type_=BigInteger).label("movement_ids"),
+                    )
+                )
             else:
                 # The column types and labels in the remaining rows are
                 # inferred from the first row.
-                stmts.append(select([
-                    literal(transfer_id),
-                    literal(date),
-                    literal(delta),
-                    array(movement_ids),
-                ]))
+                stmts.append(
+                    select(
+                        literal(transfer_id),
+                        literal(date),
+                        literal(delta),
+                        array(movement_ids),
+                    )
+                )
 
         query = union_all(*stmts)
         return query
@@ -358,16 +365,12 @@ def auto_reco_statement(dbsession, owner, period, statement):
 
     # Reconcile with individual movements
     single_movement_query = build_single_movement_query(
-        dbsession=dbsession,
-        owner=owner,
-        period=period)
+        dbsession=dbsession, owner=owner, period=period
+    )
 
     # Also reconcile with bundled movements (receive_ach_file transfers,
     # for example.)
-    bundle_query = BundleFinder(
-        dbsession=dbsession,
-        owner=owner,
-        period=period).find()
+    bundle_query = BundleFinder(dbsession=dbsession, owner=owner, period=period).find()
 
     if bundle_query is not None:
         # Include bundle matches.
@@ -375,7 +378,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
     else:
         movement_query = single_movement_query
 
-    movement_cte = movement_query.cte('movement_cte')
+    movement_cte = movement_query.cte("movement_cte")
 
     # Build all_matches, a list of all possible reconciliations
     # of this statement with existing OPN movements.
@@ -385,11 +388,11 @@ def auto_reco_statement(dbsession, owner, period, statement):
     all_matches = (
         dbsession.query(
             AccountEntry.delta,
-            AccountEntry.id.label('account_entry_id'),
+            AccountEntry.id.label("account_entry_id"),
             AccountEntry.entry_date,
             AccountEntry.description,
             movement_cte.c.movement_ids,
-            movement_cte.c.date.label('movement_date'),
+            movement_cte.c.date.label("movement_date"),
             movement_cte.c.transfer_id,
         )
         .join(movement_cte, movement_cte.c.delta == AccountEntry.delta)
@@ -402,7 +405,8 @@ def auto_reco_statement(dbsession, owner, period, statement):
             AccountEntry.delta != 0,
             ~Period.closed,
         )
-        .all())
+        .all()
+    )
 
     # Group the matches by amount delta in the 'by_delta' map.
     # by_delta: {delta: [SortableMatch]}
@@ -437,8 +441,8 @@ def auto_reco_statement(dbsession, owner, period, statement):
     def sort_match(sortable_match):
         return sortable_match.sort_key
 
-    new_reco_count = 0   # The number of Recos to create
-    entry_recos = {}     # account_entry_id: reco_index
+    new_reco_count = 0  # The number of Recos to create
+    entry_recos = {}  # account_entry_id: reco_index
     movement_recos = {}  # movement_id: reco_index
 
     for match_list in by_delta.values():
@@ -470,7 +474,7 @@ def auto_reco_statement(dbsession, owner, period, statement):
         reco = Reco(
             owner_id=owner.id,
             period_id=period.id,
-            reco_type='standard',
+            reco_type="standard",
             internal=False,
         )
         dbsession.add(reco)
@@ -484,8 +488,10 @@ def auto_reco_statement(dbsession, owner, period, statement):
         dbsession.query(FileMovement)
         .filter(
             FileMovement.file_id == period.file_id,
-            FileMovement.movement_id.in_(movement_recos.keys()))
-        .all())
+            FileMovement.movement_id.in_(movement_recos.keys()),
+        )
+        .all()
+    )
     for fm in file_movements:
         reco = new_recos[movement_recos[fm.movement_id]]
         fm.reco_id = reco.id
@@ -496,7 +502,8 @@ def auto_reco_statement(dbsession, owner, period, statement):
     entries = (
         dbsession.query(AccountEntry)
         .filter(AccountEntry.id.in_(entry_recos.keys()))
-        .all())
+        .all()
+    )
     for entry in entries:
         reco = new_recos[entry_recos[entry.id]]
         entry.reco_id = reco.id

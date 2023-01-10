@@ -1,25 +1,19 @@
+import datetime
+import logging
 
+import pytz
 from opnreco.models import perms
-from opnreco.models.db import OPNDownload
-from opnreco.models.db import OwnerLog
+from opnreco.models.db import OPNDownload, OwnerLog
 from opnreco.models.site import API
-from opnreco.syncbase import SyncBase
-from opnreco.syncbase import VerificationFailure
+from opnreco.syncbase import SyncBase, VerificationFailure
 from opnreco.util import to_datetime
 from pyramid.httpexceptions import HTTPInsufficientStorage
 from pyramid.view import view_config
-import datetime
-import logging
-import pytz
 
 log = logging.getLogger(__name__)
 
 
-@view_config(
-    name='sync',
-    context=API,
-    permission=perms.use_app,
-    renderer='json')
+@view_config(name="sync", context=API, permission=perms.use_app, renderer="json")
 class SyncAPI(SyncBase):
     write_enabled = True
 
@@ -33,19 +27,21 @@ class SyncAPI(SyncBase):
                 params = self.request.json
             except Exception:
                 params = {}
-            tzname = params.get('tzname', '').strip()
+            tzname = params.get("tzname", "").strip()
             if tzname and tzname in pytz.all_timezones:
                 owner.tzname = tzname
-                request.dbsession.add(OwnerLog(
-                    owner_id=owner.id,
-                    personal_id=request.personal_id,
-                    event_type='tzname_init',
-                    remote_addr=request.remote_addr,
-                    user_agent=request.user_agent,
-                    content={
-                        'tzname': tzname,
-                    },
-                ))
+                request.dbsession.add(
+                    OwnerLog(
+                        owner_id=owner.id,
+                        personal_id=request.personal_id,
+                        event_type="tzname_init",
+                        remote_addr=request.remote_addr,
+                        user_agent=request.user_agent,
+                        content={
+                            "tzname": tzname,
+                        },
+                    )
+                )
 
     def __call__(self):
         request = self.request
@@ -58,8 +54,7 @@ class SyncAPI(SyncBase):
             # after 5 minutes before the last sync. (Add 5 minutes in
             # case some transfers showed up out of order.)
             if owner.last_sync_ts is not None:
-                sync_ts = (
-                    owner.last_sync_ts - datetime.timedelta(seconds=60 * 5))
+                sync_ts = owner.last_sync_ts - datetime.timedelta(seconds=60 * 5)
             else:
                 sync_ts = datetime.datetime(1970, 1, 1)
             sync_transfer_id = None
@@ -69,34 +64,37 @@ class SyncAPI(SyncBase):
             sync_ts = owner.last_sync_ts
             sync_transfer_id = owner.last_sync_transfer_id
             count_remain = False
-        sync_ts_iso = sync_ts.isoformat() + 'Z'
+        sync_ts_iso = sync_ts.isoformat() + "Z"
 
         transfers_download = self.download_batch(
             sync_ts_iso=sync_ts_iso,
             sync_transfer_id=sync_transfer_id,
-            count_remain=count_remain)
+            count_remain=count_remain,
+        )
 
         dbsession = request.dbsession
-        more = transfers_download['more']
+        more = transfers_download["more"]
         now = datetime.datetime.utcnow()
 
         if more:
-            len_results = len(transfers_download['results'])
+            len_results = len(transfers_download["results"])
             if owner.first_sync_ts is None:
-                owner.first_sync_ts = to_datetime(
-                    transfers_download['first_sync_ts'])
-                owner.sync_total = len_results + transfers_download['remain']
+                owner.first_sync_ts = to_datetime(transfers_download["first_sync_ts"])
+                owner.sync_total = len_results + transfers_download["remain"]
                 owner.sync_done = len_results
             else:
                 owner.sync_done += len_results
-            owner.last_sync_ts = to_datetime(
-                transfers_download['last_sync_ts'])
-            owner.last_sync_transfer_id = (
-                transfers_download['results'][-1]['id'])
+            owner.last_sync_ts = to_datetime(transfers_download["last_sync_ts"])
+            owner.last_sync_transfer_id = transfers_download["results"][-1]["id"]
             # Note: avoid division by zero.
-            progress_percent = min(99, int(
-                100.0 * owner.sync_done / owner.sync_total
-                if owner.sync_total else 0.0))
+            progress_percent = min(
+                99,
+                int(
+                    100.0 * owner.sync_done / owner.sync_total
+                    if owner.sync_total
+                    else 0.0
+                ),
+            )
         else:
             owner.first_sync_ts = None
             owner.last_sync_transfer_id = None
@@ -108,8 +106,8 @@ class SyncAPI(SyncBase):
         opn_download = OPNDownload(
             owner_id=owner.id,
             content={
-                'transfers': transfers_download,
-                'more': more,
+                "transfers": transfers_download,
+                "more": more,
             },
         )
         dbsession.add(opn_download)
@@ -117,26 +115,27 @@ class SyncAPI(SyncBase):
 
         self.opn_download_id = opn_download.id
 
-        dbsession.add(OwnerLog(
-            owner_id=owner.id,
-            personal_id=request.personal_id,
-            event_type='opn_sync',
-            remote_addr=request.remote_addr,
-            user_agent=request.user_agent,
-            content={
-                'sync_ts': sync_ts_iso,
-                'progress_percent': progress_percent,
-                'change_count': len(self.change_log),
-                'transfers': {
-                    'ids': sorted(
-                        t['id'] for t in transfers_download['results']),
-                    'count': len(transfers_download['results']),
-                    'more': more,
-                    'first_sync_ts': transfers_download['first_sync_ts'],
-                    'last_sync_ts': transfers_download['last_sync_ts'],
-                }
-            },
-        ))
+        dbsession.add(
+            OwnerLog(
+                owner_id=owner.id,
+                personal_id=request.personal_id,
+                event_type="opn_sync",
+                remote_addr=request.remote_addr,
+                user_agent=request.user_agent,
+                content={
+                    "sync_ts": sync_ts_iso,
+                    "progress_percent": progress_percent,
+                    "change_count": len(self.change_log),
+                    "transfers": {
+                        "ids": sorted(t["id"] for t in transfers_download["results"]),
+                        "count": len(transfers_download["results"]),
+                        "more": more,
+                        "first_sync_ts": transfers_download["first_sync_ts"],
+                        "last_sync_ts": transfers_download["last_sync_ts"],
+                    },
+                },
+            )
+        )
 
         try:
             self.import_transfer_records(transfers_download)
@@ -144,16 +143,18 @@ class SyncAPI(SyncBase):
                 self.sync_missing()
         except VerificationFailure as e:
             # HTTP Error 507 is reasonably close to 'data verification error'.
-            raise HTTPInsufficientStorage(json_body={
-                'error': 'verification_failure',
-                'error_description': str(e),
-            })
+            raise HTTPInsufficientStorage(
+                json_body={
+                    "error": "verification_failure",
+                    "error_description": str(e),
+                }
+            )
 
         return {
-            'progress_percent': progress_percent,
-            'change_count': len(self.change_log),
-            'download_count': len(transfers_download['results']),
-            'more': more,
-            'first_sync_ts': transfers_download['first_sync_ts'],
-            'last_sync_ts': transfers_download['last_sync_ts'],
+            "progress_percent": progress_percent,
+            "change_count": len(self.change_log),
+            "download_count": len(transfers_download["results"]),
+            "more": more,
+            "first_sync_ts": transfers_download["first_sync_ts"],
+            "last_sync_ts": transfers_download["last_sync_ts"],
         }

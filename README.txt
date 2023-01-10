@@ -1,19 +1,21 @@
 
-This is the source code for the OPN Reconciliation tool. OPN is the Open
-Payment Network. Use the tool to reconcile your OPN activity with your
-bank account. The tool is especially intended for issuers.
+This is the source code for the OPN (Open Payment Network) Reconciliation tool.
+Use the tool to reconcile your OPN activity with
+bank accounts. The tool is especially intended for issuers.
 
-Build the software using Buildout:
+Build the software by using Make:
 
     cd backend
-    python3 -m venv .
-    bin/pip install -r requirements.txt
-    bin/buildout -c buildout-dev.cfg
-    cd ..
+    make dev
+
+Create a local opnreco database:
+
+    sudo -u postgres createdb -O ${USER} opnreco
+    venv/bin/initialize_opnreco_db development.ini
 
 Once the backend is built successfully, build the frontend:
 
-    cd frontend
+    cd ../frontend
     npm i
     cd ..
 
@@ -21,7 +23,7 @@ To run in development mode, open two terminals. Run the backend in the
 first terminal:
 
     cd backend
-    bin/pserve --reload development.ini
+    venv/bin/pserve --reload development.ini
 
 Run the frontend in a second terminal:
 

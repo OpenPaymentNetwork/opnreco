@@ -1,9 +1,9 @@
-
-from colander import null
-from decimal import Decimal
 import collections
 import datetime
 import json
+from decimal import Decimal
+
+from colander import null
 
 
 class CustomJSONRenderer(object):
@@ -13,28 +13,29 @@ class CustomJSONRenderer(object):
         pass
 
     def __call__(self, value, system):
-        """ Call the renderer implementation with the value
+        """Call the renderer implementation with the value
         and the system value passed in as arguments and return
         the result (a string or unicode object).  The value is
         the return value of a view.  The system value is a
         dictionary containing available system values
-        (e.g. view, context, and request). """
-        request = system.get('request')
-        indent = '  '
-        separators = (', ', ': ')
+        (e.g. view, context, and request)."""
+        request = system.get("request")
+        indent = "  "
+        separators = (", ", ": ")
 
         res = json.dumps(
             value,
             separators=separators,
             indent=indent,
             sort_keys=True,
-            default=get_json_default)
+            default=get_json_default,
+        )
 
         if request is not None:
             response = request.response
             ct = response.content_type
             if ct == response.default_content_type:
-                response.content_type = 'application/json; charset=UTF-8'
+                response.content_type = "application/json; charset=UTF-8"
 
         return res
 
@@ -65,6 +66,6 @@ def datetime_to_json(obj):
 
     if obj.tzinfo is None:
         # Assume UTC.
-        return '%sZ' % obj.isoformat()
+        return "%sZ" % obj.isoformat()
     else:
         return obj.isoformat()

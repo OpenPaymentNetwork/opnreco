@@ -1,4 +1,3 @@
-
 # from opnreco.models import perms
 # from opnreco.models.db import Period
 # from opnreco.models.db import Peer

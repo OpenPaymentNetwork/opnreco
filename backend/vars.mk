@@ -1,0 +1,9 @@
+venv_dir=./venv
+pypi_dir=./.pypi
+pypi_clone_url=https://github.com/OpenPaymentNetwork/opnreco-pypi.git
+fix_requirements_path=
+transitive_requirements=
+is_local_package=true
+source_indexes=--index-url https://pypi.org/simple
+all_requirements=
+cleanup_script=
