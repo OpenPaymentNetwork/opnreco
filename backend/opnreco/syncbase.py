@@ -133,8 +133,14 @@ class SyncBase:
             self.import_peer(self.owner_id, None)
 
         for tsum in transfers_download["results"]:
+            if tsum.get("sender_is_dfi_account"):
+                sender_info = {}
+                sender_info.update(tsum["sender_info"])
+                sender_info["is_dfi_account"] = True
+            else:
+                sender_info = tsum["sender_info"]
             if write_enabled:
-                self.import_peer(tsum["sender_id"], tsum["sender_info"])
+                self.import_peer(tsum["sender_id"], sender_info)
 
             if tsum.get("recipient_is_dfi_account"):
                 recipient_info = {}
