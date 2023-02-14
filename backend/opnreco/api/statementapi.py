@@ -921,7 +921,7 @@ class StatementUploadAPI:
 
     @reify
     def content(self):
-        return base64.decodestring(self.appstruct["b64"].encode("ascii"))
+        return base64.decodebytes(self.appstruct["b64"].encode("ascii"))
 
     def add_statement(self, source):
         appstruct = self.appstruct
