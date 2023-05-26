@@ -57,11 +57,11 @@ class Pager extends React.Component {
   }
 
   componentDidUpdate() {
-    const {rowcount} = this.props;
+    const { rowcount } = this.props;
     if ((rowcount || rowcount === 0) && this.state.oldRowcount !== rowcount) {
       // Keep a memory of the rowcount so this component can continue
       // to display it while switching pages.
-      this.setState({oldRowcount: rowcount});
+      this.setState({ oldRowcount: rowcount });
     }
   }
 
@@ -69,7 +69,7 @@ class Pager extends React.Component {
     const value = event.target.value;
     const rowsPerPage = parseInt(value, 10);
     this.props.dispatch(setRowsPerPage(this.props.name, rowsPerPage));
-  }
+  };
 
   setPageIndex(pageIndex) {
     this.props.dispatch(setPageIndex(this.props.name, pageIndex));
@@ -77,20 +77,20 @@ class Pager extends React.Component {
 
   handleNavFirst = () => {
     this.setPageIndex(0);
-  }
+  };
 
   handleNavPrev = () => {
     this.setPageIndex(this.props.pageIndex - 1);
-  }
+  };
 
   handleNavNext = () => {
     this.setPageIndex(this.props.pageIndex + 1);
-  }
+  };
 
   handleNavLast = () => {
-    const {rowcount, rowsPerPage} = this.props;
+    const { rowcount, rowsPerPage } = this.props;
     this.setPageIndex(Math.floor(((rowcount || 1) - 1) / rowsPerPage));
-  }
+  };
 
   render() {
     const {
@@ -142,7 +142,7 @@ class Pager extends React.Component {
             <Select value={String(rowsPerPage)}
               disableUnderline
               className={classes.rowsPerPage}
-              classes={{select: classes.rowsPerPageSelect}}
+              classes={{ select: classes.rowsPerPageSelect }}
               onChange={this.handleChangeRowsPerPage}
             >
               <MenuItem value="10">10</MenuItem>
@@ -162,19 +162,19 @@ class Pager extends React.Component {
 
         <IconButton title="First Page"
           disabled={!navPrev} onClick={this.handleNavFirst}
-        ><FirstPage/></IconButton>
+        ><FirstPage /></IconButton>
 
         <IconButton title="Previous Page"
           disabled={!navPrev} onClick={this.handleNavPrev}
-        ><ChevronLeft/></IconButton>
+        ><ChevronLeft /></IconButton>
 
         <IconButton title="Next Page"
           disabled={!navNext} onClick={this.handleNavNext}
-        ><ChevronRight/></IconButton>
+        ><ChevronRight /></IconButton>
 
         <IconButton title="Last Page"
           disabled={!navNext} onClick={this.handleNavLast}
-        ><LastPage/></IconButton>
+        ><LastPage /></IconButton>
 
       </div>
     );
@@ -183,7 +183,7 @@ class Pager extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {name, initialRowsPerPage} = ownProps;
+  const { name, initialRowsPerPage } = ownProps;
   return getPagerState(state, name, initialRowsPerPage);
 }
 

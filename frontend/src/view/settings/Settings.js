@@ -38,10 +38,10 @@ class Settings extends React.Component {
   };
 
   updateSettings = (settings) => {
-    const {dispatch} = this.props;
+    const { dispatch } = this.props;
     dispatch(clearForSettings());
     dispatch(fetchcache.inject(settingsURL, settings));
-  }
+  };
 
   render() {
     const {

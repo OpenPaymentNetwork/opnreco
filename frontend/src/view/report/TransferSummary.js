@@ -86,8 +86,9 @@ const styles = {
 };
 
 
-/* global process: false */
-const publicURL = process.env.REACT_APP_OPN_PUBLIC_URL;
+function getPublicURL() {
+  return process.env.REACT_APP_OPN_PUBLIC_URL;
+}
 
 
 class TransferSummary extends React.Component {
@@ -114,40 +115,40 @@ class TransferSummary extends React.Component {
   }
 
   componentDidMount() {
-    const {transferId} = this.props;
+    const { transferId } = this.props;
     if (transferId) {
       this.props.dispatch(setTransferId(transferId));
     }
   }
 
   handleShowSearch = () => {
-    this.setState({showSearch: true});
-  }
+    this.setState({ showSearch: true });
+  };
 
   handleHideSearch = () => {
-    this.setState({showSearch: false});
-  }
+    this.setState({ showSearch: false });
+  };
 
   handleKeyDown = (event) => {
     if (event.key === 'Enter') {
       this.handleTransferIdSubmit();
     }
-  }
+  };
 
   handleTransferIdChange = (event) => {
     // Allow only numbers and dashes.
-    const {value} = event.target;
+    const { value } = event.target;
     const re = /[0-9-]+/g;
     const text = [];
-    for(;;) {
+    for (; ;) {
       const match = re.exec(value);
       if (!match) {
         break;
       }
       text.push(match[0]);
     }
-    this.setState({typingTransferId: text.join('')});
-  }
+    this.setState({ typingTransferId: text.join('') });
+  };
 
   handleTransferIdSubmit = () => {
     const transferId = this.state.typingTransferId;
@@ -157,24 +158,24 @@ class TransferSummary extends React.Component {
       this.props.history.push(
         `/period/${encPeriodId}/t/${encodeURIComponent(transferId)}`);
     }
-  }
+  };
 
   handleLink = (event, path) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   renderForm() {
-    const {classes} = this.props;
-    const {showSearch, typingTransferId} = this.state;
+    const { classes } = this.props;
+    const { showSearch, typingTransferId } = this.state;
 
     if (!showSearch) {
       return (
         <div className={classes.searchIconBox}>
           <IconButton onClick={this.handleShowSearch}>
-            <SearchIcon/>
+            <SearchIcon />
           </IconButton>
         </div>
       );
@@ -205,13 +206,13 @@ class TransferSummary extends React.Component {
             Go
           </Button>
         </Paper>
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </div>
     );
   }
 
   renderBundleInfo() {
-    const {record, period} = this.props;
+    const { record, period } = this.props;
 
     const blocks = [];
     if (record.bundled_transfers && record.bundled_transfers.length) {
@@ -244,7 +245,7 @@ class TransferSummary extends React.Component {
       blocks.push(
         <div key="bundle_transfer_id">
           This transfer belongs to bundle transfer <a
-          href={transferPath}
+            href={transferPath}
             onClick={event => this.handleLink(event, transferPath)}
           >{tid}</a>
         </div>
@@ -267,9 +268,9 @@ class TransferSummary extends React.Component {
 
     const fieldNameCell = `${classes.cell} ${classes.fieldNameCell}`;
     const fieldValueCell = `${classes.cell} ${classes.fieldValueCell}`;
-    const transferURL = `${publicURL}/p/${profileId}/t/${transferId}`;
+    const transferURL = `${getPublicURL()}/p/${profileId}/t/${transferId}`;
     const bundleInfo = this.renderBundleInfo();
-    const {value, unit} = selectUnit(new Date(record.start));
+    const { value, unit } = selectUnit(new Date(record.start));
 
     return (
       <div>
@@ -405,17 +406,17 @@ class TransferSummary extends React.Component {
       let paperContent;
       if (loading) {
         paperContent = (
-          <div style={{textAlign: 'center'}}>
-            <CircularProgress style={{padding: '16px'}} />
+          <div style={{ textAlign: 'center' }}>
+            <CircularProgress style={{ padding: '16px' }} />
           </div>);
       } else if (loadError) {
         paperContent = (
-          <div style={{padding: '16px'}}>
+          <div style={{ padding: '16px' }}>
             <p>{loadError}</p>
           </div>);
       } else {
         paperContent = (
-          <div style={{padding: '16px'}}>
+          <div style={{ padding: '16px' }}>
             Unable to retrieve transfer {transferId}
           </div>);
       }
@@ -442,7 +443,7 @@ class TransferSummary extends React.Component {
         {require}
         {form}
         {content}
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </Typography>
     );
   }
@@ -450,7 +451,7 @@ class TransferSummary extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const {period, match} = ownProps;
+  const { period, match } = ownProps;
   const transferId = match.params.transferId;
   const profileId = state.login.id;
 

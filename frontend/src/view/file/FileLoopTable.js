@@ -100,10 +100,12 @@ class FileLoopTable extends React.Component {
   }
 
   setEnabled(config_id, newEnabled) {
-    this.setState({enabledChanges: {
-      ...this.state.enabledChanges,
-      [config_id]: newEnabled,
-    }});
+    this.setState({
+      enabledChanges: {
+        ...this.state.enabledChanges,
+        [config_id]: newEnabled,
+      }
+    });
     this.getCommitThrottler()();
   }
 
@@ -133,9 +135,9 @@ class FileLoopTable extends React.Component {
       configs_enabled: enabledChanges,
     };
 
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
     promise.then(() => {
-      const newEnabled = {...this.state.enabledChanges};
+      const newEnabled = { ...this.state.enabledChanges };
       for (const config_id of Object.keys(enabledChanges)) {
         if (enabledChanges[config_id] === newEnabled[config_id]) {
           // This loop config didn't change while saving changes, so
@@ -158,7 +160,7 @@ class FileLoopTable extends React.Component {
         dispatch(clearMost());
       }
     });
-  }
+  };
 
   renderTableBody() {
     const {
@@ -174,7 +176,7 @@ class FileLoopTable extends React.Component {
     const rows = [];
     for (const loopConfig of content.loops) {
       const config_id = loopConfig.id;
-      const {loop_id, loop, issuer_id, issuer} = loopConfig;
+      const { loop_id, loop, issuer_id, issuer } = loopConfig;
 
       const enabledChange = enabledChanges[config_id];
       let enabled = enabledChange;
@@ -196,7 +198,7 @@ class FileLoopTable extends React.Component {
             {loop && loop.title ? `${loop.title} (${loop_id})` : loop.loop_id}
           </td>
           <td className={classes.textCell}>
-            <ProfileLink id={issuer_id} title={issuer.title} profiles={{issuer_id: issuer}} />
+            <ProfileLink id={issuer_id} title={issuer.title} profiles={{ issuer_id: issuer }} />
           </td>
           <td className={classes.checkCell}>
             <ButtonBase
@@ -267,11 +269,11 @@ class FileLoopTable extends React.Component {
         pageContent = (
           <div className={classes.root}>
             <Paper className={classes.tablePaper}
-              style={{textAlign: 'center', }}
+              style={{ textAlign: 'center', }}
             >
-              <CircularProgress style={{padding: '16px'}} />
+              <CircularProgress style={{ padding: '16px' }} />
             </Paper>
-            <div style={{height: 1}}></div>
+            <div style={{ height: 1 }}></div>
           </div>);
       } else {
         pageContent = null;
@@ -298,7 +300,7 @@ class FileLoopTable extends React.Component {
         <Typography className={classes.content} component="div">
           {pageContent}
         </Typography>
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </div>
     );
   }
@@ -306,7 +308,7 @@ class FileLoopTable extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {file} = ownProps;
+  const { file } = ownProps;
   const pagerName = 'FileLoopTable';
   const {
     rowsPerPage,

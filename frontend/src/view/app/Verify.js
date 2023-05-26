@@ -157,20 +157,20 @@ class Verify extends React.Component {
   }
 
   componentWillUnmount() {
-    this.setState({running: false});
+    this.setState({ running: false });
   }
 
   handleCheckBox = attr => event => {
-    this.setState({[attr]: event.target.checked});
-  }
+    this.setState({ [attr]: event.target.checked });
+  };
 
   handleText = attr => event => {
-    this.setState({[attr]: event.target.value});
-  }
+    this.setState({ [attr]: event.target.value });
+  };
 
   handleStop = () => {
-    this.setState({running: false});
-  }
+    this.setState({ running: false });
+  };
 
   handleDetailsToggle = () => {
     if (this.props.showDetails) {
@@ -178,15 +178,15 @@ class Verify extends React.Component {
     } else {
       this.props.dispatch(verifyShowDetails(this.state.verification_id, 1));
     }
-  }
+  };
 
   handleMoreDetails = () => {
     this.props.dispatch(verifyShowDetails(
       this.state.verification_id, this.props.detailURLs.length + 1));
-  }
+  };
 
   handleVerify = () => {
-    const {dispatch} = this.props;
+    const { dispatch } = this.props;
 
     this.setState({
       running: true,
@@ -196,11 +196,13 @@ class Verify extends React.Component {
 
     let verification_id = null;
     const verifyBatch = () => {
-      const action = fOPNReco.fetchPath('/verify', {data: {
-        verify_sync: this.state.verifySync,
-        verify_internal: this.state.verifyInternal,
-        verification_id: verification_id,
-      }});
+      const action = fOPNReco.fetchPath('/verify', {
+        data: {
+          verify_sync: this.state.verifySync,
+          verify_internal: this.state.verifyInternal,
+          verification_id: verification_id,
+        }
+      });
       dispatch(action).then(status => {
         verification_id = status.verification_id;
         this.setState({
@@ -214,22 +216,22 @@ class Verify extends React.Component {
           verifyBatch();
         } else {
           // Done.
-          this.setState({running: false});
+          this.setState({ running: false });
         }
       }).catch((error) => {
-        this.setState({running: false, error});
+        this.setState({ running: false, error });
       });
     };
 
     verifyBatch();
-  }
+  };
 
   renderForm() {
     const {
       classes,
     } = this.props;
-    const {state} = this;
-    const {running} = state;
+    const { state } = this;
+    const { running } = state;
 
     return (
       <Paper className={classes.contentPaper}>
@@ -292,7 +294,7 @@ class Verify extends React.Component {
           </Button>
         </FormGroup>
 
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </Paper>
     );
   }
@@ -303,7 +305,7 @@ class Verify extends React.Component {
       showDetails,
     } = this.props;
 
-    const {state} = this;
+    const { state } = this;
 
     let progressText;
 
@@ -354,7 +356,7 @@ class Verify extends React.Component {
             </Button>
           </FormGroup>
 
-          <div style={{height: 1}}></div>
+          <div style={{ height: 1 }}></div>
 
         </div>
       </Paper>
@@ -500,7 +502,7 @@ function mapStateToProps(state) {
   const detailContent = {};
   const detailLoading = {};
 
-  const {verification_id, batch_count} = state.verify;
+  const { verification_id, batch_count } = state.verify;
   if (verification_id && batch_count && batch_count > 0) {
     const vidEnc = encodeURIComponent(verification_id);
     for (let batchIndex = 0; batchIndex < batch_count; batchIndex++) {

@@ -124,15 +124,17 @@ class RecoTableBody extends React.Component {
       hasQuery: false,
       searching: false,
     });
-  }
+  };
 
   handleRemove = (itemId) => {
     // Remove an item from the list.
     // Quickly animate the removal for clarity.
-    this.setState({removing: {
-      ...this.state.removing,
-      [itemId]: true,
-    }});
+    this.setState({
+      removing: {
+        ...this.state.removing,
+        [itemId]: true,
+      }
+    });
 
     window.setTimeout(() => {
       const {
@@ -155,12 +157,12 @@ class RecoTableBody extends React.Component {
       });
       this.props.updatePopoverPosition();
     }, 200);
-  }
+  };
 
   handleAdd = (itemId) => {
     // Move an item from the search results to the reco's list of movements.
-    const {items} = this.props;
-    const {searchResults} = this.state;
+    const { items } = this.props;
+    const { searchResults } = this.state;
     let item = null;
 
     const newSearchResults = [];
@@ -187,7 +189,7 @@ class RecoTableBody extends React.Component {
     }
 
     this.props.changeItems(newItems);
-    this.setState({searchResults: newSearchResults});
+    this.setState({ searchResults: newSearchResults });
 
     if (!newSearchResults.length) {
       // Search again.
@@ -195,7 +197,7 @@ class RecoTableBody extends React.Component {
     }
 
     this.props.updatePopoverPosition();
-  }
+  };
 
   getSearchThrottler() {
     let t = this.searchThrottler;
@@ -220,11 +222,11 @@ class RecoTableBody extends React.Component {
     if (!hadQuery) {
       this.props.updatePopoverPosition();
     }
-  }
+  };
 
   throttledSearch() {
-    const {searchFields, searchView} = this.props;
-    const {searchInputs} = this.state;
+    const { searchFields, searchView } = this.props;
+    const { searchInputs } = this.state;
     let hasQuery = false;
     searchFields.forEach(field => {
       if (searchInputs[field.name]) {
@@ -232,7 +234,7 @@ class RecoTableBody extends React.Component {
       }
     });
     if (hasQuery) {
-      const {windowPeriodId, items, recoId} = this.props;
+      const { windowPeriodId, items, recoId } = this.props;
       const seen_ids = [];
       if (items) {
         items.forEach(item => {
@@ -251,7 +253,7 @@ class RecoTableBody extends React.Component {
       searchFields.forEach(field => {
         data[field.name] = searchInputs[field.name] || '';
       });
-      const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
+      const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
 
       const handleResults = (results) => {
         const newSearchInputs = this.state.searchInputs;
@@ -273,7 +275,7 @@ class RecoTableBody extends React.Component {
       };
 
       promise.then(handleResults).catch(() => {
-          handleResults([]);
+        handleResults([]);
       });
     } else {
       this.closeSearch();
@@ -282,8 +284,8 @@ class RecoTableBody extends React.Component {
   }
 
   renderRow(item, addCandidate) {
-    const {classes, renderItemCells, disabled} = this.props;
-    const {removing} = this.state;
+    const { classes, renderItemCells, disabled } = this.props;
+    const { removing } = this.state;
 
     const itemId = item.id;
     const rowClass = `${classes.removableRow} ` + (
@@ -357,12 +359,12 @@ class RecoTableBody extends React.Component {
         });
       } else if (!searching) {
         rows.push(
-        <tr key="searchEmpty">
-          <td></td>
-          <td colSpan={colCount - 1} className={classes.searchEmptyCell}>
-            {this.props.emptyMessage}
-          </td>
-        </tr>);
+          <tr key="searchEmpty">
+            <td></td>
+            <td colSpan={colCount - 1} className={classes.searchEmptyCell}>
+              {this.props.emptyMessage}
+            </td>
+          </tr>);
       }
     }
 
@@ -390,9 +392,9 @@ class RecoTableBody extends React.Component {
           </td>
           {searchFields.map(field => (
             <td key={field.name} className={classes.searchCell}
-                colSpan={field.colSpan || 1}>
+              colSpan={field.colSpan || 1}>
               <Input
-                classes={{input: classes.searchInput}}
+                classes={{ input: classes.searchInput }}
                 disableUnderline
                 value={searchInputs[field.name] || ''}
                 onChange={(event) => this.handleSearchInput(event, field.name)}

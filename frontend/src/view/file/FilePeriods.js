@@ -164,19 +164,19 @@ class FilePeriods extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   handleClickCell = (path) => {
     this.props.history.push(path);
-  }
+  };
 
   handleAddButton = () => {
-    this.setState({adding: true});
-  }
+    this.setState({ adding: true });
+  };
 
   handleAddClose = () => {
-    this.setState({adding: false});
-  }
+    this.setState({ adding: false });
+  };
 
   renderTableBody(showCirc, columnCount) {
     const {
@@ -267,7 +267,7 @@ class FilePeriods extends React.Component {
           <td className={ccClosed} width="10%">
             <a className={ccClickableCell} href={overviewPath} onClick={onClickOverviewAnchor}>
               {period.closed ?
-                <span title="Closed"><Lock className={cIcon}/></span> :
+                <span title="Closed"><Lock className={cIcon} /></span> :
                 <span title="Open"><LockOpen className={cIcon} /></span>}
             </a>
           </td>
@@ -362,8 +362,8 @@ class FilePeriods extends React.Component {
     );
 
     const reportDate = (
-        <FormattedDate value={new Date()}
-          day="numeric" month="short" year="numeric" />);
+      <FormattedDate value={new Date()}
+        day="numeric" month="short" year="numeric" />);
 
     return (
       <Paper className={classes.tablePaper}>
@@ -401,11 +401,11 @@ class FilePeriods extends React.Component {
         pageContent = (
           <div className={classes.root}>
             <Paper className={classes.tablePaper}
-              style={{textAlign: 'center', }}
+              style={{ textAlign: 'center', }}
             >
-              <CircularProgress style={{padding: '16px'}} />
+              <CircularProgress style={{ padding: '16px' }} />
             </Paper>
-            <div style={{height: 1}}></div>
+            <div style={{ height: 1 }}></div>
           </div>);
       } else {
         pageContent = null;
@@ -427,7 +427,7 @@ class FilePeriods extends React.Component {
         <Typography className={classes.content} component="div">
           {pageContent}
         </Typography>
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </div>
     );
   }
@@ -435,7 +435,7 @@ class FilePeriods extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {file} = ownProps;
+  const { file } = ownProps;
   const pagerName = 'FilePeriods';
   const {
     rowsPerPage,

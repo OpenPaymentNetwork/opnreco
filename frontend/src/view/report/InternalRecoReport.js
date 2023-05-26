@@ -98,14 +98,14 @@ class InternalRecoReport extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   renderBody(records, totals, showVault) {
     const {
       classes,
       period,
       file,
-      report: {all_shown},
+      report: { all_shown },
       dispatch,
     } = this.props;
 
@@ -176,7 +176,7 @@ class InternalRecoReport extends React.Component {
       records.forEach((record, index) => {
         rows.push(
           <tr key={index}
-              data-reco-id={record.reco_id}>
+            data-reco-id={record.reco_id}>
             <td className={txtCell}>
               {record.movements.map((m, i) => (
                 <div key={i} title={m.ts} data-movement-id={m.id}>
@@ -327,8 +327,8 @@ class InternalRecoReport extends React.Component {
       rowcount = null;
       if (loading) {
         content = (
-          <Paper className={classes.tablePaper} style={{textAlign: 'center'}}>
-            <CircularProgress style={{padding: '16px'}} />
+          <Paper className={classes.tablePaper} style={{ textAlign: 'center' }}>
+            <CircularProgress style={{ padding: '16px' }} />
           </Paper>
         );
       } else {
@@ -346,7 +346,7 @@ class InternalRecoReport extends React.Component {
             rowcount={rowcount} />
         </Paper>
         {content}
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </Typography>
     );
   }
@@ -355,7 +355,7 @@ class InternalRecoReport extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const pagerName = 'InternalRecoReport';
-  const {period} = ownProps;
+  const { period } = ownProps;
 
   const {
     rowsPerPage,

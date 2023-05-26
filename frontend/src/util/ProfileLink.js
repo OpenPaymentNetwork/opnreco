@@ -4,8 +4,9 @@ import React from 'react';
 import { withStyles } from '@material-ui/core/styles';
 
 
-/* global process: false */
-const publicURL = process.env.REACT_APP_OPN_PUBLIC_URL;
+function getPublicURL() {
+  return process.env.REACT_APP_OPN_PUBLIC_URL;
+}
 
 
 const styles = theme => ({
@@ -28,7 +29,7 @@ class ProfileLink extends React.Component {
   };
 
   render() {
-    const {id, title, profiles, classes} = this.props;
+    const { id, title, profiles, classes } = this.props;
 
     if (!id) {
       return <span>{title || '[Unspecified Profile]'}</span>;
@@ -54,7 +55,7 @@ class ProfileLink extends React.Component {
 
     return (
       <a className={classes.root}
-        href={`${publicURL}/${path}`}
+        href={`${getPublicURL()}/${path}`}
         target="_blank" rel="noopener noreferrer">{text}</a>
     );
   }

@@ -70,24 +70,24 @@ class StatementAddDialog extends React.Component {
   }
 
   handleChangeMethod = (event) => {
-    this.setState({method: event.target.value});
-  }
+    this.setState({ method: event.target.value });
+  };
 
   handleChangeSource = (event) => {
-    this.setState({source: event.target.value});
-  }
+    this.setState({ source: event.target.value });
+  };
 
   handleChangeUpload = (event) => {
     const files = event.target.files;
     if (files && files.length) {
-      this.setState({loading: true});
+      this.setState({ loading: true });
       const reader = new FileReader();
       reader.onloadend = (e) => {
         this.handleCompleteUpload(e, files[0]);
       };
       reader.readAsBinaryString(files[0]);
     }
-  }
+  };
 
   handleCompleteUpload = (event, file) => {
     const {
@@ -105,11 +105,11 @@ class StatementAddDialog extends React.Component {
       size: file.size,
       type: file.type,
     };
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({loading: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ loading: true });
     promise.then((response) => {
       // Redirect to the new statement.
-      this.setState({loading: false});
+      this.setState({ loading: false });
       const path = (
         `/period/${encPeriodId}` +
         `/statement/${encodeURIComponent(response.statement.id)}`);
@@ -117,9 +117,9 @@ class StatementAddDialog extends React.Component {
       dispatch(clearMost());
       this.props.onClose();
     }).catch(() => {
-      this.setState({loading: false});
+      this.setState({ loading: false });
     });
-  }
+  };
 
   handleContinueBlank = () => {
     const {
@@ -134,11 +134,11 @@ class StatementAddDialog extends React.Component {
     const data = {
       source: this.state.source,
     };
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({loading: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ loading: true });
     promise.then((response) => {
       // Redirect to the new statement.
-      this.setState({loading: false});
+      this.setState({ loading: false });
       const path = (
         `/period/${encPeriodId}` +
         `/statement/${encodeURIComponent(response.statement.id)}`);
@@ -146,13 +146,13 @@ class StatementAddDialog extends React.Component {
       dispatch(clearMost());
       this.props.onClose();
     }).catch(() => {
-      this.setState({loading: false});
+      this.setState({ loading: false });
     });
-  }
+  };
 
   handleDownload = () => {
     this.downloadFormRef.current.submit();
-  }
+  };
 
   render() {
     const {
@@ -174,7 +174,7 @@ class StatementAddDialog extends React.Component {
         <input
           id="statement-upload-input"
           type="file"
-          style={{display: 'none'}}
+          style={{ display: 'none' }}
           onChange={this.handleChangeUpload} />
       );
     } else if (method === 'blank') {
@@ -220,14 +220,14 @@ class StatementAddDialog extends React.Component {
                     Import from a spreadsheet (<span
                       className={classes.downloadLink}
                       onClick={this.handleDownload}>
-                        download template</span>)
+                      download template</span>)
                   </span>
                 } />
                 <FormControlLabel value="blank" control={<Radio />}
                   label="Add a blank statement" />
               </RadioGroup>
               <form method="POST" action={downloadURL}
-                style={{display: 'none'}}
+                style={{ display: 'none' }}
                 ref={this.downloadFormRef}
               ></form>
             </FormControl>
@@ -249,8 +249,8 @@ class StatementAddDialog extends React.Component {
               component="span"
               onClick={
                 method === 'blank'
-                ? this.handleContinueBlank
-                : undefined}
+                  ? this.handleContinueBlank
+                  : undefined}
             >
               Continue
             </Button>
@@ -265,6 +265,6 @@ class StatementAddDialog extends React.Component {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles, { withTheme: true }),
   withRouter,
 )(StatementAddDialog);

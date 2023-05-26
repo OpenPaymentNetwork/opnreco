@@ -34,7 +34,7 @@ class OPNAppBar extends React.Component {
 
   handleToggleDrawer = () => {
     this.props.dispatch(toggleDrawer());
-  }
+  };
 
   render() {
     const { classes, layout } = this.props;

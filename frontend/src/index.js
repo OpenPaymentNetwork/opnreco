@@ -1,29 +1,28 @@
 
-/* global process */
-
 import './index.css';
 import App from './view/app/App';
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { IntlProvider } from 'react-intl';
-import { MemoryRouter } from 'react-router';
+// import { MemoryRouter } from 'react-router';
 import { PersistGate } from 'redux-persist/integration/react';
 import { Provider } from 'react-redux';
 import { store, persistor } from './store';
 
 function getRouterClass() {
-  if (process.env.REACT_APP_MEMORY_ROUTER) {
-    return MemoryRouter;
-  } else {
-    return BrowserRouter;
-  }
+  // if (process.env.REACT_APP_MEMORY_ROUTER) {
+  //   return MemoryRouter;
+  // } else {
+  return BrowserRouter;
+  // }
 }
 
 const RouterClass = getRouterClass();
-const target = document.getElementById('root');
+const container = document.getElementById('root');
+const root = createRoot(container);
 
-ReactDOM.render(
+root.render(
   (
     <Provider store={store}>
       <IntlProvider locale="en-US">
@@ -34,7 +33,7 @@ ReactDOM.render(
         </PersistGate>
       </IntlProvider>
     </Provider>
-  ), target
+  )
 );
 
 // We don't really want the extra caching done by a service worker for now.

@@ -67,7 +67,7 @@ class PeriodSummary extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   render() {
     const {
@@ -130,7 +130,7 @@ class PeriodSummary extends React.Component {
           <thead>
             <tr>
               <th className={classes.headCell}
-                  colSpan={columnCount}>
+                colSpan={columnCount}>
                 {renderReportHead(file, 'Period Summary', reportDate)}
               </th>
             </tr>
@@ -193,7 +193,8 @@ class PeriodSummary extends React.Component {
                 Start + Reconciled
               </td>
               {getAmountColumns('reconciled_total', {
-                totalClass: classes.totalCell})}
+                totalClass: classes.totalCell
+              })}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>
@@ -215,7 +216,7 @@ class PeriodSummary extends React.Component {
                 Unreconciled Account Entries
               </td>
               {getAmountColumns(
-                'unreco_entries_delta', {cellClass: classes.maskedCell})}
+                'unreco_entries_delta', { cellClass: classes.maskedCell })}
               <td className={classes.amountCell}>
                 {counts.account_entries_unreconciled}
               </td>
@@ -227,7 +228,7 @@ class PeriodSummary extends React.Component {
               <td className={classes.rowHeadCell}>
                 End Balance
               </td>
-              {getAmountColumns('end', {totalClass: classes.totalCell})}
+              {getAmountColumns('end', { totalClass: classes.totalCell })}
               <td className={classes.amountCell}></td>
               <td className={classes.amountCell}></td>
             </tr>

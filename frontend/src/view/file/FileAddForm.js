@@ -79,7 +79,7 @@ class FileAddForm extends React.Component {
         [fieldName]: event.target.value,
       },
     });
-  }
+  };
 
   handleChangeAutoEnableLoops = (event) => {
     this.setState({
@@ -88,7 +88,7 @@ class FileAddForm extends React.Component {
         auto_enable_loops: event.target.checked,
       },
     });
-  }
+  };
 
   handleAdd = () => {
     const {
@@ -100,16 +100,16 @@ class FileAddForm extends React.Component {
       ...this.state.form,
       title: this.getTitle(),
     };
-    const promise = dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({saving: true});
+    const promise = dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ saving: true });
     promise.then((response) => {
       dispatch(clearWithFiles());
       dispatch(triggerResync());
       history.push(`/file/${encodeURIComponent(response.file.id)}`);
     }).catch(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
     });
-  }
+  };
 
   getTitle() {
     let title = this.state.form.title;
@@ -216,12 +216,12 @@ class FileAddForm extends React.Component {
               Account
             </InputLabel>
             <Select
-                id="peer_id"
-                name="peer_id"
-                value={form.peer_id || ''}
-                onChange={(event) => this.handleChangeText(event, 'peer_id')}
-                className={classes.field}
-                displayEmpty>
+              id="peer_id"
+              name="peer_id"
+              value={form.peer_id || ''}
+              onChange={(event) => this.handleChangeText(event, 'peer_id')}
+              className={classes.field}
+              displayEmpty>
               {selections}
             </Select>
           </FormControl>
@@ -244,11 +244,11 @@ class FileAddForm extends React.Component {
                 Type
               </InputLabel>
               <Select
-                  id="file_type"
-                  name="file_type"
-                  value={form.file_type || ''}
-                  onChange={(event) => this.handleChangeText(event, 'file_type')}
-                  className={classes.field}>
+                id="file_type"
+                name="file_type"
+                value={form.file_type || ''}
+                onChange={(event) => this.handleChangeText(event, 'file_type')}
+                className={classes.field}>
                 <MenuItem value="open_circ">Open Loop Circulation</MenuItem>
                 <MenuItem value="closed_circ">Closed Loop Circulation</MenuItem>
                 <MenuItem value="account">Personal or Business Account</MenuItem>
@@ -262,11 +262,11 @@ class FileAddForm extends React.Component {
                 Currency
               </InputLabel>
               <Select
-                  id="currency"
-                  name="currency"
-                  value={form.currency || ''}
-                  onChange={(event) => this.handleChangeText(event, 'currency')}
-                  className={classes.field}>
+                id="currency"
+                name="currency"
+                value={form.currency || ''}
+                onChange={(event) => this.handleChangeText(event, 'currency')}
+                className={classes.field}>
                 {allCurrencies.map(currency => (
                   <MenuItem value={currency} key={currency}>
                     {currency}
@@ -307,7 +307,7 @@ class FileAddForm extends React.Component {
                 }
               />
             </FormGroup>
-          : null}
+            : null}
 
           {buttons}
         </form>

@@ -1,6 +1,4 @@
 
-/* global process: false */
-
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
 import { startOAuth } from '../../reducer/login';
@@ -55,11 +53,11 @@ class LoginView extends React.Component {
   }
 
   render() {
-    const {deviceUUID, oauthState, forceLogin, classes} = this.props;
+    const { deviceUUID, oauthState, forceLogin, classes } = this.props;
 
     if (!deviceUUID || !oauthState) {
       // The random strings haven't been generated yet.
-      return <div style={{opacity: '0.1'}}>Loading&hellip;</div>;
+      return <div style={{ opacity: '0.1' }}>Loading&hellip;</div>;
     }
 
     const platformURL = process.env.REACT_APP_OPN_PUBLIC_URL;
@@ -109,6 +107,6 @@ function mapStateToProps(state) {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles, { withTheme: true }),
   connect(mapStateToProps),
 )(LoginView);

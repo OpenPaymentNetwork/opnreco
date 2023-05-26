@@ -1,7 +1,7 @@
 
 import { compose } from '../../util/functional';
 import { connect } from 'react-redux';
-import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles';
+import { createTheme, MuiThemeProvider } from '@material-ui/core/styles';
 import { Switch, Route } from 'react-router';
 import { withRouter } from 'react-router';
 import { withStyles } from '@material-ui/core/styles';
@@ -30,7 +30,7 @@ import Verify from './Verify';
 /* Theme based on https://material.io/tools/color/#!/
    ?view.left=0&view.right=0&primary.color=1B5E20&secondary.color=FDD835
 */
-const customTheme = createMuiTheme({
+const customTheme = createTheme({
   palette: {
     primary: {
       light: '#4c8c4a',
@@ -143,7 +143,7 @@ const mapStateToProps = (state) => {
     serverErrorOpen,
     tokenRefresh,
   } = state.app;
-  const {personalProfile} = state.login;
+  const { personalProfile } = state.login;
   return {
     loggingOut: !!loggingOut,
     personalTitle: personalProfile ? personalProfile.title : null,

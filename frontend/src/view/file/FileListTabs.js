@@ -61,7 +61,7 @@ class FileListTabs extends React.Component {
 
   handleToggleDrawer = () => {
     this.props.dispatch(toggleDrawer());
-  }
+  };
 
   constructor(props) {
     super(props);
@@ -89,28 +89,28 @@ class FileListTabs extends React.Component {
         this.props.history.push(tabinfo.path);
       }
     }
-  }
+  };
 
   handleTabClick = (event) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
     }
-  }
+  };
 
   handleClickAnchor = (event, path) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   handleAddButton = () => {
-    this.setState({adding: true});
-  }
+    this.setState({ adding: true });
+  };
 
   handleAddCancel = () => {
-    this.setState({adding: false});
-  }
+    this.setState({ adding: false });
+  };
 
   render() {
     const {
@@ -162,7 +162,7 @@ class FileListTabs extends React.Component {
           addContent = (
             <div className={classes.addButtonLine}>
               <Fab size="small" color="primary" aria-label="Add a file"
-                  onClick={this.handleAddButton}>
+                onClick={this.handleAddButton}>
                 <Add />
               </Fab>
             </div>
@@ -184,7 +184,7 @@ class FileListTabs extends React.Component {
         <Require fetcher={fOPNReco} urls={[filesURL]} />
         <LayoutConfig title={`Files - ${ownerTitle}`} />
 
-        <AppBar position="static" classes={{root: classes.appbar}}>
+        <AppBar position="static" classes={{ root: classes.appbar }}>
           <Toolbar>
             <IconButton
               className={classes.menuButton}

@@ -56,10 +56,10 @@ class ProfileSelector extends React.Component {
   }
 
   handleSelect = (event) => {
-    const {dispatch} = this.props;
+    const { dispatch } = this.props;
 
     const profileId = event.target.value;
-    this.setState({selectingId: profileId});
+    this.setState({ selectingId: profileId });
 
     const action1 = fOPN.fetchPath('/token/select/' + profileId);
     dispatch(action1).then(tokenInfo => {
@@ -77,13 +77,13 @@ class ProfileSelector extends React.Component {
         dispatch(fetchcache.resume());
       }, 0);
     }).finally(() => {
-      this.setState({selectingId: null});
+      this.setState({ selectingId: null });
     });
-  }
+  };
 
   render() {
-    const {profileId, selectable, classes} = this.props;
-    const {selectingId} = this.state;
+    const { profileId, selectable, classes } = this.props;
+    const { selectingId } = this.state;
     const profiles = (
       selectable && selectable.profiles ? selectable.profiles : []);
     let spinner;
@@ -103,14 +103,14 @@ class ProfileSelector extends React.Component {
         <Require fetcher={fOPN} urls={[selectableURL]} />
         {spinner}
         <Select
-          value={selectingId || profileId}
+          value={profiles.length > 0 ? selectingId || profileId : ''}
           onChange={this.handleSelect}
           className={classes.select}
           classes={{
             select: classes.selectInSelect,
             icon: classes.iconInSelect,
           }}
-          inputProps={{classes: {root: classes.selectInput}}}
+          inputProps={{ classes: { root: classes.selectInput } }}
           disableUnderline
         >
           {profiles.map(p => {

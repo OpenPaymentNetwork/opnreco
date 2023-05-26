@@ -70,7 +70,7 @@ class FileEdit extends React.Component {
         [fieldName]: event.target.value,
       },
     });
-  }
+  };
 
   handleChangeAutoEnableLoops = (event) => {
     this.setState({
@@ -79,7 +79,7 @@ class FileEdit extends React.Component {
         auto_enable_loops: event.target.checked,
       },
     });
-  }
+  };
 
   handleChangeReinterpret = (event) => {
     this.setState({
@@ -88,7 +88,7 @@ class FileEdit extends React.Component {
         reinterpret: event.target.checked,
       },
     });
-  }
+  };
 
   handleSave = () => {
     const {
@@ -97,17 +97,17 @@ class FileEdit extends React.Component {
     } = this.props;
 
     const url = fOPNReco.pathToURL(
-        `/file/${encodeURIComponent(file.id)}/save`);
+      `/file/${encodeURIComponent(file.id)}/save`);
     const data = this.state.form;
-    const promise = dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({saving: true});
+    const promise = dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ saving: true });
     promise.then(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
       dispatch(clearWithFiles());
     }).catch(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
     });
-  }
+  };
 
   handleUnarchive = () => {
     const {
@@ -116,25 +116,25 @@ class FileEdit extends React.Component {
     } = this.props;
 
     const url = fOPNReco.pathToURL(
-        `/file/${encodeURIComponent(file.id)}/unarchive`);
+      `/file/${encodeURIComponent(file.id)}/unarchive`);
     const data = this.state.form;
-    const promise = dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({saving: true});
+    const promise = dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ saving: true });
     promise.then(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
       dispatch(clearWithFiles());
     }).catch(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
     });
-  }
+  };
 
   handleArchive = () => {
-    this.setState({archiveDialogExists: true, archiveDialogShown: true});
-  }
+    this.setState({ archiveDialogExists: true, archiveDialogShown: true });
+  };
 
   handleArchiveCancel = () => {
-    this.setState({archiveDialogShown: false});
-  }
+    this.setState({ archiveDialogShown: false });
+  };
 
   handleArchiveConfirmed = () => {
     const {
@@ -146,16 +146,16 @@ class FileEdit extends React.Component {
     const encFileId = encodeURIComponent(file.id);
     const url = fOPNReco.pathToURL(`/file/${encFileId}/archive`);
     const data = {};
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({archiving: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ archiving: true });
     promise.then(() => {
-      this.setState({archiving: false});
+      this.setState({ archiving: false });
       dispatch(clearWithFiles());
       history.push('/file');
     }).catch(() => {
-      this.setState({archiving: false});
+      this.setState({ archiving: false });
     });
-  }
+  };
 
   render() {
     const {
@@ -171,7 +171,7 @@ class FileEdit extends React.Component {
       archiving,
     } = this.state;
 
-    const {archived} = file;
+    const { archived } = file;
 
     let spinner = null;
     if (saving) {
@@ -268,10 +268,10 @@ class FileEdit extends React.Component {
                     Type
                   </InputLabel>
                   <Select
-                      id="file_type"
-                      name="file_type"
-                      value={file.file_type}
-                      className={classes.field}>
+                    id="file_type"
+                    name="file_type"
+                    value={file.file_type}
+                    className={classes.field}>
                     <MenuItem value="open_circ">Open Loop Circulation</MenuItem>
                     <MenuItem value="closed_circ">Closed Loop Circulation</MenuItem>
                     <MenuItem value="account">Personal or Business Account</MenuItem>
@@ -313,13 +313,13 @@ class FileEdit extends React.Component {
                     }
                   />
                 </FormGroup>
-              : null}
+                : null}
 
               {buttons}
 
             </form>
           </Paper>
-          <div style={{height: 1}}></div>
+          <div style={{ height: 1 }}></div>
         </div>
       </div>
     );

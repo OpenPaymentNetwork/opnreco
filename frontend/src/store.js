@@ -1,6 +1,4 @@
 
-/* global process: false */
-
 import { createStore, applyMiddleware, compose } from 'redux';
 import { persistReducer, persistStore } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
@@ -14,12 +12,12 @@ const middleware = [
   thunk,
 ];
 
-if (process.env.NODE_ENV === 'development') {
-  const devToolsExtension = window.__REDUX_DEVTOOLS_EXTENSION__;
-  if (typeof devToolsExtension === 'function') {
-    enhancers.push(devToolsExtension());
-  }
-}
+// if (process.env.NODE_ENV === 'development') {
+//   const devToolsExtension = window.__REDUX_DEVTOOLS_EXTENSION__;
+//   if (typeof devToolsExtension === 'function') {
+//     enhancers.push(devToolsExtension());
+//   }
+// }
 
 const composedEnhancers = compose(
   applyMiddleware(...middleware),

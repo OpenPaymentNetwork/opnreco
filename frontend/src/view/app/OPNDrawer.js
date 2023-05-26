@@ -25,9 +25,6 @@ import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 import Sync from '@material-ui/icons/Sync';
 
 
-/* global process: false */
-
-
 const drawerWidth = 300;
 
 const styles = theme => ({
@@ -60,9 +57,6 @@ const styles = theme => ({
 });
 
 
-const iOS = process.browser && /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-
 class OPNDrawer extends React.Component {
   static propTypes = {
     classes: PropTypes.object.isRequired,
@@ -76,7 +70,7 @@ class OPNDrawer extends React.Component {
   constructor(props) {
     super(props);
     this.startingSync = false;
-    this.state = {autoSyncOk: true};
+    this.state = { autoSyncOk: true };
   }
 
   componentDidMount() {
@@ -89,9 +83,9 @@ class OPNDrawer extends React.Component {
 
   autoSync() {
     if (this.state.autoSyncOk &&
-        !this.startingSync &&
-        !this.props.syncedAt &&
-        !this.props.syncProgress) {
+      !this.startingSync &&
+      !this.props.syncedAt &&
+      !this.props.syncProgress) {
       // Start an automatic sync.
       this.startingSync = true;
       window.setTimeout(this.handleSync, 0);
@@ -108,7 +102,7 @@ class OPNDrawer extends React.Component {
           secondary: 'Not yet synced',
         };
       } else {
-        const {value, unit} = selectUnit(syncedAt);
+        const { value, unit } = selectUnit(syncedAt);
         const updateInterval = (
           unit === 'second' || unit === 'minute' || unit === 'hour' ? 10 : null);
         return {
@@ -159,7 +153,7 @@ class OPNDrawer extends React.Component {
     let tzname;
     try {
       tzname = String(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    } catch(e) {
+    } catch (e) {
       // Intl isn't supported in every browser and getting the right
       // tzname is probably only important for high volume users.
       // There's a settings page that lets people choose the tzname.
@@ -169,7 +163,7 @@ class OPNDrawer extends React.Component {
     let changeCount = 0;
 
     const syncBatch = () => {
-      const action = fOPNReco.fetchPath('/sync', {data: {tzname}});
+      const action = fOPNReco.fetchPath('/sync', { data: { tzname } });
       dispatch(action).then(status => {
         changeCount += (status.change_count || 0);
         if (status.more) {
@@ -181,11 +175,11 @@ class OPNDrawer extends React.Component {
           if (changeCount) {
             dispatch(clearMost());
           }
-          this.setState({autoSyncOk: true});
+          this.setState({ autoSyncOk: true });
         }
       }).catch(() => {
         // An error occurred and has been shown to the user.
-        this.setState({autoSyncOk: false});
+        this.setState({ autoSyncOk: false });
         dispatch(setSyncProgress(null));
       });
     };
@@ -193,20 +187,20 @@ class OPNDrawer extends React.Component {
     dispatch(setSyncProgress(-1));
     this.startingSync = false;
     syncBatch();
-  }
+  };
 
   handleSignOut = () => {
     this.props.dispatch(setLoggingOut(true));
     this.props.dispatch(closeDrawer());
-  }
+  };
 
   handleOpenDrawer = () => {
     this.props.dispatch(openDrawer());
-  }
+  };
 
   handleCloseDrawer = () => {
     this.props.dispatch(closeDrawer());
-  }
+  };
 
   handleLink = (event, path) => {
     if (isSimpleClick(event)) {
@@ -214,10 +208,10 @@ class OPNDrawer extends React.Component {
       this.props.dispatch(closeDrawer());
       this.props.history.push(path);
     }
-  }
+  };
 
   renderContent() {
-    const {classes} = this.props;
+    const { classes } = this.props;
     const syncUI = this.getSyncUI();
     return (<div>
       <div className={classes.top}>
@@ -228,7 +222,7 @@ class OPNDrawer extends React.Component {
           <ProfileSelector />
         </div>
       </div>
-      <Divider style={{marginTop: -1}} />
+      <Divider style={{ marginTop: -1 }} />
       <List component="nav">
 
         <a href="/file" className={classes.link}>
@@ -236,8 +230,8 @@ class OPNDrawer extends React.Component {
             button
             onClick={(event) => this.handleLink(event, '/file')}
           >
-              <ListItemIcon><Folder/></ListItemIcon>
-              <ListItemText primary="Files" />
+            <ListItemIcon><Folder /></ListItemIcon>
+            <ListItemText primary="Files" />
           </ListItem>
         </a>
 
@@ -246,7 +240,7 @@ class OPNDrawer extends React.Component {
             button
             onClick={(event) => this.handleLink(event, '/settings')}
           >
-            <ListItemIcon><Settings/></ListItemIcon>
+            <ListItemIcon><Settings /></ListItemIcon>
             <ListItemText primary="Settings" />
           </ListItem>
         </a>
@@ -256,7 +250,7 @@ class OPNDrawer extends React.Component {
             button
             onClick={(event) => this.handleLink(event, '/verify')}
           >
-            <ListItemIcon><CompareArrows/></ListItemIcon>
+            <ListItemIcon><CompareArrows /></ListItemIcon>
             <ListItemText primary="Verify" />
           </ListItem>
         </a>
@@ -287,8 +281,8 @@ class OPNDrawer extends React.Component {
       </List>
 
       <a href="https://github.com/wingcash/opnreco"
-          target="_blank" rel="noopener noreferrer"
-          className={classes.versionLine}>
+        target="_blank" rel="noopener noreferrer"
+        className={classes.versionLine}>
         Version {process.env.REACT_APP_VERSION}
       </a>
 
@@ -310,9 +304,6 @@ class OPNDrawer extends React.Component {
           ModalProps={{
             keepMounted: true, // Better open performance on mobile.
           }}
-          // Optimizations recommended by the Material-UI docs:
-          disableBackdropTransition={!iOS}
-          disableDiscovery={iOS}
         >
           {drawerContent}
         </SwipeableDrawer>
@@ -331,7 +322,7 @@ function mapStateToProps(state) {
 }
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles, { withTheme: true }),
   withRouter,
   connect(mapStateToProps),
 )(OPNDrawer);

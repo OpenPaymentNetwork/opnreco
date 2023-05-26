@@ -167,7 +167,7 @@ class AccountEntryTableContent extends React.Component {
       timeZone: 'UTC',
     };
 
-    const {intl} = this.props;
+    const { intl } = this.props;
 
     this.setState({
       editingEntries: {
@@ -186,7 +186,7 @@ class AccountEntryTableContent extends React.Component {
         },
       },
     });
-  }
+  };
 
   editEntry(entry, changes) {
     this.setState({
@@ -220,7 +220,7 @@ class AccountEntryTableContent extends React.Component {
       changed: true,
       [event.target.name]: event.target.value,
     });
-  }
+  };
 
   handleSave = (event) => {
     const entry = this.getEntry(event, true);
@@ -231,7 +231,7 @@ class AccountEntryTableContent extends React.Component {
     const {
       dispatch,
       period,
-      record: {statement},
+      record: { statement },
     } = this.props;
 
     const url = fOPNReco.pathToURL(
@@ -243,11 +243,11 @@ class AccountEntryTableContent extends React.Component {
     if (data.id === 'add') {
       data.id = '';
     }
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.editEntry(entry, {saving: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.editEntry(entry, { saving: true });
 
     promise.then((response) => {
-      const {record, recordURL} = this.props;
+      const { record, recordURL } = this.props;
       const newEntry = response.entry;
       let newEntries;
       if (entry.id === 'add') {
@@ -265,12 +265,11 @@ class AccountEntryTableContent extends React.Component {
       dispatch(fetchcache.inject(recordURL, newRecord));
       dispatch(refetchAll());
       this.cancelEntry(entry);
-      this.setState({adding: false});
+      this.setState({ adding: false });
     }).catch(() => {
-      this.editEntry(entry, {saving: false});
+      this.editEntry(entry, { saving: false });
     });
-
-  }
+  };
 
   handleCancel = (event) => {
     const entry = this.getEntry(event, true);
@@ -279,7 +278,7 @@ class AccountEntryTableContent extends React.Component {
     }
 
     this.cancelEntry(entry);
-  }
+  };
 
   handleDelete = (event) => {
     const entry = this.getEntry(event, true);
@@ -292,11 +291,11 @@ class AccountEntryTableContent extends React.Component {
       deleteShown: true,
       deleteEntryId: entry.id,
     });
-  }
+  };
 
   handleDeleteCancel = () => {
-    this.setState({deleteShown: false});
-  }
+    this.setState({ deleteShown: false });
+  };
 
   handleDeleteConfirmed = () => {
     const entry = this.state.editingEntries[this.state.deleteEntryId];
@@ -305,12 +304,12 @@ class AccountEntryTableContent extends React.Component {
       return;
     }
 
-    this.setState({deleting: true});
+    this.setState({ deleting: true });
 
     const {
       dispatch,
       period,
-      record: {statement},
+      record: { statement },
     } = this.props;
 
     const url = fOPNReco.pathToURL(
@@ -319,11 +318,11 @@ class AccountEntryTableContent extends React.Component {
       id: entry.id,
       statement_id: statement.id,
     };
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.editEntry(entry, {saving: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.editEntry(entry, { saving: true });
 
     promise.then(() => {
-      const {record, recordURL} = this.props;
+      const { record, recordURL } = this.props;
       const newEntries = [];
       for (const e of record.entries) {
         if (e.id !== entry.id) {
@@ -342,13 +341,13 @@ class AccountEntryTableContent extends React.Component {
         deleteShown: false,
       });
     }).catch(() => {
-      this.editEntry(entry, {saving: false});
+      this.editEntry(entry, { saving: false });
       this.setState({
         deleting: false,
         deleteShown: false,
       });
     });
-  }
+  };
 
   handleStartAdd = () => {
     this.setState({
@@ -367,7 +366,7 @@ class AccountEntryTableContent extends React.Component {
         },
       },
     });
-  }
+  };
 
   /*
    * Focus a specific input field once the DOM element is added,
@@ -405,7 +404,7 @@ class AccountEntryTableContent extends React.Component {
     let editing = false;
     let numInputField = null;
     let textInputField = null;
-    let {numCell, textCell} = classes;
+    let { numCell, textCell } = classes;
     if (!period.closed && !archived) {
       editing = this.state.editingEntries[entry.id];
       if (editing) {
@@ -473,7 +472,7 @@ class AccountEntryTableContent extends React.Component {
               onChange={this.handleEdit}
               className={numInputField}
               ref={editing.focus === 'row' ? callRefFocus : null}
-              />
+            />
             : entry.row
           }
         </td>
@@ -486,7 +485,7 @@ class AccountEntryTableContent extends React.Component {
               onChange={this.handleEdit}
               className={textInputField}
               ref={editing.focus === 'description' ? callRefFocus : null}
-              />
+            />
             : entry.description
           }
         </td>
@@ -504,7 +503,7 @@ class AccountEntryTableContent extends React.Component {
 
     let controls = null;
     if (editing) {
-      const {changed, saving} = editing;
+      const { changed, saving } = editing;
       controls = (
         <tr key={`${entry.id}-controls`}>
           <td colSpan="6" className={classes.saveCell}>
@@ -555,7 +554,7 @@ class AccountEntryTableContent extends React.Component {
       );
     }
 
-    return {main, controls};
+    return { main, controls };
   }
 
   render() {
@@ -580,7 +579,7 @@ class AccountEntryTableContent extends React.Component {
 
     if (!period.closed && !archived) {
       if (this.state.adding) {
-        const x = this.renderEntry({id: 'add'}, cfmt);
+        const x = this.renderEntry({ id: 'add' }, cfmt);
         rows.push(x.main);
         if (x.controls) {
           rows.push(x.controls);
@@ -648,6 +647,6 @@ class AccountEntryTableContent extends React.Component {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles, { withTheme: true }),
   injectIntl,
 )(AccountEntryTableContent);

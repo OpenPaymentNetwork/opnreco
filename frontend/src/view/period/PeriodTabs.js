@@ -87,10 +87,10 @@ class PeriodTabs extends React.Component {
 
   handleToggleDrawer = () => {
     this.props.dispatch(toggleDrawer());
-  }
+  };
 
   fixURL() {
-    let {period, file} = this.props;
+    let { period, file } = this.props;
     if (period && file) {
       // The URL is good.
       return;
@@ -134,8 +134,8 @@ class PeriodTabs extends React.Component {
 
     if (periodId) {
       // Redirect to the same tab in a different period.
-      const {match} = this.props;
-      const {tab} = match.params;
+      const { match } = this.props;
+      const { tab } = match.params;
       const tabs = this.getTabs(periodId);
       for (const tabinfo of tabs) {
         if (tab === tabinfo.value) {
@@ -149,7 +149,7 @@ class PeriodTabs extends React.Component {
 
     } else {
       // Redirect to the period list for the file.
-      const {file} = this.props;
+      const { file } = this.props;
       path = `/file/${encodeURIComponent(file.id)}/periods`;
     }
 
@@ -158,7 +158,7 @@ class PeriodTabs extends React.Component {
         this.props.history.push(path);
       }, 0);
     }
-  }
+  };
 
   redirectToFile = (fileId) => {
     let path = null;
@@ -172,10 +172,10 @@ class PeriodTabs extends React.Component {
     window.setTimeout(() => {
       this.props.history.push(path);
     }, 0);
-  }
+  };
 
   getTabs(periodId) {
-    const {statementPeriodId} = this.props;
+    const { statementPeriodId } = this.props;
 
     if (!periodId) {
       periodId = this.props.periodId;
@@ -185,14 +185,14 @@ class PeriodTabs extends React.Component {
 
     // Use the transferId in the path whenever it is set. Transfers can
     // be seen in any period.
-    const {transferId} = this.props;
+    const { transferId } = this.props;
     const transferPath = (transferId ?
       `/period/${encPeriodId}/t/${encodeURIComponent(transferId)}` :
       `/period/${encPeriodId}/t`);
 
     // Use the statementId in the path only when the statementId is set and
     // the statement is for the right period.
-    const {statementId} = this.props;
+    const { statementId } = this.props;
     const statementPath = (statementId && statementPeriodId === periodId ?
       `/period/${encPeriodId}/statement/${encodeURIComponent(statementId)}` :
       `/period/${encPeriodId}/statement`);
@@ -239,13 +239,13 @@ class PeriodTabs extends React.Component {
         this.props.history.push(tabinfo.path);
       }
     }
-  }
+  };
 
   handleTabClick = (event) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
     }
-  }
+  };
 
   render() {
     const {
@@ -307,7 +307,7 @@ class PeriodTabs extends React.Component {
           syncProgress={syncProgress}
           redirectToFile={this.redirectToFile}
           redirectToPeriod={this.redirectToPeriod}
-          />
+        />
       </div>
     );
 
@@ -330,7 +330,7 @@ class PeriodTabs extends React.Component {
     } else if (loading || syncProgress !== null) {
       tabContent = (
         <div className={classes.waitContainer}>
-          <CircularProgress size={24} className={classes.waitSpinner}/>
+          <CircularProgress size={24} className={classes.waitSpinner} />
         </div>
       );
     } else {
@@ -343,7 +343,7 @@ class PeriodTabs extends React.Component {
         <Require fetcher={fOPNReco} urls={[filesURL, filesURLMod]} />
         <LayoutConfig title={titleParts.join(' ')} />
 
-        <AppBar position="static" classes={{root: classes.appbar}}>
+        <AppBar position="static" classes={{ root: classes.appbar }}>
           <Toolbar>
             <IconButton
               className={classes.menuButton}

@@ -30,15 +30,15 @@ class LogoutDialog extends React.Component {
   }
 
   handleLogout = () => {
-    const {dispatch} = this.props;
+    const { dispatch } = this.props;
     dispatch(tokenRefreshCancel());
     dispatch(logOut());
     window.setTimeout(() => this.props.history.push('/'), 0);
-  }
+  };
 
   handleCancel = () => {
     this.props.dispatch(setLoggingOut(false));
-  }
+  };
 
   render() {
     return (

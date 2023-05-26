@@ -110,18 +110,18 @@ class RecoReport extends React.Component {
 
   handleToggleNode = (expandKey) => {
     this.props.dispatch(toggleNode('reco', expandKey));
-  }
+  };
 
   handleClickTransfer = (event, path) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   renderOutstanding(sign, cfmt) {
-    const {classes, recoReport, expanded, file, period} = this.props;
-    const {workflow_types, outstanding_map} = recoReport;
+    const { classes, recoReport, expanded, file, period } = this.props;
+    const { workflow_types, outstanding_map } = recoReport;
 
     const wfTypes = workflow_types[sign] || {};
     const showCirc = file.has_vault;
@@ -231,7 +231,7 @@ class RecoReport extends React.Component {
             };
             res.push(
               <tr className={transferRowCN} key={movement.movement_id}
-                  onClick={handleClick}>
+                onClick={handleClick}>
                 <td className={movementCellCN}>
                   <a href={transferPath}>
                     Transfer {tid} (
@@ -281,11 +281,11 @@ class RecoReport extends React.Component {
           <div className={classes.root}>
             {require}
             <Paper className={classes.tablePaper}
-              style={{textAlign: 'center', }}
+              style={{ textAlign: 'center', }}
             >
-              <CircularProgress style={{padding: '16px'}} />
+              <CircularProgress style={{ padding: '16px' }} />
             </Paper>
-            <div style={{height: 1}}></div>
+            <div style={{ height: 1 }}></div>
           </div>);
       }
       return <div className={classes.root}>{require}</div>;
@@ -382,7 +382,7 @@ class RecoReport extends React.Component {
             <thead>
               <tr>
                 <th className={`${classes.cell} ${classes.headCell}`}
-                    colSpan={columnCount}>
+                  colSpan={columnCount}>
                   {renderReportHead(file, 'Reconciliation Report', reportDate)}
                 </th>
               </tr>
@@ -406,7 +406,7 @@ class RecoReport extends React.Component {
             </tbody>
           </table>
         </Paper>
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </Typography>
     );
   }
@@ -415,7 +415,7 @@ class RecoReport extends React.Component {
 
 
 function mapStateToProps(state, ownProps) {
-  const {period} = ownProps;
+  const { period } = ownProps;
   const expanded = state.tree.reco;
   const recoReportURL = fOPNReco.pathToURL(
     `/period/${encodeURIComponent(period.id)}/reco-report`);

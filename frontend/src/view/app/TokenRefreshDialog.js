@@ -39,14 +39,14 @@ class TokenRefreshDialog extends React.Component {
   }
 
   handleLogOut = () => {
-    const {dispatch} = this.props;
+    const { dispatch } = this.props;
     dispatch(tokenRefreshCancel());
     dispatch(logOut());
-  }
+  };
 
   handleOk = () => {
-    const {dispatch, profileId} = this.props;
-    this.setState({submitting: true, error: null});
+    const { dispatch, profileId } = this.props;
+    this.setState({ submitting: true, error: null });
     const options = {
       data: {
         password: this.state.password,
@@ -58,23 +58,23 @@ class TokenRefreshDialog extends React.Component {
       const token = tokenInfo.access_token;
       setAccessToken(profileId, token);
       dispatch(tokenRefreshSuccess(token));
-      this.setState({submitting: false});
+      this.setState({ submitting: false });
     }).catch((error) => {
-      this.setState({error: String(error), submitting: false});
+      this.setState({ error: String(error), submitting: false });
     });
-  }
+  };
 
   handleChangePassword = (event) => {
-    this.setState({password: event.target.value});
-  }
+    this.setState({ password: event.target.value });
+  };
 
   handleClickShowPassword = () => {
-    this.setState(state => ({showPassword: !state.showPassword}));
-  }
+    this.setState(state => ({ showPassword: !state.showPassword }));
+  };
 
   handleMouseDownShowPassword = (event) => {
     event.preventDefault();
-  }
+  };
 
   handleKeyDown = (event) => {
     // Matching the string 'Enter' is reliable thanks to React's
@@ -83,7 +83,7 @@ class TokenRefreshDialog extends React.Component {
     if (event.key === 'Enter') {
       this.handleOk();
     }
-  }
+  };
 
   render() {
     const { personalProfile } = this.props;
@@ -113,7 +113,7 @@ class TokenRefreshDialog extends React.Component {
           <FormControl fullWidth error={!!this.state.error}>
             <Input
               autoFocus
-              type={this.state.showPassword ? 'text': 'password'}
+              type={this.state.showPassword ? 'text' : 'password'}
               value={this.state.password}
               onChange={this.handleChangePassword}
               onKeyDown={this.handleKeyDown}

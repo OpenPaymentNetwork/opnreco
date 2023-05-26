@@ -98,7 +98,7 @@ class StatementForm extends React.Component {
   }
 
   initForm() {
-    const {statement} = this.props;
+    const { statement } = this.props;
 
     if (statement.id === this.state.initializedForStatementId) {
       // Already initialized.
@@ -118,7 +118,7 @@ class StatementForm extends React.Component {
         [fieldName]: event.target.value,
       }
     });
-  }
+  };
 
   handleSave = () => {
     const {
@@ -134,8 +134,8 @@ class StatementForm extends React.Component {
       ...this.state.form,
       id: statement.id,
     };
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({saving: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ saving: true });
     promise.then((response) => {
       this.setState({
         form: response.statement,
@@ -159,26 +159,26 @@ class StatementForm extends React.Component {
       dispatch(clearMost());
 
     }).catch(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
     });
-  }
+  };
 
   handleCancel = () => {
     // Cancel the user's changes to the form.
-    const {statement} = this.props;
+    const { statement } = this.props;
     this.setState({
       form: statement,
       initializedForStatementId: statement.id,
     });
-  }
+  };
 
   handleDelete = () => {
-    this.setState({deleteExists: true, deleteShown: true});
-  }
+    this.setState({ deleteExists: true, deleteShown: true });
+  };
 
   handleDeleteCancel = () => {
-    this.setState({deleteShown: false});
-  }
+    this.setState({ deleteShown: false });
+  };
 
   handleDeleteConfirmed = () => {
     const {
@@ -193,8 +193,8 @@ class StatementForm extends React.Component {
     const data = {
       id: statement.id,
     };
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({deleting: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ deleting: true });
     promise.then(() => {
       const newPath = `/period/${encPeriodId}/statement`;
       dispatch(fetchcache.suspend());
@@ -206,14 +206,14 @@ class StatementForm extends React.Component {
         dispatch(fetchcache.resume());
       }, 0);
     }).catch(() => {
-      this.setState({deleting: false});
+      this.setState({ deleting: false });
     });
-  }
+  };
 
   handleDownload = () => {
     this.accessTokenRef.current.setAttribute('value', this.props.accessToken);
     this.downloadFormRef.current.submit();
-  }
+  };
 
   renderDownloadRow() {
     const {
@@ -245,7 +245,7 @@ class StatementForm extends React.Component {
           </span>
         </span>
         <form method="POST" action={downloadURL}
-          style={{display: 'none'}}
+          style={{ display: 'none' }}
           ref={this.downloadFormRef}
         >
           <input type="hidden" name="access_token" ref={this.accessTokenRef} />
@@ -272,7 +272,7 @@ class StatementForm extends React.Component {
       deleting,
     } = this.state;
 
-    const {closed} = period;
+    const { closed } = period;
 
     let changed = false;
     if (!closed && !archived) {

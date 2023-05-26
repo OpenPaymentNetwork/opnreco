@@ -65,12 +65,12 @@ class PeriodSelector extends React.Component {
   handleFileChange = (event) => {
     const fileId = event.target.value;
     this.props.redirectToFile(fileId);
-  }
+  };
 
   handlePeriodChange = (event) => {
     const periodId = event.target.value;
     this.props.redirectToPeriod(periodId);
-  }
+  };
 
   renderFileSelections() {
     const {
@@ -206,7 +206,7 @@ class PeriodSelector extends React.Component {
           <FormControl>
             <Select
               className={classes.fileSelect}
-              classes={{root: classes.selectRoot}}
+              classes={{ root: classes.selectRoot }}
               value={fileValue}
               onChange={this.handleFileChange}
               inputProps={{
@@ -222,7 +222,7 @@ class PeriodSelector extends React.Component {
           <FormControl>
             <Select
               className={classes.periodSelect}
-              classes={{root: classes.selectRoot}}
+              classes={{ root: classes.selectRoot }}
               value={periodValue}
               onChange={this.handlePeriodChange}
               inputProps={{

@@ -53,10 +53,10 @@ class MovementTableBody extends React.Component {
       this.props.closeDialog();
       this.props.history.push(path);
     }
-  }
+  };
 
   renderItemCells = (movement, addCandidate) => {
-    const {classes, showVault, windowPeriodId} = this.props;
+    const { classes, showVault, windowPeriodId } = this.props;
     const encPeriodId = encodeURIComponent(windowPeriodId);
     const tid = hyphenated(movement.transfer_id);
     const transferPath = (
@@ -112,7 +112,7 @@ class MovementTableBody extends React.Component {
         </td>
       </React.Fragment>
     );
-  }
+  };
 
   render() {
     const {
@@ -153,9 +153,9 @@ class MovementTableBody extends React.Component {
         showVault={showVault}
         renderItemCells={this.renderItemCells}
         searchFields={[
-          {name: 'amount', colSpan: showVault ? 2 : 1},
-          {name: 'date'},
-          {name: 'transfer'},
+          { name: 'amount', colSpan: showVault ? 2 : 1 },
+          { name: 'date' },
+          { name: 'transfer' },
         ]}
         searchView="reco-search-movement"
         tableTitle="Note Possession Changes (Movements)"

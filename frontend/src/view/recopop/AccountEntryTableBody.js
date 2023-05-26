@@ -38,7 +38,7 @@ class AccountEntryTableBody extends React.Component {
   };
 
   renderItemCells = (entry, addCandidate) => {
-    const {classes, showVault} = this.props;
+    const { classes, showVault } = this.props;
     const numCell = `${classes.cell} ${classes.numberCell}` + (
       addCandidate ? ` ${classes.candidateCell}` : '');
     const txtCell = `${classes.cell}` + (
@@ -60,7 +60,7 @@ class AccountEntryTableBody extends React.Component {
         </td>
       </React.Fragment>
     );
-  }
+  };
 
   render() {
     const {
@@ -98,9 +98,9 @@ class AccountEntryTableBody extends React.Component {
         showVault={showVault}
         renderItemCells={this.renderItemCells}
         searchFields={[
-          {name: 'delta', colSpan: showVault ? 2 : 1},
-          {name: 'entry_date'},
-          {name: 'description'},
+          { name: 'delta', colSpan: showVault ? 2 : 1 },
+          { name: 'entry_date' },
+          { name: 'description' },
         ]}
         searchView="reco-search-account-entries"
         tableTitle="Account Entries"

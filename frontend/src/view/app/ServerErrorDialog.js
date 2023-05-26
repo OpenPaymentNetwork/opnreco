@@ -20,10 +20,10 @@ class ServerErrorDialog extends React.Component {
 
   handleClose = () => {
     this.props.dispatch(closeServerError());
-  }
+  };
 
   render() {
-    const {error, open} = this.props;
+    const { error, open } = this.props;
     let errorText = String(error);
     if (errorText.startsWith('Error: ')) {
       // Remove the redundant 'Error: ' prefix.

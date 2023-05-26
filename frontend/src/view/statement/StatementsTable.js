@@ -80,15 +80,15 @@ class StatementsTable extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   handleAddButton = () => {
-    this.setState({dialogExists: true, dialogOpen: true});
-  }
+    this.setState({ dialogExists: true, dialogOpen: true });
+  };
 
   handleClose = () => {
-    this.setState({dialogOpen: false});
-  }
+    this.setState({ dialogOpen: false });
+  };
 
   render() {
     const {

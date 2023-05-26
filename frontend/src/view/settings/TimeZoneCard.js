@@ -41,24 +41,24 @@ class TimeZoneCard extends React.Component {
   }
 
   handleChange = (event) => {
-    const {value} = event.target;
+    const { value } = event.target;
     if (value !== this.props.settings.tzname) {
-      const {dispatch} = this.props;
+      const { dispatch } = this.props;
       const action = fOPNReco.fetchPath(
-        '/set-tzname', {data: {tzname: event.target.value}});
-      this.setState({saving: true});
+        '/set-tzname', { data: { tzname: event.target.value } });
+      this.setState({ saving: true });
       dispatch(action).then((settings) => {
         this.props.updateSettings(settings);
-        this.setState({saving: false});
+        this.setState({ saving: false });
       }).finally(() => {
-        this.setState({saving: false});
+        this.setState({ saving: false });
       });
     }
-  }
+  };
 
   render() {
-    const {classes, settings} = this.props;
-    const {saving} = this.state;
+    const { classes, settings } = this.props;
+    const { saving } = this.state;
 
     return (
       <Card className={classes.card}>

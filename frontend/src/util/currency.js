@@ -221,7 +221,7 @@ export function getCurrencyDeltaFormatter(currency) {
   // Show + or - for every value except 0. Use the 'minus' entity (\u2212)
   // to keep alignment with plus signs.
   const numFmt = numFmts[currency] || numFmt2;
-  return value => {
+  const res = value => {
     if (typeof value === 'string') {
       if (value.startsWith('-')) {
         return <span>&minus;{numFmt.format(value.substr(1))}</span>;
@@ -235,4 +235,6 @@ export function getCurrencyDeltaFormatter(currency) {
     }
     return `+${numFmt.format(value)}`;
   };
+  res.displayName = 'CurrencyDeltaFormatter';
+  return res;
 }

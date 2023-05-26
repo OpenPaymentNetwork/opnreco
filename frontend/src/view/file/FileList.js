@@ -88,7 +88,7 @@ class FileList extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   render() {
     const {
@@ -102,14 +102,14 @@ class FileList extends React.Component {
     const rows = [];
 
     const requirements = (
-        <Require fetcher={fOPNReco} urls={[contentURL]} />);
+      <Require fetcher={fOPNReco} urls={[contentURL]} />);
 
     if (!content) {
       if (loading) {
         return (
           <div className={classes.content}>
             {requirements}
-            <CircularProgress size={24} className={classes.waitSpinner}/>
+            <CircularProgress size={24} className={classes.waitSpinner} />
           </div>
         );
       } else {

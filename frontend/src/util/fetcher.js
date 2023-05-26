@@ -1,8 +1,6 @@
 
 // Fetcher for OPN and OPNReco services.
 
-/* global process: false */
-
 import { getAccessToken, logOut } from '../reducer/login';
 
 import { tokenRefreshRequest, tokenRefreshCancel, setServerError }
@@ -43,8 +41,8 @@ function checkAndParse(response) {
 
 export class OPNFetcher {
 
-  constructor(baseURL, config) {
-    this.baseURL = baseURL;
+  constructor(getBaseURL, config) {
+    this.getBaseURL = getBaseURL;
     this.config = config;
   }
 
@@ -101,7 +99,7 @@ export class OPNFetcher {
                 // propagate Unauthorized errors to the caller.
                 reject(error);
               } else if (error.content && error.content.token_error &&
-                  error.content.token_error !== 'token_expired_soft') {
+                error.content.token_error !== 'token_expired_soft') {
                 // Don't bother trying to refresh the access token. It won't
                 // work except when token_error is 'token_expired_soft'.
                 dispatch(tokenRefreshCancel());
@@ -156,7 +154,7 @@ export class OPNFetcher {
   };
 
   pathToURL(path) {
-    return this.baseURL + path;
+    return this.getBaseURL() + path;
   }
 
   fetchPath(path, options = {}) {
@@ -166,10 +164,10 @@ export class OPNFetcher {
 
 
 export const fOPN = new OPNFetcher(
-  process.env.REACT_APP_OPN_API_URL, {useToken: true});
+  () => process.env.REACT_APP_OPN_API_URL, { useToken: true });
 
 export const fOPNReco = new OPNFetcher(
-  process.env.REACT_APP_OPNRECO_API_URL, {useToken: true});
+  () => process.env.REACT_APP_OPNRECO_API_URL, { useToken: true });
 
 
 /* Commonly used API URLs */

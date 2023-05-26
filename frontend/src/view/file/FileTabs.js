@@ -67,10 +67,10 @@ class FileTabs extends React.Component {
 
   handleToggleDrawer = () => {
     this.props.dispatch(toggleDrawer());
-  }
+  };
 
   getTabs() {
-    const {fileId, file} = this.props;
+    const { fileId, file } = this.props;
     const encFileId = encodeURIComponent(fileId);
 
     const res = [
@@ -103,13 +103,13 @@ class FileTabs extends React.Component {
         this.props.history.push(tabinfo.path);
       }
     }
-  }
+  };
 
   handleTabClick = (event) => {
     if (isSimpleClick(event)) {
       event.preventDefault();
     }
-  }
+  };
 
   render() {
     const {
@@ -169,7 +169,7 @@ class FileTabs extends React.Component {
     } else if (loading || syncProgress !== null) {
       tabContent = (
         <div className={classes.content}>
-          <CircularProgress size={24} className={classes.waitSpinner}/>
+          <CircularProgress size={24} className={classes.waitSpinner} />
         </div>
       );
     } else {
@@ -192,7 +192,7 @@ class FileTabs extends React.Component {
         <Require fetcher={fOPNReco} urls={[fileURL]} />
         <LayoutConfig title={titleParts.join(' ')} />
 
-        <AppBar position="static" classes={{root: classes.appbar}}>
+        <AppBar position="static" classes={{ root: classes.appbar }}>
           <Toolbar>
             <IconButton
               className={classes.menuButton}

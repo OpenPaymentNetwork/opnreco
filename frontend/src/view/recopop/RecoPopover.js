@@ -167,8 +167,8 @@ class RecoPopover extends React.Component {
   }
 
   handleActionCallback = (popoverActions) => {
-    this.setState({popoverActions});
-  }
+    this.setState({ popoverActions });
+  };
 
   updatePopoverPosition = () => {
     if (!this.state.dragged) {
@@ -183,21 +183,21 @@ class RecoPopover extends React.Component {
     // if (!dragged && popoverActions && popoverActions.updatePosition) {
     //   popoverActions.updatePosition();
     // }
-  }
+  };
 
   /**
    * Commit all changes to state.reco and return the updated reco.
    * (Note: this does not push the changes to the server.)
    */
   commit() {
-    const {typingComment, reco, undoLog} = this.state;
+    const { typingComment, reco, undoLog } = this.state;
     let newReco = reco;
     let changed = false;
 
     if (typingComment !== null && typingComment !== undefined &&
-        typingComment !== reco.comment) {
+      typingComment !== reco.comment) {
       // Commit the comment and record in the undo log.
-      newReco = {...reco, comment: typingComment};
+      newReco = { ...reco, comment: typingComment };
       changed = true;
     }
 
@@ -241,7 +241,7 @@ class RecoPopover extends React.Component {
     });
 
     this.updatePopoverPosition();
-  }
+  };
 
   handleRedo = () => {
     const {
@@ -269,15 +269,15 @@ class RecoPopover extends React.Component {
     });
 
     this.updatePopoverPosition();
-  }
+  };
 
   /**
    * Change the reco and add to the undo list. Clear the redo list.
    */
   changeWithUndo(changes) {
-    const {reco, undoLog} = this.state;
+    const { reco, undoLog } = this.state;
     this.setState({
-      reco: {...reco, ...changes},
+      reco: { ...reco, ...changes },
       undoLog: [...undoLog, reco],
       redoLog: [],
     });
@@ -287,23 +287,23 @@ class RecoPopover extends React.Component {
    * Accept a change to the reco's movement list.
    */
   changeMovements = (movements) => {
-    this.changeWithUndo({movements});
-  }
+    this.changeWithUndo({ movements });
+  };
 
   /**
    * Accept a change to the reco's account_entries list.
    */
   changeAccountEntries = (account_entries) => {
-    this.changeWithUndo({account_entries});
-  }
+    this.changeWithUndo({ account_entries });
+  };
 
   /**
    * Accept a change to the reco_type.
    */
   handleRecoType = (event) => {
-    this.changeWithUndo({reco_type: event.target.value});
+    this.changeWithUndo({ reco_type: event.target.value });
     this.updatePopoverPosition();
-  }
+  };
 
   handleComment = (event) => {
     this.setState({
@@ -311,12 +311,12 @@ class RecoPopover extends React.Component {
       redoLog: [],
     });
     this.getCommitThrottler()();
-  }
+  };
 
   handlePeriodChange = (event) => {
-    this.changeWithUndo({period_id: event.target.value});
+    this.changeWithUndo({ period_id: event.target.value });
     this.updatePopoverPosition();
-  }
+  };
 
   getCommitThrottler() {
     let t = this.commitThrottler;
@@ -346,20 +346,20 @@ class RecoPopover extends React.Component {
       reco_id: recoId,
     };
 
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({saving: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ saving: true });
     promise.then(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
       this.props.closeDialog();
       dispatch(clearMost());
     }).catch(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
     });
-  }
+  };
 
   onDragStart = () => {
-    this.setState({dragged: true});
-  }
+    this.setState({ dragged: true });
+  };
 
   renderTable() {
     const {
@@ -415,7 +415,7 @@ class RecoPopover extends React.Component {
 
     let movementTableBody = null;
     if (recoType === 'standard' || recoType === 'wallet_only' ||
-        recoType === 'vault_only') {
+      recoType === 'vault_only') {
       movementTableBody = (
         <MovementTableBody
           movements={reco.movements}
@@ -548,13 +548,13 @@ class RecoPopover extends React.Component {
                 disabled={!undoLog.length || disabled}
                 onClick={this.handleUndo}
               >
-                <Undo/>
+                <Undo />
               </IconButton>
               <IconButton
                 disabled={!redoLog.length || disabled}
                 onClick={this.handleRedo}
               >
-                <Redo/>
+                <Redo />
               </IconButton>
             </div>
             <Button
@@ -585,7 +585,7 @@ class RecoPopover extends React.Component {
           horizontal: 'right',
         }}
         TransitionComponent={FadeDrag1}
-        TransitionProps={{onDragStart: this.onDragStart}}
+        TransitionProps={{ onDragStart: this.onDragStart }}
         action={this.handleActionCallback}
         disableBackdropClick
         BackdropProps={{
@@ -605,10 +605,10 @@ class FadeDrag1 extends React.Component {
   static propTypes = {
     children: PropTypes.node.isRequired,
     onDragStart: PropTypes.func,
-  }
+  };
 
   render() {
-    const {children, onDragStart, ...rest} = this.props;
+    const { children, onDragStart, ...rest } = this.props;
     return (
       <Fade {...rest}>
         <FadeDrag2 onDragStart={onDragStart}>
@@ -625,11 +625,11 @@ class FadeDrag2 extends React.Component {
   static propTypes = {
     children: PropTypes.node.isRequired,
     onDragStart: PropTypes.func,
-  }
+  };
 
   render() {
     // Render Draggable with specific props.
-    const {children, onDragStart, ...rest} = this.props;
+    const { children, onDragStart, ...rest } = this.props;
     return (
       <Draggable
         handle=".titlebar"
@@ -679,6 +679,6 @@ function mapStateToProps(state, ownProps) {
 
 
 export default compose(
-  withStyles(styles, {withTheme: true}),
+  withStyles(styles, { withTheme: true }),
   connect(mapStateToProps),
 )(RecoPopover);

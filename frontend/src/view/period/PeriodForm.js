@@ -71,7 +71,7 @@ class PeriodForm extends React.Component {
   }
 
   componentDidUpdate() {
-    const {period} = this.props;
+    const { period } = this.props;
     if (period && this.state.initialized !== period.id) {
       this.setState({
         form: period,
@@ -87,7 +87,7 @@ class PeriodForm extends React.Component {
         [fieldName]: event.target.value,
       },
     });
-  }
+  };
 
   handleChangePull = (event) => {
     this.setState({
@@ -96,27 +96,27 @@ class PeriodForm extends React.Component {
         pull: event.target.checked,
       },
     });
-  }
+  };
 
   handleSave = () => {
     this.save('save', false);
-  }
+  };
 
   handleSaveClose = () => {
     this.save('save', true);
-  }
+  };
 
   handleReopen = () => {
     this.save('reopen', false);
-  }
+  };
 
   handleDelete = () => {
-    this.setState({deleteExists: true, deleteShown: true});
-  }
+    this.setState({ deleteExists: true, deleteShown: true });
+  };
 
   handleDeleteCancel = () => {
-    this.setState({deleteShown: false});
-  }
+    this.setState({ deleteShown: false });
+  };
 
   handleDeleteConfirmed = () => {
     const {
@@ -129,17 +129,17 @@ class PeriodForm extends React.Component {
     const encPeriodId = encodeURIComponent(period.id);
     const url = fOPNReco.pathToURL(`/period/${encPeriodId}/delete`);
     const data = {};
-    const promise = this.props.dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({deleting: true});
+    const promise = this.props.dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ deleting: true });
     promise.then(() => {
-      this.setState({deleting: false});
+      this.setState({ deleting: false });
       dispatch(clearWithFiles());
       const newPath = `/file/${encodeURIComponent(fileId)}/periods`;
       history.push(newPath);
     }).catch(() => {
-      this.setState({deleting: false});
+      this.setState({ deleting: false });
     });
-  }
+  };
 
   save(viewName, close) {
     const {
@@ -160,8 +160,8 @@ class PeriodForm extends React.Component {
       ...this.state.form,
       close,
     };
-    const promise = dispatch(fOPNReco.fetch(url, {data}));
-    this.setState({saving: true});
+    const promise = dispatch(fOPNReco.fetch(url, { data }));
+    this.setState({ saving: true });
     promise.then((response) => {
       this.setState({
         form: {
@@ -175,7 +175,7 @@ class PeriodForm extends React.Component {
         this.props.onClose();
       }
     }).catch(() => {
-      this.setState({saving: false});
+      this.setState({ saving: false });
     });
   }
 

@@ -115,14 +115,14 @@ class TransactionReport extends React.Component {
       event.preventDefault();
       this.props.history.push(path);
     }
-  }
+  };
 
   renderBody(records, totals, subtitle) {
     const {
       classes,
       period,
       file,
-      report: {all_shown},
+      report: { all_shown },
       dispatch,
     } = this.props;
 
@@ -225,13 +225,13 @@ class TransactionReport extends React.Component {
       records.forEach((record, index) => {
         rows.push(
           <tr key={index}
-              data-movement-id={record.movement_id}
-              data-account-entry-id={record.account_entry_id}
-              data-reco-id={record.reco_id}>
+            data-movement-id={record.movement_id}
+            data-account-entry-id={record.account_entry_id}
+            data-reco-id={record.reco_id}>
             <td className={txtCell}>
               {record.account_entries.map((entry, i) => (
                 <div key={i} title={entry.entry_date}
-                    data-account-entry-id={entry.id}>
+                  data-account-entry-id={entry.id}>
                   <FormattedDate value={entry.entry_date}
                     day="numeric" month="short" year="numeric"
                     timeZone="UTC" />
@@ -417,8 +417,8 @@ class TransactionReport extends React.Component {
       rowcount = null;
       if (loading) {
         content = (
-          <Paper className={classes.tablePaper} style={{textAlign: 'center'}}>
-            <CircularProgress style={{padding: '16px'}} />
+          <Paper className={classes.tablePaper} style={{ textAlign: 'center' }}>
+            <CircularProgress style={{ padding: '16px' }} />
           </Paper>
         );
       } else {
@@ -436,7 +436,7 @@ class TransactionReport extends React.Component {
             rowcount={rowcount} />
         </Paper>
         {content}
-        <div style={{height: 1}}></div>
+        <div style={{ height: 1 }}></div>
       </Typography>
     );
   }
@@ -445,7 +445,7 @@ class TransactionReport extends React.Component {
 
 function mapStateToProps(state, ownProps) {
   const pagerName = 'TransactionReport';
-  const {period} = ownProps;
+  const { period } = ownProps;
 
   const {
     rowsPerPage,
