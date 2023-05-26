@@ -13,7 +13,7 @@ from opnreco.models.db import (
 from opnreco.models.site import FileCollection, FileResource
 from opnreco.param import all_currencies, get_offset_limit
 from opnreco.syncbase import SyncBase
-from opnreco.viewcommon import get_loop_map, get_peer_map, handle_invalid
+from opnreco.viewcommon import bad_request, get_loop_map, get_peer_map
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.view import view_config
 from sqlalchemy import and_, func, or_
@@ -176,7 +176,7 @@ def file_save(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     file.title = appstruct["title"]
 
@@ -340,7 +340,7 @@ def add_file(context, request):
     try:
         params = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     file_type = params["file_type"]
     has_vault = file_type in ("open_circ", "closed_circ")

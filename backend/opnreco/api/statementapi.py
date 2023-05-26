@@ -1,10 +1,12 @@
 import base64
 import datetime
+import io
 import logging
 
 import colander
 import dateutil
 import defusedxml
+import openpyxl
 import xlrd
 from defusedxml.common import EntitiesForbidden
 from opnreco.autorecostmt import auto_reco_statement
@@ -20,7 +22,7 @@ from opnreco.models.db import (
 from opnreco.models.site import PeriodResource
 from opnreco.param import amount_re, parse_amount
 from opnreco.reassign import reassign_statement_period
-from opnreco.viewcommon import configure_dblog, handle_invalid, list_assignable_periods
+from opnreco.viewcommon import bad_request, configure_dblog, list_assignable_periods
 from pyramid.decorator import reify
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.response import Response
@@ -303,7 +305,7 @@ def statement_save(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     statement = (
         dbsession.query(Statement)
@@ -404,7 +406,7 @@ def statement_delete(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     statement = (
         dbsession.query(Statement)
@@ -558,7 +560,7 @@ def entry_save(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     statement = (
         dbsession.query(Statement)
@@ -655,7 +657,7 @@ def entry_save(context, request):
             loop_id="0",
             currency=file.currency,
             reco_id=None,
-            **{attr: appstruct[attr] for attr in attrs}
+            **{attr: appstruct[attr] for attr in attrs},
         )
         dbsession.add(entry)
         dbsession.flush()  # Assign entry.id
@@ -685,7 +687,7 @@ def entry_delete(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     statement = (
         dbsession.query(Statement)
@@ -788,7 +790,7 @@ def statement_add_blank(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     statement = Statement(
         owner_id=owner_id,
@@ -838,12 +840,12 @@ class StatementUploadSchema(colander.Schema):
 class StatementUploadAPI:
     """Upload a statement."""
 
-    excel_types = (
-        "application/vnd.ms-excel",
+    old_excel_types = ("application/vnd.ms-excel",)
+    old_excel_extensions = (".xls",)
+    open_excel_types = (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-
-    excel_extensions = (".xls", ".xlsx")
+    open_excel_extensions = (".xlsx",)
 
     def __init__(self, context, request):
         self.context = context
@@ -861,7 +863,7 @@ class StatementUploadAPI:
         try:
             self.appstruct = appstruct = schema.deserialize(request.json)
         except colander.Invalid as e:
-            handle_invalid(e, schema=schema)
+            raise bad_request(e, schema=schema)
 
         name = appstruct["name"]
         pos = name.rfind(".")
@@ -871,8 +873,10 @@ class StatementUploadAPI:
             ext = ""
 
         content_type = appstruct["type"].split(";")[0]
-        if content_type in self.excel_types or ext in self.excel_extensions:
-            self.handle_excel()
+        if content_type in self.old_excel_types or ext in self.old_excel_extensions:
+            self.handle_old_excel()
+        elif content_type in self.open_excel_types or ext in self.open_excel_extensions:
+            self.handle_open_excel()
 
         if self.statement is None:
             raise HTTPBadRequest(
@@ -955,7 +959,7 @@ class StatementUploadAPI:
         self.statement = statement
         return statement
 
-    def handle_excel(self):
+    def handle_old_excel(self):
         period = self.context.period
         file = period.file
         dbsession = self.request.dbsession
@@ -1066,7 +1070,7 @@ class StatementUploadAPI:
                         loop_id="0",
                         currency=file.currency,
                         reco_id=None,
-                        **attrs
+                        **attrs,
                     )
                 )
 
@@ -1076,7 +1080,7 @@ class StatementUploadAPI:
         Raise an exception in the event of a parse error.
         """
         if column_name in ("date", "entry date", "entry_date"):
-            if isinstance(cell.value, (int, float)):
+            if hasattr(book, "datemode") and isinstance(cell.value, (int, float)):
                 tup = xldate_as_tuple(cell.value, book.datemode)
                 parsed = datetime.date(*tup[:3])
             else:
@@ -1099,3 +1103,119 @@ class StatementUploadAPI:
                 return "sign", -1
 
         return None
+
+    def handle_open_excel(self):
+        """Handle a .xlsx (Excel open format) upload"""
+        period = self.context.period
+        file = period.file
+        dbsession = self.request.dbsession
+        owner = self.request.owner
+        owner_id = owner.id
+
+        content: bytes = self.content  # type: ignore
+        try:
+            book = openpyxl.load_workbook(io.BytesIO(content))
+        except Exception as e:
+            raise HTTPBadRequest(
+                json_body={
+                    "error": "parse_error",
+                    "error_description": (
+                        f"Unable to parse uploaded file: {type(e)}: {e}"
+                    ),
+                }
+            )
+
+        statement = self.add_statement("Spreadsheet")
+
+        for sheetx, sheet in enumerate(book):
+            # Look for a heading row.
+            # The heading must contain at least "date" and "amount".
+            column_names = None
+            heading_rowx = -1
+            for rowx, row in enumerate(sheet.rows):
+                texts = [str(cell.value).strip().lower() for cell in row]
+                if "date" in texts and "amount" in texts:
+                    # Found the heading.
+                    column_names = tuple(texts)
+                    heading_rowx = rowx
+            if not column_names:
+                # No heading row found. Assume default columns.
+                column_names = ("date", "amount", "description")
+
+            if "date" not in column_names or "amount" not in column_names:
+                # Skip this sheet.
+                continue
+
+            sheet_name = book.sheetnames[sheetx].strip() or str(sheetx + 1)
+            if sheet_name.lower().startswith("sheet"):
+                # Remove the redundant word.
+                sheet_name = sheet_name[5:].strip()
+
+            # Parse the sheet and add AccountEntry rows.
+            for rowx, row in enumerate(sheet.rows):
+                if rowx <= heading_rowx:
+                    continue
+
+                attrs = {
+                    "sheet": sheet_name,
+                    "row": rowx + 1,
+                }
+                for colx, cell in enumerate(row):
+                    if not cell.value:
+                        continue
+                    column_name = column_names[colx]
+                    try:
+                        info = self.parse_excel_cell(book, cell, column_name)
+                    except Exception as e:
+                        error_description = (
+                            "Unable to parse %s cell %s on sheet %s. "
+                            "Cell contents: '%s', error: %s, %s"
+                            % (
+                                column_name,
+                                cellname(rowx, colx),
+                                sheet_name,
+                                cell.value,
+                                type(e),
+                                e,
+                            )
+                        )
+                        log.exception(error_description)
+                        raise HTTPBadRequest(
+                            json_body={
+                                "error": "parse_error",
+                                "error_description": error_description,
+                            }
+                        )
+                    else:
+                        if info:
+                            k, v = info
+                            attrs[k] = v
+
+                if "delta" not in attrs or "entry_date" not in attrs:
+                    # Empty or incomplete row.
+                    continue
+
+                if not attrs["delta"]:
+                    # Ignore zero amount rows.
+                    continue
+
+                sign = attrs.pop("sign", None)
+                if sign:
+                    # Force the sign of the amount.
+                    attrs["delta"] = abs(attrs["delta"]) * sign
+
+                if not attrs.get("description"):
+                    attrs["description"] = ""
+
+                dbsession.add(
+                    AccountEntry(
+                        owner_id=owner_id,
+                        file_id=period.file_id,
+                        period_id=period.id,
+                        statement_id=statement.id,
+                        loop_id="0",
+                        currency=file.currency,
+                        reco_id=None,
+                        **attrs,
+                    )
+                )

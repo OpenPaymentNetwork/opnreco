@@ -26,9 +26,9 @@ from opnreco.reassign import (
 from opnreco.serialize import serialize_period
 from opnreco.viewcommon import (
     add_open_period,
+    bad_request,
     compute_period_totals,
     configure_dblog,
-    handle_invalid,
     open_end_period_exists,
 )
 from pyramid.httpexceptions import HTTPBadRequest
@@ -433,7 +433,7 @@ def period_save(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     return edit_period(
         request=request, period=period, appstruct=appstruct, event_type="period_save"
@@ -451,7 +451,7 @@ def period_add_api(context, request):
     try:
         appstruct = schema.deserialize(request.json)
     except colander.Invalid as e:
-        handle_invalid(e, schema=schema)
+        raise bad_request(e, schema=schema)
 
     owner_id = request.owner.id
 

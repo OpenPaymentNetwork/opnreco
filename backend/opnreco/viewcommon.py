@@ -5,6 +5,7 @@ from typing import Sequence, TypedDict
 
 import requests
 import sqlalchemy.dialects.postgresql
+from colander import Invalid
 from opnreco.models.db import (
     AccountEntry,
     FileMovement,
@@ -717,7 +718,7 @@ def list_assignable_periods(dbsession, owner_id: str, period: Period):
     ]
 
 
-def handle_invalid(e, schema):
+def bad_request(e: Invalid, schema) -> HTTPBadRequest:
     raise HTTPBadRequest(
         json_body={
             "error": "invalid",

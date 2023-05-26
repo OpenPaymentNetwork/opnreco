@@ -4,19 +4,21 @@
 #
 #    pip-compile --allow-unsafe --index-url=https://pypi.org/simple --no-emit-index-url --output-file=requirements-tmp.txt requirements-packaging-tmp.in requirements.in setup.cfg
 #
-alembic==1.9.1
+alembic==1.11.1
     # via opnreco (setup.cfg)
-certifi==2022.12.7
+certifi==2023.5.7
     # via requests
-charset-normalizer==2.1.1
+charset-normalizer==3.1.0
     # via requests
 colander==2.0
     # via opnreco (setup.cfg)
 defusedxml==0.7.1
     # via opnreco (setup.cfg)
-greenlet==2.0.1
+et-xmlfile==1.1.0
+    # via openpyxl
+greenlet==2.0.2
     # via sqlalchemy
-hupper==1.11
+hupper==1.12
     # via pyramid
 idna==3.4
     # via requests
@@ -24,13 +26,15 @@ iso8601==1.1.0
     # via colander
 mako==1.2.4
     # via alembic
-markupsafe==2.1.1
+markupsafe==2.1.2
     # via mako
-paste==3.5.2
+openpyxl==3.1.2
+    # via opnreco (setup.cfg)
+paste==3.5.3
     # via opnreco (setup.cfg)
 pastedeploy==3.0.1
     # via plaster-pastedeploy
-pip==22.3.1
+pip==23.1.2
     # via -r requirements-packaging-tmp.in
 plaster==1.1.2
     # via
@@ -38,11 +42,11 @@ plaster==1.1.2
     #   pyramid
 plaster-pastedeploy==1.0.1
     # via pyramid
-psycopg2==2.9.5
+psycopg2==2.9.6
     # via
     #   opnreco (setup.cfg)
     #   sqlalchemy
-pyramid==2.0
+pyramid==2.0.1
     # via
     #   opnreco (setup.cfg)
     #   pyramid-retry
@@ -53,13 +57,13 @@ pyramid-tm==2.5
     # via opnreco (setup.cfg)
 python-dateutil==2.8.2
     # via opnreco (setup.cfg)
-python-dotenv==0.21.0
+python-dotenv==1.0.0
     # via opnreco (setup.cfg)
-pytz==2022.7
+pytz==2023.3
     # via opnreco (setup.cfg)
-requests==2.28.1
+requests==2.31.0
     # via opnreco (setup.cfg)
-setuptools==65.6.3
+setuptools==67.8.0
     # via
     #   -r requirements-packaging-tmp.in
     #   paste
@@ -71,12 +75,12 @@ six==1.16.0
     # via
     #   paste
     #   python-dateutil
-sqlalchemy[postgresql]==1.4.46
+sqlalchemy[postgresql]==1.4.48
     # via
     #   alembic
     #   opnreco (setup.cfg)
     #   zope-sqlalchemy
-transaction==3.0.1
+transaction==3.1.0
     # via
     #   opnreco (setup.cfg)
     #   pyramid-tm
@@ -85,27 +89,29 @@ translationstring==1.4
     # via
     #   colander
     #   pyramid
-urllib3==1.26.13
+typing-extensions==4.6.2
+    # via alembic
+urllib3==2.0.2
     # via requests
 venusian==3.0.0
     # via pyramid
 waitress==2.1.2
     # via opnreco (setup.cfg)
-watchdog==2.2.1
+watchdog==3.0.0
     # via opnreco (setup.cfg)
 webob==1.8.7
     # via pyramid
-wheel==0.38.4
+wheel==0.40.0
     # via -r requirements-packaging-tmp.in
-xlrd==1.2.0
+xlrd==2.0.1
     # via opnreco (setup.cfg)
-zope-deprecation==4.4.0
+zope-deprecation==5.0
     # via pyramid
-zope-interface==5.5.2
+zope-interface==6.0
     # via
     #   pyramid
     #   pyramid-retry
     #   transaction
     #   zope-sqlalchemy
-zope-sqlalchemy==1.6
+zope-sqlalchemy==2.0
     # via opnreco (setup.cfg)

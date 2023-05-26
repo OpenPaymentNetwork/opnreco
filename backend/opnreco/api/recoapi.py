@@ -18,9 +18,9 @@ from opnreco.models.db import (
 from opnreco.models.site import PeriodResource
 from opnreco.param import parse_amount
 from opnreco.viewcommon import (
+    bad_request,
     configure_dblog,
     get_loop_map,
-    handle_invalid,
     list_assignable_periods,
 )
 from pyramid.httpexceptions import HTTPBadRequest
@@ -553,7 +553,7 @@ class RecoSave:
         try:
             self.params = params = schema.deserialize(request.json)
         except Invalid as e:
-            handle_invalid(e, schema=schema)
+            raise bad_request(e, schema=schema)
 
         self.reco_id = params["reco_id"]
         self.reco_type = reco_type = params["reco"]["reco_type"]
